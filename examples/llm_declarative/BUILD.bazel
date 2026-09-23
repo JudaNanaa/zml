@@ -1,0 +1,26 @@
+load("@rules_zig//zig:defs.bzl", "zig_binary", "zig_library", "zig_test")
+
+zig_library(
+    name = "declarative_lib",
+    srcs = glob([
+        "bricks/**/*.zig",
+        "generic/**/*.zig",
+        "models/**/*.zig",
+    ]),
+    main = "models/registry.zig",
+    deps = ["//zml"],
+)
+
+zig_test(
+    name = "test",
+    testonly = False,
+    deps = [":declarative_lib"],
+)
+
+zig_binary(
+    name = "llm_declarative",
+    srcs = glob(["**/*.zig"]),
+    main = "main.zig",
+    visibility = ["//visibility:public"],
+    deps = ["//zml", "@linenoise"],
+)
