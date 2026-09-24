@@ -13,32 +13,24 @@ pub const architectures = .{
 /// `CompiledModel`, `Buffers`, `Session`) as `examples/llm/models.zig` does
 /// today.
 ///
-/// `@Type` cannot attach methods to the union it builds (a current Zig
+/// `@Union` cannot attach methods to the union it builds (a current Zig
 /// limitation), so this only produces the union's *shape* — the dispatch
 /// methods (`load`, `compile`, ...) are still hand-written once, in
 /// `models.zig`, generically over whatever shape this produces.
 pub fn ModelUnion(comptime list: anytype, comptime field_name: []const u8) type {
-    var fields: [list.len]std.builtin.Type.UnionField = undefined;
-    var enum_fields: [list.len]std.builtin.Type.EnumField = undefined;
+    const TagInt = std.math.IntFittingRange(0, if (list.len == 0) 0 else list.len - 1);
+
+    var names: [list.len][]const u8 = undefined;
+    var types: [list.len]type = undefined;
+    var values: [list.len]TagInt = undefined;
     inline for (list, 0..) |arch, i| {
-        const FieldType = @field(arch.module, field_name);
-        fields[i] = .{ .name = arch.name, .type = FieldType, .alignment = @alignOf(FieldType) };
-        enum_fields[i] = .{ .name = arch.name, .value = i };
+        names[i] = arch.name;
+        types[i] = @field(arch.module, field_name);
+        values[i] = i;
     }
 
-    const Tag = @Type(.{ .@"enum" = .{
-        .tag_type = std.math.IntFittingRange(0, if (list.len == 0) 0 else list.len - 1),
-        .fields = &enum_fields,
-        .decls = &.{},
-        .is_exhaustive = true,
-    } });
-
-    return @Type(.{ .@"union" = .{
-        .layout = .auto,
-        .tag_type = Tag,
-        .fields = &fields,
-        .decls = &.{},
-    } });
+    const Tag = @Enum(TagInt, .exhaustive, &names, &values);
+    return @Union(.auto, Tag, &names, &types, &@splat(.{}));
 }
 
 test "ModelUnion builds one variant per registry entry, in order" {

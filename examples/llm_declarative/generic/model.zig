@@ -184,6 +184,6 @@ test "TransformerLayer.forward: output has {.s, .d} and updates the KV cache" {
         .kv_cache_index = .init(.{}, .u32),
         .attention_metadata = .init(.fromBackend(.vanilla, 32, 4)),
         .attention_parameters = .init(.fromBackend(.vanilla)),
-    }}, .{});
+    }}, .{ .shardings = &.{platform.shardings.get("model").?} });
     defer exe.deinit();
 }

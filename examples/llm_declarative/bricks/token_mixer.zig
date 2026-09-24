@@ -174,6 +174,6 @@ test "SelfAttention.forward keeps {.s, .d} on the output and updates the KV cach
         zml.Tensor.init(.{}, .u32),
         zml.attention.Metadata.init(.fromBackend(.vanilla, 32, 4)),
         zml.attention.Parameters.init(.fromBackend(.vanilla)),
-    }, .{});
+    }, .{ .shardings = &.{platform.shardings.get("model").?} });
     defer exe.deinit();
 }

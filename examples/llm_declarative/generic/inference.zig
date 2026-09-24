@@ -347,19 +347,46 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
 
     var registry: zml.safetensors.TensorRegistry = .init(allocator);
     defer registry.deinit();
+
+    // Only shapes matter for compilation: register shape-only entries for
+    // every tensor `TestModel.build` asks the store for.
+    const d = 64;
+    const hd = 16;
+    const d_ff = 128;
+    const voc = 32;
+    const tensor_shapes = .{
+        .{ "embed_tokens.weight", .{ voc, d } },
+        .{ "norm.weight", .{d} },
+        .{ "layers.0.input_norm.weight", .{d} },
+        .{ "layers.0.post_norm.weight", .{d} },
+        .{ "layers.0.self_attn.q_proj.weight", .{ 4 * hd, d } },
+        .{ "layers.0.self_attn.k_proj.weight", .{ 2 * hd, d } },
+        .{ "layers.0.self_attn.v_proj.weight", .{ 2 * hd, d } },
+        .{ "layers.0.self_attn.o_proj.weight", .{ d, 4 * hd } },
+        .{ "layers.0.mlp.up_proj.weight", .{ d_ff, d } },
+        .{ "layers.0.mlp.gate_proj.weight", .{ d_ff, d } },
+        .{ "layers.0.mlp.down_proj.weight", .{ d, d_ff } },
+    };
+    inline for (tensor_shapes) |entry| {
+        try registry.registerTensor(.{ .file_uri = "", .name = entry[0], .shape = .init(entry[1], .f32), .offset = 0 });
+    }
+
     var store: zml.io.TensorStore = .fromRegistry(allocator, &registry);
     defer store.deinit();
 
     var generic_mdl = try TestModel.build(allocator, store.view(), .{}, null);
     defer generic_mdl.deinit(allocator);
 
-    // A real `common.Shardings.init` needs a mutable `*zml.Platform` to
-    // register shardings on; `zml.testing.env()` only hands out `*const
-    // Platform`. Compilation of a synthetic single-device test model doesn't
-    // need real device sharding, so build `Shardings` directly instead.
-    const shardings: common.Shardings = .{ .model = .replicated, .experts = .replicated };
-    var progress = std.Progress.start(io, .{ .root_name = "test" });
-    defer progress.end();
+    // `common.Shardings.init` would re-register `model`, which
+    // `zml.testing.env()` already did (registering twice panics). Reuse it and
+    // register `experts` once; the env platform is heap-allocated and mutable,
+    // so `@constCast` is sound. `experts` must be a distinct named sharding:
+    // passing `.replicated` collides with the platform's own `replicated`.
+    const experts = platform.shardings.get("experts") orelse
+        try @constCast(platform).registerSharding("experts", .mesh(.{ .experts = .high_bandwidth }));
+    const shardings: common.Shardings = .{ .model = platform.shardings.get("model").?, .experts = experts };
+    // The test runner already owns the global `std.Progress`.
+    var progress: std.Progress.Node = .none;
 
     const params = CompilationParameters.init(generic_mdl, TestConfig{}, 8, .vanilla, shardings);
     var compiled = try CompiledModel(LoadedModel, "test_model").init(allocator, io, platform, undefined, generic_mdl, params, &progress);

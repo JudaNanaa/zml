@@ -6,8 +6,9 @@ zig_library(
         "bricks/**/*.zig",
         "generic/**/*.zig",
         "models/**/*.zig",
+        "models.zig",
     ]),
-    main = "models/registry.zig",
+    main = "lib.zig",
     deps = ["//zml"],
 )
 
