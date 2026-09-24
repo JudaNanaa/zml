@@ -1,21 +1,32 @@
 const std = @import("std");
 const zml = @import("zml");
 
-/// Shared KV-cache shape for dense-attention layers: `{layer, k/s, h, hd}`,
-/// sharded on `.h`. Identical across every architecture in `examples/llm`
-/// today, so it is not (yet) part of a union — there is nothing to select.
+/// KV cache of every dense-attention layer, stacked on `.layer`:
+/// `{layer, k, h, hd}`, sharded on `.h`.
 pub const KvCache = struct {
     k: zml.Tensor,
     v: zml.Tensor,
 
     pub const Buffer = zml.Bufferized(KvCache);
 
-    pub fn init(kv_shape: zml.Shape) KvCache {
-        const sharded_shape = kv_shape.withPartitioning(.{ .h = .model });
-        return .{
-            .k = .fromShape(sharded_shape),
-            .v = .fromShape(sharded_shape),
-        };
+    /// What one attention layer needs from the cache. Every layer sharing
+    /// this cache must have the same spec.
+    pub const LayerSpec = struct {
+        /// Not stored in the cache, but sizes the attention metadata that
+        /// reads it.
+        num_heads: i64,
+        num_kv_heads: i64,
+        head_dim: i64,
+    };
+
+    pub fn init(spec: LayerSpec, num_layers: i64, seqlen: i64, dtype: zml.DataType) KvCache {
+        const shape = zml.Shape.init(.{
+            .layer = num_layers,
+            .k = seqlen,
+            .h = spec.num_kv_heads,
+            .hd = spec.head_dim,
+        }, dtype).withPartitioning(.{ .h = .model });
+        return .{ .k = .fromShape(shape), .v = .fromShape(shape) };
     }
 
     pub fn initBuffer(kv: KvCache, io: std.Io, platform: *const zml.Platform, sharding: zml.Sharding) !Buffer {
@@ -54,9 +65,8 @@ pub const KvCache = struct {
     }
 };
 
-test "KvCache.init shards on .h and keeps requested dims" {
-    const shape: zml.Shape = .init(.{ .layer = 4, .k = 128, .h = 8, .hd = 64 }, .f16);
-    const kv: KvCache = .init(shape);
+test "KvCache.init shards on .h and sizes from the layer spec" {
+    const kv: KvCache = .init(.{ .num_heads = 16, .num_kv_heads = 8, .head_dim = 64 }, 4, 128, .f16);
 
     try std.testing.expectEqual(@as(i64, 4), kv.k.dim(.layer));
     try std.testing.expectEqual(@as(i64, 128), kv.k.dim(.k));

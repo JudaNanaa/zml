@@ -98,7 +98,7 @@ pub fn LoadedModel(
                 if (Config.attention_backend != backend) log.info("{s} forces the {} attention backend", .{ model_name, Config.attention_backend });
                 break :b Config.attention_backend;
             } else backend;
-            const params = inference.CompilationParameters.init(self.inner, self.parsed_config.value, @intCast(seqlen), effective_backend, shardings);
+            const params = try inference.CompilationParameters.init(allocator, self.inner, @intCast(seqlen), effective_backend, shardings);
             return inference.CompiledModel(Self, model_name).init(allocator, io, platform, self, self.inner, params, progress);
         }
     };

@@ -2,8 +2,6 @@ const std = @import("std");
 const zml = @import("zml");
 
 const model = @import("model.zig");
-const kv_cache = @import("../bricks/kv_cache.zig");
-const KvCache = kv_cache.KvCache;
 
 pub fn Session(comptime CompiledModelT: type) type {
     const Config = CompiledModelT.LoadedModel.ConfigType;
@@ -17,9 +15,9 @@ pub fn Session(comptime CompiledModelT: type) type {
         compiled_model: *CompiledModelT,
         prefill: @import("inference.zig").KernelRunner,
         decode: @import("inference.zig").KernelRunner,
-        kv_cache_buffers: zml.Bufferized(KvCache),
+        cache_buffers: model.Cache.Buffer,
         token_index_buffers: []zml.Buffer,
-        kv_cache_index_buffers: []zml.Buffer,
+        cache_index_buffers: []zml.Buffer,
         /// `active_length` for decode: always a single real token.
         decode_active_length_buffer: zml.Buffer,
         rng_buffers: zml.Bufferized(zml.Tensor.Rng),
@@ -40,8 +38,8 @@ pub fn Session(comptime CompiledModelT: type) type {
         ) !Self {
             const inference = @import("inference.zig");
             const shardings = &compiled_model.params.shardings;
-            var kv_cache_buffers = try compiled_model.params.kv_cache.initBuffer(io, platform, shardings.model);
-            errdefer KvCache.deinitBuffer(&kv_cache_buffers);
+            var cache_buffers = try compiled_model.params.cache.initBuffer(io, platform, shardings.model);
+            errdefer model.Cache.deinitBuffer(&cache_buffers);
 
             const token_index_buffers = try allocator.alloc(zml.Buffer, compiled_model.params.seqlen);
             errdefer allocator.free(token_index_buffers);
@@ -52,23 +50,29 @@ pub fn Session(comptime CompiledModelT: type) type {
                 initialized_token_index_buffers = i + 1;
             }
 
-            var decode_active_length_buffer: zml.Buffer = try .scalar(io, platform, 1, .u32);
-            errdefer decode_active_length_buffer.deinit();
-
             const conversation_id: u64 = @bitCast(std.Io.Clock.now(.real, io).toMicroseconds());
 
             const seed: u128 = @intCast(std.Io.Clock.now(.real, io).toNanoseconds());
             var rng_buffers = try zml.Tensor.Rng.initBuffer(io, platform, .replicated, seed);
             errdefer zml.Tensor.Rng.deinitBuffer(&rng_buffers);
 
-            const kv_cache_index_buffers = try allocator.alloc(zml.Buffer, model_buffers.layers.len);
-            errdefer allocator.free(kv_cache_index_buffers);
-            var initialized_kv_cache_index_buffers: usize = 0;
-            errdefer for (kv_cache_index_buffers[0..initialized_kv_cache_index_buffers]) |*b| b.deinit();
-            for (kv_cache_index_buffers, 0..) |*b, i| {
-                b.* = try .scalar(io, platform, i, .u32);
-                initialized_kv_cache_index_buffers = i + 1;
+            // Each layer indexes its cache kind by its rank among the layers of
+            // that kind, e.g. the 4th layer is slot 0 of the KV cache when the
+            // first three are linear attention.
+            const cache_index_buffers = try allocator.alloc(zml.Buffer, model_buffers.layers.len);
+            errdefer allocator.free(cache_index_buffers);
+            var initialized_cache_index_buffers: usize = 0;
+            errdefer for (cache_index_buffers[0..initialized_cache_index_buffers]) |*b| b.deinit();
+            var next_slot: std.EnumArray(model.LayerCache.Kind, u32) = .initFill(0);
+            for (cache_index_buffers, model_buffers.layers) |*b, layer_buffers| {
+                const kind = model.TokenMixer.cacheKindOf(std.meta.activeTag(layer_buffers.token_mixer));
+                b.* = try .scalar(io, platform, next_slot.get(kind), .u32);
+                next_slot.getPtr(kind).* += 1;
+                initialized_cache_index_buffers += 1;
             }
+
+            var decode_active_length_buffer: zml.Buffer = try .scalar(io, platform, 1, .u32);
+            errdefer decode_active_length_buffer.deinit();
 
             var prefill = try inference.KernelRunner.init(allocator, &compiled_model.prefill, model_buffers);
             errdefer prefill.deinit(allocator);
@@ -81,9 +85,9 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .compiled_model = compiled_model,
                 .prefill = prefill,
                 .decode = decode,
-                .kv_cache_buffers = kv_cache_buffers,
+                .cache_buffers = cache_buffers,
                 .token_index_buffers = token_index_buffers,
-                .kv_cache_index_buffers = kv_cache_index_buffers,
+                .cache_index_buffers = cache_index_buffers,
                 .decode_active_length_buffer = decode_active_length_buffer,
                 .rng_buffers = rng_buffers,
                 .tokenizer = tokenizer,
@@ -97,11 +101,11 @@ pub fn Session(comptime CompiledModelT: type) type {
         pub fn deinit(self: *Self) void {
             self.prefill.deinit(self.allocator);
             self.decode.deinit(self.allocator);
-            KvCache.deinitBuffer(&self.kv_cache_buffers);
+            model.Cache.deinitBuffer(&self.cache_buffers);
             for (self.token_index_buffers) |*b| b.deinit();
             self.allocator.free(self.token_index_buffers);
-            for (self.kv_cache_index_buffers) |*b| b.deinit();
-            self.allocator.free(self.kv_cache_index_buffers);
+            for (self.cache_index_buffers) |*b| b.deinit();
+            self.allocator.free(self.cache_index_buffers);
             self.decode_active_length_buffer.deinit();
             zml.Tensor.Rng.deinitBuffer(&self.rng_buffers);
         }
@@ -152,10 +156,10 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .tokens_buf = &prefill_tokens_buffer,
                 .token_index_buf = &self.token_index_buffers[0],
                 .active_length_buf = &active_length_buffer,
-                .kv_cache_buffers = &self.kv_cache_buffers,
+                .cache_buffers = &self.cache_buffers,
                 .rng_buffers = &self.rng_buffers,
                 .attention_metadata_buffers = &attention_metadata_buffers,
-            }, self.kv_cache_index_buffers);
+            }, self.cache_index_buffers);
             try prefill_tokens_buffer.toSlice(self.io, prefill_tokens_slice);
 
             self.last_generated_token = prefill_tokens_slice.items(u32)[all_tokens.len - 1];
@@ -198,10 +202,10 @@ pub fn Session(comptime CompiledModelT: type) type {
                     .tokens_buf = &current_token_buffer,
                     .token_index_buf = &self.token_index_buffers[all_tokens.items.len],
                     .active_length_buf = &self.decode_active_length_buffer,
-                    .kv_cache_buffers = &self.kv_cache_buffers,
+                    .cache_buffers = &self.cache_buffers,
                     .rng_buffers = &self.rng_buffers,
                     .attention_metadata_buffers = &attention_metadata_buffers,
-                }, self.kv_cache_index_buffers);
+                }, self.cache_index_buffers);
                 last_token_id = try current_token_buffer.getValue(u32, self.io);
             }
 

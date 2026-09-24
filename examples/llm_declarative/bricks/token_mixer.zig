@@ -5,12 +5,11 @@ const stdx = zml.stdx;
 const norm = @import("norm.zig");
 const kv_cache = @import("kv_cache.zig");
 const KvCache = kv_cache.KvCache;
+const LayerCache = @import("cache.zig").LayerCache;
 const LayerContext = @import("context.zig").LayerContext;
 
 /// Dense grouped-query self-attention: q/k/v/o projections, optional
-/// QK-norm, RoPE, KV-cache read/write. Used by every architecture ported so
-/// far for at least some of their layers (llama: all layers; qwen3_5:
-/// "full_attention" layers).
+/// QK-norm, RoPE, KV-cache read/write (llama: all layers).
 pub const SelfAttention = struct {
     q_proj: zml.nn.Linear,
     k_proj: zml.nn.Linear,
@@ -48,6 +47,18 @@ pub const SelfAttention = struct {
         zml.Buffer.deinitAll(SelfAttention, self);
     }
 
+    fn numKvHeads(self: SelfAttention) i64 {
+        return if (self.num_kv_heads > 0) self.num_kv_heads else self.num_heads;
+    }
+
+    pub fn cacheSpec(self: SelfAttention) KvCache.LayerSpec {
+        return .{
+            .num_heads = self.num_heads,
+            .num_kv_heads = self.numKvHeads(),
+            .head_dim = @divExact(self.k_proj.weight.dim(.dout), self.numKvHeads()),
+        };
+    }
+
     /// x: {.s, .d} -> {.s, .d}, plus the updated KV-cache.
     pub fn forward(
         self: SelfAttention,
@@ -57,7 +68,7 @@ pub const SelfAttention = struct {
         kv_cache_index: zml.Tensor,
     ) struct { zml.Tensor, KvCache } {
         const token_index = ctx.token_index;
-        const num_kv_heads = if (self.num_kv_heads > 0) self.num_kv_heads else self.num_heads;
+        const num_kv_heads = self.numKvHeads();
 
         const x_qkv = x.withPartitioning(.{ .d = .replicated });
 
@@ -93,18 +104,55 @@ pub const SelfAttention = struct {
     }
 };
 
-/// The token-mixing slot a `TransformerLayer` picks from. Only `self_attn`
-/// is implemented. LFM2's convolutional mixer and qwen3_5's linear
-/// attention are real, different slot fillers — add `short_conv`/
-/// `linear_attn` variants here when those architectures are ported (this is
-/// why the union is named `TokenMixer`, not `Attention`).
+/// The token-mixing slot a `TransformerLayer` picks from. Every variant
+/// follows the same contract, for one `LayerCache` variant type `C`:
+/// - `forward(self, x, ctx: LayerContext, cache: C, cache_index: Tensor) struct { Tensor, C }`,
+/// - `cacheSpec(self) C.LayerSpec`.
+/// Everything below is derived from that, so adding a mixer (e.g. LFM2's
+/// convolution as `short_conv`) is adding a variant here, plus a `LayerCache`
+/// variant if it needs a new kind of cache.
 pub const TokenMixer = union(enum) {
     self_attn: SelfAttention,
 
-    pub fn forward(self: TokenMixer, x: zml.Tensor, ctx: LayerContext, kv: KvCache, kv_cache_index: zml.Tensor) struct { zml.Tensor, KvCache } {
-        return switch (self) {
-            inline else => |mixer| mixer.forward(x, ctx, kv, kv_cache_index),
+    pub const Tag = std.meta.Tag(TokenMixer);
+
+    pub fn cacheKind(self: TokenMixer) LayerCache.Kind {
+        return cacheKindOf(std.meta.activeTag(self));
+    }
+
+    /// The cache kind a mixer uses, read from its `cacheSpec()` return type.
+    pub fn cacheKindOf(tag: Tag) LayerCache.Kind {
+        return switch (tag) {
+            inline else => |t| comptime kindOf(t),
         };
+    }
+
+    fn kindOf(comptime tag: Tag) LayerCache.Kind {
+        const Mixer = @FieldType(TokenMixer, @tagName(tag));
+        return LayerCache.kindOfSpec(@typeInfo(@TypeOf(Mixer.cacheSpec)).@"fn".return_type.?);
+    }
+
+    pub fn cacheSpec(self: TokenMixer) LayerCache.Spec {
+        switch (self) {
+            inline else => |mixer, tag| return @unionInit(LayerCache.Spec, @tagName(kindOf(tag)), mixer.cacheSpec()),
+        }
+    }
+
+    /// `cache` must be the variant `cacheKind()` names.
+    pub fn forward(
+        self: TokenMixer,
+        x: zml.Tensor,
+        ctx: LayerContext,
+        cache: LayerCache,
+        cache_index: zml.Tensor,
+    ) struct { zml.Tensor, LayerCache } {
+        switch (self) {
+            inline else => |mixer, tag| {
+                const kind = @tagName(comptime kindOf(tag));
+                const delta, const new_cache = mixer.forward(x, ctx, @field(cache, kind), cache_index);
+                return .{ delta, @unionInit(LayerCache, kind, new_cache) };
+            },
+        }
     }
 
     pub fn unloadBuffers(self: *zml.Bufferized(TokenMixer)) void {
@@ -137,7 +185,7 @@ test "SelfAttention.forward keeps {.s, .d} on the output and updates the KV cach
     };
 
     const x: zml.Tensor = .init(.{ .s = 6, .d = d }, .f32);
-    const kv: KvCache = .init(.init(.{ .layer = 2, .k = 32, .h = num_kv_heads, .hd = hd }, .f32));
+    const kv: KvCache = .init(attn.cacheSpec(), 2, 32, .f32);
 
     var exe = try platform.compileFn(allocator, io, SelfAttention.forward, .{
         attn,

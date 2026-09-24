@@ -3,8 +3,7 @@ const zml = @import("zml");
 
 const common = @import("../models/common.zig");
 const model = @import("model.zig");
-const kv_cache = @import("../bricks/kv_cache.zig");
-const KvCache = kv_cache.KvCache;
+const KvCache = @import("../bricks/kv_cache.zig").KvCache;
 
 const log = std.log.scoped(.llm_declarative);
 const Phase = common.Phase;
@@ -13,7 +12,7 @@ pub const CompilationParameters = struct {
     prefill_tokens: zml.Tensor,
     decode_tokens: zml.Tensor,
     token_index: zml.Tensor,
-    kv_cache: KvCache,
+    cache: model.Cache,
     rng: zml.Tensor.Rng,
     attention_metadata: zml.attention.Metadata,
     prefill_attention_parameters: zml.attention.Parameters,
@@ -21,49 +20,45 @@ pub const CompilationParameters = struct {
     seqlen: usize,
     shardings: common.Shardings,
 
-    /// `config` must expose `.head_dim: ?u32`, `.hidden_size`, `.num_attention_heads`,
-    /// `.num_key_value_heads` — every architecture's `Config` provides these
-    /// (they're required to size the KV cache regardless of architecture).
-    pub fn init(mdl: model.GenericModel, config: anytype, seqlen: u32, backend: zml.attention.Backend, shardings: common.Shardings) CompilationParameters {
-        const head_dim = config.head_dim orelse @divExact(config.hidden_size, config.num_attention_heads);
+    /// Cache and attention sizes come from the layers themselves (each token
+    /// mixer's `cacheSpec()`), so no architecture-specific config is read.
+    pub fn init(allocator: std.mem.Allocator, mdl: model.GenericModel, seqlen: u32, backend: zml.attention.Backend, shardings: common.Shardings) !CompilationParameters {
+        const specs = try allocator.alloc(model.LayerCache.Spec, mdl.layers.len);
+        defer allocator.free(specs);
+        for (specs, mdl.layers) |*spec, layer| spec.* = layer.token_mixer.cacheSpec();
+
+        // A model without attention layers still passes attention metadata
+        // around; size it for a single head.
+        const attention = try model.Cache.commonSpec(specs, .kv) orelse
+            KvCache.LayerSpec{ .num_heads = 1, .num_kv_heads = 1, .head_dim = 1 };
 
         return .{
             .prefill_tokens = .init(.{ .s = seqlen }, .u32),
             .decode_tokens = .init(.{ .s = 1 }, .u32),
             .token_index = .init(.{}, .u32),
-            .kv_cache = .init(.init(.{
-                .layer = mdl.layers.len,
-                .k = seqlen,
-                .h = config.num_key_value_heads,
-                .hd = head_dim,
-            }, mdl.embed_tokens.weight.dtype())),
+            .cache = try .init(specs, seqlen, mdl.embed_tokens.weight.dtype()),
             .rng = .init(),
             .attention_metadata = switch (backend) {
                 .attnd => .{ .attnd = .init() },
-                else => .init(.fromBackend(backend, @intCast(seqlen), @intCast(config.num_attention_heads))),
+                else => .init(.fromBackend(backend, @intCast(seqlen), attention.num_heads)),
             },
-            .prefill_attention_parameters = switch (backend) {
-                .attnd => .{ .attnd = .init(.{
-                    .model_id = .@"llama-3.1-8B",
-                    .head_dim = head_dim,
-                    .num_attention_heads = config.num_attention_heads,
-                    .num_kv_heads = @intCast(config.num_key_value_heads),
-                    .is_prefill = true,
-                }) },
-                else => .init(.fromBackend(backend)),
-            },
-            .decode_attention_parameters = switch (backend) {
-                .attnd => .{ .attnd = .init(.{
-                    .model_id = .@"llama-3.1-8B",
-                    .head_dim = head_dim,
-                    .num_attention_heads = config.num_attention_heads,
-                    .num_kv_heads = @intCast(config.num_key_value_heads),
-                    .is_prefill = false,
-                }) },
-                else => .init(.fromBackend(backend)),
-            },
+            .prefill_attention_parameters = attentionParameters(backend, attention, true),
+            .decode_attention_parameters = attentionParameters(backend, attention, false),
             .seqlen = seqlen,
             .shardings = shardings,
+        };
+    }
+
+    fn attentionParameters(backend: zml.attention.Backend, attention: KvCache.LayerSpec, is_prefill: bool) zml.attention.Parameters {
+        return switch (backend) {
+            .attnd => .{ .attnd = .init(.{
+                .model_id = .@"llama-3.1-8B",
+                .head_dim = @intCast(attention.head_dim),
+                .num_attention_heads = @intCast(attention.num_heads),
+                .num_kv_heads = @intCast(attention.num_kv_heads),
+                .is_prefill = is_prefill,
+            }) },
+            else => .init(.fromBackend(backend)),
         };
     }
 };
@@ -73,26 +68,35 @@ pub const Args = struct {
     tokens_buf: *zml.Buffer,
     token_index_buf: *zml.Buffer,
     active_length_buf: *zml.Buffer,
-    kv_cache_buffers: *zml.Bufferized(KvCache),
+    cache_buffers: *model.Cache.Buffer,
     rng_buffers: *zml.Bufferized(zml.Tensor.Rng),
     attention_metadata_buffers: *const zml.Bufferized(zml.attention.Metadata),
 };
 
+pub const LayerExe = zml.FnExe(model.TransformerLayer.forward);
+
 pub const KernelExe = struct {
     embed: zml.FnExe(model.EmbedTokens.forward),
-    layer: zml.FnExe(model.TransformerLayer.forward),
+    /// One executable per token-mixer kind used by the model: layers of the
+    /// same kind have the same weight shapes, so they share compiled code.
+    layers: std.EnumArray(model.TokenMixer.Tag, ?LayerExe),
     sample: zml.FnExe(model.LmHead.forward),
 
     pub fn deinit(self: *const KernelExe) void {
         self.embed.deinit();
-        self.layer.deinit();
+        for (self.layers.values) |maybe_exe| if (maybe_exe) |exe| exe.deinit();
         self.sample.deinit();
     }
 };
 
+pub const LayerRunner = struct {
+    runner: LayerExe.Runner(.{.layer}),
+    cache_kind: model.LayerCache.Kind,
+};
+
 pub const KernelRunner = struct {
     embed: zml.FnExe(model.EmbedTokens.forward).Runner(.{.embedding}),
-    layers: []zml.FnExe(model.TransformerLayer.forward).Runner(.{.layer}),
+    layers: []LayerRunner,
     sample: zml.FnExe(model.LmHead.forward).Runner(.{.lm_head}),
 
     pub fn init(allocator: std.mem.Allocator, exe: *const KernelExe, buffers: *const model.Buffers) !KernelRunner {
@@ -101,12 +105,17 @@ pub const KernelRunner = struct {
         });
         errdefer embed.deinit(allocator);
 
-        const layers = try allocator.alloc(zml.FnExe(model.TransformerLayer.forward).Runner(.{.layer}), buffers.layers.len);
+        const layers = try allocator.alloc(LayerRunner, buffers.layers.len);
         errdefer allocator.free(layers);
         var initialized_layers: usize = 0;
-        errdefer for (layers[0..initialized_layers]) |*layer| layer.deinit(allocator);
+        errdefer for (layers[0..initialized_layers]) |*layer| layer.runner.deinit(allocator);
         for (layers, buffers.layers) |*layer, layer_buffers| {
-            layer.* = try zml.FnExe(model.TransformerLayer.forward).Runner(.{.layer}).init(&exe.layer, allocator, .{ .layer = layer_buffers });
+            const tag = std.meta.activeTag(layer_buffers.token_mixer);
+            const layer_exe = if (exe.layers.getPtrConst(tag).*) |*e| e else return error.MissingLayerExecutable;
+            layer.* = .{
+                .runner = try LayerExe.Runner(.{.layer}).init(layer_exe, allocator, .{ .layer = layer_buffers }),
+                .cache_kind = model.TokenMixer.cacheKindOf(tag),
+            };
             initialized_layers += 1;
         }
 
@@ -120,13 +129,15 @@ pub const KernelRunner = struct {
 
     pub fn deinit(self: *KernelRunner, allocator: std.mem.Allocator) void {
         self.embed.deinit(allocator);
-        for (self.layers) |*layer| layer.deinit(allocator);
+        for (self.layers) |*layer| layer.runner.deinit(allocator);
         allocator.free(self.layers);
         self.sample.deinit(allocator);
     }
 };
 
-pub fn run(runner: *KernelRunner, args: Args, kv_cache_index_buffers: []const zml.Buffer) void {
+/// `cache_index_buffers[i]` is layer `i`'s slot in its cache kind (see
+/// `TransformerLayer.Input.cache_index`).
+pub fn run(runner: *KernelRunner, args: Args, cache_index_buffers: []const zml.Buffer) void {
     var hidden_buffer: zml.Buffer = undefined;
     runner.embed.run(args.io, .{
         .inputs = .{ .tokens = args.tokens_buf.* },
@@ -134,8 +145,9 @@ pub fn run(runner: *KernelRunner, args: Args, kv_cache_index_buffers: []const zm
     });
     defer hidden_buffer.deinit();
 
-    for (runner.layers, kv_cache_index_buffers) |*layer, kv_cache_index_buffer| {
-        layer.run(args.io, .{
+    for (runner.layers, cache_index_buffers) |*layer, cache_index_buffer| {
+        var layer_cache = model.Cache.layerBuffer(args.cache_buffers, layer.cache_kind);
+        layer.runner.run(args.io, .{
             .inputs = .{
                 .hidden = hidden_buffer,
                 .ctx = .{
@@ -143,11 +155,12 @@ pub fn run(runner: *KernelRunner, args: Args, kv_cache_index_buffers: []const zm
                     .active_length = args.active_length_buf.*,
                     .attention_metadata = args.attention_metadata_buffers.*,
                 },
-                .kv_cache = args.kv_cache_buffers.*,
-                .kv_cache_index = kv_cache_index_buffer,
+                .cache = layer_cache,
+                .cache_index = cache_index_buffer,
             },
-            .outputs = .{ .hidden = &hidden_buffer, .kv_cache = args.kv_cache_buffers },
+            .outputs = .{ .hidden = &hidden_buffer, .cache = &layer_cache },
         });
+        model.Cache.setLayerBuffer(args.cache_buffers, layer_cache);
     }
 
     runner.sample.run(args.io, .{
@@ -200,11 +213,18 @@ pub fn CompiledModel(comptime LoadedModelT: type, comptime model_name: []const u
         ) !KernelExe {
             const embed = try compileEmbed(allocator, io, platform, generic_model.embed_tokens, parameters, seqlen, phase, progress);
             errdefer embed.deinit();
-            const layer = try compileLayer(allocator, io, platform, generic_model, parameters, seqlen, attention_parameters, phase, progress);
-            errdefer layer.deinit();
+            var layers: std.EnumArray(model.TokenMixer.Tag, ?LayerExe) = .initFill(null);
+            errdefer for (layers.values) |maybe_exe| if (maybe_exe) |exe| exe.deinit();
+            inline for (comptime std.enums.values(model.TokenMixer.Tag)) |tag| {
+                for (generic_model.layers) |layer| {
+                    if (std.meta.activeTag(layer.token_mixer) != tag) continue;
+                    layers.set(tag, try compileLayer(tag, allocator, io, platform, generic_model, layer, parameters, seqlen, attention_parameters, phase, progress));
+                    break;
+                }
+            }
             const sample = try compileSample(allocator, io, platform, generic_model, parameters, seqlen, phase, progress);
             errdefer sample.deinit();
-            return .{ .embed = embed, .layer = layer, .sample = sample };
+            return .{ .embed = embed, .layers = layers, .sample = sample };
         }
 
         fn compileEmbed(
@@ -232,38 +252,41 @@ pub fn CompiledModel(comptime LoadedModelT: type, comptime model_name: []const u
             }, .{.{ .embedding = .{ .embed_tokens = embed_tokens }, .tokens = tokens }});
         }
 
+        /// Compiles the executable shared by every layer whose token mixer is
+        /// `tag`, tracing it with `layer`, the first such layer.
         fn compileLayer(
+            comptime tag: model.TokenMixer.Tag,
             allocator: std.mem.Allocator,
             io: std.Io,
             platform: *const zml.Platform,
             generic_model: model.GenericModel,
+            layer: model.TransformerLayer,
             parameters: CompilationParameters,
             seqlen: usize,
             attention_parameters: zml.attention.Parameters,
             phase: Phase,
             progress: *std.Progress.Node,
-        ) !zml.FnExe(model.TransformerLayer.forward) {
+        ) !LayerExe {
+            const component = "transformer layer (" ++ @tagName(tag) ++ ")";
             progress.increaseEstimatedTotalItems(1);
-            var node = progress.start(phase.startMessage("transformer layer"), 1);
+            var node = progress.start(phase.startMessage(component), 1);
             defer node.end();
 
             const from: std.Io.Timestamp = .now(io, .awake);
-            defer phase.logCompileDone(log, "transformer layer", io, from);
+            defer phase.logCompileDone(log, component, io, from);
 
             const hidden: zml.Tensor = .fromShape(zml.Shape.init(
                 .{ .s = seqlen, .d = generic_model.embed_tokens.weight.dim(.d) },
                 generic_model.embed_tokens.weight.dtype(),
             ).withPartitioning(.{ .d = .replicated }));
 
-            const kv_cache_index: zml.Tensor = .init(.{}, .u32);
-
-            return zml.FnExe(model.TransformerLayer.forward).compile(
+            return LayerExe.compile(
                 allocator,
                 io,
                 platform,
-                .{ .shardings = &parameters.shardings.all(), .program_name = phase.programName(model_name, "layer") },
+                .{ .shardings = &parameters.shardings.all(), .program_name = phase.programName(model_name, "layer_" ++ @tagName(tag)) },
                 .{.{
-                    .layer = generic_model.layers[0],
+                    .layer = layer,
                     .hidden = hidden,
                     .ctx = .{
                         .token_index = parameters.token_index,
@@ -271,8 +294,8 @@ pub fn CompiledModel(comptime LoadedModelT: type, comptime model_name: []const u
                         .attention_metadata = parameters.attention_metadata,
                         .attention_parameters = attention_parameters,
                     },
-                    .kv_cache = parameters.kv_cache,
-                    .kv_cache_index = kv_cache_index,
+                    .cache = parameters.cache.layerCache(model.TokenMixer.cacheKindOf(tag)),
+                    .cache_index = .init(.{}, .u32),
                 }},
             );
         }
@@ -403,7 +426,7 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
     // The test runner already owns the global `std.Progress`.
     var progress: std.Progress.Node = .none;
 
-    const params = CompilationParameters.init(generic_mdl, TestConfig{}, 8, .vanilla, shardings);
+    const params = try CompilationParameters.init(allocator, generic_mdl, 8, .vanilla, shardings);
     var compiled = try CompiledModel(LoadedModel, "test_model").init(allocator, io, platform, undefined, generic_mdl, params, &progress);
     defer compiled.deinit();
 }

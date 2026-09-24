@@ -6,12 +6,15 @@ const norm = @import("../bricks/norm.zig");
 const token_mixer = @import("../bricks/token_mixer.zig");
 const mlp = @import("../bricks/mlp.zig");
 const kv_cache = @import("../bricks/kv_cache.zig");
+const cache = @import("../bricks/cache.zig");
 const context = @import("../bricks/context.zig");
 
 pub const Norm = norm.Norm;
 pub const TokenMixer = token_mixer.TokenMixer;
 pub const Mlp = mlp.Mlp;
 pub const KvCache = kv_cache.KvCache;
+pub const LayerCache = cache.LayerCache;
+pub const Cache = cache.Cache;
 pub const LayerContext = context.LayerContext;
 
 pub const TransformerLayer = struct {
@@ -31,11 +34,13 @@ pub const TransformerLayer = struct {
         layer: TransformerLayer,
         hidden: zml.Tensor,
         ctx: LayerContext,
-        kv_cache: KvCache,
-        kv_cache_index: zml.Tensor,
+        cache: LayerCache,
+        /// This layer's slot in `cache`: its index among the layers sharing
+        /// the same cache kind, not its index in the model.
+        cache_index: zml.Tensor,
     };
 
-    pub const Output = struct { hidden: zml.Tensor, kv_cache: KvCache };
+    pub const Output = struct { hidden: zml.Tensor, cache: LayerCache };
 
     pub fn forward(input: Input) Output {
         const self = input.layer;
@@ -44,7 +49,7 @@ pub const TransformerLayer = struct {
 
         const x0_replicated = x0.withPartitioning(.{ .d = .replicated });
         const x0_normalized = self.input_norm.forward(x0_replicated);
-        const delta0, const updated_kv_cache = self.token_mixer.forward(x0_normalized, input.ctx, input.kv_cache, input.kv_cache_index);
+        const delta0, const updated_cache = self.token_mixer.forward(x0_normalized, input.ctx, input.cache, input.cache_index);
 
         const x1 = x0_replicated.add(delta0).withPartitioning(.{ .d = .replicated });
         const x1_normalized = self.post_norm.forward(x1);
@@ -54,7 +59,7 @@ pub const TransformerLayer = struct {
             .add(x1)
             .withPartitioning(.{ .d = .replicated });
 
-        return .{ .hidden = x2.reuseBuffer(x0), .kv_cache = updated_kv_cache };
+        return .{ .hidden = x2.reuseBuffer(x0), .cache = updated_cache };
     }
 };
 
@@ -167,14 +172,14 @@ test "TransformerLayer.forward: output has {.s, .d} and updates the KV cache" {
     };
 
     const hidden: zml.Tensor = .init(.{ .s = 6, .d = d }, .f32);
-    const kv: KvCache = .init(.init(.{ .layer = 2, .k = 32, .h = num_kv_heads, .hd = hd }, .f32));
+    const kv: KvCache = .init(layer.token_mixer.cacheSpec().kv, 2, 32, .f32);
 
     var exe = try platform.compileFn(allocator, io, TransformerLayer.forward, .{.{
         .layer = layer,
         .hidden = hidden,
         .ctx = .vanilla(32, num_heads),
-        .kv_cache = kv,
-        .kv_cache_index = .init(.{}, .u32),
+        .cache = .{ .kv = kv },
+        .cache_index = .init(.{}, .u32),
     }}, .{ .shardings = &.{platform.shardings.get("model").?} });
     defer exe.deinit();
 }
