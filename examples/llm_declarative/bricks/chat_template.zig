@@ -60,4 +60,13 @@ pub const ChatTemplate = union(enum) {
             .llama3 => Llama3Template.tokenizeTurn(tokenizer, allocator, prompt),
         };
     }
+
+    /// The token closing an assistant message. Generation stops on it in
+    /// addition to the config's EOS ids: chat checkpoints often list only the
+    /// end-of-text token there, yet end each answer with this one.
+    pub fn endOfTurnToken(self: ChatTemplate, tokenizer: zml.tokenizer.Tokenizer) ?u32 {
+        return switch (self) {
+            .llama3 => tokenizer.tokenId("<|eot_id|>"),
+        };
+    }
 };

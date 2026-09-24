@@ -314,6 +314,14 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
         num_attention_heads: u32 = 4,
         num_key_value_heads: u32 = 2,
         rms_norm_eps: f32 = 1e-5,
+
+        pub fn eosTokens(_: @This()) @import("config.zig").EosTokens {
+            return .{ .int = 0 };
+        }
+
+        pub fn chatTemplate(_: @This()) @import("../bricks/chat_template.zig").ChatTemplate {
+            return .{ .llama3 = .{ .bos_token_id = 0 } };
+        }
     };
 
     const TestModel = struct {

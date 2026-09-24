@@ -26,6 +26,7 @@ pub fn Session(comptime CompiledModelT: type) type {
         seqlen: u32,
         last_generated_token: u32 = 0,
         conversation_id: u64,
+        end_of_turn: ?u32,
 
         pub fn init(
             allocator: std.mem.Allocator,
@@ -83,6 +84,7 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .config = &compiled_model.loaded_model.parsed_config.value,
                 .seqlen = @intCast(compiled_model.params.seqlen),
                 .conversation_id = conversation_id,
+                .end_of_turn = compiled_model.loaded_model.parsed_config.value.chatTemplate().endOfTurnToken(tokenizer),
             };
         }
 
@@ -103,6 +105,10 @@ pub fn Session(comptime CompiledModelT: type) type {
 
         pub fn tokenizeTurn(self: *const Self, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
             return self.config.chatTemplate().tokenizeTurn(self.tokenizer, allocator, prompt);
+        }
+
+        fn isStopToken(self: *const Self, token_id: u32) bool {
+            return self.config.eosTokens().contains(token_id) or self.end_of_turn == token_id;
         }
 
         pub fn maxTokens(self: *const Self) u32 {
@@ -168,7 +174,7 @@ pub fn Session(comptime CompiledModelT: type) type {
             defer zml.attention.Metadata.deinitBuffer(&attention_metadata_buffers);
 
             generation: while (true) {
-                if (self.config.isEosToken(last_token_id)) break :generation;
+                if (self.isStopToken(last_token_id)) break :generation;
 
                 try stdout.writeAll(try decoder.feedOne(last_token_id, decoder_out_buffer));
                 try stdout.flush();

@@ -4,6 +4,7 @@ const zml = @import("zml");
 const common = @import("../models/common.zig");
 const model = @import("model.zig");
 const inference = @import("inference.zig");
+const config_contract = @import("config.zig");
 
 const log = std.log.scoped(.llm_declarative);
 
@@ -12,6 +13,8 @@ pub fn LoadedModel(
     comptime build: fn (std.mem.Allocator, zml.io.TensorStore.View, Config, ?zml.nn.SamplingStrategy) anyerror!model.GenericModel,
     comptime model_name: []const u8,
 ) type {
+    comptime config_contract.check(Config);
+
     return struct {
         const Self = @This();
         pub const ConfigType = Config;
@@ -89,7 +92,13 @@ pub fn LoadedModel(
             seqlen: usize,
             progress: *std.Progress.Node,
         ) !inference.CompiledModel(Self, model_name) {
-            const params = inference.CompilationParameters.init(self.inner, self.parsed_config.value, @intCast(seqlen), backend, shardings);
+            // An architecture can pin its attention backend by declaring
+            // `pub const attention_backend` on its `Config`.
+            const effective_backend: zml.attention.Backend = if (@hasDecl(Config, "attention_backend")) b: {
+                if (Config.attention_backend != backend) log.info("{s} forces the {} attention backend", .{ model_name, Config.attention_backend });
+                break :b Config.attention_backend;
+            } else backend;
+            const params = inference.CompilationParameters.init(self.inner, self.parsed_config.value, @intCast(seqlen), effective_backend, shardings);
             return inference.CompiledModel(Self, model_name).init(allocator, io, platform, self, self.inner, params, progress);
         }
     };

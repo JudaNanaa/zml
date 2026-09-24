@@ -1,16 +1,16 @@
 const std = @import("std");
 const zml = @import("zml");
-const stdx = zml.stdx;
 
 const generic_model = @import("../generic/model.zig");
 const generic_loaded_model = @import("../generic/loaded_model.zig");
 const generic_inference = @import("../generic/inference.zig");
 const generic_session = @import("../generic/session.zig");
+const generic_config = @import("../generic/config.zig");
 const chat_template = @import("../bricks/chat_template.zig");
 
 pub const Config = struct {
     bos_token_id: u32,
-    eos_token_id: EosTokens,
+    eos_token_id: generic_config.EosTokens,
     head_dim: ?u32 = null,
     hidden_size: u32,
     num_hidden_layers: u32,
@@ -22,23 +22,8 @@ pub const Config = struct {
     hf_rope_impl: bool = true,
     rope_scaling: zml.nn.RopeOpts.Scaling = .{ .default = .{} },
 
-    pub const EosTokens = union(enum) {
-        int: u32,
-        ints: []u32,
-
-        const Helpers = stdx.json.UnionHelpers(@This());
-        pub const jsonParse = Helpers.jsonParse;
-        pub const jsonParseFromValue = Helpers.jsonParseFromValue;
-        pub const jsonStringify = Helpers.jsonStringify;
-    };
-
-    pub fn isEosToken(self: Config, token_id: u32) bool {
-        return switch (self.eos_token_id) {
-            .int => |eos| token_id == eos,
-            .ints => |eos_list| for (eos_list) |eos| {
-                if (token_id == eos) break true;
-            } else false,
-        };
+    pub fn eosTokens(self: Config) generic_config.EosTokens {
+        return self.eos_token_id;
     }
 
     pub fn chatTemplate(self: Config) chat_template.ChatTemplate {
@@ -100,8 +85,8 @@ test "Config: eos_token_id parses as a single int" {
     , .{});
     defer parsed.deinit();
 
-    try std.testing.expect(parsed.value.isEosToken(2));
-    try std.testing.expect(!parsed.value.isEosToken(3));
+    try std.testing.expect(parsed.value.eosTokens().contains(2));
+    try std.testing.expect(!parsed.value.eosTokens().contains(3));
 }
 
 test "Config: eos_token_id parses as a list of ints" {
@@ -112,9 +97,9 @@ test "Config: eos_token_id parses as a list of ints" {
     , .{});
     defer parsed.deinit();
 
-    try std.testing.expect(parsed.value.isEosToken(2));
-    try std.testing.expect(parsed.value.isEosToken(3));
-    try std.testing.expect(!parsed.value.isEosToken(4));
+    try std.testing.expect(parsed.value.eosTokens().contains(2));
+    try std.testing.expect(parsed.value.eosTokens().contains(3));
+    try std.testing.expect(!parsed.value.eosTokens().contains(4));
 }
 
 test "Config: head_dim defaults to hidden_size / num_attention_heads when absent" {
