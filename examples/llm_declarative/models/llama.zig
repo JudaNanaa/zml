@@ -51,10 +51,13 @@ fn buildLayer(store: zml.io.TensorStore.View, config: Config) !generic_model.Tra
 }
 
 fn build(allocator: std.mem.Allocator, store: zml.io.TensorStore.View, config: Config, sampling_strategy: ?zml.nn.SamplingStrategy) !generic_model.GenericModel {
+    // HF checkpoints keep everything under `model.` except `lm_head`.
+    const model_store = store.withPrefix("model");
+
     const layers = try allocator.alloc(generic_model.TransformerLayer, config.num_hidden_layers);
     errdefer allocator.free(layers);
     for (layers, 0..) |*layer, i| {
-        layer.* = try buildLayer(store.withPrefix("layers").withLayer(i), config);
+        layer.* = try buildLayer(model_store.withPrefix("layers").withLayer(i), config);
     }
 
     const lm_head: ?zml.nn.Linear = if (store.withPrefix("lm_head").maybeCreateTensor(
@@ -64,8 +67,8 @@ fn build(allocator: std.mem.Allocator, store: zml.io.TensorStore.View, config: C
     )) |weight| .init(weight, null, .d) else null;
 
     return .{
-        .embed_tokens = .{ .weight = store.createTensor("embed_tokens.weight", .{ .voc, .d }, .{ .voc = .replicated, .d = .model }) },
-        .norm = .{ .rms = .init(store.withPrefix("norm"), config.rms_norm_eps) },
+        .embed_tokens = .{ .weight = model_store.createTensor("embed_tokens.weight", .{ .voc, .d }, .{ .voc = .replicated, .d = .model }) },
+        .norm = .{ .rms = .init(model_store.withPrefix("norm"), config.rms_norm_eps) },
         .layers = layers,
         .lm_head = lm_head,
         .gen_opts = sampling_strategy orelse .{},
