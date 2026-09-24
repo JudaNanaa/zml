@@ -27,6 +27,8 @@ pub fn Session(comptime CompiledModelT: type) type {
         last_generated_token: u32 = 0,
         conversation_id: u64,
         end_of_turn: ?u32,
+        think_start: ?u32,
+        think_end: ?u32,
 
         pub fn init(
             allocator: std.mem.Allocator,
@@ -95,6 +97,8 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .seqlen = @intCast(compiled_model.params.seqlen),
                 .conversation_id = conversation_id,
                 .end_of_turn = compiled_model.loaded_model.parsed_config.value.chatTemplate().endOfTurnToken(tokenizer),
+                .think_start = tokenizer.tokenId("<think>"),
+                .think_end = tokenizer.tokenId("</think>"),
             };
         }
 
@@ -191,7 +195,10 @@ pub fn Session(comptime CompiledModelT: type) type {
             generation: while (true) {
                 if (self.isStopToken(last_token_id)) break :generation;
 
+                // Reasoning models wrap their thinking in <think>...</think>: dim it.
+                if (self.think_start == last_token_id) try stdout.writeAll("\x1b[2m");
                 try stdout.writeAll(try decoder.feedOne(last_token_id, decoder_out_buffer));
+                if (self.think_end == last_token_id) try stdout.writeAll("\x1b[0m");
                 try stdout.flush();
 
                 try all_tokens.append(self.allocator, last_token_id);
