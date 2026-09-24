@@ -4,6 +4,7 @@ pub const models = @import("models.zig");
 pub const registry = @import("models/registry.zig");
 pub const common = @import("models/common.zig");
 pub const llama = @import("models/llama.zig");
+pub const qwen3_5 = @import("models/qwen3_5.zig");
 
 pub const model = @import("generic/model.zig");
 pub const config = @import("generic/config.zig");
