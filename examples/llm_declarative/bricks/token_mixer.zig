@@ -7,10 +7,12 @@ const kv_cache = @import("kv_cache.zig");
 const KvCache = kv_cache.KvCache;
 const LayerCache = @import("cache.zig").LayerCache;
 const LayerContext = @import("context.zig").LayerContext;
+const GatedSelfAttention = @import("gated_attention.zig").GatedSelfAttention;
 const GatedDeltaNet = @import("gated_delta_net.zig").GatedDeltaNet;
 
 /// Dense grouped-query self-attention: q/k/v/o projections, optional
-/// QK-norm, RoPE, KV-cache read/write (llama: all layers).
+/// QK-norm, RoPE, KV-cache read/write (llama: all layers). Qwen3.5's gated
+/// variant is `GatedSelfAttention`.
 pub const SelfAttention = struct {
     q_proj: zml.nn.Linear,
     k_proj: zml.nn.Linear,
@@ -114,6 +116,7 @@ pub const SelfAttention = struct {
 /// variant if it needs a new kind of cache.
 pub const TokenMixer = union(enum) {
     self_attn: SelfAttention,
+    gated_attn: GatedSelfAttention,
     linear_attn: GatedDeltaNet,
 
     pub const Tag = std.meta.Tag(TokenMixer);
