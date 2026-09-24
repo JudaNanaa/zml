@@ -350,7 +350,7 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
         }
 
         pub fn chatTemplate(_: @This()) @import("../bricks/chat_template.zig").ChatTemplate {
-            return .{ .llama3 = .{ .bos_token_id = 0 } };
+            return .chatml;
         }
     };
 
