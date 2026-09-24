@@ -7,6 +7,7 @@ const kv_cache = @import("kv_cache.zig");
 const KvCache = kv_cache.KvCache;
 const LayerCache = @import("cache.zig").LayerCache;
 const LayerContext = @import("context.zig").LayerContext;
+const GatedDeltaNet = @import("gated_delta_net.zig").GatedDeltaNet;
 
 /// Dense grouped-query self-attention: q/k/v/o projections, optional
 /// QK-norm, RoPE, KV-cache read/write (llama: all layers).
@@ -113,6 +114,7 @@ pub const SelfAttention = struct {
 /// variant if it needs a new kind of cache.
 pub const TokenMixer = union(enum) {
     self_attn: SelfAttention,
+    linear_attn: GatedDeltaNet,
 
     pub const Tag = std.meta.Tag(TokenMixer);
 

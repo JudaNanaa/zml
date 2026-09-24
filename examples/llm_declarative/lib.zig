@@ -17,6 +17,7 @@ pub const mlp = @import("bricks/mlp.zig");
 pub const kv_cache = @import("bricks/kv_cache.zig");
 pub const cache = @import("bricks/cache.zig");
 pub const context = @import("bricks/context.zig");
+pub const gated_delta_net = @import("bricks/gated_delta_net.zig");
 pub const chat_template = @import("bricks/chat_template.zig");
 
 test {

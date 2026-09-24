@@ -2,11 +2,12 @@ const std = @import("std");
 const zml = @import("zml");
 
 const KvCache = @import("kv_cache.zig").KvCache;
+const LinearAttnCache = @import("gated_delta_net.zig").LinearAttnCache;
 
 const log = std.log.scoped(.llm_declarative);
 
-/// The cache one layer reads and writes, picked by its token mixer (dense
-/// attention uses the `KvCache`).
+/// The cache one layer reads and writes, picked by its token mixer: dense
+/// attention uses the `KvCache`, linear attention the `LinearAttnCache`.
 /// Each variant holds the tensors of *every* layer of that kind, stacked on
 /// `.layer`; a layer addresses its own slot with its index among layers of
 /// the same kind.
@@ -20,11 +21,13 @@ const log = std.log.scoped(.llm_declarative);
 /// `Spec` and in `Cache`.
 pub const LayerCache = union(enum) {
     kv: KvCache,
+    linear: LinearAttnCache,
 
     pub const Kind = std.meta.Tag(LayerCache);
 
     pub const Spec = union(Kind) {
         kv: KvCache.LayerSpec,
+        linear: LinearAttnCache.LayerSpec,
     };
 
     /// The cache kind whose `LayerSpec` is `T`. Lets a token mixer declare its
@@ -40,6 +43,7 @@ pub const LayerCache = union(enum) {
 /// All the caches a model needs; a kind is `null` when no layer uses it.
 pub const Cache = struct {
     kv: ?KvCache,
+    linear: ?LinearAttnCache,
 
     pub const Buffer = zml.Bufferized(Cache);
 
@@ -128,10 +132,15 @@ pub const Cache = struct {
 
 test "Cache.init stacks layers per kind and rejects mismatched specs" {
     const kv_spec: KvCache.LayerSpec = .{ .num_heads = 4, .num_kv_heads = 2, .head_dim = 16 };
+    const linear_spec: LinearAttnCache.LayerSpec = .{ .conv_len = 3, .conv_dim = 32, .num_v_heads = 2, .head_k_dim = 8, .head_v_dim = 8 };
 
-    const cache = try Cache.init(&.{ .{ .kv = kv_spec }, .{ .kv = kv_spec } }, 64, .f32);
-    try std.testing.expectEqual(@as(i64, 2), cache.kv.?.k.dim(.layer));
-    try std.testing.expectEqual(@as(i64, 64), cache.kv.?.k.dim(.k));
+    const hybrid = try Cache.init(&.{ .{ .linear = linear_spec }, .{ .linear = linear_spec }, .{ .kv = kv_spec } }, 64, .f32);
+    try std.testing.expectEqual(@as(i64, 1), hybrid.kv.?.k.dim(.layer));
+    try std.testing.expectEqual(@as(i64, 64), hybrid.kv.?.k.dim(.k));
+    try std.testing.expectEqual(@as(i64, 2), hybrid.linear.?.conv_state.dim(.layer));
+
+    const attention_only = try Cache.init(&.{ .{ .kv = kv_spec }, .{ .kv = kv_spec } }, 64, .f32);
+    try std.testing.expect(attention_only.linear == null);
 
     var other_kv_spec = kv_spec;
     other_kv_spec.head_dim = 32;
