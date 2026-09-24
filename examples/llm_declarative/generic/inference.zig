@@ -72,6 +72,7 @@ pub const Args = struct {
     io: std.Io,
     tokens_buf: *zml.Buffer,
     token_index_buf: *zml.Buffer,
+    active_length_buf: *zml.Buffer,
     kv_cache_buffers: *zml.Bufferized(KvCache),
     rng_buffers: *zml.Bufferized(zml.Tensor.Rng),
     attention_metadata_buffers: *const zml.Bufferized(zml.attention.Metadata),
@@ -137,10 +138,13 @@ pub fn run(runner: *KernelRunner, args: Args, kv_cache_index_buffers: []const zm
         layer.run(args.io, .{
             .inputs = .{
                 .hidden = hidden_buffer,
-                .token_index = args.token_index_buf.*,
+                .ctx = .{
+                    .token_index = args.token_index_buf.*,
+                    .active_length = args.active_length_buf.*,
+                    .attention_metadata = args.attention_metadata_buffers.*,
+                },
                 .kv_cache = args.kv_cache_buffers.*,
                 .kv_cache_index = kv_cache_index_buffer,
-                .attention_metadata = args.attention_metadata_buffers.*,
             },
             .outputs = .{ .hidden = &hidden_buffer, .kv_cache = args.kv_cache_buffers },
         });
@@ -261,11 +265,14 @@ pub fn CompiledModel(comptime LoadedModelT: type, comptime model_name: []const u
                 .{.{
                     .layer = generic_model.layers[0],
                     .hidden = hidden,
-                    .token_index = parameters.token_index,
+                    .ctx = .{
+                        .token_index = parameters.token_index,
+                        .active_length = .init(.{}, .u32),
+                        .attention_metadata = parameters.attention_metadata,
+                        .attention_parameters = attention_parameters,
+                    },
                     .kv_cache = parameters.kv_cache,
                     .kv_cache_index = kv_cache_index,
-                    .attention_metadata = parameters.attention_metadata,
-                    .attention_parameters = attention_parameters,
                 }},
             );
         }

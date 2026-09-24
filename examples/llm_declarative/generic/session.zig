@@ -20,6 +20,8 @@ pub fn Session(comptime CompiledModelT: type) type {
         kv_cache_buffers: zml.Bufferized(KvCache),
         token_index_buffers: []zml.Buffer,
         kv_cache_index_buffers: []zml.Buffer,
+        /// `active_length` for decode: always a single real token.
+        decode_active_length_buffer: zml.Buffer,
         rng_buffers: zml.Bufferized(zml.Tensor.Rng),
         tokenizer: zml.tokenizer.Tokenizer,
         config: *const Config,
@@ -50,6 +52,9 @@ pub fn Session(comptime CompiledModelT: type) type {
                 initialized_token_index_buffers = i + 1;
             }
 
+            var decode_active_length_buffer: zml.Buffer = try .scalar(io, platform, 1, .u32);
+            errdefer decode_active_length_buffer.deinit();
+
             const conversation_id: u64 = @bitCast(std.Io.Clock.now(.real, io).toMicroseconds());
 
             const seed: u128 = @intCast(std.Io.Clock.now(.real, io).toNanoseconds());
@@ -79,6 +84,7 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .kv_cache_buffers = kv_cache_buffers,
                 .token_index_buffers = token_index_buffers,
                 .kv_cache_index_buffers = kv_cache_index_buffers,
+                .decode_active_length_buffer = decode_active_length_buffer,
                 .rng_buffers = rng_buffers,
                 .tokenizer = tokenizer,
                 .config = &compiled_model.loaded_model.parsed_config.value,
@@ -96,6 +102,7 @@ pub fn Session(comptime CompiledModelT: type) type {
             self.allocator.free(self.token_index_buffers);
             for (self.kv_cache_index_buffers) |*b| b.deinit();
             self.allocator.free(self.kv_cache_index_buffers);
+            self.decode_active_length_buffer.deinit();
             zml.Tensor.Rng.deinitBuffer(&self.rng_buffers);
         }
 
@@ -125,6 +132,9 @@ pub fn Session(comptime CompiledModelT: type) type {
             var prefill_tokens_buffer: zml.Buffer = try .fromSlice(self.io, self.platform, prefill_tokens_slice, .replicated);
             defer prefill_tokens_buffer.deinit();
 
+            var active_length_buffer: zml.Buffer = try .scalar(self.io, self.platform, all_tokens.len, .u32);
+            defer active_length_buffer.deinit();
+
             const params = self.compiled_model.params;
             var attention_metadata_buffers: zml.Bufferized(zml.attention.Metadata) = switch (params.attention_metadata) {
                 .attnd => .{ .attnd = .{
@@ -141,6 +151,7 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .io = self.io,
                 .tokens_buf = &prefill_tokens_buffer,
                 .token_index_buf = &self.token_index_buffers[0],
+                .active_length_buf = &active_length_buffer,
                 .kv_cache_buffers = &self.kv_cache_buffers,
                 .rng_buffers = &self.rng_buffers,
                 .attention_metadata_buffers = &attention_metadata_buffers,
@@ -186,6 +197,7 @@ pub fn Session(comptime CompiledModelT: type) type {
                     .io = self.io,
                     .tokens_buf = &current_token_buffer,
                     .token_index_buf = &self.token_index_buffers[all_tokens.items.len],
+                    .active_length_buf = &self.decode_active_length_buffer,
                     .kv_cache_buffers = &self.kv_cache_buffers,
                     .rng_buffers = &self.rng_buffers,
                     .attention_metadata_buffers = &attention_metadata_buffers,

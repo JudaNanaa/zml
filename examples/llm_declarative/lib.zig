@@ -15,6 +15,7 @@ pub const norm = @import("bricks/norm.zig");
 pub const token_mixer = @import("bricks/token_mixer.zig");
 pub const mlp = @import("bricks/mlp.zig");
 pub const kv_cache = @import("bricks/kv_cache.zig");
+pub const context = @import("bricks/context.zig");
 pub const chat_template = @import("bricks/chat_template.zig");
 
 test {

@@ -5,6 +5,7 @@ const stdx = zml.stdx;
 const norm = @import("norm.zig");
 const kv_cache = @import("kv_cache.zig");
 const KvCache = kv_cache.KvCache;
+const LayerContext = @import("context.zig").LayerContext;
 
 /// Dense grouped-query self-attention: q/k/v/o projections, optional
 /// QK-norm, RoPE, KV-cache read/write. Used by every architecture ported so
@@ -47,16 +48,15 @@ pub const SelfAttention = struct {
         zml.Buffer.deinitAll(SelfAttention, self);
     }
 
-    /// x: {.b, .s, .d} -> {.b, .s, .d}, plus the updated KV-cache.
+    /// x: {.s, .d} -> {.s, .d}, plus the updated KV-cache.
     pub fn forward(
         self: SelfAttention,
         x: zml.Tensor,
-        token_index: zml.Tensor,
+        ctx: LayerContext,
         kv: KvCache,
         kv_cache_index: zml.Tensor,
-        attention_metadata: zml.attention.Metadata,
-        attention_parameters: zml.attention.Parameters,
     ) struct { zml.Tensor, KvCache } {
+        const token_index = ctx.token_index;
         const num_kv_heads = if (self.num_kv_heads > 0) self.num_kv_heads else self.num_heads;
 
         const x_qkv = x.withPartitioning(.{ .d = .replicated });
@@ -83,20 +83,7 @@ pub const SelfAttention = struct {
         k = new_kv.keysAt(kv_cache_index).convert(dtype);
         v = new_kv.valuesAt(kv_cache_index).convert(dtype);
 
-        const layer_attention_metadata: zml.attention.Metadata = switch (attention_parameters) {
-            .attnd => .{ .attnd = .{
-                .layer_id = kv_cache_index.convert(.u16),
-                .conversation_id = attention_metadata.attnd.conversation_id,
-                .num_tokens = attention_metadata.attnd.num_tokens,
-            } },
-            .vanilla => attention_metadata,
-            .cuda_fa2 => attention_metadata,
-            .cuda_fa3 => attention_metadata,
-            .nki => attention_metadata,
-            .metal_fa => attention_metadata,
-        };
-
-        const attn_output = zml.attention.attention(q, k, v, token_index, layer_attention_metadata, attention_parameters);
+        const attn_output = zml.attention.attention(q, k, v, token_index, ctx.attentionMetadataFor(kv_cache_index), ctx.attention_parameters);
 
         const attn = attn_output.merge(.{ .d = .{ .h, .hd } }).rename(.{ .q = .s });
         const delta = self.o_proj.forward(attn, attn.dtype())
@@ -114,17 +101,9 @@ pub const SelfAttention = struct {
 pub const TokenMixer = union(enum) {
     self_attn: SelfAttention,
 
-    pub fn forward(
-        self: TokenMixer,
-        x: zml.Tensor,
-        token_index: zml.Tensor,
-        kv: KvCache,
-        kv_cache_index: zml.Tensor,
-        attention_metadata: zml.attention.Metadata,
-        attention_parameters: zml.attention.Parameters,
-    ) struct { zml.Tensor, KvCache } {
+    pub fn forward(self: TokenMixer, x: zml.Tensor, ctx: LayerContext, kv: KvCache, kv_cache_index: zml.Tensor) struct { zml.Tensor, KvCache } {
         return switch (self) {
-            inline else => |mixer| mixer.forward(x, token_index, kv, kv_cache_index, attention_metadata, attention_parameters),
+            inline else => |mixer| mixer.forward(x, ctx, kv, kv_cache_index),
         };
     }
 
@@ -160,20 +139,12 @@ test "SelfAttention.forward keeps {.s, .d} on the output and updates the KV cach
     const x: zml.Tensor = .init(.{ .s = 6, .d = d }, .f32);
     const kv: KvCache = .init(.init(.{ .layer = 2, .k = 32, .h = num_kv_heads, .hd = hd }, .f32));
 
-    const Fwd = struct {
-        fn call(a: SelfAttention, xi: zml.Tensor, ti: zml.Tensor, kvi: KvCache, kvidx: zml.Tensor, meta: zml.attention.Metadata, params: zml.attention.Parameters) struct { zml.Tensor, KvCache } {
-            return a.forward(xi, ti, kvi, kvidx, meta, params);
-        }
-    };
-
-    var exe = try platform.compileFn(allocator, io, Fwd.call, .{
+    var exe = try platform.compileFn(allocator, io, SelfAttention.forward, .{
         attn,
         x,
-        zml.Tensor.init(.{}, .u32),
+        LayerContext.vanilla(32, num_heads),
         kv,
         zml.Tensor.init(.{}, .u32),
-        zml.attention.Metadata.init(.fromBackend(.vanilla, 32, 4)),
-        zml.attention.Parameters.init(.fromBackend(.vanilla)),
     }, .{ .shardings = &.{platform.shardings.get("model").?} });
     defer exe.deinit();
 }

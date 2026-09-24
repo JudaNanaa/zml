@@ -6,11 +6,13 @@ const norm = @import("../bricks/norm.zig");
 const token_mixer = @import("../bricks/token_mixer.zig");
 const mlp = @import("../bricks/mlp.zig");
 const kv_cache = @import("../bricks/kv_cache.zig");
+const context = @import("../bricks/context.zig");
 
 pub const Norm = norm.Norm;
 pub const TokenMixer = token_mixer.TokenMixer;
 pub const Mlp = mlp.Mlp;
 pub const KvCache = kv_cache.KvCache;
+pub const LayerContext = context.LayerContext;
 
 pub const TransformerLayer = struct {
     input_norm: Norm,
@@ -28,11 +30,9 @@ pub const TransformerLayer = struct {
     pub const Input = struct {
         layer: TransformerLayer,
         hidden: zml.Tensor,
-        token_index: zml.Tensor,
+        ctx: LayerContext,
         kv_cache: KvCache,
         kv_cache_index: zml.Tensor,
-        attention_metadata: zml.attention.Metadata,
-        attention_parameters: zml.attention.Parameters,
     };
 
     pub const Output = struct { hidden: zml.Tensor, kv_cache: KvCache };
@@ -44,14 +44,7 @@ pub const TransformerLayer = struct {
 
         const x0_replicated = x0.withPartitioning(.{ .d = .replicated });
         const x0_normalized = self.input_norm.forward(x0_replicated);
-        const delta0, const updated_kv_cache = self.token_mixer.forward(
-            x0_normalized,
-            input.token_index,
-            input.kv_cache,
-            input.kv_cache_index,
-            input.attention_metadata,
-            input.attention_parameters,
-        );
+        const delta0, const updated_kv_cache = self.token_mixer.forward(x0_normalized, input.ctx, input.kv_cache, input.kv_cache_index);
 
         const x1 = x0_replicated.add(delta0).withPartitioning(.{ .d = .replicated });
         const x1_normalized = self.post_norm.forward(x1);
@@ -179,11 +172,9 @@ test "TransformerLayer.forward: output has {.s, .d} and updates the KV cache" {
     var exe = try platform.compileFn(allocator, io, TransformerLayer.forward, .{.{
         .layer = layer,
         .hidden = hidden,
-        .token_index = .init(.{}, .u32),
+        .ctx = .vanilla(32, num_heads),
         .kv_cache = kv,
         .kv_cache_index = .init(.{}, .u32),
-        .attention_metadata = .init(.fromBackend(.vanilla, 32, 4)),
-        .attention_parameters = .init(.fromBackend(.vanilla)),
     }}, .{ .shardings = &.{platform.shardings.get("model").?} });
     defer exe.deinit();
 }
