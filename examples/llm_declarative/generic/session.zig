@@ -98,7 +98,7 @@ pub fn Session(comptime CompiledModelT: type) type {
         }
 
         pub fn tokenizePrompt(self: *const Self, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
-            return self.config.chatTemplate().tokenizePrompt(self.tokenizer, allocator, self.config.bos_token_id, prompt);
+            return self.config.chatTemplate().tokenizePrompt(self.tokenizer, allocator, prompt);
         }
 
         pub fn tokenizeTurn(self: *const Self, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {

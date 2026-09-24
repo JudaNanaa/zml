@@ -1,66 +1,57 @@
 const std = @import("std");
 const zml = @import("zml");
 
-/// Llama 3's chat template: `<|start_header_id|>role<|end_header_id|>\n...`.
+/// Llama 3's chat template:
+/// `<|start_header_id|>role<|end_header_id|>\n\n{content}<|eot_id|>`.
 pub const Llama3Template = struct {
     pub fn tokenizePrompt(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, bos_token_id: u32, prompt: []const u8) ![]const u32 {
-        var encoder = try tokenizer.encoder();
-        defer encoder.deinit();
-
-        const start_header = tokenizer.tokenId("<|start_header_id|>") orelse return error.NoSuchToken;
-        const end_header = tokenizer.tokenId("<|end_header_id|>") orelse return error.NoSuchToken;
-        const eot = tokenizer.tokenId("<|eot_id|>") orelse return error.NoSuchToken;
-        const newline = tokenizer.tokenId("\\n") orelse return error.NoSuchToken;
-
-        var tokens = std.Io.Writer.Allocating.initAligned(allocator, .of(u32));
-        try tokens.ensureUnusedCapacity(prompt.len);
-
-        const w: *std.Io.Writer = &tokens.writer;
-        try encoder.appendTokens(w, &.{ bos_token_id, start_header });
-        try encoder.encode(w, "user");
-        try encoder.appendTokens(w, &.{ end_header, newline });
-        try encoder.encode(w, prompt);
-        try encoder.appendTokens(w, &.{ eot, newline, start_header });
-        try encoder.encode(w, "assistant");
-        try encoder.appendTokens(w, &.{ end_header, newline });
-
-        return @ptrCast(@alignCast(try tokens.toOwnedSlice()));
+        return tokenize(tokenizer, allocator, bos_token_id, prompt);
     }
 
+    /// A follow-up turn. Decoding stops on `<|eot_id|>` without appending it,
+    /// so the turn first closes the previous assistant message.
     pub fn tokenizeTurn(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
+        const eot = tokenizer.tokenId("<|eot_id|>") orelse return error.NoSuchToken;
+        return tokenize(tokenizer, allocator, eot, prompt);
+    }
+
+    fn tokenize(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, first_token: u32, prompt: []const u8) ![]const u32 {
         var encoder = try tokenizer.encoder();
         defer encoder.deinit();
 
         const start_header = tokenizer.tokenId("<|start_header_id|>") orelse return error.NoSuchToken;
         const end_header = tokenizer.tokenId("<|end_header_id|>") orelse return error.NoSuchToken;
         const eot = tokenizer.tokenId("<|eot_id|>") orelse return error.NoSuchToken;
-        const newline = tokenizer.tokenId("\\n") orelse return error.NoSuchToken;
 
         var tokens = std.Io.Writer.Allocating.initAligned(allocator, .of(u32));
         try tokens.ensureUnusedCapacity(prompt.len);
 
+        // The "\n\n" after each header must go through the encoder: in a
+        // byte-level BPE vocab, `tokenId("\\n")` is the literal two-character
+        // text `\n`, not a newline.
         const w: *std.Io.Writer = &tokens.writer;
-        try encoder.appendTokens(w, &.{ eot, newline, start_header });
+        try encoder.appendTokens(w, &.{ first_token, start_header });
         try encoder.encode(w, "user");
-        try encoder.appendTokens(w, &.{ end_header, newline });
+        try encoder.appendTokens(w, &.{end_header});
+        try encoder.encode(w, "\n\n");
         try encoder.encode(w, prompt);
-        try encoder.appendTokens(w, &.{ eot, newline, start_header });
+        try encoder.appendTokens(w, &.{ eot, start_header });
         try encoder.encode(w, "assistant");
-        try encoder.appendTokens(w, &.{ end_header, newline });
+        try encoder.appendTokens(w, &.{end_header});
+        try encoder.encode(w, "\n\n");
 
         return @ptrCast(@alignCast(try tokens.toOwnedSlice()));
     }
 };
 
-/// The prompt-formatting slot a `Config` selects via `chatTemplate()`. Only
-/// `llama3` is implemented; add a variant (e.g. `qwen: QwenTemplate`) when
-/// an architecture with a different template is ported.
+/// The prompt-formatting slot a `Config` selects via `chatTemplate()`. A
+/// variant carries whatever the template needs from the config.
 pub const ChatTemplate = union(enum) {
-    llama3: void,
+    llama3: struct { bos_token_id: u32 },
 
-    pub fn tokenizePrompt(self: ChatTemplate, tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, bos_token_id: u32, prompt: []const u8) ![]const u32 {
+    pub fn tokenizePrompt(self: ChatTemplate, tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return switch (self) {
-            .llama3 => Llama3Template.tokenizePrompt(tokenizer, allocator, bos_token_id, prompt),
+            .llama3 => |t| Llama3Template.tokenizePrompt(tokenizer, allocator, t.bos_token_id, prompt),
         };
     }
 

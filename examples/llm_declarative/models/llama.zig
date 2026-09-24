@@ -42,8 +42,7 @@ pub const Config = struct {
     }
 
     pub fn chatTemplate(self: Config) chat_template.ChatTemplate {
-        _ = self;
-        return .llama3;
+        return .{ .llama3 = .{ .bos_token_id = self.bos_token_id } };
     }
 };
 
