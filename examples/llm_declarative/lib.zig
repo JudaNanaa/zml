@@ -6,6 +6,7 @@ pub const common = @import("models/common.zig");
 pub const llama = @import("models/llama.zig");
 pub const qwen3_5 = @import("models/qwen3_5.zig");
 pub const lfm2 = @import("models/lfm2.zig");
+pub const qwen3_5_moe = @import("models/qwen3_5_moe.zig");
 
 pub const model = @import("generic/model.zig");
 pub const config = @import("generic/config.zig");
