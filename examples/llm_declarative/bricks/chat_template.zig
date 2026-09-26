@@ -46,17 +46,21 @@ pub const Llama3Template = struct {
 
 /// ChatML, used by Qwen: `<|im_start|>role\n{content}<|im_end|>\n`.
 pub const ChatMlTemplate = struct {
-    pub fn tokenizePrompt(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
-        return tokenize(tokenizer, allocator, false, prompt);
+    /// Some checkpoints (LFM2) open the conversation with a BOS token, others
+    /// (Qwen) do not.
+    bos_token_id: ?u32 = null,
+
+    pub fn tokenizePrompt(self: ChatMlTemplate, tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
+        return tokenize(tokenizer, allocator, self.bos_token_id, false, prompt);
     }
 
     /// A follow-up turn. Decoding stops on `<|im_end|>` without appending it,
     /// so the turn first closes the previous assistant message.
     pub fn tokenizeTurn(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
-        return tokenize(tokenizer, allocator, true, prompt);
+        return tokenize(tokenizer, allocator, null, true, prompt);
     }
 
-    fn tokenize(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, close_previous_turn: bool, prompt: []const u8) ![]const u32 {
+    fn tokenize(tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, bos_token_id: ?u32, close_previous_turn: bool, prompt: []const u8) ![]const u32 {
         var encoder = try tokenizer.encoder();
         defer encoder.deinit();
 
@@ -68,6 +72,7 @@ pub const ChatMlTemplate = struct {
 
         // Newlines go through the encoder, see `Llama3Template.tokenize`.
         const w: *std.Io.Writer = &tokens.writer;
+        if (bos_token_id) |bos| try encoder.appendTokens(w, &.{bos});
         if (close_previous_turn) {
             try encoder.appendTokens(w, &.{im_end});
             try encoder.encode(w, "\n");
@@ -88,12 +93,12 @@ pub const ChatMlTemplate = struct {
 /// variant carries whatever the template needs from the config.
 pub const ChatTemplate = union(enum) {
     llama3: struct { bos_token_id: u32 },
-    chatml: void,
+    chatml: ChatMlTemplate,
 
     pub fn tokenizePrompt(self: ChatTemplate, tokenizer: zml.tokenizer.Tokenizer, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return switch (self) {
             .llama3 => |t| Llama3Template.tokenizePrompt(tokenizer, allocator, t.bos_token_id, prompt),
-            .chatml => ChatMlTemplate.tokenizePrompt(tokenizer, allocator, prompt),
+            .chatml => |t| t.tokenizePrompt(tokenizer, allocator, prompt),
         };
     }
 

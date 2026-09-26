@@ -25,7 +25,7 @@ pub const Config = struct {
 
     pub fn chatTemplate(self: Config) chat_template.ChatTemplate {
         _ = self;
-        return .chatml;
+        return .{ .chatml = .{} };
     }
 };
 
