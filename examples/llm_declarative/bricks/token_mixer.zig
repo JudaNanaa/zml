@@ -30,16 +30,29 @@ pub const SelfAttention = struct {
         rope_opts: zml.nn.RopeOpts,
         has_qk_norm: bool = false,
         norm_eps: f32 = 1e-5,
+        names: Names = .{},
+    };
+
+    /// Checkpoint names of the sub-modules, relative to the attention prefix.
+    /// The defaults are the llama ones.
+    pub const Names = struct {
+        q_proj: []const u8 = "q_proj",
+        k_proj: []const u8 = "k_proj",
+        v_proj: []const u8 = "v_proj",
+        o_proj: []const u8 = "o_proj",
+        q_norm: []const u8 = "q_norm",
+        k_norm: []const u8 = "k_norm",
     };
 
     pub fn init(store: zml.io.TensorStore.View, opts: Options) !SelfAttention {
+        const names = opts.names;
         return .{
-            .q_proj = .init(store.createTensor("q_proj.weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
-            .k_proj = .init(store.createTensor("k_proj.weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
-            .v_proj = .init(store.createTensor("v_proj.weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
-            .o_proj = .init(store.createTensor("o_proj.weight", .{ .dout, .d }, .{ .d = .model }), null, .d),
-            .q_norm = if (opts.has_qk_norm) .init(store.withPrefix("q_norm"), opts.norm_eps) else null,
-            .k_norm = if (opts.has_qk_norm) .init(store.withPrefix("k_norm"), opts.norm_eps) else null,
+            .q_proj = .init(store.withPrefix(names.q_proj).createTensor("weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
+            .k_proj = .init(store.withPrefix(names.k_proj).createTensor("weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
+            .v_proj = .init(store.withPrefix(names.v_proj).createTensor("weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
+            .o_proj = .init(store.withPrefix(names.o_proj).createTensor("weight", .{ .dout, .d }, .{ .d = .model }), null, .d),
+            .q_norm = if (opts.has_qk_norm) .init(store.withPrefix(names.q_norm), opts.norm_eps) else null,
+            .k_norm = if (opts.has_qk_norm) .init(store.withPrefix(names.k_norm), opts.norm_eps) else null,
             .num_heads = opts.num_heads,
             .num_kv_heads = opts.num_kv_heads,
             .rope_opts = opts.rope_opts,

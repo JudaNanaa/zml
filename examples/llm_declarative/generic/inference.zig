@@ -367,7 +367,7 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
                         .rope_opts = .{ .layout = .real_im_pass, .scaling = .{ .default = .{} } },
                     }) },
                     .post_norm = .{ .rms = .init(layer_store.withPrefix("post_norm"), config.rms_norm_eps) },
-                    .mlp = .{ .dense = .init(layer_store.withPrefix("mlp")) },
+                    .mlp = .{ .dense = .init(layer_store.withPrefix("mlp"), .{}) },
                 };
             }
             return .{

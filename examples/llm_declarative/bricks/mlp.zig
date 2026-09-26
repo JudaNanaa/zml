@@ -8,11 +8,19 @@ pub const DenseMlp = struct {
     gate_proj: zml.nn.Linear,
     down_proj: zml.nn.Linear,
 
-    pub fn init(store: zml.io.TensorStore.View) DenseMlp {
+    /// Checkpoint names of the projections, relative to the MLP prefix. The
+    /// defaults are the llama ones.
+    pub const Names = struct {
+        up_proj: []const u8 = "up_proj",
+        gate_proj: []const u8 = "gate_proj",
+        down_proj: []const u8 = "down_proj",
+    };
+
+    pub fn init(store: zml.io.TensorStore.View, names: Names) DenseMlp {
         return .{
-            .up_proj = .init(store.createTensor("up_proj.weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
-            .gate_proj = .init(store.createTensor("gate_proj.weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
-            .down_proj = .init(store.createTensor("down_proj.weight", .{ .dout, .d }, .{ .d = .model }), null, .d),
+            .up_proj = .init(store.withPrefix(names.up_proj).createTensor("weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
+            .gate_proj = .init(store.withPrefix(names.gate_proj).createTensor("weight", .{ .dout, .d }, .{ .dout = .model }), null, .d),
+            .down_proj = .init(store.withPrefix(names.down_proj).createTensor("weight", .{ .dout, .d }, .{ .d = .model }), null, .d),
         };
     }
 

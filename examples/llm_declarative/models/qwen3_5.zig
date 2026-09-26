@@ -85,7 +85,7 @@ fn buildLayer(store: zml.io.TensorStore.View, config: TextConfig, layer_type: La
         .input_norm = .{ .rms_offset = .init(store.withPrefix("input_layernorm"), config.rms_norm_eps) },
         .token_mixer = token_mixer,
         .post_norm = .{ .rms_offset = .init(store.withPrefix("post_attention_layernorm"), config.rms_norm_eps) },
-        .mlp = .{ .dense = .init(store.withPrefix("mlp")) },
+        .mlp = .{ .dense = .init(store.withPrefix("mlp"), .{}) },
     };
 }
 

@@ -46,7 +46,7 @@ fn buildLayer(store: zml.io.TensorStore.View, config: Config) !generic_model.Tra
             },
         }) },
         .post_norm = .{ .rms = .init(store.withPrefix("post_attention_layernorm"), config.rms_norm_eps) },
-        .mlp = .{ .dense = .init(store.withPrefix("mlp")) },
+        .mlp = .{ .dense = .init(store.withPrefix("mlp"), .{}) },
     };
 }
 
