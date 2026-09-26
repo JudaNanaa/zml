@@ -21,6 +21,7 @@ pub const context = @import("bricks/context.zig");
 pub const gated_attention = @import("bricks/gated_attention.zig");
 pub const causal_conv = @import("bricks/causal_conv.zig");
 pub const gated_delta_net = @import("bricks/gated_delta_net.zig");
+pub const short_conv = @import("bricks/short_conv.zig");
 pub const chat_template = @import("bricks/chat_template.zig");
 
 test {

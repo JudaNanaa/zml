@@ -3,11 +3,13 @@ const zml = @import("zml");
 
 const KvCache = @import("kv_cache.zig").KvCache;
 const LinearAttnCache = @import("gated_delta_net.zig").LinearAttnCache;
+const ConvCache = @import("short_conv.zig").ConvCache;
 
 const log = std.log.scoped(.llm_declarative);
 
 /// The cache one layer reads and writes, picked by its token mixer: dense
-/// attention uses the `KvCache`, linear attention the `LinearAttnCache`.
+/// attention uses the `KvCache`, linear attention the `LinearAttnCache`,
+/// short convolutions the `ConvCache`.
 /// Each variant holds the tensors of *every* layer of that kind, stacked on
 /// `.layer`; a layer addresses its own slot with its index among layers of
 /// the same kind.
@@ -22,12 +24,14 @@ const log = std.log.scoped(.llm_declarative);
 pub const LayerCache = union(enum) {
     kv: KvCache,
     linear: LinearAttnCache,
+    conv: ConvCache,
 
     pub const Kind = std.meta.Tag(LayerCache);
 
     pub const Spec = union(Kind) {
         kv: KvCache.LayerSpec,
         linear: LinearAttnCache.LayerSpec,
+        conv: ConvCache.LayerSpec,
     };
 
     /// The cache kind whose `LayerSpec` is `T`. Lets a token mixer declare its
@@ -44,6 +48,7 @@ pub const LayerCache = union(enum) {
 pub const Cache = struct {
     kv: ?KvCache,
     linear: ?LinearAttnCache,
+    conv: ?ConvCache,
 
     pub const Buffer = zml.Bufferized(Cache);
 

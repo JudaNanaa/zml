@@ -9,6 +9,7 @@ const LayerCache = @import("cache.zig").LayerCache;
 const LayerContext = @import("context.zig").LayerContext;
 const GatedSelfAttention = @import("gated_attention.zig").GatedSelfAttention;
 const GatedDeltaNet = @import("gated_delta_net.zig").GatedDeltaNet;
+const ShortConv = @import("short_conv.zig").ShortConv;
 
 /// Dense grouped-query self-attention: q/k/v/o projections, optional
 /// QK-norm, RoPE, KV-cache read/write (llama: all layers). Qwen3.5's gated
@@ -124,13 +125,13 @@ pub const SelfAttention = struct {
 /// follows the same contract, for one `LayerCache` variant type `C`:
 /// - `forward(self, x, ctx: LayerContext, cache: C, cache_index: Tensor) struct { Tensor, C }`,
 /// - `cacheSpec(self) C.LayerSpec`.
-/// Everything below is derived from that, so adding a mixer (e.g. LFM2's
-/// convolution as `short_conv`) is adding a variant here, plus a `LayerCache`
-/// variant if it needs a new kind of cache.
+/// Everything below is derived from that, so adding a mixer is adding a
+/// variant here, plus a `LayerCache` variant if it needs a new kind of cache.
 pub const TokenMixer = union(enum) {
     self_attn: SelfAttention,
     gated_attn: GatedSelfAttention,
     linear_attn: GatedDeltaNet,
+    short_conv: ShortConv,
 
     pub const Tag = std.meta.Tag(TokenMixer);
 
@@ -373,5 +374,11 @@ test "prefill then decode matches a longer prefill, for every token mixer" {
         .head_k_dim = khd,
         .head_v_dim = vhd,
         .conv_kernel_size = 3,
+    } }, d);
+
+    try expectPrefillDecodeConsistent(.{ .short_conv = .{
+        .in_proj = .init(.init(.{ .dout = 3 * d, .d = d }, .f32), null, .d),
+        .out_proj = .init(.init(.{ .dout = d, .d = d }, .f32), null, .d),
+        .conv_weight = .init(.{ .out = d, .in = 1, .kernel_size = 3 }, .f32),
     } }, d);
 }
