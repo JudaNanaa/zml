@@ -12,6 +12,7 @@ const context = @import("../bricks/context.zig");
 pub const Norm = norm.Norm;
 pub const TokenMixer = token_mixer.TokenMixer;
 pub const Mlp = mlp.Mlp;
+pub const MoeMlp = @import("../bricks/moe.zig").MoeMlp;
 pub const KvCache = kv_cache.KvCache;
 pub const LayerCache = cache.LayerCache;
 pub const Cache = cache.Cache;

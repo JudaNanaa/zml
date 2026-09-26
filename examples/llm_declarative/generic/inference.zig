@@ -17,12 +17,14 @@ pub const CompilationParameters = struct {
     attention_metadata: zml.attention.Metadata,
     prefill_attention_parameters: zml.attention.Parameters,
     decode_attention_parameters: zml.attention.Parameters,
+    moe_parameters: ?zml.moe.Parameters,
     seqlen: usize,
     shardings: common.Shardings,
 
     /// Cache and attention sizes come from the layers themselves (each token
-    /// mixer's `cacheSpec()`), so no architecture-specific config is read.
-    pub fn init(allocator: std.mem.Allocator, mdl: model.GenericModel, seqlen: u32, backend: zml.attention.Backend, shardings: common.Shardings) !CompilationParameters {
+    /// mixer's `cacheSpec()`, each MoE's `spec()`), so no architecture-specific
+    /// config is read. `platform` picks the MoE kernels, if any.
+    pub fn init(allocator: std.mem.Allocator, platform: *const zml.Platform, mdl: model.GenericModel, seqlen: u32, backend: zml.attention.Backend, shardings: common.Shardings) !CompilationParameters {
         const specs = try allocator.alloc(model.LayerCache.Spec, mdl.layers.len);
         defer allocator.free(specs);
         for (specs, mdl.layers) |*spec, layer| spec.* = layer.token_mixer.cacheSpec();
@@ -44,9 +46,29 @@ pub const CompilationParameters = struct {
             },
             .prefill_attention_parameters = attentionParameters(backend, attention, true),
             .decode_attention_parameters = attentionParameters(backend, attention, false),
+            .moe_parameters = if (try commonMoeSpec(mdl.layers)) |spec|
+                .init(.fromBackend(try zml.moe.Backend.auto(platform, spec.weights_dtype), spec.num_experts_per_tok, .silu))
+            else
+                null,
             .seqlen = seqlen,
             .shardings = shardings,
         };
+    }
+
+    /// The spec shared by every MoE layer, or `null` if there is none. One
+    /// set of `zml.moe.Parameters` is compiled into every layer.
+    fn commonMoeSpec(layers: []const model.TransformerLayer) !?model.MoeMlp.Spec {
+        var common_spec: ?model.MoeMlp.Spec = null;
+        for (layers, 0..) |layer, layer_index| {
+            const spec = layer.mlp.moeSpec() orelse continue;
+            if (common_spec) |c| {
+                if (!std.meta.eql(c, spec)) {
+                    log.warn("layer {} has a MoE spec {any} that differs from the previous layers' {any}", .{ layer_index, spec, c });
+                    return error.MismatchedMoeSpecs;
+                }
+            } else common_spec = spec;
+        }
+        return common_spec;
     }
 
     fn attentionParameters(backend: zml.attention.Backend, attention: KvCache.LayerSpec, is_prefill: bool) zml.attention.Parameters {
@@ -293,6 +315,7 @@ pub fn CompiledModel(comptime LoadedModelT: type, comptime model_name: []const u
                         .active_length = .init(.{}, .u32),
                         .attention_metadata = parameters.attention_metadata,
                         .attention_parameters = attention_parameters,
+                        .moe_parameters = parameters.moe_parameters,
                     },
                     .cache = parameters.cache.layerCache(model.TokenMixer.cacheKindOf(tag)),
                     .cache_index = .init(.{}, .u32),
@@ -426,7 +449,8 @@ test "generic LoadedModel + CompiledModel compile prefill and decode for a tiny 
     // The test runner already owns the global `std.Progress`.
     var progress: std.Progress.Node = .none;
 
-    const params = try CompilationParameters.init(allocator, generic_mdl, 8, .vanilla, shardings);
+    const params = try CompilationParameters.init(allocator, platform, generic_mdl, 8, .vanilla, shardings);
+    try std.testing.expect(params.moe_parameters == null);
     var compiled = try CompiledModel(LoadedModel, "test_model").init(allocator, io, platform, undefined, generic_mdl, params, &progress);
     defer compiled.deinit();
 }

@@ -217,7 +217,7 @@ test "build + compile a tiny LFM2 (one conv, one attention layer)" {
     const shardings: common.Shardings = .{ .model = platform.shardings.get("model").?, .experts = experts };
     var progress: std.Progress.Node = .none;
 
-    const params = try generic_inference.CompilationParameters.init(allocator, mdl, 16, .vanilla, shardings);
+    const params = try generic_inference.CompilationParameters.init(allocator, platform, mdl, 16, .vanilla, shardings);
     try std.testing.expectEqual(@as(i64, 1), params.cache.kv.?.k.dim(.layer));
     try std.testing.expectEqual(@as(i64, 2), params.cache.conv.?.state.dim(.s));
     try std.testing.expect(params.cache.linear == null);
