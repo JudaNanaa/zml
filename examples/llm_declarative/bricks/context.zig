@@ -11,6 +11,8 @@ pub const LayerContext = struct {
     active_length: zml.Tensor,
     attention_metadata: zml.attention.Metadata,
     attention_parameters: zml.attention.Parameters,
+    /// How MoE feed-forwards run; `null` when the model has none.
+    moe_parameters: ?zml.moe.Parameters = null,
 
     /// The metadata an attention layer passes to `zml.attention.attention`.
     /// `attnd` addresses the remote cache per layer, so it needs the layer's

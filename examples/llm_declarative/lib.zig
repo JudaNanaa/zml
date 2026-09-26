@@ -16,6 +16,7 @@ pub const session = @import("generic/session.zig");
 pub const norm = @import("bricks/norm.zig");
 pub const token_mixer = @import("bricks/token_mixer.zig");
 pub const mlp = @import("bricks/mlp.zig");
+pub const moe = @import("bricks/moe.zig");
 pub const kv_cache = @import("bricks/kv_cache.zig");
 pub const cache = @import("bricks/cache.zig");
 pub const context = @import("bricks/context.zig");

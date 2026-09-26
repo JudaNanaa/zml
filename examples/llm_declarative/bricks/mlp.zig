@@ -1,6 +1,9 @@
 const std = @import("std");
 const zml = @import("zml");
 
+const LayerContext = @import("context.zig").LayerContext;
+const MoeMlp = @import("moe.zig").MoeMlp;
+
 /// Dense SwiGLU feed-forward brick: up/gate/down projections with a SiLU
 /// gate. Used by every architecture ported so far.
 pub const DenseMlp = struct {
@@ -36,15 +39,24 @@ pub const DenseMlp = struct {
     }
 };
 
-/// The feed-forward slot a `TransformerLayer` picks from. Only `dense` is
-/// implemented; add a `moe: MoeMlp` variant (wrapping `zml.moe.forwardMoe`)
-/// when qwen3_5_moe is ported.
+/// The feed-forward slot a `TransformerLayer` picks from.
 pub const Mlp = union(enum) {
     dense: DenseMlp,
+    moe: MoeMlp,
 
-    pub fn forward(self: Mlp, x: zml.Tensor) zml.Tensor {
+    /// x: {.s, .d} -> {.s, .d}.
+    pub fn forward(self: Mlp, x: zml.Tensor, ctx: LayerContext) zml.Tensor {
         return switch (self) {
-            inline else => |m| m.forward(x),
+            .dense => |m| m.forward(x).rename(.{ .dout = .d }),
+            // Set by `CompilationParameters` whenever a layer is a MoE.
+            .moe => |m| m.forward(x, ctx.moe_parameters.?),
+        };
+    }
+
+    pub fn moeSpec(self: Mlp) ?MoeMlp.Spec {
+        return switch (self) {
+            .dense => null,
+            .moe => |m| m.spec(),
         };
     }
 

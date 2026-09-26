@@ -53,8 +53,7 @@ pub const TransformerLayer = struct {
 
         const x1 = x0_replicated.add(delta0).withPartitioning(.{ .d = .replicated });
         const x1_normalized = self.post_norm.forward(x1);
-        const x2 = self.mlp.forward(x1_normalized)
-            .rename(.{ .dout = .d })
+        const x2 = self.mlp.forward(x1_normalized, input.ctx)
             .withPartitioning(.{ .d = .replicated })
             .add(x1)
             .withPartitioning(.{ .d = .replicated });
