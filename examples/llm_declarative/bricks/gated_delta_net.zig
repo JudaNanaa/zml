@@ -1,6 +1,7 @@
 const std = @import("std");
 const zml = @import("zml");
 
+const causal_conv = @import("causal_conv.zig");
 const LayerContext = @import("context.zig").LayerContext;
 
 /// Per-layer state of every linear-attention layer, stacked on `.layer`:
@@ -185,7 +186,6 @@ pub const GatedDeltaNet = struct {
         const active_length = ctx.active_length;
         const key_dim = self.num_k_heads * self.head_k_dim;
         const value_dim = self.num_v_heads * self.head_v_dim;
-        const left_pad = self.conv_kernel_size - 1;
 
         const x_in = x.withPartitioning(.{ .d = .replicated }).insertAxes(.s, .{.b});
         const projected_qkv = self.in_proj_qkv.forward(x_in, x_in.dtype())
@@ -194,29 +194,9 @@ pub const GatedDeltaNet = struct {
 
         // Decode (a single new token) continues from the cached conv tail and
         // recurrent state; prefill always restarts from zero.
-        const use_cached_state = x.dim(.s) == 1 and left_pad > 0;
-        const conv_input = if (use_cached_state)
-            zml.Tensor.concatenate(&.{ cache.convStateAt(cache_index).insertAxes(.s, .{.b}), projected_qkv }, .s)
-        else
-            projected_qkv;
-
-        var mixed_qkv = zml.Tensor.conv1d(conv_input, self.conv1d_weight, .{
-            .padding = &.{ left_pad, 0 },
-            .input_batch_dimension = 0,
-            .input_feature_dimension = 2,
-            .input_spatial_dimensions = 1,
-            .kernel_output_feature_dimension = 0,
-            .kernel_input_feature_dimension = 1,
-            .kernel_spatial_dimensions = 2,
-            .output_batch_dimension = 0,
-            .output_feature_dimension = 2,
-            .output_spatial_dimensions = 1,
-            .feature_group_count = self.convDim(),
-        }).silu();
-        if (use_cached_state) {
-            mixed_qkv = mixed_qkv.slice(.s, .{ .start = mixed_qkv.dim(.s) - 1, .end = mixed_qkv.dim(.s) });
-        }
-        mixed_qkv = mixed_qkv.withPartitioning(.{ .s = .replicated, .mix = .model });
+        const use_cached_state = x.dim(.s) == 1;
+        const conv_output, const new_conv_state = causal_conv.forward(projected_qkv, self.conv1d_weight, cache.convStateAt(cache_index), active_length);
+        const mixed_qkv = conv_output.silu().withPartitioning(.{ .s = .replicated, .mix = .model });
 
         const z = self.in_proj_z.forward(x_in, x_in.dtype())
             .splitAxis(.dout, .{ .vh = self.num_v_heads, .vhd = self.head_v_dim });
@@ -265,21 +245,8 @@ pub const GatedDeltaNet = struct {
             .squeeze(.b)
             .withPartitioning(.{ .d = .replicated });
 
-        const new_conv_state = if (use_cached_state)
-            conv_input.slice(.s, .{ .start = conv_input.dim(.s) - left_pad, .end = conv_input.dim(.s) })
-        else
-            convTailFromPrefix(projected_qkv, left_pad, active_length);
-
-        const updated_cache = cache.updateAt(new_conv_state.squeeze(.b), last_recurrent_state.squeeze(.b), cache_index);
+        const updated_cache = cache.updateAt(new_conv_state, last_recurrent_state.squeeze(.b), cache_index);
         return .{ output, updated_cache };
-    }
-
-    /// The last `left_pad` real positions of `input`, left-padded with zeros
-    /// when the prompt is shorter than the conv kernel.
-    fn convTailFromPrefix(input: zml.Tensor, left_pad: i64, active_length: zml.Tensor) zml.Tensor {
-        const padding = zml.Tensor.zeroes(input.shape().setDim(.s, left_pad));
-        const padded = zml.Tensor.concatenate(&.{ padding, input }, .s);
-        return padded.slice(.s, .dyn(active_length.convert(.i64), left_pad));
     }
 
     fn recurrentGatedDeltaRule(
