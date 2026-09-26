@@ -6,6 +6,7 @@ const std = @import("std");
 pub const architectures = .{
     .{ .name = "llama", .module = @import("llama.zig") },
     .{ .name = "qwen3_5", .module = @import("qwen3_5.zig") },
+    .{ .name = "lfm2", .module = @import("lfm2.zig") },
 };
 
 /// Builds a `union(enum)` with one variant per entry in `list`, named
@@ -71,7 +72,8 @@ test "ModelUnion handles a single-entry registry" {
 test "the real architectures registry produces one variant per architecture" {
     const Union = ModelUnion(architectures, "LoadedModel");
     const tag_info = @typeInfo(std.meta.Tag(Union)).@"enum";
-    try std.testing.expectEqual(@as(usize, 2), tag_info.fields.len);
+    try std.testing.expectEqual(@as(usize, 3), tag_info.fields.len);
     try std.testing.expectEqualStrings("llama", tag_info.fields[0].name);
     try std.testing.expectEqualStrings("qwen3_5", tag_info.fields[1].name);
+    try std.testing.expectEqualStrings("lfm2", tag_info.fields[2].name);
 }
