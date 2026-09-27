@@ -16,7 +16,6 @@ pub fn Session(comptime CompiledModelT: type) type {
         prefill: @import("inference.zig").KernelRunner,
         decode: @import("inference.zig").KernelRunner,
         cache_buffers: model.Cache.Buffer,
-        token_index_buffers: []zml.Buffer,
         cache_index_buffers: []zml.Buffer,
         /// `active_length` for decode: always a single real token.
         decode_active_length_buffer: zml.Buffer,
@@ -42,15 +41,6 @@ pub fn Session(comptime CompiledModelT: type) type {
             const shardings = &compiled_model.params.shardings;
             var cache_buffers = try compiled_model.params.cache.initBuffer(io, platform, shardings.model);
             errdefer model.Cache.deinitBuffer(&cache_buffers);
-
-            const token_index_buffers = try allocator.alloc(zml.Buffer, compiled_model.params.seqlen);
-            errdefer allocator.free(token_index_buffers);
-            var initialized_token_index_buffers: usize = 0;
-            errdefer for (token_index_buffers[0..initialized_token_index_buffers]) |*b| b.deinit();
-            for (token_index_buffers, 0..) |*b, i| {
-                b.* = try zml.Buffer.scalar(io, platform, i, .u32);
-                initialized_token_index_buffers = i + 1;
-            }
 
             const conversation_id: u64 = @bitCast(std.Io.Clock.now(.real, io).toMicroseconds());
 
@@ -88,7 +78,6 @@ pub fn Session(comptime CompiledModelT: type) type {
                 .prefill = prefill,
                 .decode = decode,
                 .cache_buffers = cache_buffers,
-                .token_index_buffers = token_index_buffers,
                 .cache_index_buffers = cache_index_buffers,
                 .decode_active_length_buffer = decode_active_length_buffer,
                 .rng_buffers = rng_buffers,
@@ -106,8 +95,6 @@ pub fn Session(comptime CompiledModelT: type) type {
             self.prefill.deinit(self.allocator);
             self.decode.deinit(self.allocator);
             model.Cache.deinitBuffer(&self.cache_buffers);
-            for (self.token_index_buffers) |*b| b.deinit();
-            self.allocator.free(self.token_index_buffers);
             for (self.cache_index_buffers) |*b| b.deinit();
             self.allocator.free(self.cache_index_buffers);
             self.decode_active_length_buffer.deinit();
@@ -140,6 +127,9 @@ pub fn Session(comptime CompiledModelT: type) type {
             var prefill_tokens_buffer: zml.Buffer = try .fromSlice(self.io, self.platform, prefill_tokens_slice, .replicated);
             defer prefill_tokens_buffer.deinit();
 
+            var token_index_buffer: zml.Buffer = try .scalar(self.io, self.platform, 0, .u32);
+            defer token_index_buffer.deinit();
+
             var active_length_buffer: zml.Buffer = try .scalar(self.io, self.platform, all_tokens.len, .u32);
             defer active_length_buffer.deinit();
 
@@ -158,7 +148,7 @@ pub fn Session(comptime CompiledModelT: type) type {
             inference.run(&self.prefill, .{
                 .io = self.io,
                 .tokens_buf = &prefill_tokens_buffer,
-                .token_index_buf = &self.token_index_buffers[0],
+                .token_index_buf = &token_index_buffer,
                 .active_length_buf = &active_length_buffer,
                 .cache_buffers = &self.cache_buffers,
                 .rng_buffers = &self.rng_buffers,
@@ -204,10 +194,13 @@ pub fn Session(comptime CompiledModelT: type) type {
                 try all_tokens.append(self.allocator, last_token_id);
                 if (all_tokens.items.len >= self.seqlen) break :generation;
 
+                var token_index_buffer: zml.Buffer = try .scalar(self.io, self.platform, all_tokens.items.len, .u32);
+                defer token_index_buffer.deinit();
+
                 inference.run(&self.decode, .{
                     .io = self.io,
                     .tokens_buf = &current_token_buffer,
-                    .token_index_buf = &self.token_index_buffers[all_tokens.items.len],
+                    .token_index_buf = &token_index_buffer,
                     .active_length_buf = &self.decode_active_length_buffer,
                     .cache_buffers = &self.cache_buffers,
                     .rng_buffers = &self.rng_buffers,
