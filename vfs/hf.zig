@@ -278,7 +278,7 @@ pub const HF = struct {
         try read_pool.init(allocator, inner, http_client, opts.read_pool);
         errdefer read_pool.deinit(allocator, inner);
 
-        var self: HF = .{
+        return .{
             .allocator = allocator,
             .base = .init(inner),
             .client = http_client,
@@ -291,12 +291,6 @@ pub const HF = struct {
             },
             .read_pool = read_pool,
         };
-        errdefer switch (self.authorization) {
-            .default, .omit => {},
-            .override => |t| self.allocator.free(t),
-        };
-
-        return self;
     }
 
     pub fn auto(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, environ_map: *std.process.Environ.Map) !HF {
@@ -311,9 +305,9 @@ pub const HF = struct {
             var file = std.Io.Dir.openFileAbsolute(inner, token_path, .{ .mode = .read_only }) catch break :blk null;
             defer file.close(inner);
 
-            const size = file.stat(inner) catch break :blk null;
+            const stat = file.stat(inner) catch break :blk null;
             var reader = file.reader(inner, &.{});
-            const token = reader.interface.readAlloc(allocator, size.size) catch break :blk null;
+            const token = reader.interface.readAlloc(allocator, stat.size) catch break :blk null;
 
             break :blk token;
         };

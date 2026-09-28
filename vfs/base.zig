@@ -121,7 +121,7 @@ pub const VFSBase = struct {
             .netInterfaceName = netInterfaceName,
             .netLookup = netLookup,
         };
-        for (std.meta.fieldNames(@TypeOf(overrides))) |field_name| {
+        inline for (std.meta.fieldNames(@TypeOf(overrides))) |field_name| {
             @field(new_vtable, field_name) = @field(overrides, field_name);
         }
         return new_vtable;
