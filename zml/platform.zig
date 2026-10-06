@@ -59,6 +59,28 @@ fn loadOrGetApi(allocator: std.mem.Allocator, io: std.Io, target: Target) !*cons
     };
 }
 
+/// Memory-specific data with no references to Device.
+/// Represents the immutable state of a single PJRT memory region after initialization.
+pub const MemData = struct {
+    /// Underlying PJRT memory handle representing a memory region exposed by the PJRT runtime.
+    pjrt_memory: *const pjrt.Memory,
+};
+
+fn memoryIsOfKind(target: Target, api: *const pjrt.Api, pjrt_memory: *const pjrt.Memory, kind: Memory.Kind) bool {
+    switch (target) {
+        .cuda, .rocm, .oneapi, .tpu => {
+            const zml_kind: Memory.Kind = switch (pjrt_memory.kind_(api).len) {
+                "device".len => .device,
+                "pinned_host".len => .host_pinned,
+                "unpinned_host".len => .host_unpinned,
+                else => std.debug.panic("unknown memory {s}", .{pjrt_memory.kind_(api)}),
+            };
+            return zml_kind == kind;
+        },
+        .cpu, .neuron, .metal => return true,
+    }
+}
+
 pub const Memory = struct {
     pub const Kind = enum {
         default,
@@ -111,6 +133,19 @@ pub const Memory = struct {
             addressable_by_device.* = self.platform.deviceFromPjrt(pjrt_device);
         }
     }
+};
+
+/// Device-specific data with no references to Memory.
+/// Represents the immutable state of a single PJRT device after initialization.
+pub const DevData = struct {
+    /// Underlying PJRT device handle used to interact with the PJRT runtime.
+    pjrt_device: *const pjrt.Device,
+    /// Cached PJRT device description (ID, kind, debug string, hardware attributes).
+    /// Caching avoids repeated PJRT API calls when querying device metadata.
+    pjrt_desc: *const pjrt.DeviceDescription,
+    /// Maps each Memory.Kind to the index of the memory satisfying that kind for this device,
+    /// or null if none exists. The index refers to Topology.mems (0-based).
+    memory_by_kind: std.EnumArray(Memory.Kind, ?u16),
 };
 
 pub const Device = struct {
@@ -246,6 +281,156 @@ fn sortDevicesById(target: Target, devices: []Device) void {
     }
 }
 
+fn IndexIter(comptime View: type) type {
+    return struct {
+        rel: *const Topology,
+        indices: []const u16,
+
+        pub fn next(self: *@This()) ?View {
+            if (self.indices.len == 0) return null;
+            defer self.indices = self.indices[1..];
+            return .{ .rel = self.rel, .idx = self.indices[0] };
+        }
+    };
+}
+
+/// Lightweight, read-only view over a single device.
+/// Identified by index into `Topology.devs`. Hides index manipulation
+/// and provides an ergonomic API for accessing device data and relationships.
+pub const DeviceView = struct {
+    pub const MemIter = IndexIter(MemoryView);
+
+    /// Topology that owns this device and all connectivity data.
+    rel: *const Topology,
+    /// Index of this device in `Topology.devs` (0-based).
+    idx: u16,
+
+    /// Returns the PJRT API used by this topology.
+    fn pjrtApi(self: DeviceView) *const pjrt.Api {
+        return self.rel.pjrt_api;
+    }
+
+    /// Returns a pointer to the underlying device data.
+    fn data(self: DeviceView) *const DevData {
+        return self.rel.devs[self.idx];
+    }
+
+    /// Returns the underlying PJRT device handle.
+    fn pjrtDevice(self: DeviceView) *const pjrt.Device {
+        return self.data().pjrt_device;
+    }
+
+    /// Returns the device kind string (e.g., "CPU", "GPU", "TPU").
+    fn kind(self: DeviceView) []const u8 {
+        const pjrt_api = self.pjrtApi();
+        const pjrt_desc = self.data().pjrt_desc;
+
+        return pjrt_desc.kind(pjrt_api);
+    }
+
+    /// Returns the numeric device ID as reported by PJRT.
+    fn id(self: DeviceView) u32 {
+        const pjrt_api = self.pjrtApi();
+        const pjrt_desc = self.data().pjrt_desc;
+
+        return @intCast(pjrt_desc.id(pjrt_api));
+    }
+
+    /// Returns the preferred memory for this device for the given kind, or null if none exists.
+    fn memory(self: DeviceView, _kind: Memory.Kind) ?MemoryView {
+        const mem_idx = self.data().memory_by_kind.get(_kind) orelse return null;
+
+        return self.rel.memory(mem_idx);
+    }
+
+    /// Returns the indices of the memories addressable by this device (indices into `Topology.mems`).
+    fn addressableMemIndices(self: DeviceView) []const u16 {
+        return self.rel.dev_to_mems[self.idx];
+    }
+
+    fn addressableIndices(self: DeviceView) MemIter {
+        return .{ .rel = self.rel, .indices = self.addressableMemIndices() };
+    }
+};
+
+/// Lightweight, read-only view over a single memory region.
+/// Identified by index into `Topology.mems`. Hides index manipulation
+/// and provides an ergonomic API for accessing memory data and relationships.
+pub const MemoryView = struct {
+    pub const DevIter = IndexIter(DeviceView);
+
+    /// Topology that owns this memory and all connectivity data.
+    rel: *const Topology,
+    /// Index of this memory in `Topology.mems` (0-based).
+    idx: u16,
+
+    /// Returns the PJRT API used by this topology.
+    fn pjrtApi(self: MemoryView) *const pjrt.Api {
+        return self.rel.pjrt_api;
+    }
+
+    /// Returns a pointer to the underlying memory data.
+    fn data(self: MemoryView) *const MemData {
+        return self.rel.mems[self.idx];
+    }
+
+    /// Returns the underlying PJRT memory handle.
+    fn pjrtMemory(self: MemoryView) *const pjrt.Memory {
+        return self.data().pjrt_memory;
+    }
+
+    /// Returns the PJRT memory kind string (e.g., "device", "pinned_host", "unpinned_host").
+    fn kind(self: MemoryView) []const u8 {
+        const pjrt_api = self.pjrtApi();
+        const pjrt_memory = self.pjrtMemory();
+
+        return pjrt_memory.kind_(pjrt_api);
+    }
+
+    /// Returns the indices of the devices that can address this memory (indices into `Topology.devs`).
+    fn addressableDevIndices(self: MemoryView) []const u16 {
+        return self.rel.mem_to_devs[self.idx];
+    }
+
+    fn addressableDevices(self: MemoryView) DevIter {
+        return .{ .rel = self.rel, .indices = self.addressableDevIndices() };
+    }
+};
+
+/// Centralized topology representing device–memory connectivity.
+/// This is the single source of truth for many-to-many relationships between devices and memories.
+/// All relationships are stored as index lists to avoid pointer cycles.
+pub const Topology = struct {
+    /// PJRT API used by this topology and all views.
+    pjrt_api: *const pjrt.Api,
+    /// Backend target (cpu/cuda/rocm/tpu/neuron/oneapi/metal).
+    target: Target,
+    /// Flat array of device data in stable order.
+    devs: []const DevData,
+    /// Flat array of memory data in stable order.
+    mems: []const MemData,
+    /// Adjacency list: dev_to_mems[d] = slice of memory indices addressable by device d.
+    /// Indices refer to Topology.mems.
+    dev_to_mems: []const []const u16,
+    /// Inverse adjacency list: mem_to_devs[m] = slice of device indices that can address memory m.
+    /// Indices refer to Topology.devs.
+    mem_to_devs: []const []const u16,
+    /// Mapping from PJRT device handle to ZML device index (u16).
+    pjrt_dev_to_idx: std.AutoHashMapUnmanaged(*const pjrt.Device, u16),
+    /// Mapping from PJRT memory handle to ZML memory index (u16).
+    pjrt_mem_to_idx: std.AutoHashMapUnmanaged(*const pjrt.Memory, u16),
+
+    /// Returns a lightweight view over the device at the given index.
+    fn device(self: *const Topology, idx: usize) DeviceView {
+        return .{ .rel = self, .idx = idx };
+    }
+
+    /// Returns a lightweight view over the memory at the given index.
+    fn memory(self: *const Topology, idx: usize) MemoryView {
+        return .{ .rel = self, .idx = idx };
+    }
+};
+
 // State union tagged on target platform to handle related resources
 pub const State = union(Target) {
     cpu: void,
@@ -293,6 +478,8 @@ pub const Platform = struct {
     pjrt_api: *const pjrt.Api,
     pjrt_client: *pjrt.Client,
     state: State,
+    /// Device–memory topology (connectivity graph and data).
+    topology: Topology,
     devices: []const Device,
     memories: []const Memory,
     physical_mesh: zml.Sharding.PhysicalMesh,
@@ -344,6 +531,7 @@ pub const Platform = struct {
                 .physical_mesh = undefined,
                 .replicated_sharding = undefined,
                 .io_impl = options.io_impl,
+                .topology = undefined,
             };
             break :platform platform;
         };
@@ -376,6 +564,132 @@ pub const Platform = struct {
                 .custom => |builder| builder(arena, target, devices),
             };
             platform.replicated_sharding = try platform.registerSharding("replicated", .mesh(.{ .x = .high_bandwidth }));
+        }
+
+        {
+            var pjrt_dev_to_idx: std.AutoHashMapUnmanaged(*const pjrt.Device, u16) = .empty;
+
+            try pjrt_dev_to_idx.ensureTotalCapacity(arena, @intCast(pjrt_devices.len));
+            for (pjrt_devices, 0..) |pjrt_device, idx| {
+                pjrt_dev_to_idx.putAssumeCapacity(pjrt_device, @intCast(idx));
+            }
+
+            var pjrt_mem_to_idx: std.AutoHashMapUnmanaged(*const pjrt.Memory, u16) = .empty;
+
+            try pjrt_mem_to_idx.ensureTotalCapacity(arena, @intCast(pjrt_memories.len));
+            for (pjrt_memories, 0..) |pjrt_memory, idx| {
+                pjrt_mem_to_idx.putAssumeCapacity(pjrt_memory, @intCast(idx));
+            }
+
+            const dev_to_mems_lists = try arena.alloc(std.ArrayList(u16), pjrt_devices.len);
+            for (dev_to_mems_lists) |*l| l.* = .empty;
+
+            const mem_to_devs_lists = try arena.alloc(std.ArrayList(u16), pjrt_memories.len);
+            for (mem_to_devs_lists) |*l| l.* = .empty;
+
+            for (pjrt_devices) |pjrt_device| {
+                const addressable_memories = pjrt_device.addressableMemories(api);
+                const dev_idx = pjrt_dev_to_idx.get(pjrt_device) orelse unreachable;
+
+                try dev_to_mems_lists[dev_idx].ensureTotalCapacity(arena, addressable_memories.len);
+                for (addressable_memories) |addressable_memory| {
+                    const mem_idx = pjrt_mem_to_idx.get(addressable_memory) orelse unreachable;
+
+                    dev_to_mems_lists[dev_idx].appendAssumeCapacity(mem_idx);
+                    try mem_to_devs_lists[mem_idx].append(arena, dev_idx);
+                }
+            }
+
+            const dev_to_mems = try arena.alloc([]const u16, pjrt_devices.len);
+            for (dev_to_mems, dev_to_mems_lists) |*out, *l| {
+                out.* = try l.toOwnedSlice(arena);
+            }
+            const mem_to_devs = try arena.alloc([]const u16, pjrt_memories.len);
+            for (mem_to_devs, mem_to_devs_lists) |*out, *l| {
+                out.* = try l.toOwnedSlice(arena);
+            }
+
+            var devs = try arena.alloc(DevData, pjrt_devices.len);
+            for (pjrt_devices, 0..) |pjrt_device, i| {
+                devs.ptr[i] = .{
+                    .pjrt_device = pjrt_device,
+                    .pjrt_desc = pjrt_device.getDescription(api),
+                    .memory_by_kind = undefined,
+                };
+            }
+
+            var mems = try arena.alloc(MemData, pjrt_memories.len);
+            for (pjrt_memories, 0..) |pjrt_memory, i| {
+                mems.ptr[i] = .{
+                    .pjrt_memory = pjrt_memory,
+                };
+            }
+
+            for (pjrt_devices, 0..) |pjrt_device, i| {
+                const addressable_memories = pjrt_device.addressableMemories(api);
+
+                var memory_by_kind: std.EnumArray(Memory.Kind, ?u16) = .initFill(null);
+                memory_by_kind.set(.default, pjrt_mem_to_idx.get(pjrt_device.defaultMemory(api)) orelse unreachable);
+
+                const kinds = [_]Memory.Kind{ .device, .host_pinned, .host_unpinned };
+                for (kinds) |kind| {
+                    for (addressable_memories) |pjrt_memory| {
+                        if (memoryIsOfKind(target, api, pjrt_memory, kind)) {
+                            memory_by_kind.set(kind, pjrt_mem_to_idx.get(pjrt_memory) orelse unreachable);
+                            break;
+                        }
+                    }
+                }
+
+                devs.ptr[i].memory_by_kind = memory_by_kind;
+            }
+
+            const topology: Topology = .{
+                .mems = mems,
+                .devs = devs,
+                .pjrt_dev_to_idx = pjrt_dev_to_idx,
+                .pjrt_mem_to_idx = pjrt_mem_to_idx,
+                .target = target,
+                .pjrt_api = api,
+                .mem_to_devs = mem_to_devs,
+                .dev_to_mems = dev_to_mems,
+            };
+            platform.topology = topology;
+
+            // Étape 5.2 : assertions Debug temporaires vérifiant que la nouvelle Topology
+            // est cohérente avec l'ancien monde devices/memories. À retirer à l'étape 9.3.
+            for (topology.devs, 0..) |dev_data, dev_idx| {
+                const old_device = platform.deviceFromPjrt(dev_data.pjrt_device);
+
+                // 1. dev_to_mems[dev_idx] <-> Device.addressable_memories
+                std.debug.assert(topology.dev_to_mems[dev_idx].len == old_device.addressable_memories.len);
+                for (topology.dev_to_mems[dev_idx], old_device.addressable_memories) |mem_idx, old_mem| {
+                    std.debug.assert(topology.mems[mem_idx].pjrt_memory == old_mem.pjrt_memory);
+                }
+
+                // 2. DevData.memory_by_kind <-> Device.memory_by_kind
+                const kinds = [_]Memory.Kind{ .default, .device, .host_pinned, .host_unpinned };
+                for (kinds) |kind| {
+                    const new_mem_idx = dev_data.memory_by_kind.get(kind);
+                    const old_mem = old_device.memory_by_kind.get(kind);
+                    if (new_mem_idx) |mem_idx| {
+                        std.debug.assert(old_mem != null);
+                        std.debug.assert(topology.mems[mem_idx].pjrt_memory == old_mem.?.pjrt_memory);
+                    } else {
+                        std.debug.assert(old_mem == null);
+                    }
+                }
+            }
+
+            for (topology.mems, 0..) |mem_data, mem_idx| {
+                const old_memory = platform.memoryFromPjrt(mem_data.pjrt_memory);
+
+                // 3. mem_to_devs[mem_idx] <-> Memory.addressable_by_devices
+                std.debug.assert(topology.mem_to_devs[mem_idx].len == old_memory.addressable_by_devices.len);
+                for (topology.mem_to_devs[mem_idx], old_memory.addressable_by_devices) |dev_idx, old_dev| {
+                    std.debug.assert(topology.devs[dev_idx].pjrt_device == old_dev.pjrt_device);
+                }
+            }
         }
 
         switch (target) {
@@ -680,11 +994,23 @@ pub const Platform = struct {
         unreachable;
     }
 
+    fn memoryFromPjrtTopology(self: *const Platform, pjrt_memory: *const pjrt.Memory) *const MemData {
+        const idx = self.topology.pjrt_mem_to_idx.get(pjrt_memory) orelse unreachable;
+
+        return self.topology.mems[idx];
+    }
+
     fn deviceFromPjrt(self: *const Platform, pjrt_device: *const pjrt.Device) *const Device {
         for (self.devices) |*device| {
             if (device.pjrt_device == pjrt_device) return device;
         }
         unreachable;
+    }
+
+    fn deviceFromPjrtTopology(self: *const Platform, pjrt_device: *const pjrt.Device) *const DevData {
+        const idx = self.topology.pjrt_mem_to_idx.get(pjrt_device) orelse unreachable;
+
+        return self.topology.devs[idx];
     }
 
     pub inline fn defaultMemoryLayout(platform: *const Platform, dims: []const i64, dtype: zml.DataType) pjrt.MemoryLayout {

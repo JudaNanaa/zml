@@ -341,6 +341,7 @@ test "Backend.auto selects mosaic_tpu on TPU" {
         .physical_mesh = undefined,
         .replicated_sharding = undefined,
         .shardings = .empty,
+        .topology = undefined,
         .io_impl = .threaded,
     };
 
@@ -359,6 +360,7 @@ test "Backend.auto selects triton on oneAPI" {
         .physical_mesh = undefined,
         .replicated_sharding = undefined,
         .shardings = .empty,
+        .topology = undefined,
         .io_impl = .threaded,
     };
 
