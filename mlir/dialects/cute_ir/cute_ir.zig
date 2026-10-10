@@ -21,12 +21,14 @@ pub const CuteType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
 
+    // Formate le type CuTe via le formateur du type MLIR sous-jacent (`mlir.Type.format`).
     pub fn format(self: *const CuteType, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         const t: *const mlir.Type = @ptrCast(self);
         return t.format(writer);
     }
 };
 
+// Enregistre les dialectes `cute`, `cute_nvgpu`, `nvvm` et `cuda` dans le registre MLIR fourni, via leurs points d'ancrage de dialecte.
 /// Registers `cute`, `cute_nvgpu`, and NVIDIA's `nvvm` and `cuda` in the
 /// existing MLIR registry. The `nvvm` here is the compiler's, not upstream's:
 /// a registry cannot hold both.
@@ -39,6 +41,7 @@ pub fn registerDialects(registry: *mlir.DialectRegistry) void {
 
 pub const AlgebraKind = AttributeKind;
 
+// Construit le type d'algebre CuTe correspondant a `kind` a partir d'une expression texte, en passant par l'attribut (`c.mlirCute*TypeGet`).
 /// Constructs the algebra attribute and type through their C APIs.
 /// Existing attributes can be passed directly to LayoutType.get, etc.
 pub fn algebraType(ctx: *mlir.Context, kind: AlgebraKind, expression: []const u8) !*const mlir.Type {
@@ -60,6 +63,7 @@ pub fn algebraType(ctx: *mlir.Context, kind: AlgebraKind, expression: []const u8
     };
 }
 
+// Construit l'attribut d'algebre CuTe (`#cute.*`) correspondant a `kind` depuis une expression CuTe texte (`c.mlirCute*AttrGet`).
 pub fn algebraAttribute(ctx: *mlir.Context, kind: AttributeKind, expression: []const u8) !*const mlir.Attribute {
     return switch (kind) {
         inline else => |k| blk: {
@@ -81,6 +85,7 @@ pub fn algebraAttribute(ctx: *mlir.Context, kind: AttributeKind, expression: []c
 /// The address space of a pointer or memref.
 pub const MemorySpace = AddressSpace;
 
+// Construit un `!cute.ptr` a partir du type d'element optionnel, de l'espace d'adressage et de l'alignement (`c.mlirCutePtrTypeGet`).
 pub fn pointerType(ctx: *mlir.Context, element_type: ?*const mlir.Type, space: MemorySpace, alignment: u64) !*const mlir.Type {
     return (try PtrType.get(ctx, .{
         .valueType = element_type,
@@ -89,6 +94,7 @@ pub fn pointerType(ctx: *mlir.Context, element_type: ?*const mlir.Type, space: M
     })).type_();
 }
 
+// Construit un `!cute.i<N>` de largeur et divisibilite donnees (`divisible_by` converti en i64, `isPow2=false`).
 pub fn constrainedIntType(ctx: *mlir.Context, width: enum { i32, i64 }, divisible_by: u64) !*const mlir.Type {
     return (try ConstrainedIntType.get(ctx, .{
         .divisibility = std.math.cast(i64, divisible_by) orelse return error.InvalidMlir,
@@ -110,19 +116,23 @@ pub const IntTupleAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.int_tuple` depuis une expression CuTe texte (`c.mlirCuteIntTupleAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const IntTupleAttr {
         const result = c.mlirCuteIntTupleAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `int_tuple` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const IntTupleAttr) []const u8 {
         return mlir.string(c.mlirCuteIntTupleAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `IntTupleAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const IntTupleAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `int_tuple` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const IntTupleAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -136,19 +146,23 @@ pub const CoordAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.coord` depuis une expression CuTe texte (`c.mlirCuteCoordAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const CoordAttr {
         const result = c.mlirCuteCoordAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `coord` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const CoordAttr) []const u8 {
         return mlir.string(c.mlirCuteCoordAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `CoordAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const CoordAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `coord` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const CoordAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -162,19 +176,23 @@ pub const ShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.shape` depuis une expression CuTe texte (`c.mlirCuteShapeAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const ShapeAttr {
         const result = c.mlirCuteShapeAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `shape` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const ShapeAttr) []const u8 {
         return mlir.string(c.mlirCuteShapeAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `ShapeAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const ShapeAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `shape` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const ShapeAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -188,19 +206,23 @@ pub const StrideAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.stride` depuis une expression CuTe texte (`c.mlirCuteStrideAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const StrideAttr {
         const result = c.mlirCuteStrideAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `stride` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const StrideAttr) []const u8 {
         return mlir.string(c.mlirCuteStrideAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `StrideAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const StrideAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `stride` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const StrideAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -214,19 +236,23 @@ pub const LayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.layout` depuis une expression CuTe texte (`c.mlirCuteLayoutAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const LayoutAttr {
         const result = c.mlirCuteLayoutAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `layout` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const LayoutAttr) []const u8 {
         return mlir.string(c.mlirCuteLayoutAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `LayoutAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const LayoutAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `layout` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const LayoutAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -240,19 +266,23 @@ pub const TileAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.tile` depuis une expression CuTe texte (`c.mlirCuteTileAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const TileAttr {
         const result = c.mlirCuteTileAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `tile` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const TileAttr) []const u8 {
         return mlir.string(c.mlirCuteTileAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `TileAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const TileAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `tile` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const TileAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -266,19 +296,23 @@ pub const ComposedLayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.composed_layout` depuis une expression CuTe texte (`c.mlirCuteComposedLayoutAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const ComposedLayoutAttr {
         const result = c.mlirCuteComposedLayoutAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `composed_layout` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const ComposedLayoutAttr) []const u8 {
         return mlir.string(c.mlirCuteComposedLayoutAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `ComposedLayoutAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const ComposedLayoutAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `composed_layout` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const ComposedLayoutAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -292,19 +326,23 @@ pub const SwizzleAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
 
+    // Construit l'attribut `#cute.swizzle` depuis une expression CuTe texte (`c.mlirCuteSwizzleAttrGet`); renvoie `InvalidMlir` si le parse echoue.
     pub fn get(ctx: *mlir.Context, value: []const u8) mlir.Error!*const SwizzleAttr {
         const result = c.mlirCuteSwizzleAttrGet(ctx.ptr(), mlir.stringRef(value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
 
+    // Retourne le texte de l'expression CuTe stockee dans l'attribut `swizzle` (memoire detenue par le contexte MLIR).
     pub fn getValue(self: *const SwizzleAttr) []const u8 {
         return mlir.string(c.mlirCuteSwizzleAttrGetValue(self.ptr()));
     }
 
+    // Reinterprete l'attribut `SwizzleAttr` en `mlir.Attribute` generique (meme pointeur).
     pub fn attribute(self: *const SwizzleAttr) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Formate l'attribut `swizzle` via le formateur d'attribut MLIR (`mlir.Attribute.format`).
     pub fn format(self: *const SwizzleAttr, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
@@ -365,19 +403,23 @@ pub const ArithTupleIteratorType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "arith_tuple_iter";
+    // Formate le type `!cute.arith_tuple_iter` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique (upcast du pointeur).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         arithTuple: *const mlir.Type,
     };
+    // Construit `!cute.arith_tuple_iter<arithTuple>` depuis le type de tuple arithmetique (`c.mlirCuteArithTupleIteratorTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteArithTupleIteratorTypeGet(ctx.ptr(), args.arithTuple.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type du tuple arithmetique encapsule (`c.mlirCuteArithTupleIteratorTypeGetArithTuple`).
     pub fn getArithTuple(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteArithTupleIteratorTypeGetArithTuple(self.ptr()).ptr.?);
     }
@@ -392,19 +434,23 @@ pub const ComposedLayoutType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "composed_layout";
+    // Formate le type `!cute.composed_layout` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.composed_layout` depuis son attribut (`c.mlirCuteComposedLayoutTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteComposedLayoutTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de composition A o offset o B (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteComposedLayoutTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -418,9 +464,11 @@ pub const ConstrainedIntType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Formate le type `!cute.i<N>` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -429,16 +477,20 @@ pub const ConstrainedIntType = opaque {
         width: c_uint,
         isPow2: bool,
     };
+    // Construit `!cute.i<width>` avec divisibilite, largeur et marqueur puissance-de-deux (`c.mlirCuteConstrainedIntTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteConstrainedIntTypeGet(ctx.ptr(), args.divisibility, args.width, args.isPow2);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la divisibilite connue du type entier contraint (`GetDivisibility`).
     pub fn getDivisibility(self: *const Self) i64 {
         return c.mlirCuteConstrainedIntTypeGetDivisibility(self.ptr());
     }
+    // Retourne la largeur en bits du type entier contraint (`GetWidth`).
     pub fn getWidth(self: *const Self) c_uint {
         return c.mlirCuteConstrainedIntTypeGetWidth(self.ptr());
     }
+    // Indique si la taille du type entier contraint est une puissance de deux (`GetIsPow2`).
     pub fn getIsPow2(self: *const Self) bool {
         return c.mlirCuteConstrainedIntTypeGetIsPow2(self.ptr());
     }
@@ -453,9 +505,11 @@ pub const CoordTensorType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "coord_tensor";
+    // Formate le type `!cute.coord_tensor` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -463,13 +517,16 @@ pub const CoordTensorType = opaque {
         arithTuple: *const mlir.Type,
         layout: *const mlir.Type,
     };
+    // Construit `!cute.coord_tensor<arithTuple, layout>` (`c.mlirCuteCoordTensorTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteCoordTensorTypeGet(ctx.ptr(), args.arithTuple.ptr(), args.layout.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le tuple arithmetique sous-jacent (`GetArithTuple`).
     pub fn getArithTuple(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteCoordTensorTypeGetArithTuple(self.ptr()).ptr.?);
     }
+    // Retourne le type de layout associe (`GetLayout`).
     pub fn getLayout(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteCoordTensorTypeGetLayout(self.ptr()).ptr.?);
     }
@@ -484,19 +541,23 @@ pub const CoordType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "coord";
+    // Formate le type `!cute.coord` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.coord` depuis son attribut (`c.mlirCuteCoordTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteCoordTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de coordonnee (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCoordTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -511,9 +572,11 @@ pub const FastDivmodDivisorType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "fast_divmod_divisor";
+    // Formate le type `!cute.fast_divmod_divisor` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -521,13 +584,16 @@ pub const FastDivmodDivisorType = opaque {
         width: c_uint,
         isPow2: bool,
     };
+    // Construit `!cute.fast_divmod_divisor` avec largeur et marqueur puissance-de-deux (`c.mlirCuteFastDivmodDivisorTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteFastDivmodDivisorTypeGet(ctx.ptr(), args.width, args.isPow2);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la largeur du diviseur precalcule (`GetWidth`).
     pub fn getWidth(self: *const Self) c_uint {
         return c.mlirCuteFastDivmodDivisorTypeGetWidth(self.ptr());
     }
+    // Indique si le diviseur est une puissance de deux (`GetIsPow2`).
     pub fn getIsPow2(self: *const Self) bool {
         return c.mlirCuteFastDivmodDivisorTypeGetIsPow2(self.ptr());
     }
@@ -542,19 +608,23 @@ pub const IntTupleType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "int_tuple";
+    // Formate le type `!cute.int_tuple` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.int_tuple` depuis son attribut (`c.mlirCuteIntTupleTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteIntTupleTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut int_tuple (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteIntTupleTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -569,19 +639,23 @@ pub const LayoutType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "layout";
+    // Formate le type `!cute.layout` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.layout` depuis son attribut shape/stride (`c.mlirCuteLayoutTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteLayoutTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de layout (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteLayoutTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -596,9 +670,11 @@ pub const MemRefType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "memref";
+    // Formate le type `!cute.memref` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -606,13 +682,16 @@ pub const MemRefType = opaque {
         ptr: *const mlir.Type,
         layout: *const mlir.Type,
     };
+    // Construit `!cute.memref<ptr, layout>` (`c.mlirCuteMemRefTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteMemRefTypeGet(ctx.ptr(), args.ptr.ptr(), args.layout.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type de pointeur sous-jacent (`GetPtr`).
     pub fn getPtr(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteMemRefTypeGetPtr(self.ptr()).ptr.?);
     }
+    // Retourne le type de layout (`GetLayout`).
     pub fn getLayout(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteMemRefTypeGetLayout(self.ptr()).ptr.?);
     }
@@ -627,9 +706,11 @@ pub const PtrType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "ptr";
+    // Formate le type `!cute.ptr` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -640,22 +721,28 @@ pub const PtrType = opaque {
         swizzle: ?*const mlir.Attribute = null,
         bitlayout: ?*const mlir.Attribute = null,
     };
+    // Construit `!cute.ptr` depuis type de valeur, espace d'adressage, alignement, swizzle et bitlayout optionnels (`c.mlirCutePtrTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCutePtrTypeGet(ctx.ptr(), if (args.valueType) |v| v.ptr() else c.MlirType{ .ptr = null }, @intFromEnum(args.addressSpace), args.alignment, if (args.swizzle) |v| v.ptr() else c.MlirAttribute{ .ptr = null }, if (args.bitlayout) |v| v.ptr() else c.MlirAttribute{ .ptr = null });
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type de valeur pointee, ou null (`GetValueType`).
     pub fn getValueType(self: *const Self) ?*const mlir.Type {
         return @ptrCast(c.mlirCutePtrTypeGetValueType(self.ptr()).ptr);
     }
+    // Retourne l'espace d'adressage du pointeur (`GetAddressSpace`).
     pub fn getAddressSpace(self: *const Self) AddressSpace {
         return @enumFromInt(c.mlirCutePtrTypeGetAddressSpace(self.ptr()));
     }
+    // Retourne l'alignement en octets du pointeur (`GetAlignment`).
     pub fn getAlignment(self: *const Self) u64 {
         return c.mlirCutePtrTypeGetAlignment(self.ptr());
     }
+    // Retourne l'attribut de swizzle, ou null (`GetSwizzle`).
     pub fn getSwizzle(self: *const Self) ?*const mlir.Attribute {
         return @ptrCast(c.mlirCutePtrTypeGetSwizzle(self.ptr()).ptr);
     }
+    // Retourne l'attribut de bitlayout, ou null (`GetBitlayout`).
     pub fn getBitlayout(self: *const Self) ?*const mlir.Attribute {
         return @ptrCast(c.mlirCutePtrTypeGetBitlayout(self.ptr()).ptr);
     }
@@ -670,19 +757,23 @@ pub const ShapeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "shape";
+    // Formate le type `!cute.shape` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.shape` depuis son attribut (`c.mlirCuteShapeTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteShapeTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de shape (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteShapeTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -697,9 +788,11 @@ pub const SparseElemType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sparse_elem";
+    // Formate le type `!cute.sparse_elem` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -707,13 +800,16 @@ pub const SparseElemType = opaque {
         numLogical: c_int,
         physicalType: *const mlir.Type,
     };
+    // Construit `!cute.sparse_elem` avec nombre d'elements logiques et type physique (`c.mlirCuteSparseElemTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteSparseElemTypeGet(ctx.ptr(), args.numLogical, args.physicalType.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le nombre d'elements logiques (`GetNumLogical`).
     pub fn getNumLogical(self: *const Self) c_int {
         return c.mlirCuteSparseElemTypeGetNumLogical(self.ptr());
     }
+    // Retourne le type physique de stockage (`GetPhysicalType`).
     pub fn getPhysicalType(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteSparseElemTypeGetPhysicalType(self.ptr()).ptr.?);
     }
@@ -728,19 +824,23 @@ pub const StrideType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "stride";
+    // Formate le type `!cute.stride` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.stride` depuis son attribut (`c.mlirCuteStrideTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteStrideTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de stride (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteStrideTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -755,19 +855,23 @@ pub const SwizzleType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "swizzle";
+    // Formate le type `!cute.swizzle` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.swizzle` depuis son attribut (`c.mlirCuteSwizzleTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteSwizzleTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de swizzle S<b,m,s> (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSwizzleTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -782,19 +886,23 @@ pub const TileType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tile";
+    // Formate le type `!cute.tile` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
+    // Construit `!cute.tile` depuis son attribut (`c.mlirCuteTileTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteTileTypeGet(ctx.ptr(), args.attr.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'attribut de tile (`GetAttr`).
     pub fn getAttr(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTileTypeGetAttr(self.ptr()).ptr.?);
     }
@@ -809,9 +917,11 @@ pub const TiledCopyType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tiled_copy";
+    // Formate le type `!cute.tiled_copy` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -820,16 +930,20 @@ pub const TiledCopyType = opaque {
         layoutCopyTv: *const mlir.Attribute,
         tilerMn: *const mlir.Attribute,
     };
+    // Construit `!cute.tiled_copy` depuis l'atome de copie, le layout copy_tv et le tiler MN (`c.mlirCuteTiledCopyTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteTiledCopyTypeGet(ctx.ptr(), args.copyAtom.ptr(), args.layoutCopyTv.ptr(), args.tilerMn.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type d'atome de copie (`GetCopyAtom`).
     pub fn getCopyAtom(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteTiledCopyTypeGetCopyAtom(self.ptr()).ptr.?);
     }
+    // Retourne le layout threads/valeurs de la copie (`GetLayoutCopyTv`).
     pub fn getLayoutCopyTv(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledCopyTypeGetLayoutCopyTv(self.ptr()).ptr.?);
     }
+    // Retourne le tiler MN (`GetTilerMn`).
     pub fn getTilerMn(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledCopyTypeGetTilerMn(self.ptr()).ptr.?);
     }
@@ -845,9 +959,11 @@ pub const TiledCopyV2Type = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tiled_copy_v2";
+    // Formate le type `!cute.tiled_copy_v2` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -856,16 +972,20 @@ pub const TiledCopyV2Type = opaque {
         layoutCopyTv: *const mlir.Attribute,
         tilerMn: *const mlir.Attribute,
     };
+    // Construit `!cute.tiled_copy_v2` depuis l'atome V2, le layout copy_tv et le tiler MN (`c.mlirCuteTiledCopyV2TypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteTiledCopyV2TypeGet(ctx.ptr(), args.copyAtom.ptr(), args.layoutCopyTv.ptr(), args.tilerMn.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type d'atome de copie V2 (`GetCopyAtom`).
     pub fn getCopyAtom(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteTiledCopyV2TypeGetCopyAtom(self.ptr()).ptr.?);
     }
+    // Retourne le layout threads/valeurs (`GetLayoutCopyTv`).
     pub fn getLayoutCopyTv(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledCopyV2TypeGetLayoutCopyTv(self.ptr()).ptr.?);
     }
+    // Retourne le tiler MN (`GetTilerMn`).
     pub fn getTilerMn(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledCopyV2TypeGetTilerMn(self.ptr()).ptr.?);
     }
@@ -880,9 +1000,11 @@ pub const TiledMmaType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tiled_mma";
+    // Formate le type `!cute.tiled_mma` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -891,16 +1013,20 @@ pub const TiledMmaType = opaque {
         atomLayoutMNK: *const mlir.Attribute,
         permutationMNK: ?*const mlir.Attribute = null,
     };
+    // Construit `!cute.tiled_mma` depuis l'atome MMA, le layout atomique MNK et la permutation MNK optionnelle (`c.mlirCuteTiledMmaTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteTiledMmaTypeGet(ctx.ptr(), args.mmaAtom.ptr(), args.atomLayoutMNK.ptr(), if (args.permutationMNK) |v| v.ptr() else c.MlirAttribute{ .ptr = null });
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le type d'atome MMA (`GetMmaAtom`).
     pub fn getMmaAtom(self: *const Self) *const mlir.Type {
         return @ptrCast(c.mlirCuteTiledMmaTypeGetMmaAtom(self.ptr()).ptr.?);
     }
+    // Retourne le layout atomique MNK (`GetAtomLayoutMNK`).
     pub fn getAtomLayoutMNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledMmaTypeGetAtomLayoutMNK(self.ptr()).ptr.?);
     }
+    // Retourne la permutation MNK, ou null (`GetPermutationMNK`).
     pub fn getPermutationMNK(self: *const Self) ?*const mlir.Attribute {
         return @ptrCast(c.mlirCuteTiledMmaTypeGetPermutationMNK(self.ptr()).ptr);
     }
@@ -918,22 +1044,27 @@ pub const TupleType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tuple";
+    // Formate le type `!cute.tuple` via son `mlir.Type` sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete la valeur opaque en `mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         types: []const *const mlir.Type,
     };
+    // Construit `!cute.tuple<...>` depuis la liste de types (`c.mlirCuteTupleTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteTupleTypeGet(ctx.ptr(), @intCast(args.types.len), @ptrCast(args.types.ptr));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le nombre de types du tuple (`GetNumTypes`).
     pub fn getNumTypes(self: *const Self) usize {
         return @intCast(c.mlirCuteTupleTypeGetNumTypes(self.ptr()));
     }
+    // Retourne le type a la position `pos` (`GetType`).
     pub fn getType(self: *const Self, pos: usize) *const mlir.Type {
         return @ptrCast(c.mlirCuteTupleTypeGetType(self.ptr(), @intCast(pos)).ptr.?);
     }
@@ -948,19 +1079,23 @@ pub const BitLayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "bitlayout";
+    // Formate l'attribut `#cute.bitlayout` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `BitLayoutAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         layout: *const mlir.Attribute,
     };
+    // Construit `#cute.bitlayout` depuis un layout (`c.mlirCuteBitLayoutAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteBitLayoutAttrGet(ctx.ptr(), args.layout.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le layout interne du bitlayout (`GetLayout`).
     pub fn getLayout(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteBitLayoutAttrGetLayout(self.ptr()).ptr.?);
     }
@@ -975,9 +1110,11 @@ pub const CopyAtomAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "copy_atom";
+    // Formate l'attribut `#cute.copy_atom` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `CopyAtomAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -987,19 +1124,24 @@ pub const CopyAtomAttr = opaque {
         layoutDst: *const mlir.Attribute,
         layoutRef: *const mlir.Attribute,
     };
+    // Construit `#cute.copy_atom` depuis thr_id et les layouts source/destination/reference (`c.mlirCuteCopyAtomAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteCopyAtomAttrGet(ctx.ptr(), args.thrId.ptr(), args.layoutSrc.ptr(), args.layoutDst.ptr(), args.layoutRef.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomAttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout source (`GetLayoutSrc`).
     pub fn getLayoutSrc(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomAttrGetLayoutSrc(self.ptr()).ptr.?);
     }
+    // Retourne le layout destination (`GetLayoutDst`).
     pub fn getLayoutDst(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomAttrGetLayoutDst(self.ptr()).ptr.?);
     }
+    // Retourne le layout de reference (`GetLayoutRef`).
     pub fn getLayoutRef(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomAttrGetLayoutRef(self.ptr()).ptr.?);
     }
@@ -1014,9 +1156,11 @@ pub const CopyAtomV2Attr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "copy_atom_v2";
+    // Formate l'attribut `#cute.copy_atom_v2` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `CopyAtomV2Attr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -1027,22 +1171,28 @@ pub const CopyAtomV2Attr = opaque {
         frgSrc: *const mlir.Attribute,
         frgDst: *const mlir.Attribute,
     };
+    // Construit `#cute.copy_atom_v2` depuis thr_id, les layouts source/destination TV et les fragments (`c.mlirCuteCopyAtomV2AttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteCopyAtomV2AttrGet(ctx.ptr(), args.thrId.ptr(), args.layoutSrcTV.ptr(), args.layoutDstTV.ptr(), args.frgSrc.ptr(), args.frgDst.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomV2AttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout source threads/valeurs (`GetLayoutSrcTV`).
     pub fn getLayoutSrcTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomV2AttrGetLayoutSrcTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout destination threads/valeurs (`GetLayoutDstTV`).
     pub fn getLayoutDstTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomV2AttrGetLayoutDstTV(self.ptr()).ptr.?);
     }
+    // Retourne le fragment source (`GetFrgSrc`).
     pub fn getFrgSrc(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomV2AttrGetFrgSrc(self.ptr()).ptr.?);
     }
+    // Retourne le fragment destination (`GetFrgDst`).
     pub fn getFrgDst(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteCopyAtomV2AttrGetFrgDst(self.ptr()).ptr.?);
     }
@@ -1057,9 +1207,11 @@ pub const MmaAtomAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_atom";
+    // Formate l'attribut `#cute.mma_atom` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `MmaAtomAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -1076,40 +1228,52 @@ pub const MmaAtomAttr = opaque {
         frgB: *const mlir.Attribute,
         frgC: *const mlir.Attribute,
     };
+    // Construit `#cute.mma_atom` depuis shape MNK, thr_id, layouts TV, shapes AMK/BNK/CMN et fragments (`c.mlirCuteMmaAtomAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteMmaAtomAttrGet(ctx.ptr(), args.shapeMNK.ptr(), args.thrId.ptr(), args.layoutATV.ptr(), args.layoutBTV.ptr(), args.layoutCTV.ptr(), args.shapeAMK.ptr(), args.shapeBNK.ptr(), args.shapeCMN.ptr(), args.frgA.ptr(), args.frgB.ptr(), args.frgC.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la shape MNK de l'atome (`GetShapeMNK`).
     pub fn getShapeMNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetShapeMNK(self.ptr()).ptr.?);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande A (`GetLayoutATV`).
     pub fn getLayoutATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetLayoutATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande B (`GetLayoutBTV`).
     pub fn getLayoutBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetLayoutBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande C (`GetLayoutCTV`).
     pub fn getLayoutCTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetLayoutCTV(self.ptr()).ptr.?);
     }
+    // Retourne la shape AMK (`GetShapeAMK`).
     pub fn getShapeAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetShapeAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape BNK (`GetShapeBNK`).
     pub fn getShapeBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetShapeBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape CMN (`GetShapeCMN`).
     pub fn getShapeCMN(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetShapeCMN(self.ptr()).ptr.?);
     }
+    // Retourne le fragment A (`GetFrgA`).
     pub fn getFrgA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetFrgA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment B (`GetFrgB`).
     pub fn getFrgB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetFrgB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment C (`GetFrgC`).
     pub fn getFrgC(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMmaAtomAttrGetFrgC(self.ptr()).ptr.?);
     }
@@ -1124,9 +1288,11 @@ pub const MxMmaAtomAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mx_mma_atom";
+    // Formate l'attribut `#cute.mx_mma_atom` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `MxMmaAtomAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -1149,58 +1315,76 @@ pub const MxMmaAtomAttr = opaque {
         frgSFB: *const mlir.Attribute,
         frgC: *const mlir.Attribute,
     };
+    // Construit `#cute.mx_mma_atom` (MMA avec facteurs d'echelle SFA/SFB) depuis tous ses champs (`c.mlirCuteMxMmaAtomAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteMxMmaAtomAttrGet(ctx.ptr(), args.shapeMNK.ptr(), args.thrId.ptr(), args.layoutATV.ptr(), args.layoutSFATV.ptr(), args.layoutBTV.ptr(), args.layoutSFBTV.ptr(), args.layoutCTV.ptr(), args.shapeAMK.ptr(), args.shapeSFAMK.ptr(), args.shapeBNK.ptr(), args.shapeSFBNK.ptr(), args.shapeCMN.ptr(), args.frgA.ptr(), args.frgSFA.ptr(), args.frgB.ptr(), args.frgSFB.ptr(), args.frgC.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la shape MNK (`GetShapeMNK`).
     pub fn getShapeMNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeMNK(self.ptr()).ptr.?);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande A (`GetLayoutATV`).
     pub fn getLayoutATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetLayoutATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV du facteur d'echelle A (`GetLayoutSFATV`).
     pub fn getLayoutSFATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetLayoutSFATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande B (`GetLayoutBTV`).
     pub fn getLayoutBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetLayoutBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV du facteur d'echelle B (`GetLayoutSFBTV`).
     pub fn getLayoutSFBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetLayoutSFBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande C (`GetLayoutCTV`).
     pub fn getLayoutCTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetLayoutCTV(self.ptr()).ptr.?);
     }
+    // Retourne la shape AMK (`GetShapeAMK`).
     pub fn getShapeAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape du facteur d'echelle A (`GetShapeSFAMK`).
     pub fn getShapeSFAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeSFAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape BNK (`GetShapeBNK`).
     pub fn getShapeBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape du facteur d'echelle B (`GetShapeSFBNK`).
     pub fn getShapeSFBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeSFBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape CMN (`GetShapeCMN`).
     pub fn getShapeCMN(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetShapeCMN(self.ptr()).ptr.?);
     }
+    // Retourne le fragment A (`GetFrgA`).
     pub fn getFrgA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetFrgA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment du facteur d'echelle A (`GetFrgSFA`).
     pub fn getFrgSFA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetFrgSFA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment B (`GetFrgB`).
     pub fn getFrgB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetFrgB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment du facteur d'echelle B (`GetFrgSFB`).
     pub fn getFrgSFB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetFrgSFB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment C (`GetFrgC`).
     pub fn getFrgC(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteMxMmaAtomAttrGetFrgC(self.ptr()).ptr.?);
     }
@@ -1215,19 +1399,23 @@ pub const ReductionOpAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "reduction_op";
+    // Formate l'attribut `#cute.reduction_op` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `ReductionOpAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ReductionOp,
     };
+    // Construit `#cute.reduction_op` depuis la valeur d'enum `ReductionOp` (`c.mlirCuteReductionOpAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteReductionOpAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne l'operation de reduction (ADD/MUL/MIN/MAX) (`GetValue`).
     pub fn getValue(self: *const Self) ReductionOp {
         return @enumFromInt(c.mlirCuteReductionOpAttrGetValue(self.ptr()));
     }
@@ -1242,9 +1430,11 @@ pub const SparseMmaAtomAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sparse_mma_atom";
+    // Formate l'attribut `#cute.sparse_mma_atom` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `SparseMmaAtomAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -1264,49 +1454,64 @@ pub const SparseMmaAtomAttr = opaque {
         frgC: *const mlir.Attribute,
         frgE: *const mlir.Attribute,
     };
+    // Construit `#cute.sparse_mma_atom` (MMA clairsemee avec operande E de metadonnees) depuis tous ses champs (`c.mlirCuteSparseMmaAtomAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteSparseMmaAtomAttrGet(ctx.ptr(), args.shapeMNK.ptr(), args.thrId.ptr(), args.layoutATV.ptr(), args.layoutBTV.ptr(), args.layoutCTV.ptr(), args.layoutETV.ptr(), args.shapeAMK.ptr(), args.shapeBNK.ptr(), args.shapeCMN.ptr(), args.shapeEMK.ptr(), args.frgA.ptr(), args.frgB.ptr(), args.frgC.ptr(), args.frgE.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la shape MNK (`GetShapeMNK`).
     pub fn getShapeMNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetShapeMNK(self.ptr()).ptr.?);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande A (`GetLayoutATV`).
     pub fn getLayoutATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetLayoutATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande B (`GetLayoutBTV`).
     pub fn getLayoutBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetLayoutBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande C (`GetLayoutCTV`).
     pub fn getLayoutCTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetLayoutCTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande E (metadonnees) (`GetLayoutETV`).
     pub fn getLayoutETV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetLayoutETV(self.ptr()).ptr.?);
     }
+    // Retourne la shape AMK (`GetShapeAMK`).
     pub fn getShapeAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetShapeAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape BNK (`GetShapeBNK`).
     pub fn getShapeBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetShapeBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape CMN (`GetShapeCMN`).
     pub fn getShapeCMN(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetShapeCMN(self.ptr()).ptr.?);
     }
+    // Retourne la shape EMK (`GetShapeEMK`).
     pub fn getShapeEMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetShapeEMK(self.ptr()).ptr.?);
     }
+    // Retourne le fragment A (`GetFrgA`).
     pub fn getFrgA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetFrgA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment B (`GetFrgB`).
     pub fn getFrgB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetFrgB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment C (`GetFrgC`).
     pub fn getFrgC(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetFrgC(self.ptr()).ptr.?);
     }
+    // Retourne le fragment E (`GetFrgE`).
     pub fn getFrgE(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMmaAtomAttrGetFrgE(self.ptr()).ptr.?);
     }
@@ -1321,9 +1526,11 @@ pub const SparseMxMmaAtomAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sparse_mx_mma_atom";
+    // Formate l'attribut `#cute.sparse_mx_mma_atom` via le formateur d'attribut MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete l'attribut `SparseMxMmaAtomAttr` en `mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -1349,72 +1556,94 @@ pub const SparseMxMmaAtomAttr = opaque {
         frgC: *const mlir.Attribute,
         frgE: *const mlir.Attribute,
     };
+    // Construit `#cute.sparse_mx_mma_atom` (MMA clairsemee a facteurs d'echelle et metadonnees) depuis tous ses champs (`c.mlirCuteSparseMxMmaAtomAttrGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteSparseMxMmaAtomAttrGet(ctx.ptr(), args.shapeMNK.ptr(), args.thrId.ptr(), args.layoutATV.ptr(), args.layoutSFATV.ptr(), args.layoutBTV.ptr(), args.layoutSFBTV.ptr(), args.layoutCTV.ptr(), args.layoutETV.ptr(), args.shapeAMK.ptr(), args.shapeSFAMK.ptr(), args.shapeBNK.ptr(), args.shapeSFBNK.ptr(), args.shapeCMN.ptr(), args.shapeEMK.ptr(), args.frgA.ptr(), args.frgSFA.ptr(), args.frgB.ptr(), args.frgSFB.ptr(), args.frgC.ptr(), args.frgE.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Retourne la shape MNK (`GetShapeMNK`).
     pub fn getShapeMNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeMNK(self.ptr()).ptr.?);
     }
+    // Retourne le layout des threads (`GetThrId`).
     pub fn getThrId(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetThrId(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande A (`GetLayoutATV`).
     pub fn getLayoutATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV du facteur d'echelle A (`GetLayoutSFATV`).
     pub fn getLayoutSFATV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutSFATV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande B (`GetLayoutBTV`).
     pub fn getLayoutBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV du facteur d'echelle B (`GetLayoutSFBTV`).
     pub fn getLayoutSFBTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutSFBTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande C (`GetLayoutCTV`).
     pub fn getLayoutCTV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutCTV(self.ptr()).ptr.?);
     }
+    // Retourne le layout TV de l'operande E (`GetLayoutETV`).
     pub fn getLayoutETV(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetLayoutETV(self.ptr()).ptr.?);
     }
+    // Retourne la shape AMK (`GetShapeAMK`).
     pub fn getShapeAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape du facteur d'echelle A (`GetShapeSFAMK`).
     pub fn getShapeSFAMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeSFAMK(self.ptr()).ptr.?);
     }
+    // Retourne la shape BNK (`GetShapeBNK`).
     pub fn getShapeBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape du facteur d'echelle B (`GetShapeSFBNK`).
     pub fn getShapeSFBNK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeSFBNK(self.ptr()).ptr.?);
     }
+    // Retourne la shape CMN (`GetShapeCMN`).
     pub fn getShapeCMN(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeCMN(self.ptr()).ptr.?);
     }
+    // Retourne la shape EMK (`GetShapeEMK`).
     pub fn getShapeEMK(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetShapeEMK(self.ptr()).ptr.?);
     }
+    // Retourne le fragment A (`GetFrgA`).
     pub fn getFrgA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment du facteur d'echelle A (`GetFrgSFA`).
     pub fn getFrgSFA(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgSFA(self.ptr()).ptr.?);
     }
+    // Retourne le fragment B (`GetFrgB`).
     pub fn getFrgB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment du facteur d'echelle B (`GetFrgSFB`).
     pub fn getFrgSFB(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgSFB(self.ptr()).ptr.?);
     }
+    // Retourne le fragment C (`GetFrgC`).
     pub fn getFrgC(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgC(self.ptr()).ptr.?);
     }
+    // Retourne le fragment E (`GetFrgE`).
     pub fn getFrgE(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCuteSparseMxMmaAtomAttrGetFrgE(self.ptr()).ptr.?);
     }
 };
 
+// Construit l'op `cute.add_offset` : operandes `src` et `offset`, un resultat de type `dst_type` (decalage d'index/de pointeur).
 // Operation builders, generated from the operations' .td.
 /// `cute.add_offset`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_offset(ctx: *mlir.Context, src: *const mlir.Value, offset: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
@@ -1425,6 +1654,7 @@ pub fn add_offset(ctx: *mlir.Context, src: *const mlir.Value, offset: *const mli
     });
 }
 
+// Construit `cute.append_to_rank` : ajoute `element` a la fin de `input` avec l'attribut `rank`, resultat `result_type`.
 /// `cute.append_to_rank`. Result types are explicit; attributes use mlir.Attribute.
 pub fn append_to_rank(ctx: *mlir.Context, input: *const mlir.Value, element: *const mlir.Value, result_type: *const mlir.Type, rank: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.append_to_rank", .{
@@ -1437,6 +1667,7 @@ pub fn append_to_rank(ctx: *mlir.Context, input: *const mlir.Value, element: *co
     });
 }
 
+// Construit `cute.apply_swizzle` : applique un swizzle sur le pointeur `ptr` (attribut optionnel `swizzle`), resultat `swizzled_ptr_type`.
 /// `cute.apply_swizzle`. Result types are explicit; attributes use mlir.Attribute.
 pub fn apply_swizzle(ctx: *mlir.Context, ptr: *const mlir.Value, swizzled_ptr_type: *const mlir.Type, swizzle: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -1449,6 +1680,7 @@ pub fn apply_swizzle(ctx: *mlir.Context, ptr: *const mlir.Value, swizzled_ptr_ty
     });
 }
 
+// Construit `cute.assume` : reinterprete `src` comme `dst_type` sans conversion (hypothese de type).
 /// `cute.assume`. Result types are explicit; attributes use mlir.Attribute.
 pub fn assume(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.assume", .{
@@ -1458,6 +1690,7 @@ pub fn assume(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.
     });
 }
 
+// Construit `cute.blocked_product` : produit `input` par le tiler `tiler` en disposition bloquee, resultat `result_type`.
 /// `cute.blocked_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn blocked_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.blocked_product", .{
@@ -1467,6 +1700,7 @@ pub fn blocked_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *con
     });
 }
 
+// Construit `cute.ceil_div` : division arrondie au superieur de `input` par `tiler`, resultat `result_type`.
 /// `cute.ceil_div`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ceil_div(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.ceil_div", .{
@@ -1476,6 +1710,7 @@ pub fn ceil_div(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir
     });
 }
 
+// Construit `cute.coalesce` : fusionne les modes contigus de `input` (operande optionnel `target_profile`), resultat `result_type`.
 /// `cute.coalesce`. Result types are explicit; attributes use mlir.Attribute.
 pub fn coalesce(ctx: *mlir.Context, input: *const mlir.Value, target_profile: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.coalesce", .{
@@ -1488,6 +1723,7 @@ pub fn coalesce(ctx: *mlir.Context, input: *const mlir.Value, target_profile: ?*
     });
 }
 
+// Construit `cute.complement` : layout complementaire de `input` par rapport a `cotarget`, resultat `res_type`.
 /// `cute.complement`. Result types are explicit; attributes use mlir.Attribute.
 pub fn complement(ctx: *mlir.Context, input: *const mlir.Value, cotarget: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.complement", .{
@@ -1497,6 +1733,7 @@ pub fn complement(ctx: *mlir.Context, input: *const mlir.Value, cotarget: *const
     });
 }
 
+// Construit `cute.composed_get_inner` : extrait le layout interne d'un layout compose `input`, resultat `result_type`.
 /// `cute.composed_get_inner`. Result types are explicit; attributes use mlir.Attribute.
 pub fn composed_get_inner(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.composed_get_inner", .{
@@ -1506,6 +1743,7 @@ pub fn composed_get_inner(ctx: *mlir.Context, input: *const mlir.Value, result_t
     });
 }
 
+// Construit `cute.composed_get_offset` : extrait l'offset d'un layout compose `input`, resultat `result_type`.
 /// `cute.composed_get_offset`. Result types are explicit; attributes use mlir.Attribute.
 pub fn composed_get_offset(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.composed_get_offset", .{
@@ -1515,6 +1753,7 @@ pub fn composed_get_offset(ctx: *mlir.Context, input: *const mlir.Value, result_
     });
 }
 
+// Construit `cute.composed_get_outer` : extrait le layout externe d'un layout compose `input`, resultat `result_type`.
 /// `cute.composed_get_outer`. Result types are explicit; attributes use mlir.Attribute.
 pub fn composed_get_outer(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.composed_get_outer", .{
@@ -1524,6 +1763,7 @@ pub fn composed_get_outer(ctx: *mlir.Context, input: *const mlir.Value, result_t
     });
 }
 
+// Construit `cute.composition` : compose les layouts `lhs` et `rhs`, resultat `res_type`.
 /// `cute.composition`. Result types are explicit; attributes use mlir.Attribute.
 pub fn composition(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.composition", .{
@@ -1533,6 +1773,7 @@ pub fn composition(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.
     });
 }
 
+// Construit `cute.copy` : copie via l'atome `copy_atom` des operandes `src` vers `dst` (predicat optionnel `pred`), sans resultat.
 /// `cute.copy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: []const *const mlir.Value, dst: []const *const mlir.Value, pred: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.copy", .{
@@ -1546,6 +1787,7 @@ pub fn copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: []const *cons
     });
 }
 
+// Construit `cute.copy.make_fragment` : fragment a partir de l'atome `atom` et de `input`, attribut `operand_id`, resultat `result_type`.
 /// `cute.copy.make_fragment`. Result types are explicit; attributes use mlir.Attribute.
 pub fn copy_make_fragment(ctx: *mlir.Context, atom: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.copy.make_fragment", .{
@@ -1558,6 +1800,7 @@ pub fn copy_make_fragment(ctx: *mlir.Context, atom: *const mlir.Value, input: *c
     });
 }
 
+// Construit `cute.copy_atom_call` : invoque l'atome de copie `atom` de `src` vers `dst` (predicat optionnel), sans resultat.
 /// `cute.copy_atom_call`. Result types are explicit; attributes use mlir.Attribute.
 pub fn copy_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, src: []const *const mlir.Value, dst: []const *const mlir.Value, pred: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.copy_atom_call", .{
@@ -1571,6 +1814,7 @@ pub fn copy_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, src: []const 
     });
 }
 
+// Construit `cute.cosize` : co-taille de `input` (attribut optionnel `mode`), resultat `result_type`.
 /// `cute.cosize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cosize(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -1583,6 +1827,7 @@ pub fn cosize(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const 
     });
 }
 
+// Construit `cute.crd2idx` : convertit la coordonnee `coord` en index via `layout`, resultat `index_type`.
 /// `cute.crd2idx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn crd2idx(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir.Value, index_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.crd2idx", .{
@@ -1592,6 +1837,7 @@ pub fn crd2idx(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir
     });
 }
 
+// Construit `cute.deref_arith_tuple_iter` : dereference l'iterateur de tuple arithmetique `iter`, resultat `arith_tuple_type`.
 /// `cute.deref_arith_tuple_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn deref_arith_tuple_iter(ctx: *mlir.Context, iter: *const mlir.Value, arith_tuple_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.deref_arith_tuple_iter", .{
@@ -1601,6 +1847,7 @@ pub fn deref_arith_tuple_iter(ctx: *mlir.Context, iter: *const mlir.Value, arith
     });
 }
 
+// Construit `cute.deref_desc_iter` : dereference l'iterateur de descripteur `iter`, resultat `value__type`.
 /// `cute.deref_desc_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn deref_desc_iter(ctx: *mlir.Context, iter: *const mlir.Value, value__type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.deref_desc_iter", .{
@@ -1610,6 +1857,7 @@ pub fn deref_desc_iter(ctx: *mlir.Context, iter: *const mlir.Value, value__type:
     });
 }
 
+// Construit `cute.derefine` : abaisse le raffinement de `src` vers `dst_type`.
 /// `cute.derefine`. Result types are explicit; attributes use mlir.Attribute.
 pub fn derefine(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.derefine", .{
@@ -1619,6 +1867,7 @@ pub fn derefine(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mli
     });
 }
 
+// Construit `cute.dice` : decoupe `input` selon la coordonnee statique `coord`, resultat `result_type`.
 /// `cute.dice`. Result types are explicit; attributes use mlir.Attribute.
 pub fn dice(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, coord: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.dice", .{
@@ -1631,6 +1880,7 @@ pub fn dice(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const ml
     });
 }
 
+// Construit `cute.elem_less` : comparaison element par element `lhs < rhs`, resultat `result_type`.
 /// `cute.elem_less`. Result types are explicit; attributes use mlir.Attribute.
 pub fn elem_less(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.elem_less", .{
@@ -1640,6 +1890,7 @@ pub fn elem_less(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.equal` : egalite element par element entre `lhs` et `rhs`, resultat `result_type`.
 /// `cute.equal`. Result types are explicit; attributes use mlir.Attribute.
 pub fn equal(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.equal", .{
@@ -1649,6 +1900,7 @@ pub fn equal(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value,
     });
 }
 
+// Construit `cute.fast_divmod.compute` : divmod rapide de `dividend` par `divisor`, resultats quotient et reste.
 /// `cute.fast_divmod.compute`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_compute(ctx: *mlir.Context, dividend: *const mlir.Value, divisor: *const mlir.Value, quotient_type: *const mlir.Type, remainder_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.compute", .{
@@ -1658,6 +1910,7 @@ pub fn fast_divmod_compute(ctx: *mlir.Context, dividend: *const mlir.Value, divi
     });
 }
 
+// Construit `cute.fast_divmod.create_divisor` : precalcule un diviseur depuis `divisor`, resultat `fast_divmod_divisor_type`.
 /// `cute.fast_divmod.create_divisor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_create_divisor(ctx: *mlir.Context, divisor: *const mlir.Value, fast_divmod_divisor_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.create_divisor", .{
@@ -1667,6 +1920,7 @@ pub fn fast_divmod_create_divisor(ctx: *mlir.Context, divisor: *const mlir.Value
     });
 }
 
+// Construit `cute.fast_divmod.divide` : division rapide de `dividend` par `divisor`, resultat quotient `quotient_type`.
 /// `cute.fast_divmod.divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_divide(ctx: *mlir.Context, dividend: *const mlir.Value, divisor: *const mlir.Value, quotient_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.divide", .{
@@ -1676,6 +1930,7 @@ pub fn fast_divmod_divide(ctx: *mlir.Context, dividend: *const mlir.Value, divis
     });
 }
 
+// Construit `cute.fast_divmod.get_aux` : extrait multiplicateur et decalages du diviseur `divisor`, trois resultats.
 /// `cute.fast_divmod.get_aux`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_get_aux(ctx: *mlir.Context, divisor: *const mlir.Value, multiplier_type: *const mlir.Type, shift1_type: *const mlir.Type, shift2_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.get_aux", .{
@@ -1685,6 +1940,7 @@ pub fn fast_divmod_get_aux(ctx: *mlir.Context, divisor: *const mlir.Value, multi
     });
 }
 
+// Construit `cute.fast_divmod.get_divisor` : retrouve le diviseur original depuis `fast_divmod_divisor`, resultat `divisor_type`.
 /// `cute.fast_divmod.get_divisor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_get_divisor(ctx: *mlir.Context, fast_divmod_divisor: *const mlir.Value, divisor_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.get_divisor", .{
@@ -1694,6 +1950,7 @@ pub fn fast_divmod_get_divisor(ctx: *mlir.Context, fast_divmod_divisor: *const m
     });
 }
 
+// Construit `cute.fast_divmod.make_divisor` : assemble un diviseur depuis `divisor`, `multiplier`, `sh1` et `sh2`.
 /// `cute.fast_divmod.make_divisor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fast_divmod_make_divisor(ctx: *mlir.Context, divisor: *const mlir.Value, multiplier: *const mlir.Value, sh1: *const mlir.Value, sh2: *const mlir.Value, fast_divmod_divisor_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.fast_divmod.make_divisor", .{
@@ -1703,6 +1960,7 @@ pub fn fast_divmod_make_divisor(ctx: *mlir.Context, divisor: *const mlir.Value, 
     });
 }
 
+// Construit `cute.filter` : retire les modes de taille 1 de `input`, resultat `result_type`.
 /// `cute.filter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn filter(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.filter", .{
@@ -1712,6 +1970,7 @@ pub fn filter(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const 
     });
 }
 
+// Construit `cute.filter_zeros` : retire les modes nuls de `input` (profil optionnel `target_profile`), resultat `res_type`.
 /// `cute.filter_zeros`. Result types are explicit; attributes use mlir.Attribute.
 pub fn filter_zeros(ctx: *mlir.Context, input: *const mlir.Value, target_profile: ?*const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.filter_zeros", .{
@@ -1724,6 +1983,7 @@ pub fn filter_zeros(ctx: *mlir.Context, input: *const mlir.Value, target_profile
     });
 }
 
+// Construit `cute.flat_divide` : divise `input` par `tiler` en aplatissant les modes, resultat `result_type`.
 /// `cute.flat_divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn flat_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.flat_divide", .{
@@ -1733,6 +1993,7 @@ pub fn flat_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const m
     });
 }
 
+// Construit `cute.flat_product` : produit `input` par `tiler` en aplatissant les modes, resultat `result_type`.
 /// `cute.flat_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn flat_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.flat_product", .{
@@ -1742,6 +2003,7 @@ pub fn flat_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const 
     });
 }
 
+// Construit `cute.gemm` : produit matriciel via l'atome `mma_atom` de `a`/`b` vers `d` avec accumulateur `c_`, sans resultat.
 /// `cute.gemm`. Result types are explicit; attributes use mlir.Attribute.
 pub fn gemm(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const mlir.Value, a: []const *const mlir.Value, b: []const *const mlir.Value, c_: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.gemm", .{
@@ -1756,6 +2018,7 @@ pub fn gemm(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const mlir.Valu
     });
 }
 
+// Construit `cute.get` : selectionne un element/mode de `input` (attribut optionnel `mode`), resultat `result_type`.
 /// `cute.get`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -1768,6 +2031,7 @@ pub fn get(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mli
     });
 }
 
+// Construit `cute.get_flat_coord` : coordonnee aplatie de `input` a l'index `index`, resultat `result_type`.
 /// `cute.get_flat_coord`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_flat_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_flat_coord", .{
@@ -1777,6 +2041,7 @@ pub fn get_flat_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *cons
     });
 }
 
+// Construit `cute.get_hier_coord` : coordonnee hierarchique de `input` a l'index `index`, resultat `result_type`.
 /// `cute.get_hier_coord`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_hier_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_hier_coord", .{
@@ -1786,6 +2051,7 @@ pub fn get_hier_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *cons
     });
 }
 
+// Construit `cute.get_integral_coord` : coordonnee entiere de `input` a l'index `index`, resultat `result_type`.
 /// `cute.get_integral_coord`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_integral_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_integral_coord", .{
@@ -1795,6 +2061,7 @@ pub fn get_integral_coord(ctx: *mlir.Context, index: *const mlir.Value, input: *
     });
 }
 
+// Construit `cute.get_iter` : obtient un iterateur depuis `source`, resultat `ptr_type`.
 /// `cute.get_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_iter(ctx: *mlir.Context, source: *const mlir.Value, ptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_iter", .{
@@ -1804,6 +2071,7 @@ pub fn get_iter(ctx: *mlir.Context, source: *const mlir.Value, ptr_type: *const 
     });
 }
 
+// Construit `cute.get_layout` : extrait le layout de `input`, resultat `layout_type`.
 /// `cute.get_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_layout(ctx: *mlir.Context, input: *const mlir.Value, layout_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_layout", .{
@@ -1813,6 +2081,7 @@ pub fn get_layout(ctx: *mlir.Context, input: *const mlir.Value, layout_type: *co
     });
 }
 
+// Construit `cute.get_layouts_from_tile` : extrait les layouts d'un `tile`, resultats variadiques `layouts_types`.
 /// `cute.get_layouts_from_tile`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_layouts_from_tile(ctx: *mlir.Context, tile: *const mlir.Value, layouts_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_layouts_from_tile", .{
@@ -1824,6 +2093,7 @@ pub fn get_layouts_from_tile(ctx: *mlir.Context, tile: *const mlir.Value, layout
     });
 }
 
+// Construit `cute.get_leaves` : extrait les feuilles de `input`, resultats variadiques `results__types`.
 /// `cute.get_leaves`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_leaves(ctx: *mlir.Context, input: *const mlir.Value, results__types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_leaves", .{
@@ -1835,6 +2105,7 @@ pub fn get_leaves(ctx: *mlir.Context, input: *const mlir.Value, results__types: 
     });
 }
 
+// Construit `cute.get_scalars` : extrait les scalaires de `cute_value` (attr optionnel `only_dynamic`), resultats variadiques.
 /// `cute.get_scalars`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_scalars(ctx: *mlir.Context, cute_value: *const mlir.Value, scalars_types: []const *const mlir.Type, only_dynamic: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -1849,6 +2120,7 @@ pub fn get_scalars(ctx: *mlir.Context, cute_value: *const mlir.Value, scalars_ty
     });
 }
 
+// Construit `cute.get_shape` : extrait le shape de `input`, resultat `result_type`.
 /// `cute.get_shape`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_shape(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_shape", .{
@@ -1858,6 +2130,7 @@ pub fn get_shape(ctx: *mlir.Context, input: *const mlir.Value, result_type: *con
     });
 }
 
+// Construit `cute.get_stride` : extrait le stride de `input`, resultat `result_type`.
 /// `cute.get_stride`. Result types are explicit; attributes use mlir.Attribute.
 pub fn get_stride(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.get_stride", .{
@@ -1867,6 +2140,7 @@ pub fn get_stride(ctx: *mlir.Context, input: *const mlir.Value, result_type: *co
     });
 }
 
+// Construit `cute.group_modes` : regroupe les modes de `input` entre les attributs `begin` et `end`, resultat `result_type`.
 /// `cute.group_modes`. Result types are explicit; attributes use mlir.Attribute.
 pub fn group_modes(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, begin: *const mlir.Attribute, end: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.group_modes", .{
@@ -1880,6 +2154,7 @@ pub fn group_modes(ctx: *mlir.Context, input: *const mlir.Value, result_type: *c
     });
 }
 
+// Construit `cute.idx2crd` : convertit l'index `index` en coordonnee selon `shape`, resultat `coord_type`.
 /// `cute.idx2crd`. Result types are explicit; attributes use mlir.Attribute.
 pub fn idx2crd(ctx: *mlir.Context, index: *const mlir.Value, shape: *const mlir.Value, coord_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.idx2crd", .{
@@ -1889,6 +2164,7 @@ pub fn idx2crd(ctx: *mlir.Context, index: *const mlir.Value, shape: *const mlir.
     });
 }
 
+// Construit `cute.increment_coord` : incremente la coordonnee `coord` selon `shape`, resultat `result_type`.
 /// `cute.increment_coord`. Result types are explicit; attributes use mlir.Attribute.
 pub fn increment_coord(ctx: *mlir.Context, coord: *const mlir.Value, shape: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.increment_coord", .{
@@ -1898,6 +2174,7 @@ pub fn increment_coord(ctx: *mlir.Context, coord: *const mlir.Value, shape: *con
     });
 }
 
+// Construit `cute.inttoptr` : convertit l'entier `src` en pointeur `dst_type`.
 /// `cute.inttoptr`. Result types are explicit; attributes use mlir.Attribute.
 pub fn inttoptr(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.inttoptr", .{
@@ -1907,6 +2184,7 @@ pub fn inttoptr(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mli
     });
 }
 
+// Construit `cute.kernel_smem_size` : taille de memoire partagee du noyau `kernel_name`, resultat `size_type`.
 /// `cute.kernel_smem_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn kernel_smem_size(ctx: *mlir.Context, size_type: *const mlir.Type, kernel_name: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.kernel_smem_size", .{
@@ -1918,6 +2196,7 @@ pub fn kernel_smem_size(ctx: *mlir.Context, size_type: *const mlir.Type, kernel_
     });
 }
 
+// Construit `cute.left_inverse` : inverse a gauche le layout `input`, resultat `result_type`.
 /// `cute.left_inverse`. Result types are explicit; attributes use mlir.Attribute.
 pub fn left_inverse(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.left_inverse", .{
@@ -1927,6 +2206,7 @@ pub fn left_inverse(ctx: *mlir.Context, input: *const mlir.Value, result_type: *
     });
 }
 
+// Construit `cute.load_scaled_index` : charge un index mis a l'echelle depuis `ptr_a`/`ptr_b` avec `index` et `stride`, resultat `result_type`.
 /// `cute.load_scaled_index`. Result types are explicit; attributes use mlir.Attribute.
 pub fn load_scaled_index(ctx: *mlir.Context, ptr_a: *const mlir.Value, ptr_b: *const mlir.Value, index: *const mlir.Value, stride: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.load_scaled_index", .{
@@ -1936,6 +2216,7 @@ pub fn load_scaled_index(ctx: *mlir.Context, ptr_a: *const mlir.Value, ptr_b: *c
     });
 }
 
+// Construit `cute.local_partition` : partitionne `input` selon `tiler` et `index`, resultat `result_type`.
 /// `cute.local_partition`. Result types are explicit; attributes use mlir.Attribute.
 pub fn local_partition(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, index: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.local_partition", .{
@@ -1945,6 +2226,7 @@ pub fn local_partition(ctx: *mlir.Context, input: *const mlir.Value, tiler: *con
     });
 }
 
+// Construit `cute.local_tile` : tuile locale de `input` selon `tile` et `coord` (attr optionnel `proj`), resultat `result_type`.
 /// `cute.local_tile`. Result types are explicit; attributes use mlir.Attribute.
 pub fn local_tile(ctx: *mlir.Context, input: *const mlir.Value, tile: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, proj: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -1957,6 +2239,7 @@ pub fn local_tile(ctx: *mlir.Context, input: *const mlir.Value, tile: *const mli
     });
 }
 
+// Construit `cute.logical_divide` : division logique de `input` par `tiler`, resultat `result_type`.
 /// `cute.logical_divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn logical_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.logical_divide", .{
@@ -1966,6 +2249,7 @@ pub fn logical_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *cons
     });
 }
 
+// Construit `cute.logical_product` : produit logique de `input` par `tiler`, resultat `result_type`.
 /// `cute.logical_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn logical_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.logical_product", .{
@@ -1975,6 +2259,7 @@ pub fn logical_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *con
     });
 }
 
+// Construit `cute.make_arith_tuple_iter` : cree un iterateur de tuple arithmetique depuis `value_` (optionnel), resultat `iter_type`.
 /// `cute.make_arith_tuple_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_arith_tuple_iter(ctx: *mlir.Context, value_: ?*const mlir.Value, iter_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_arith_tuple_iter", .{
@@ -1986,6 +2271,7 @@ pub fn make_arith_tuple_iter(ctx: *mlir.Context, value_: ?*const mlir.Value, ite
     });
 }
 
+// Construit `cute.make_atom` : assemble un atome depuis les operandes variadiques `values`, resultat `atom_type`.
 /// `cute.make_atom`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_atom(ctx: *mlir.Context, values: []const *const mlir.Value, atom_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_atom", .{
@@ -1997,6 +2283,7 @@ pub fn make_atom(ctx: *mlir.Context, values: []const *const mlir.Value, atom_typ
     });
 }
 
+// Construit `cute.make_composed_layout` : compose `inner`, `offset` et `outer`, resultat `result_type`.
 /// `cute.make_composed_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_composed_layout(ctx: *mlir.Context, inner: *const mlir.Value, offset: *const mlir.Value, outer: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_composed_layout", .{
@@ -2006,6 +2293,7 @@ pub fn make_composed_layout(ctx: *mlir.Context, inner: *const mlir.Value, offset
     });
 }
 
+// Construit `cute.make_coord` : assemble une coordonnee depuis `dynamicElements`, resultat `result_type`.
 /// `cute.make_coord`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_coord(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_coord", .{
@@ -2017,6 +2305,7 @@ pub fn make_coord(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value
     });
 }
 
+// Construit `cute.make_desc_iter` : cree un iterateur de descripteur depuis `value_`, resultat `iter_type`.
 /// `cute.make_desc_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_desc_iter(ctx: *mlir.Context, value_: *const mlir.Value, iter_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_desc_iter", .{
@@ -2026,6 +2315,7 @@ pub fn make_desc_iter(ctx: *mlir.Context, value_: *const mlir.Value, iter_type: 
     });
 }
 
+// Construit `cute.make_fragment_like` : fragment de meme forme que `src`, resultat `dst_type`.
 /// `cute.make_fragment_like`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_fragment_like(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_fragment_like", .{
@@ -2035,6 +2325,7 @@ pub fn make_fragment_like(ctx: *mlir.Context, src: *const mlir.Value, dst_type: 
     });
 }
 
+// Construit `cute.make_identity_layout` : layout identite pour `shape`, resultat `result_type`.
 /// `cute.make_identity_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_identity_layout(ctx: *mlir.Context, shape: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_identity_layout", .{
@@ -2044,6 +2335,7 @@ pub fn make_identity_layout(ctx: *mlir.Context, shape: *const mlir.Value, result
     });
 }
 
+// Construit `cute.make_identity_tensor` : tenseur identite pour `shape`, resultat `result_type`.
 /// `cute.make_identity_tensor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_identity_tensor(ctx: *mlir.Context, shape: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_identity_tensor", .{
@@ -2053,6 +2345,7 @@ pub fn make_identity_tensor(ctx: *mlir.Context, shape: *const mlir.Value, result
     });
 }
 
+// Construit `cute.make_int_tuple` : assemble un int_tuple depuis `dynamicElements`, resultat `result_type`.
 /// `cute.make_int_tuple`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_int_tuple(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_int_tuple", .{
@@ -2064,6 +2357,7 @@ pub fn make_int_tuple(ctx: *mlir.Context, dynamicElements: []const *const mlir.V
     });
 }
 
+// Construit `cute.make_layout` : layout depuis `shape` et `stride` optionnels, resultat `layout_type`.
 /// `cute.make_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_layout(ctx: *mlir.Context, shape: ?*const mlir.Value, stride: ?*const mlir.Value, layout_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_layout", .{
@@ -2076,6 +2370,7 @@ pub fn make_layout(ctx: *mlir.Context, shape: ?*const mlir.Value, stride: ?*cons
     });
 }
 
+// Construit `cute.make_layout_like` : layout de meme forme que `src`, resultat `dst_type`.
 /// `cute.make_layout_like`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_layout_like(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_layout_like", .{
@@ -2085,6 +2380,7 @@ pub fn make_layout_like(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *c
     });
 }
 
+// Construit `cute.make_ordered_layout` : layout ordonne selon `shape` et `order`, resultat `layout_type`.
 /// `cute.make_ordered_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_ordered_layout(ctx: *mlir.Context, shape: *const mlir.Value, order: *const mlir.Value, layout_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_ordered_layout", .{
@@ -2094,6 +2390,7 @@ pub fn make_ordered_layout(ctx: *mlir.Context, shape: *const mlir.Value, order: 
     });
 }
 
+// Construit `cute.make_shape` : shape depuis `dynamicElements`, resultat `result_type`.
 /// `cute.make_shape`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_shape(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_shape", .{
@@ -2105,6 +2402,7 @@ pub fn make_shape(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value
     });
 }
 
+// Construit `cute.make_sparse_elem` : element sparse depuis `physical_storage`, resultat `result_type`.
 /// `cute.make_sparse_elem`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_sparse_elem(ctx: *mlir.Context, physical_storage: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_sparse_elem", .{
@@ -2114,6 +2412,7 @@ pub fn make_sparse_elem(ctx: *mlir.Context, physical_storage: *const mlir.Value,
     });
 }
 
+// Construit `cute.make_stride` : stride depuis `dynamicElements`, resultat `result_type`.
 /// `cute.make_stride`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_stride(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_stride", .{
@@ -2125,6 +2424,7 @@ pub fn make_stride(ctx: *mlir.Context, dynamicElements: []const *const mlir.Valu
     });
 }
 
+// Construit `cute.make_tile` : tile depuis `dynamicElements`, resultat `result_type`.
 /// `cute.make_tile`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_tile(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_tile", .{
@@ -2136,6 +2436,7 @@ pub fn make_tile(ctx: *mlir.Context, dynamicElements: []const *const mlir.Value,
     });
 }
 
+// Construit `cute.make_tiled_copy` : tuile l'atome de copie `atom` sur threads/valeurs, resultat `result_type`.
 /// `cute.make_tiled_copy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_tiled_copy(ctx: *mlir.Context, atom: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_tiled_copy", .{
@@ -2145,6 +2446,7 @@ pub fn make_tiled_copy(ctx: *mlir.Context, atom: *const mlir.Value, result_type:
     });
 }
 
+// Construit `cute.make_tiled_copy_v2` : variante v2 tuilant l'atome de copie `atom`, resultat `result_type`.
 /// `cute.make_tiled_copy_v2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_tiled_copy_v2(ctx: *mlir.Context, atom: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_tiled_copy_v2", .{
@@ -2154,6 +2456,7 @@ pub fn make_tiled_copy_v2(ctx: *mlir.Context, atom: *const mlir.Value, result_ty
     });
 }
 
+// Construit `cute.make_tiled_mma` : tuile l'atome MMA `atom`, resultat `result_type`.
 /// `cute.make_tiled_mma`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_tiled_mma(ctx: *mlir.Context, atom: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_tiled_mma", .{
@@ -2163,6 +2466,7 @@ pub fn make_tiled_mma(ctx: *mlir.Context, atom: *const mlir.Value, result_type: 
     });
 }
 
+// Construit `cute.make_tuple` : assemble un tuple depuis `values`, resultat `result_type`.
 /// `cute.make_tuple`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_tuple(ctx: *mlir.Context, values: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_tuple", .{
@@ -2174,6 +2478,7 @@ pub fn make_tuple(ctx: *mlir.Context, values: []const *const mlir.Value, result_
     });
 }
 
+// Construit `cute.make_view` : vue depuis l'iterateur `iter` et le `layout` optionnel, resultat `result_type`.
 /// `cute.make_view`. Result types are explicit; attributes use mlir.Attribute.
 pub fn make_view(ctx: *mlir.Context, iter: *const mlir.Value, layout: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.make_view", .{
@@ -2186,6 +2491,7 @@ pub fn make_view(ctx: *mlir.Context, iter: *const mlir.Value, layout: ?*const ml
     });
 }
 
+// Construit `cute.memref.alloc_smem` : alloue un memref en memoire partagee, resultat `memref_type`.
 /// `cute.memref.alloc_smem`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_alloc_smem(ctx: *mlir.Context, memref_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.alloc_smem", .{
@@ -2194,6 +2500,7 @@ pub fn memref_alloc_smem(ctx: *mlir.Context, memref_type: *const mlir.Type, loca
     });
 }
 
+// Construit `cute.memref.alloca` : allocation locale avec `layout` optionnel, resultat `result_type`.
 /// `cute.memref.alloca`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_alloca(ctx: *mlir.Context, layout: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.alloca", .{
@@ -2205,6 +2512,7 @@ pub fn memref_alloca(ctx: *mlir.Context, layout: ?*const mlir.Value, result_type
     });
 }
 
+// Construit `cute.memref.load` : charge depuis `src` a la coordonnee `coord`, resultat `result_type`.
 /// `cute.memref.load`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_load(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.load", .{
@@ -2214,6 +2522,7 @@ pub fn memref_load(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mli
     });
 }
 
+// Construit `cute.memref.load_vec` : chargement vectoriel depuis `src` avec `mask`/`pass_thru` optionnels, resultat `result_type`.
 /// `cute.memref.load_vec`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_load_vec(ctx: *mlir.Context, src: *const mlir.Value, mask: ?*const mlir.Value, pass_thru: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.load_vec", .{
@@ -2227,6 +2536,7 @@ pub fn memref_load_vec(ctx: *mlir.Context, src: *const mlir.Value, mask: ?*const
     });
 }
 
+// Construit `cute.memref.store` : ecrit `value_` dans `dst` a la coordonnee `coord`, sans resultat.
 /// `cute.memref.store`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_store(ctx: *mlir.Context, dst: *const mlir.Value, coord: *const mlir.Value, value_: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.store", .{
@@ -2235,6 +2545,7 @@ pub fn memref_store(ctx: *mlir.Context, dst: *const mlir.Value, coord: *const ml
     });
 }
 
+// Construit `cute.memref.store_vec` : ecriture vectorielle de `value_` dans `dst` (mask optionnel), sans resultat.
 /// `cute.memref.store_vec`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memref_store_vec(ctx: *mlir.Context, value_: *const mlir.Value, dst: *const mlir.Value, mask: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.memref.store_vec", .{
@@ -2247,6 +2558,7 @@ pub fn memref_store_vec(ctx: *mlir.Context, value_: *const mlir.Value, dst: *con
     });
 }
 
+// Construit `cute.mma.make_fragment` : fragment MMA depuis l'atome `atom` et `input`, attribut `operand_id`, resultat `result_type`.
 /// `cute.mma.make_fragment`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_make_fragment(ctx: *mlir.Context, atom: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.mma.make_fragment", .{
@@ -2259,6 +2571,7 @@ pub fn mma_make_fragment(ctx: *mlir.Context, atom: *const mlir.Value, input: *co
     });
 }
 
+// Construit `cute.mma_atom_call` : invoque l'atome MMA `atom` de `a`/`b` vers `d` avec accumulateur `c_`, sans resultat.
 /// `cute.mma_atom_call`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, d: *const mlir.Value, a: []const *const mlir.Value, b: []const *const mlir.Value, c_: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.mma_atom_call", .{
@@ -2273,6 +2586,7 @@ pub fn mma_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, d: *const mlir
     });
 }
 
+// Construit `cute.prefetch` : prefetch via `prefetch_atom` sur `src`, sans resultat.
 /// `cute.prefetch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn prefetch(ctx: *mlir.Context, prefetch_atom: *const mlir.Value, src: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.prefetch", .{
@@ -2284,6 +2598,7 @@ pub fn prefetch(ctx: *mlir.Context, prefetch_atom: *const mlir.Value, src: []con
     });
 }
 
+// Construit `cute.prefetch_atom_call` : invoque l'atome de prefetch `atom` sur `src`, sans resultat.
 /// `cute.prefetch_atom_call`. Result types are explicit; attributes use mlir.Attribute.
 pub fn prefetch_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, src: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.prefetch_atom_call", .{
@@ -2295,6 +2610,7 @@ pub fn prefetch_atom_call(ctx: *mlir.Context, atom: *const mlir.Value, src: []co
     });
 }
 
+// Construit `cute.prepend_to_rank` : ajoute `element` en tete de `input` (attribut `rank`), resultat `result_type`.
 /// `cute.prepend_to_rank`. Result types are explicit; attributes use mlir.Attribute.
 pub fn prepend_to_rank(ctx: *mlir.Context, input: *const mlir.Value, element: *const mlir.Value, result_type: *const mlir.Type, rank: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.prepend_to_rank", .{
@@ -2307,6 +2623,7 @@ pub fn prepend_to_rank(ctx: *mlir.Context, input: *const mlir.Value, element: *c
     });
 }
 
+// Construit `cute.print` : imprime les `values` avec les attributs optionnels `fmt` et `operand_signed`, sans resultat.
 /// `cute.print`. Result types are explicit; attributes use mlir.Attribute.
 pub fn print(ctx: *mlir.Context, values: []const *const mlir.Value, fmt: ?*const mlir.Attribute, operand_signed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -2321,6 +2638,7 @@ pub fn print(ctx: *mlir.Context, values: []const *const mlir.Value, fmt: ?*const
     });
 }
 
+// Construit `cute.print_tma_desc_im2col` : affiche le descripteur TMA im2col `input` vers le fichier `fd`, sans resultat.
 /// `cute.print_tma_desc_im2col`. Result types are explicit; attributes use mlir.Attribute.
 pub fn print_tma_desc_im2col(ctx: *mlir.Context, input: *const mlir.Value, fd: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.print_tma_desc_im2col", .{
@@ -2329,6 +2647,7 @@ pub fn print_tma_desc_im2col(ctx: *mlir.Context, input: *const mlir.Value, fd: *
     });
 }
 
+// Construit `cute.print_tma_desc_tiled` : affiche le descripteur TMA tuile `input` vers `fd`, sans resultat.
 /// `cute.print_tma_desc_tiled`. Result types are explicit; attributes use mlir.Attribute.
 pub fn print_tma_desc_tiled(ctx: *mlir.Context, input: *const mlir.Value, fd: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.print_tma_desc_tiled", .{
@@ -2337,6 +2656,7 @@ pub fn print_tma_desc_tiled(ctx: *mlir.Context, input: *const mlir.Value, fd: *c
     });
 }
 
+// Construit `cute.print_view` : affiche la vue `src` (coord optionnelle, attributs `verbose`/`is_signed`), sans resultat.
 /// `cute.print_view`. Result types are explicit; attributes use mlir.Attribute.
 pub fn print_view(ctx: *mlir.Context, src: *const mlir.Value, coord: ?*const mlir.Value, verbose: ?*const mlir.Attribute, is_signed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -2352,6 +2672,7 @@ pub fn print_view(ctx: *mlir.Context, src: *const mlir.Value, coord: ?*const mli
     });
 }
 
+// Construit `cute.ptr.load` : charge depuis le pointeur `ptr`, resultat `value__type`.
 /// `cute.ptr.load`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ptr_load(ctx: *mlir.Context, ptr: *const mlir.Value, value__type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.ptr.load", .{
@@ -2361,6 +2682,7 @@ pub fn ptr_load(ctx: *mlir.Context, ptr: *const mlir.Value, value__type: *const 
     });
 }
 
+// Construit `cute.ptr.store` : ecrit `value_` dans le pointeur `ptr`, sans resultat.
 /// `cute.ptr.store`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ptr_store(ctx: *mlir.Context, value_: *const mlir.Value, ptr: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.ptr.store", .{
@@ -2369,6 +2691,7 @@ pub fn ptr_store(ctx: *mlir.Context, value_: *const mlir.Value, ptr: *const mlir
     });
 }
 
+// Construit `cute.ptrtoint` : convertit le pointeur `src` en entier `dst_type`.
 /// `cute.ptrtoint`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ptrtoint(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.ptrtoint", .{
@@ -2378,6 +2701,7 @@ pub fn ptrtoint(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mli
     });
 }
 
+// Construit `cute.raked_product` : produit `input` par `tiler` en disposition raked, resultat `result_type`.
 /// `cute.raked_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn raked_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.raked_product", .{
@@ -2387,6 +2711,7 @@ pub fn raked_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const
     });
 }
 
+// Construit `cute.random_delay` : barriere/attente aleatoire sans operande ni resultat.
 /// `cute.random_delay`. Result types are explicit; attributes use mlir.Attribute.
 pub fn random_delay(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.random_delay", .{
@@ -2394,6 +2719,7 @@ pub fn random_delay(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Op
     });
 }
 
+// Construit `cute.recast_iter` : change le type de l'iterateur `src` vers `dst_type`.
 /// `cute.recast_iter`. Result types are explicit; attributes use mlir.Attribute.
 pub fn recast_iter(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.recast_iter", .{
@@ -2403,6 +2729,7 @@ pub fn recast_iter(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const 
     });
 }
 
+// Construit `cute.recast_layout` : reinterprete `src` vers `dst_type` avec attributs `new_type_bits`/`old_type_bits`.
 /// `cute.recast_layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn recast_layout(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, new_type_bits: *const mlir.Attribute, old_type_bits: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.recast_layout", .{
@@ -2416,6 +2743,7 @@ pub fn recast_layout(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *cons
     });
 }
 
+// Construit `cute.reduce` : reduction de `input` avec `shape`, `init_val`, predicat optionnel; attributs `reduction_op`/`reduction_profile`, resultats variadiques.
 /// `cute.reduce`. Result types are explicit; attributes use mlir.Attribute.
 pub fn reduce(ctx: *mlir.Context, input: *const mlir.Value, shape: *const mlir.Value, init_val: *const mlir.Value, predication: ?*const mlir.Value, output_type: *const mlir.Type, reduced_shape_type: ?*const mlir.Type, reduction_op: *const mlir.Attribute, reduction_profile: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -2437,6 +2765,7 @@ pub fn reduce(ctx: *mlir.Context, input: *const mlir.Value, shape: *const mlir.V
     });
 }
 
+// Construit `cute.right_inverse` : inverse a droite le layout `input`, resultat `result_type`.
 /// `cute.right_inverse`. Result types are explicit; attributes use mlir.Attribute.
 pub fn right_inverse(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.right_inverse", .{
@@ -2446,6 +2775,7 @@ pub fn right_inverse(ctx: *mlir.Context, input: *const mlir.Value, result_type: 
     });
 }
 
+// Construit `cute.select` : selectionne un mode de `input` selon l'attribut `mode`, resultat `result_type`.
 /// `cute.select`. Result types are explicit; attributes use mlir.Attribute.
 pub fn select(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, mode: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.select", .{
@@ -2458,6 +2788,7 @@ pub fn select(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const 
     });
 }
 
+// Construit `cute.shape_div` : division entiere des shapes `a` et `b`, resultat `result_type`.
 /// `cute.shape_div`. Result types are explicit; attributes use mlir.Attribute.
 pub fn shape_div(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.shape_div", .{
@@ -2467,6 +2798,7 @@ pub fn shape_div(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value,
     });
 }
 
+// Construit `cute.size` : taille de `input` (attribut optionnel `mode`), resultat `result_type`.
 /// `cute.size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn size(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -2479,6 +2811,7 @@ pub fn size(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const ml
     });
 }
 
+// Construit `cute.slice` : tranche `input` a la coordonnee `coord`, resultat `result_type`.
 /// `cute.slice`. Result types are explicit; attributes use mlir.Attribute.
 pub fn slice(ctx: *mlir.Context, input: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.slice", .{
@@ -2488,6 +2821,7 @@ pub fn slice(ctx: *mlir.Context, input: *const mlir.Value, coord: *const mlir.Va
     });
 }
 
+// Construit `cute.smem_partition_size` : taille de la partition `partition_id` (attr optionnel `cumulative`), resultat `size_type`.
 /// `cute.smem_partition_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn smem_partition_size(ctx: *mlir.Context, size_type: *const mlir.Type, partition_id: *const mlir.Attribute, cumulative: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -2500,6 +2834,7 @@ pub fn smem_partition_size(ctx: *mlir.Context, size_type: *const mlir.Type, part
     });
 }
 
+// Construit `cute.static` : valeur statique d'un type donne, resultat `result_type`.
 /// `cute.static`. Result types are explicit; attributes use mlir.Attribute.
 pub fn static(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.static", .{
@@ -2508,6 +2843,7 @@ pub fn static(ctx: *mlir.Context, result_type: *const mlir.Type, location: *cons
     });
 }
 
+// Construit `cute.stencil_divide` : division par `stencil` de `input` avec paddings et stride optionnels, resultat `result_type`.
 /// `cute.stencil_divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stencil_divide(ctx: *mlir.Context, input: *const mlir.Value, stencil: *const mlir.Value, padding_upper: ?*const mlir.Value, padding_lower: ?*const mlir.Value, traversal_stride: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.stencil_divide", .{
@@ -2523,6 +2859,7 @@ pub fn stencil_divide(ctx: *mlir.Context, input: *const mlir.Value, stencil: *co
     });
 }
 
+// Construit `cute.symbolic` : valeur symbolique nommee `name`, resultat `symbolic_type`.
 /// `cute.symbolic`. Result types are explicit; attributes use mlir.Attribute.
 pub fn symbolic(ctx: *mlir.Context, symbolic_type: *const mlir.Type, name: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.symbolic", .{
@@ -2534,6 +2871,7 @@ pub fn symbolic(ctx: *mlir.Context, symbolic_type: *const mlir.Type, name: *cons
     });
 }
 
+// Construit `cute.tile_to_shape` : tuile `block` vers `trg_shape` selon l'ordre `ord_shape`, resultat `result_type`.
 /// `cute.tile_to_shape`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tile_to_shape(ctx: *mlir.Context, block: *const mlir.Value, trg_shape: *const mlir.Value, ord_shape: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tile_to_shape", .{
@@ -2543,6 +2881,7 @@ pub fn tile_to_shape(ctx: *mlir.Context, block: *const mlir.Value, trg_shape: *c
     });
 }
 
+// Construit `cute.tiled.copy.partition_D` : partition destination de `input` via `tiled_copy` et `coord`, resultat `result_type`.
 /// `cute.tiled.copy.partition_D`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_copy_partition_D(ctx: *mlir.Context, tiled_copy: *const mlir.Value, input: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled.copy.partition_D", .{
@@ -2552,6 +2891,7 @@ pub fn tiled_copy_partition_D(ctx: *mlir.Context, tiled_copy: *const mlir.Value,
     });
 }
 
+// Construit `cute.tiled.copy.partition_S` : partition source de `input` via `tiled_copy` et `coord`, resultat `result_type`.
 /// `cute.tiled.copy.partition_S`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_copy_partition_S(ctx: *mlir.Context, tiled_copy: *const mlir.Value, input: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled.copy.partition_S", .{
@@ -2561,6 +2901,7 @@ pub fn tiled_copy_partition_S(ctx: *mlir.Context, tiled_copy: *const mlir.Value,
     });
 }
 
+// Construit `cute.tiled.copy.retile` : re-tuile `input` via `tiled_copy`, resultat `result_type`.
 /// `cute.tiled.copy.retile`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_copy_retile(ctx: *mlir.Context, tiled_copy: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled.copy.retile", .{
@@ -2570,6 +2911,7 @@ pub fn tiled_copy_retile(ctx: *mlir.Context, tiled_copy: *const mlir.Value, inpu
     });
 }
 
+// Construit `cute.tiled.mma.partition` : partition de `input` via `tiled_mma` et `coord` (attribut `operand_id`), resultat `result_type`.
 /// `cute.tiled.mma.partition`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_mma_partition(ctx: *mlir.Context, tiled_mma: *const mlir.Value, input: *const mlir.Value, coord: *const mlir.Value, result_type: *const mlir.Type, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled.mma.partition", .{
@@ -2582,6 +2924,7 @@ pub fn tiled_mma_partition(ctx: *mlir.Context, tiled_mma: *const mlir.Value, inp
     });
 }
 
+// Construit `cute.tiled.mma.partition_shape` : shape de partition de `input` via `tiled_mma` (attribut `operand_id`), resultat `result_type`.
 /// `cute.tiled.mma.partition_shape`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_mma_partition_shape(ctx: *mlir.Context, tiled_mma: *const mlir.Value, input: *const mlir.Value, result_type: *const mlir.Type, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled.mma.partition_shape", .{
@@ -2594,6 +2937,7 @@ pub fn tiled_mma_partition_shape(ctx: *mlir.Context, tiled_mma: *const mlir.Valu
     });
 }
 
+// Construit `cute.tiled_divide` : division de `input` par `tiler`, resultat `result_type`.
 /// `cute.tiled_divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled_divide", .{
@@ -2603,6 +2947,7 @@ pub fn tiled_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const 
     });
 }
 
+// Construit `cute.tiled_product` : produit `input` par `tiler`, resultat `result_type`.
 /// `cute.tiled_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tiled_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tiled_product", .{
@@ -2612,6 +2957,7 @@ pub fn tiled_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const
     });
 }
 
+// Construit `cute.to_int_tuple` : convertit `src` en int_tuple `dst_type`.
 /// `cute.to_int_tuple`. Result types are explicit; attributes use mlir.Attribute.
 pub fn to_int_tuple(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.to_int_tuple", .{
@@ -2621,6 +2967,7 @@ pub fn to_int_tuple(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const
     });
 }
 
+// Construit `cute.tuple.product` : produit des elements du tuple `input`, resultat `result_type`.
 /// `cute.tuple.product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_product(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple.product", .{
@@ -2630,6 +2977,7 @@ pub fn tuple_product(ctx: *mlir.Context, input: *const mlir.Value, result_type: 
     });
 }
 
+// Construit `cute.tuple.product_each` : produit element par element du tuple `input`, resultat `result_type`.
 /// `cute.tuple.product_each`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_product_each(ctx: *mlir.Context, input: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple.product_each", .{
@@ -2639,6 +2987,7 @@ pub fn tuple_product_each(ctx: *mlir.Context, input: *const mlir.Value, result_t
     });
 }
 
+// Construit `cute.tuple_add` : additionne les tuples `lhs` et `rhs`, resultat `result_type`.
 /// `cute.tuple_add`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_add(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple_add", .{
@@ -2648,6 +2997,7 @@ pub fn tuple_add(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.tuple_div` : divise les tuples `lhs` par `rhs`, resultat `result_type`.
 /// `cute.tuple_div`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple_div", .{
@@ -2657,6 +3007,7 @@ pub fn tuple_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.tuple_mod` : modulo des tuples `lhs` par `rhs`, resultat `result_type`.
 /// `cute.tuple_mod`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_mod(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple_mod", .{
@@ -2666,6 +3017,7 @@ pub fn tuple_mod(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.tuple_mul` : multiplie les tuples `lhs` par `rhs`, resultat `result_type`.
 /// `cute.tuple_mul`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_mul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple_mul", .{
@@ -2675,6 +3027,7 @@ pub fn tuple_mul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.tuple_sub` : soustrait les tuples `rhs` de `lhs`, resultat `result_type`.
 /// `cute.tuple_sub`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tuple_sub(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.tuple_sub", .{
@@ -2684,6 +3037,7 @@ pub fn tuple_sub(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit `cute.unpack_tuple` : eclipse `tuple` en resultats variadiques `result_types`.
 /// `cute.unpack_tuple`. Result types are explicit; attributes use mlir.Attribute.
 pub fn unpack_tuple(ctx: *mlir.Context, tuple: *const mlir.Value, result_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.unpack_tuple", .{
@@ -2695,6 +3049,7 @@ pub fn unpack_tuple(ctx: *mlir.Context, tuple: *const mlir.Value, result_types: 
     });
 }
 
+// Construit `cute.zipped_divide` : division zippee de `input` par `tiler`, resultat `result_type`.
 /// `cute.zipped_divide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn zipped_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.zipped_divide", .{
@@ -2704,6 +3059,7 @@ pub fn zipped_divide(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const
     });
 }
 
+// Construit `cute.zipped_product` : produit zippe de `input` par `tiler`, resultat `result_type`.
 /// `cute.zipped_product`. Result types are explicit; attributes use mlir.Attribute.
 pub fn zipped_product(ctx: *mlir.Context, input: *const mlir.Value, tiler: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cute.zipped_product", .{
@@ -2844,6 +3200,7 @@ pub const operation_names: []const []const u8 = &.{
     "cute.zipped_product",
 };
 
+// Cree un contexte MLIR de test avec les dialectes cute, nvgpu, nvvm et cuda enregistres puis charges.
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -2853,6 +3210,7 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Test global : force l'instanciation de toutes les declarations du module et des sous-modules (`refAllDecls`).
 test {
     @setEvalBranchQuota(100_000);
     std.testing.refAllDecls(@This());
@@ -2875,6 +3233,7 @@ test {
     }
 }
 
+// Verifie que chaque nom d'op des dialectes cute/nvgpu/nvvm/cuda est enregistre et que le contexte refuse les ops non enregistrees.
 test "every bound operation is registered" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -2885,6 +3244,7 @@ test "every bound operation is registered" {
     try std.testing.expect(!ctx.allowUnregisteredDialects());
 }
 
+// Verifie que chaque type/attribut genere se reconstruit depuis ses getters et s'imprime de facon stable.
 test "generated types and attributes rebuild from their getters" {
     @setEvalBranchQuota(100_000);
     const ctx = try testContext();
@@ -3010,6 +3370,7 @@ test "generated types and attributes rebuild from their getters" {
     try std.testing.expect((try nvgpu.SmemDescType.get(ctx, .{})).type_().isA(nvgpu.NVGPUType) != null);
 }
 
+// Verifie que les types/attributs nvvm et cuda s'impriment octet pour octet comme le compilateur.
 test "nvvm and cuda types and attributes print as the compiler does" {
     @setEvalBranchQuota(100_000);
     const ctx = try testContext();
@@ -3057,6 +3418,7 @@ test "nvvm and cuda types and attributes print as the compiler does" {
     }
 }
 
+// Verifie que `nvvm.TargetAttr` rejette les parametres invalides (O hors bornes, chip vide, liens non-chaine).
 test "nvvm target rejects what the compiler rejects" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -3066,6 +3428,7 @@ test "nvvm target rejects what the compiler rejects" {
     try std.testing.expectError(error.InvalidMlir, nvvm.TargetAttr.get(ctx, .{ .link = not_strings }));
 }
 
+// Reconstruit un attribut/type depuis ses getters pour les champs tranche d'enums (utilise par les tests).
 /// `rebuild` for parameters that are slices of enums.
 fn rebuildEnums(comptime T: type, ctx: *mlir.Context, value: *const T) !*const T {
     var args: T.InitArgs = undefined;
@@ -3086,6 +3449,7 @@ fn rebuildEnums(comptime T: type, ctx: *mlir.Context, value: *const T) !*const T
     return T.get(ctx, args);
 }
 
+// Reconstruit un attribut/type depuis ses getters; gere les champs tranche de types MLIR (utilise par les tests).
 fn rebuild(comptime T: type, ctx: *mlir.Context, value: *const T) !*const T {
     var args: T.InitArgs = undefined;
     var elements: [8]*const mlir.Type = undefined;

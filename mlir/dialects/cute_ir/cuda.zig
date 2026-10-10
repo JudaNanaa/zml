@@ -314,19 +314,23 @@ pub const AssumeKernelAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "assume_kernel_attr";
+    // Formate l'attribut `#cuda.assume_kernel_attr` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: bool,
     };
+    // Construit l'attribut `#cuda.assume_kernel_attr` via `c.mlirCudaAssumeKernelAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaAssumeKernelAttrGet(ctx.ptr(), args.value);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaAssumeKernelAttrGetValue`.
     pub fn getValue(self: *const Self) bool {
         return c.mlirCudaAssumeKernelAttrGetValue(self.ptr());
     }
@@ -341,9 +345,11 @@ pub const ComputeTargetAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "compute_target";
+    // Formate l'attribut `#cuda.compute_target` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -352,19 +358,24 @@ pub const ComputeTargetAttr = opaque {
         portability: ArchPortability,
         archs: []const GpuArchitecture,
     };
+    // Construit l'attribut `#cuda.compute_target` via `c.mlirCudaComputeTargetAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaComputeTargetAttrGet(ctx.ptr(), @intFromEnum(args.representation), @intFromEnum(args.portability), @intCast(args.archs.len), @ptrCast(args.archs.ptr));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaComputeTargetAttrGetRepresentation`.
     pub fn getRepresentation(self: *const Self) ExecutableRepresentation {
         return @enumFromInt(c.mlirCudaComputeTargetAttrGetRepresentation(self.ptr()));
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaComputeTargetAttrGetPortability`.
     pub fn getPortability(self: *const Self) ArchPortability {
         return @enumFromInt(c.mlirCudaComputeTargetAttrGetPortability(self.ptr()));
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaComputeTargetAttrGetNumArchs`.
     pub fn getNumArchs(self: *const Self) usize {
         return @intCast(c.mlirCudaComputeTargetAttrGetNumArchs(self.ptr()));
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaComputeTargetAttrGetArchs`.
     pub fn getArch(self: *const Self, pos: usize) GpuArchitecture {
         return @enumFromInt(c.mlirCudaComputeTargetAttrGetArchs(self.ptr(), @intCast(pos)));
     }
@@ -379,13 +390,16 @@ pub const DevMaxSharedMemoryOptinAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "dev_max_shared_memory_optin";
+    // Formate l'attribut `#cuda.dev_max_shared_memory_optin` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit l'attribut `#cuda.dev_max_shared_memory_optin` via `c.mlirCudaDevMaxSharedMemoryOptinAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaDevMaxSharedMemoryOptinAttrGet(ctx.ptr());
@@ -402,19 +416,23 @@ pub const DeviceAttributesAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "device_attributes";
+    // Formate l'attribut `#cuda.device_attributes` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         values: *const mlir.Attribute,
     };
+    // Construit l'attribut `#cuda.device_attributes` via `c.mlirCudaDeviceAttributesAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaDeviceAttributesAttrGet(ctx.ptr(), args.values.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaDeviceAttributesAttrGetValues`.
     pub fn getValues(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCudaDeviceAttributesAttrGetValues(self.ptr()).ptr.?);
     }
@@ -429,19 +447,23 @@ pub const ExecutableAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "executable";
+    // Formate l'attribut `#cuda.executable` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         format: ExecutableFormat,
     };
+    // Construit l'attribut `#cuda.executable` via `c.mlirCudaExecutableAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaExecutableAttrGet(ctx.ptr(), @intFromEnum(args.format));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaExecutableAttrGetFormat`.
     pub fn getFormat(self: *const Self) ExecutableFormat {
         return @enumFromInt(c.mlirCudaExecutableAttrGetFormat(self.ptr()));
     }
@@ -456,19 +478,23 @@ pub const FuncAttributesAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "func_attributes";
+    // Formate l'attribut `#cuda.func_attributes` vers `writer` (délègue à `mlir.Attribute.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Attribute` (upcast sans copie ni vérification).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         values: *const mlir.Attribute,
     };
+    // Construit l'attribut `#cuda.func_attributes` via `c.mlirCudaFuncAttributesAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaFuncAttributesAttrGet(ctx.ptr(), args.values.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaFuncAttributesAttrGetValues`.
     pub fn getValues(self: *const Self) *const mlir.Attribute {
         return @ptrCast(c.mlirCudaFuncAttributesAttrGetValues(self.ptr()).ptr.?);
     }
@@ -483,13 +509,16 @@ pub const ArchSetType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "arch_set";
+    // Formate le type `!cuda.arch_set` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.arch_set` via `c.mlirCudaArchSetTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaArchSetTypeGet(ctx.ptr());
@@ -506,13 +535,16 @@ pub const EventType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "event";
+    // Formate le type `!cuda.event` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.event` via `c.mlirCudaEventTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaEventTypeGet(ctx.ptr());
@@ -529,13 +561,16 @@ pub const GraphDeviceNodeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "graph_device_node";
+    // Formate le type `!cuda.graph_device_node` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.graph_device_node` via `c.mlirCudaGraphDeviceNodeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaGraphDeviceNodeTypeGet(ctx.ptr());
@@ -552,13 +587,16 @@ pub const GraphExecType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "graph_exec";
+    // Formate le type `!cuda.graph_exec` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.graph_exec` via `c.mlirCudaGraphExecTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaGraphExecTypeGet(ctx.ptr());
@@ -575,13 +613,16 @@ pub const GraphNodeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "graph_node";
+    // Formate le type `!cuda.graph_node` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.graph_node` via `c.mlirCudaGraphNodeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaGraphNodeTypeGet(ctx.ptr());
@@ -598,13 +639,16 @@ pub const GraphType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "graph";
+    // Formate le type `!cuda.graph` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.graph` via `c.mlirCudaGraphTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaGraphTypeGet(ctx.ptr());
@@ -621,13 +665,16 @@ pub const IntType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "int";
+    // Formate le type `!cuda.int` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.int` via `c.mlirCudaIntTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaIntTypeGet(ctx.ptr());
@@ -644,13 +691,16 @@ pub const KernelType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "kernel";
+    // Formate le type `!cuda.kernel` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.kernel` via `c.mlirCudaKernelTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaKernelTypeGet(ctx.ptr());
@@ -667,19 +717,23 @@ pub const LaunchConfigType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "launch_cfg";
+    // Formate le type `!cuda.launch_cfg` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         maxNumAttrs: u32,
     };
+    // Construit le type `!cuda.launch_cfg` via `c.mlirCudaLaunchConfigTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaLaunchConfigTypeGet(ctx.ptr(), args.maxNumAttrs);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Accesseur : renvoie la valeur calculée par `c.mlirCudaLaunchConfigTypeGetMaxNumAttrs`.
     pub fn getMaxNumAttrs(self: *const Self) u32 {
         return c.mlirCudaLaunchConfigTypeGetMaxNumAttrs(self.ptr());
     }
@@ -694,13 +748,16 @@ pub const LibraryType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "library";
+    // Formate le type `!cuda.library` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.library` via `c.mlirCudaLibraryTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaLibraryTypeGet(ctx.ptr());
@@ -717,13 +774,16 @@ pub const ModuleType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "module";
+    // Formate le type `!cuda.module` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.module` via `c.mlirCudaModuleTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaModuleTypeGet(ctx.ptr());
@@ -740,13 +800,16 @@ pub const ResultType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "result";
+    // Formate le type `!cuda.result` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.result` via `c.mlirCudaResultTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaResultTypeGet(ctx.ptr());
@@ -763,13 +826,16 @@ pub const RuntimeDevicePropType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.device_prop";
+    // Formate le type `!cuda.runtime.device_prop` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.device_prop` via `c.mlirCudaRuntimeDevicePropTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeDevicePropTypeGet(ctx.ptr());
@@ -786,13 +852,16 @@ pub const RuntimeDim3Type = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.dim_3";
+    // Formate le type `!cuda.runtime.dim_3` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.dim_3` via `c.mlirCudaRuntimeDim3TypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeDim3TypeGet(ctx.ptr());
@@ -809,13 +878,16 @@ pub const RuntimeExtentType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.extent";
+    // Formate le type `!cuda.runtime.extent` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.extent` via `c.mlirCudaRuntimeExtentTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeExtentTypeGet(ctx.ptr());
@@ -832,13 +904,16 @@ pub const RuntimeKernelNodeParamsType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.kernel_node_params";
+    // Formate le type `!cuda.runtime.kernel_node_params` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.kernel_node_params` via `c.mlirCudaRuntimeKernelNodeParamsTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeKernelNodeParamsTypeGet(ctx.ptr());
@@ -855,13 +930,16 @@ pub const RuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceType = opa
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.cluster_scheduling_policy_preference";
+    // Formate le type `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference` via `c.mlirCudaRuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceTypeGet(ctx.ptr());
@@ -878,13 +956,16 @@ pub const RuntimeLaunchAttributeValueCooperativeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.cooperative";
+    // Formate le type `!cuda.runtime.launch_attribute_value.cooperative` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.cooperative` via `c.mlirCudaRuntimeLaunchAttributeValueCooperativeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueCooperativeTypeGet(ctx.ptr());
@@ -901,13 +982,16 @@ pub const RuntimeLaunchAttributeValueMemSyncDomainType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.mem_sync_domain";
+    // Formate le type `!cuda.runtime.launch_attribute_value.mem_sync_domain` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.mem_sync_domain` via `c.mlirCudaRuntimeLaunchAttributeValueMemSyncDomainTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueMemSyncDomainTypeGet(ctx.ptr());
@@ -924,13 +1008,16 @@ pub const RuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.nvlink_util_centric_scheduling";
+    // Formate le type `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling` via `c.mlirCudaRuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingTypeGet(ctx.ptr());
@@ -947,13 +1034,16 @@ pub const RuntimeLaunchAttributeValuePortableClusterSizeModeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.portable_cluster_size_mode";
+    // Formate le type `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode` via `c.mlirCudaRuntimeLaunchAttributeValuePortableClusterSizeModeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValuePortableClusterSizeModeTypeGet(ctx.ptr());
@@ -970,13 +1060,16 @@ pub const RuntimeLaunchAttributeValuePriorityType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.priority";
+    // Formate le type `!cuda.runtime.launch_attribute_value.priority` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.priority` via `c.mlirCudaRuntimeLaunchAttributeValuePriorityTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValuePriorityTypeGet(ctx.ptr());
@@ -993,13 +1086,16 @@ pub const RuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedType 
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.programmatic_stream_serialization_allowed";
+    // Formate le type `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed` via `c.mlirCudaRuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedTypeGet(ctx.ptr());
@@ -1016,13 +1112,16 @@ pub const RuntimeLaunchAttributeValueSharedMemCarveoutType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.shared_mem_carveout";
+    // Formate le type `!cuda.runtime.launch_attribute_value.shared_mem_carveout` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.shared_mem_carveout` via `c.mlirCudaRuntimeLaunchAttributeValueSharedMemCarveoutTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueSharedMemCarveoutTypeGet(ctx.ptr());
@@ -1039,13 +1138,16 @@ pub const RuntimeLaunchAttributeValueSharedMemoryModeType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.shared_memory_mode";
+    // Formate le type `!cuda.runtime.launch_attribute_value.shared_memory_mode` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.shared_memory_mode` via `c.mlirCudaRuntimeLaunchAttributeValueSharedMemoryModeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueSharedMemoryModeTypeGet(ctx.ptr());
@@ -1062,13 +1164,16 @@ pub const RuntimeLaunchAttributeValueSyncPolicyType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.launch_attribute_value.sync_policy";
+    // Formate le type `!cuda.runtime.launch_attribute_value.sync_policy` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.launch_attribute_value.sync_policy` via `c.mlirCudaRuntimeLaunchAttributeValueSyncPolicyTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeLaunchAttributeValueSyncPolicyTypeGet(ctx.ptr());
@@ -1085,13 +1190,16 @@ pub const RuntimeMemcpy3DParamsType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.memcpy_3d_params";
+    // Formate le type `!cuda.runtime.memcpy_3d_params` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.memcpy_3d_params` via `c.mlirCudaRuntimeMemcpy3DParamsTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeMemcpy3DParamsTypeGet(ctx.ptr());
@@ -1108,13 +1216,16 @@ pub const RuntimePitchedPtrType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.pitched_ptr";
+    // Formate le type `!cuda.runtime.pitched_ptr` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.pitched_ptr` via `c.mlirCudaRuntimePitchedPtrTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimePitchedPtrTypeGet(ctx.ptr());
@@ -1131,13 +1242,16 @@ pub const RuntimePosType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.pos";
+    // Formate le type `!cuda.runtime.pos` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.pos` via `c.mlirCudaRuntimePosTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimePosTypeGet(ctx.ptr());
@@ -1154,13 +1268,16 @@ pub const RuntimeUuidType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "runtime.uuid";
+    // Formate le type `!cuda.runtime.uuid` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.runtime.uuid` via `c.mlirCudaRuntimeUuidTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaRuntimeUuidTypeGet(ctx.ptr());
@@ -1177,13 +1294,16 @@ pub const StreamType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "stream";
+    // Formate le type `!cuda.stream` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.stream` via `c.mlirCudaStreamTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaStreamTypeGet(ctx.ptr());
@@ -1200,13 +1320,16 @@ pub const TensorMapType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensor_map";
+    // Formate le type `!cuda.tensor_map` vers `writer` (délègue à `mlir.Type.format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Réinterprète ce pointeur en `mlir.Type` (upcast sans copie ni vérification).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Construit le type `!cuda.tensor_map` via `c.mlirCudaTensorMapTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirCudaTensorMapTypeGet(ctx.ptr());
@@ -1214,6 +1337,8 @@ pub const TensorMapType = opaque {
     }
 };
 
+// Construit l'opération MLIR `cuda.addressof`.
+// Résultat : `result_type` ; attribut : `symname`.
 // Operation builders, generated from the operations' .td.
 /// `cuda.addressof`. Result types are explicit; attributes use mlir.Attribute.
 pub fn addressof(ctx: *mlir.Context, result_type: *const mlir.Type, symname: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
@@ -1226,6 +1351,8 @@ pub fn addressof(ctx: *mlir.Context, result_type: *const mlir.Type, symname: *co
     });
 }
 
+// Construit l'opération MLIR `cuda.binary`.
+// Attributs : `sym_name`, `binary_` ; région : 1 bloc(s).
 /// `cuda.binary`. Result types are explicit; attributes use mlir.Attribute. Not verified on creation: the blocks are usually filled afterwards.
 pub fn binary(ctx: *mlir.Context, sym_name: *const mlir.Attribute, binary_: *const mlir.Attribute, blocks: [1]*mlir.Block, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.binary", .{
@@ -1239,6 +1366,8 @@ pub fn binary(ctx: *mlir.Context, sym_name: *const mlir.Attribute, binary_: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.cast`.
+// Opérande : `src` ; résultat : `dst_type`.
 /// `cuda.cast`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cast(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.cast", .{
@@ -1248,6 +1377,8 @@ pub fn cast(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Ty
     });
 }
 
+// Construit l'opération MLIR `cuda.compose`.
+// Opérande : `fields` ; résultat : `result_type`.
 /// `cuda.compose`. Result types are explicit; attributes use mlir.Attribute.
 pub fn compose(ctx: *mlir.Context, fields: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.compose", .{
@@ -1257,6 +1388,8 @@ pub fn compose(ctx: *mlir.Context, fields: []const *const mlir.Value, result_typ
     });
 }
 
+// Construit l'opération MLIR `cuda.decompose`.
+// Opérande : `source` ; résultat : `fields_type`.
 /// `cuda.decompose`. Result types are explicit; attributes use mlir.Attribute.
 pub fn decompose(ctx: *mlir.Context, source: *const mlir.Value, fields_type: ?*const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -1268,6 +1401,8 @@ pub fn decompose(ctx: *mlir.Context, source: *const mlir.Value, fields_type: ?*c
     });
 }
 
+// Construit l'opération MLIR `cuda.device.sync`.
+// Résultat : `cuda_result_type`.
 /// `cuda.device.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn device_sync(ctx: *mlir.Context, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.device.sync", .{
@@ -1276,6 +1411,8 @@ pub fn device_sync(ctx: *mlir.Context, cuda_result_type: *const mlir.Type, locat
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.create`.
+// Opérande : `Flags` ; résultats : `cuda_result_type`, `phEvent_type`.
 /// `cuda.driver.event.create`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_create(ctx: *mlir.Context, Flags: *const mlir.Value, cuda_result_type: *const mlir.Type, phEvent_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.create", .{
@@ -1285,6 +1422,8 @@ pub fn driver_event_create(ctx: *mlir.Context, Flags: *const mlir.Value, cuda_re
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.destroy`.
+// Opérande : `hEvent` ; résultat : `cuda_result_type`.
 /// `cuda.driver.event.destroy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_destroy(ctx: *mlir.Context, hEvent: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.destroy", .{
@@ -1294,6 +1433,8 @@ pub fn driver_event_destroy(ctx: *mlir.Context, hEvent: *const mlir.Value, cuda_
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.elapsed_time`.
+// Opérandes : `hStart`, `hEnd` ; résultats : `cuda_result_type`, `pMilliseconds_type`.
 /// `cuda.driver.event.elapsed_time`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_elapsed_time(ctx: *mlir.Context, hStart: *const mlir.Value, hEnd: *const mlir.Value, cuda_result_type: *const mlir.Type, pMilliseconds_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.elapsed_time", .{
@@ -1303,6 +1444,8 @@ pub fn driver_event_elapsed_time(ctx: *mlir.Context, hStart: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.query`.
+// Opérande : `hEvent` ; résultat : `cuda_result_type`.
 /// `cuda.driver.event.query`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_query(ctx: *mlir.Context, hEvent: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.query", .{
@@ -1312,6 +1455,8 @@ pub fn driver_event_query(ctx: *mlir.Context, hEvent: *const mlir.Value, cuda_re
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.record`.
+// Opérandes : `hEvent`, `hStream` ; résultat : `cuda_result_type`.
 /// `cuda.driver.event.record`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_record(ctx: *mlir.Context, hEvent: *const mlir.Value, hStream: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.record", .{
@@ -1321,6 +1466,8 @@ pub fn driver_event_record(ctx: *mlir.Context, hEvent: *const mlir.Value, hStrea
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.record_with_flags`.
+// Opérandes : `hEvent`, `hStream`, `flags` ; résultat : `cuda_result_type`.
 /// `cuda.driver.event.record_with_flags`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_record_with_flags(ctx: *mlir.Context, hEvent: *const mlir.Value, hStream: *const mlir.Value, flags: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.record_with_flags", .{
@@ -1330,6 +1477,8 @@ pub fn driver_event_record_with_flags(ctx: *mlir.Context, hEvent: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.event.synchronize`.
+// Opérande : `hEvent` ; résultat : `cuda_result_type`.
 /// `cuda.driver.event.synchronize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_event_synchronize(ctx: *mlir.Context, hEvent: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.event.synchronize", .{
@@ -1339,6 +1488,8 @@ pub fn driver_event_synchronize(ctx: *mlir.Context, hEvent: *const mlir.Value, c
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_global`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `dptr_type`, `bytes_type`.
 /// `cuda.driver.library.get_global`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_global(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, dptr_type: *const mlir.Type, bytes_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_global", .{
@@ -1348,6 +1499,8 @@ pub fn driver_library_get_global(ctx: *mlir.Context, library: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_kernel`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `pKernel_type`.
 /// `cuda.driver.library.get_kernel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, pKernel_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_kernel", .{
@@ -1357,6 +1510,8 @@ pub fn driver_library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_kernel_count`.
+// Opérande : `lib` ; résultats : `cuda_result_type`, `count_type`.
 /// `cuda.driver.library.get_kernel_count`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_kernel_count(ctx: *mlir.Context, lib: *const mlir.Value, cuda_result_type: *const mlir.Type, count_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_kernel_count", .{
@@ -1366,6 +1521,8 @@ pub fn driver_library_get_kernel_count(ctx: *mlir.Context, lib: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_managed`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `dptr_type`, `bytes_type`.
 /// `cuda.driver.library.get_managed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_managed(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, dptr_type: *const mlir.Type, bytes_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_managed", .{
@@ -1375,6 +1532,8 @@ pub fn driver_library_get_managed(ctx: *mlir.Context, library: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_module`.
+// Opérande : `library` ; résultats : `cuda_result_type`, `pMod_type`.
 /// `cuda.driver.library.get_module`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_module(ctx: *mlir.Context, library: *const mlir.Value, cuda_result_type: *const mlir.Type, pMod_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_module", .{
@@ -1384,6 +1543,8 @@ pub fn driver_library_get_module(ctx: *mlir.Context, library: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.get_unified_function`.
+// Opérandes : `library`, `symbol` ; résultats : `cuda_result_type`, `fptr_type`.
 /// `cuda.driver.library.get_unified_function`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_get_unified_function(ctx: *mlir.Context, library: *const mlir.Value, symbol: *const mlir.Value, cuda_result_type: *const mlir.Type, fptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.get_unified_function", .{
@@ -1393,6 +1554,8 @@ pub fn driver_library_get_unified_function(ctx: *mlir.Context, library: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.load_data`.
+// Opérandes : `code_arg`, `jitOptions`, `jitOptionsValues`, `numJitOptions`, `libraryOptions`, `libraryOptionValues`, `numLibraryOptions` ; résultats : `cuda_result_type`, `library_type`.
 /// `cuda.driver.library.load_data`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_load_data(ctx: *mlir.Context, code_arg: *const mlir.Value, jitOptions: *const mlir.Value, jitOptionsValues: *const mlir.Value, numJitOptions: *const mlir.Value, libraryOptions: *const mlir.Value, libraryOptionValues: *const mlir.Value, numLibraryOptions: *const mlir.Value, cuda_result_type: *const mlir.Type, library_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.load_data", .{
@@ -1402,6 +1565,8 @@ pub fn driver_library_load_data(ctx: *mlir.Context, code_arg: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.load_from_file`.
+// Opérandes : `fileName`, `jitOptions`, `jitOptionsValues`, `numJitOptions`, `libraryOptions`, `libraryOptionValues`, `numLibraryOptions` ; résultats : `cuda_result_type`, `library_type`.
 /// `cuda.driver.library.load_from_file`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_load_from_file(ctx: *mlir.Context, fileName: *const mlir.Value, jitOptions: *const mlir.Value, jitOptionsValues: *const mlir.Value, numJitOptions: *const mlir.Value, libraryOptions: *const mlir.Value, libraryOptionValues: *const mlir.Value, numLibraryOptions: *const mlir.Value, cuda_result_type: *const mlir.Type, library_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.load_from_file", .{
@@ -1411,6 +1576,8 @@ pub fn driver_library_load_from_file(ctx: *mlir.Context, fileName: *const mlir.V
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.library.unload`.
+// Opérande : `library` ; résultat : `cuda_result_type`.
 /// `cuda.driver.library.unload`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_library_unload(ctx: *mlir.Context, library: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.library.unload", .{
@@ -1420,6 +1587,8 @@ pub fn driver_library_unload(ctx: *mlir.Context, library: *const mlir.Value, cud
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.tensor_map.encode_im2col`.
+// Opérandes : `tensorDataType`, `tensorRank`, `globalAddress`, `globalDim`, `globalStrides`, `pixelBoxLowerCorner`, `pixelBoxUpperCorner`, `channelsPerPixel`, `pixelsPerColumn`, `elementStrides`, `interleave`, `swizzle`, `l2Promotion`, `oobFill` ; résultats : `cuda_result_type`, `tensorMap_type`.
 /// `cuda.driver.tensor_map.encode_im2col`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_tensor_map_encode_im2col(ctx: *mlir.Context, tensorDataType: *const mlir.Value, tensorRank: *const mlir.Value, globalAddress: *const mlir.Value, globalDim: *const mlir.Value, globalStrides: *const mlir.Value, pixelBoxLowerCorner: *const mlir.Value, pixelBoxUpperCorner: *const mlir.Value, channelsPerPixel: *const mlir.Value, pixelsPerColumn: *const mlir.Value, elementStrides: *const mlir.Value, interleave: *const mlir.Value, swizzle: *const mlir.Value, l2Promotion: *const mlir.Value, oobFill: *const mlir.Value, cuda_result_type: *const mlir.Type, tensorMap_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.tensor_map.encode_im2col", .{
@@ -1429,6 +1598,8 @@ pub fn driver_tensor_map_encode_im2col(ctx: *mlir.Context, tensorDataType: *cons
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.tensor_map.encode_im2col_wide`.
+// Opérandes : `tensorDataType`, `tensorRank`, `globalAddress`, `globalDim`, `globalStrides`, `pixelBoxLowerCornerWidth`, `pixelBoxUpperCornerWidth`, `channelsPerPixel`, `pixelsPerColumn`, `elementStrides`, `interleave`, `mode`, `swizzle`, `l2Promotion`, `oobFill` ; résultats : `cuda_result_type`, `tensorMap_type`.
 /// `cuda.driver.tensor_map.encode_im2col_wide`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_tensor_map_encode_im2col_wide(ctx: *mlir.Context, tensorDataType: *const mlir.Value, tensorRank: *const mlir.Value, globalAddress: *const mlir.Value, globalDim: *const mlir.Value, globalStrides: *const mlir.Value, pixelBoxLowerCornerWidth: *const mlir.Value, pixelBoxUpperCornerWidth: *const mlir.Value, channelsPerPixel: *const mlir.Value, pixelsPerColumn: *const mlir.Value, elementStrides: *const mlir.Value, interleave: *const mlir.Value, mode: *const mlir.Value, swizzle: *const mlir.Value, l2Promotion: *const mlir.Value, oobFill: *const mlir.Value, cuda_result_type: *const mlir.Type, tensorMap_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.tensor_map.encode_im2col_wide", .{
@@ -1438,6 +1609,8 @@ pub fn driver_tensor_map_encode_im2col_wide(ctx: *mlir.Context, tensorDataType: 
     });
 }
 
+// Construit l'opération MLIR `cuda.driver.tensor_map.replace_address`.
+// Opérande : `globalAddress` ; résultats : `cuda_result_type`, `tensorMap_type`.
 /// `cuda.driver.tensor_map.replace_address`. Result types are explicit; attributes use mlir.Attribute.
 pub fn driver_tensor_map_replace_address(ctx: *mlir.Context, globalAddress: *const mlir.Value, cuda_result_type: *const mlir.Type, tensorMap_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.driver.tensor_map.replace_address", .{
@@ -1447,6 +1620,8 @@ pub fn driver_tensor_map_replace_address(ctx: *mlir.Context, globalAddress: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.event.create`.
+// Résultats : `result_type`, `event_type`.
 /// `cuda.event.create`. Result types are explicit; attributes use mlir.Attribute.
 pub fn event_create(ctx: *mlir.Context, result_type: *const mlir.Type, event_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.event.create", .{
@@ -1455,6 +1630,8 @@ pub fn event_create(ctx: *mlir.Context, result_type: *const mlir.Type, event_typ
     });
 }
 
+// Construit l'opération MLIR `cuda.event.destroy`.
+// Opérande : `event` ; résultat : `result_type`.
 /// `cuda.event.destroy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn event_destroy(ctx: *mlir.Context, event: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.event.destroy", .{
@@ -1464,6 +1641,8 @@ pub fn event_destroy(ctx: *mlir.Context, event: *const mlir.Value, result_type: 
     });
 }
 
+// Construit l'opération MLIR `cuda.event.elapsed_time`.
+// Opérandes : `start_event`, `end_event` ; résultats : `cuda_result_type`, `elapsed_time_type`.
 /// `cuda.event.elapsed_time`. Result types are explicit; attributes use mlir.Attribute.
 pub fn event_elapsed_time(ctx: *mlir.Context, start_event: *const mlir.Value, end_event: *const mlir.Value, cuda_result_type: *const mlir.Type, elapsed_time_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.event.elapsed_time", .{
@@ -1473,6 +1652,8 @@ pub fn event_elapsed_time(ctx: *mlir.Context, start_event: *const mlir.Value, en
     });
 }
 
+// Construit l'opération MLIR `cuda.event.record`.
+// Opérandes : `event`, `stream` ; résultat : `result_type`.
 /// `cuda.event.record`. Result types are explicit; attributes use mlir.Attribute.
 pub fn event_record(ctx: *mlir.Context, event: *const mlir.Value, stream: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.event.record", .{
@@ -1482,6 +1663,8 @@ pub fn event_record(ctx: *mlir.Context, event: *const mlir.Value, stream: ?*cons
     });
 }
 
+// Construit l'opération MLIR `cuda.func`.
+// Attributs : `sym_name`, `function_type`, `arg_attrs`, `res_attrs` ; région : 1 bloc(s).
 /// `cuda.func`. Result types are explicit; attributes use mlir.Attribute. Not verified on creation: the blocks are usually filled afterwards.
 pub fn func(ctx: *mlir.Context, sym_name: *const mlir.Attribute, function_type: *const mlir.Attribute, arg_attrs: ?*const mlir.Attribute, res_attrs: ?*const mlir.Attribute, blocks: [1]*mlir.Block, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -1497,6 +1680,8 @@ pub fn func(ctx: *mlir.Context, sym_name: *const mlir.Attribute, function_type: 
     });
 }
 
+// Construit l'opération MLIR `cuda.func.get_name`.
+// Opérande : `kernel_` ; résultats : `result_type`, `name_type`.
 /// `cuda.func.get_name`. Result types are explicit; attributes use mlir.Attribute.
 pub fn func_get_name(ctx: *mlir.Context, kernel_: *const mlir.Value, result_type: *const mlir.Type, name_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.func.get_name", .{
@@ -1506,6 +1691,8 @@ pub fn func_get_name(ctx: *mlir.Context, kernel_: *const mlir.Value, result_type
     });
 }
 
+// Construit l'opération MLIR `cuda.graph.destroy`.
+// Opérande : `graph` ; résultat : `result_type`.
 /// `cuda.graph.destroy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn graph_destroy(ctx: *mlir.Context, graph: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.graph.destroy", .{
@@ -1515,6 +1702,8 @@ pub fn graph_destroy(ctx: *mlir.Context, graph: *const mlir.Value, result_type: 
     });
 }
 
+// Construit l'opération MLIR `cuda.graph.instantiate`.
+// Opérande : `graph` ; résultats : `result_type`, `graph_exec_type`.
 /// `cuda.graph.instantiate`. Result types are explicit; attributes use mlir.Attribute.
 pub fn graph_instantiate(ctx: *mlir.Context, graph: *const mlir.Value, result_type: *const mlir.Type, graph_exec_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.graph.instantiate", .{
@@ -1524,6 +1713,8 @@ pub fn graph_instantiate(ctx: *mlir.Context, graph: *const mlir.Value, result_ty
     });
 }
 
+// Construit l'opération MLIR `cuda.graph.launch`.
+// Opérandes : `graph_exec`, `stream` ; résultat : `result_type`.
 /// `cuda.graph.launch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn graph_launch(ctx: *mlir.Context, graph_exec: *const mlir.Value, stream: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.graph.launch", .{
@@ -1533,6 +1724,8 @@ pub fn graph_launch(ctx: *mlir.Context, graph_exec: *const mlir.Value, stream: *
     });
 }
 
+// Construit l'opération MLIR `cuda.graph_exec.destroy`.
+// Opérande : `graph_exec` ; résultat : `result_type`.
 /// `cuda.graph_exec.destroy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn graph_exec_destroy(ctx: *mlir.Context, graph_exec: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.graph_exec.destroy", .{
@@ -1542,6 +1735,8 @@ pub fn graph_exec_destroy(ctx: *mlir.Context, graph_exec: *const mlir.Value, res
     });
 }
 
+// Construit l'opération MLIR `cuda.kernel`.
+// Attributs : `sym_name`, `function_type`, `arg_attrs`, `res_attrs`, `cu_func_attrs` ; région : 1 bloc(s).
 /// `cuda.kernel`. Result types are explicit; attributes use mlir.Attribute. Not verified on creation: the blocks are usually filled afterwards.
 pub fn kernel(ctx: *mlir.Context, sym_name: *const mlir.Attribute, function_type: *const mlir.Attribute, arg_attrs: ?*const mlir.Attribute, res_attrs: ?*const mlir.Attribute, cu_func_attrs: ?*const mlir.Attribute, blocks: [1]*mlir.Block, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -1558,6 +1753,8 @@ pub fn kernel(ctx: *mlir.Context, sym_name: *const mlir.Attribute, function_type
     });
 }
 
+// Construit l'opération MLIR `cuda.launch`.
+// Opérandes : `grid`, `block`, `dynamicSmem`, `cudaStream`, `inputs` ; résultat : `cuda_result_type` ; attributs : `callee`, `arg_attrs`, `res_attrs`, `assume_kernel_attr`.
 /// `cuda.launch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch(ctx: *mlir.Context, grid: []const *const mlir.Value, block: []const *const mlir.Value, dynamicSmem: *const mlir.Value, cudaStream: *const mlir.Value, inputs: []const *const mlir.Value, cuda_result_type: *const mlir.Type, callee: *const mlir.Attribute, arg_attrs: ?*const mlir.Attribute, res_attrs: ?*const mlir.Attribute, assume_kernel_attr: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -1579,6 +1776,8 @@ pub fn launch(ctx: *mlir.Context, grid: []const *const mlir.Value, block: []cons
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.access_policy_window`.
+// Opérandes : `launch_cfg`, `base_ptr`, `hitRatio`, `num_bytes` ; attributs : `hitProp`, `missProp`.
 /// `cuda.launch_cfg.access_policy_window`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_access_policy_window(ctx: *mlir.Context, launch_cfg: *const mlir.Value, base_ptr: *const mlir.Value, hitRatio: *const mlir.Value, num_bytes: *const mlir.Value, hitProp: *const mlir.Attribute, missProp: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.access_policy_window", .{
@@ -1591,6 +1790,8 @@ pub fn launch_cfg_access_policy_window(ctx: *mlir.Context, launch_cfg: *const ml
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.cluster_dim`.
+// Opérandes : `launch_cfg`, `clusterDimX`, `clusterDimY`, `clusterDimZ`.
 /// `cuda.launch_cfg.cluster_dim`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_cluster_dim(ctx: *mlir.Context, launch_cfg: *const mlir.Value, clusterDimX: *const mlir.Value, clusterDimY: *const mlir.Value, clusterDimZ: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.cluster_dim", .{
@@ -1599,6 +1800,8 @@ pub fn launch_cfg_cluster_dim(ctx: *mlir.Context, launch_cfg: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.cluster_scheduling_policy`.
+// Opérande : `launch_cfg` ; attribut : `policy`.
 /// `cuda.launch_cfg.cluster_scheduling_policy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_cluster_scheduling_policy(ctx: *mlir.Context, launch_cfg: *const mlir.Value, policy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.cluster_scheduling_policy", .{
@@ -1610,6 +1813,8 @@ pub fn launch_cfg_cluster_scheduling_policy(ctx: *mlir.Context, launch_cfg: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.cooperative`.
+// Opérandes : `launch_cfg`, `cooperative`.
 /// `cuda.launch_cfg.cooperative`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_cooperative(ctx: *mlir.Context, launch_cfg: *const mlir.Value, cooperative: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.cooperative", .{
@@ -1618,6 +1823,8 @@ pub fn launch_cfg_cooperative(ctx: *mlir.Context, launch_cfg: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.create`.
+// Opérandes : `blockDimX`, `blockDimY`, `blockDimZ`, `dynamicSmemBytes`, `gridDimX`, `gridDimY`, `gridDimZ`, `stream` ; résultat : `result_type` ; attribut : `maxNumAttrs`.
 /// `cuda.launch_cfg.create`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_create(ctx: *mlir.Context, blockDimX: *const mlir.Value, blockDimY: *const mlir.Value, blockDimZ: *const mlir.Value, dynamicSmemBytes: *const mlir.Value, gridDimX: *const mlir.Value, gridDimY: *const mlir.Value, gridDimZ: *const mlir.Value, stream: *const mlir.Value, result_type: *const mlir.Type, maxNumAttrs: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.create", .{
@@ -1630,6 +1837,8 @@ pub fn launch_cfg_create(ctx: *mlir.Context, blockDimX: *const mlir.Value, block
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.create_from_stream`.
+// Opérande : `stream` ; résultat : `result_type` ; attribut : `maxNumAttrs`.
 /// `cuda.launch_cfg.create_from_stream`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_create_from_stream(ctx: *mlir.Context, stream: *const mlir.Value, result_type: *const mlir.Type, maxNumAttrs: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.create_from_stream", .{
@@ -1642,6 +1851,8 @@ pub fn launch_cfg_create_from_stream(ctx: *mlir.Context, stream: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.device_updatable_kernel_node`.
+// Opérandes : `launch_cfg`, `devNode`, `deviceUpdatable`.
 /// `cuda.launch_cfg.device_updatable_kernel_node`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_device_updatable_kernel_node(ctx: *mlir.Context, launch_cfg: *const mlir.Value, devNode: *const mlir.Value, deviceUpdatable: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.device_updatable_kernel_node", .{
@@ -1650,6 +1861,8 @@ pub fn launch_cfg_device_updatable_kernel_node(ctx: *mlir.Context, launch_cfg: *
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.grid_dimensions`.
+// Opérandes : `launch_cfg`, `gridDimX`, `gridDimY`, `gridDimZ`, `blockDimX`, `blockDimY`, `blockDimZ`, `dynamicSmemBytes`.
 /// `cuda.launch_cfg.grid_dimensions`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_grid_dimensions(ctx: *mlir.Context, launch_cfg: *const mlir.Value, gridDimX: *const mlir.Value, gridDimY: *const mlir.Value, gridDimZ: *const mlir.Value, blockDimX: *const mlir.Value, blockDimY: *const mlir.Value, blockDimZ: *const mlir.Value, dynamicSmemBytes: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.grid_dimensions", .{
@@ -1658,6 +1871,8 @@ pub fn launch_cfg_grid_dimensions(ctx: *mlir.Context, launch_cfg: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.launch_completion_event`.
+// Opérandes : `launch_cfg`, `event`, `flags`.
 /// `cuda.launch_cfg.launch_completion_event`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_launch_completion_event(ctx: *mlir.Context, launch_cfg: *const mlir.Value, event: *const mlir.Value, flags: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.launch_completion_event", .{
@@ -1666,6 +1881,8 @@ pub fn launch_cfg_launch_completion_event(ctx: *mlir.Context, launch_cfg: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.mem_sync_domain`.
+// Opérande : `launch_cfg` ; attribut : `memSyncDomain`.
 /// `cuda.launch_cfg.mem_sync_domain`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_mem_sync_domain(ctx: *mlir.Context, launch_cfg: *const mlir.Value, memSyncDomain: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.mem_sync_domain", .{
@@ -1677,6 +1894,8 @@ pub fn launch_cfg_mem_sync_domain(ctx: *mlir.Context, launch_cfg: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.mem_sync_domain_map`.
+// Opérandes : `launch_cfg`, `domain_default`, `domain_remote`.
 /// `cuda.launch_cfg.mem_sync_domain_map`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_mem_sync_domain_map(ctx: *mlir.Context, launch_cfg: *const mlir.Value, domain_default: *const mlir.Value, domain_remote: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.mem_sync_domain_map", .{
@@ -1685,6 +1904,8 @@ pub fn launch_cfg_mem_sync_domain_map(ctx: *mlir.Context, launch_cfg: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.nvlink_util_centric_scheduling`.
+// Opérandes : `launch_cfg`, `nvlinkSchedulingEnabled`.
 /// `cuda.launch_cfg.nvlink_util_centric_scheduling`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_nvlink_util_centric_scheduling(ctx: *mlir.Context, launch_cfg: *const mlir.Value, nvlinkSchedulingEnabled: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.nvlink_util_centric_scheduling", .{
@@ -1693,6 +1914,8 @@ pub fn launch_cfg_nvlink_util_centric_scheduling(ctx: *mlir.Context, launch_cfg:
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.preferred_cluster_dim`.
+// Opérandes : `launch_cfg`, `preferredClusterDimX`, `preferredClusterDimY`, `preferredClusterDimZ`.
 /// `cuda.launch_cfg.preferred_cluster_dim`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_preferred_cluster_dim(ctx: *mlir.Context, launch_cfg: *const mlir.Value, preferredClusterDimX: *const mlir.Value, preferredClusterDimY: *const mlir.Value, preferredClusterDimZ: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.preferred_cluster_dim", .{
@@ -1701,6 +1924,8 @@ pub fn launch_cfg_preferred_cluster_dim(ctx: *mlir.Context, launch_cfg: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.print`.
+// Opérande : `launch_cfg`.
 /// `cuda.launch_cfg.print`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_print(ctx: *mlir.Context, launch_cfg: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.print", .{
@@ -1709,6 +1934,8 @@ pub fn launch_cfg_print(ctx: *mlir.Context, launch_cfg: *const mlir.Value, locat
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.priority`.
+// Opérandes : `launch_cfg`, `priority`.
 /// `cuda.launch_cfg.priority`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_priority(ctx: *mlir.Context, launch_cfg: *const mlir.Value, priority: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.priority", .{
@@ -1717,6 +1944,8 @@ pub fn launch_cfg_priority(ctx: *mlir.Context, launch_cfg: *const mlir.Value, pr
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.programmatic_event`.
+// Opérandes : `launch_cfg`, `event`, `flags`, `triggerAtBlockStart`.
 /// `cuda.launch_cfg.programmatic_event`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_programmatic_event(ctx: *mlir.Context, launch_cfg: *const mlir.Value, event: *const mlir.Value, flags: *const mlir.Value, triggerAtBlockStart: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.programmatic_event", .{
@@ -1725,6 +1954,8 @@ pub fn launch_cfg_programmatic_event(ctx: *mlir.Context, launch_cfg: *const mlir
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.programmatic_stream_serialization_allowed`.
+// Opérandes : `launch_cfg`, `programmaticStreamSerializationAllowed`.
 /// `cuda.launch_cfg.programmatic_stream_serialization_allowed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_programmatic_stream_serialization_allowed(ctx: *mlir.Context, launch_cfg: *const mlir.Value, programmaticStreamSerializationAllowed: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.programmatic_stream_serialization_allowed", .{
@@ -1733,6 +1964,8 @@ pub fn launch_cfg_programmatic_stream_serialization_allowed(ctx: *mlir.Context, 
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.shared_mem_carveout`.
+// Opérandes : `launch_cfg`, `sharedMemCarveout`.
 /// `cuda.launch_cfg.shared_mem_carveout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_shared_mem_carveout(ctx: *mlir.Context, launch_cfg: *const mlir.Value, sharedMemCarveout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.shared_mem_carveout", .{
@@ -1741,6 +1974,8 @@ pub fn launch_cfg_shared_mem_carveout(ctx: *mlir.Context, launch_cfg: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_cfg.sync_policy`.
+// Opérande : `launch_cfg` ; attribut : `syncPolicy`.
 /// `cuda.launch_cfg.sync_policy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_cfg_sync_policy(ctx: *mlir.Context, launch_cfg: *const mlir.Value, syncPolicy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.launch_cfg.sync_policy", .{
@@ -1752,6 +1987,8 @@ pub fn launch_cfg_sync_policy(ctx: *mlir.Context, launch_cfg: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_ex`.
+// Opérandes : `launch_cfg`, `inputs` ; résultat : `cuda_result_type` ; attributs : `callee`, `arg_attrs`, `res_attrs`, `assume_kernel_attr`.
 /// `cuda.launch_ex`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_ex(ctx: *mlir.Context, launch_cfg: *const mlir.Value, inputs: []const *const mlir.Value, cuda_result_type: *const mlir.Type, callee: *const mlir.Attribute, arg_attrs: ?*const mlir.Attribute, res_attrs: ?*const mlir.Attribute, assume_kernel_attr: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var operands: stdx.BoundedArray(*const mlir.Value, 256) = .empty;
@@ -1770,6 +2007,8 @@ pub fn launch_ex(ctx: *mlir.Context, launch_cfg: *const mlir.Value, inputs: []co
     });
 }
 
+// Construit l'opération MLIR `cuda.launch_kernel`.
+// Opérandes : `kernel_`, `grid`, `block`, `dynamicSmem`, `cudaStream`, `kernel_args` ; résultat : `cuda_result_type` ; attributs : `arg_attrs`, `res_attrs`.
 /// `cuda.launch_kernel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn launch_kernel(ctx: *mlir.Context, kernel_: *const mlir.Value, grid: []const *const mlir.Value, block: []const *const mlir.Value, dynamicSmem: *const mlir.Value, cudaStream: *const mlir.Value, kernel_args: *const mlir.Value, cuda_result_type: *const mlir.Type, arg_attrs: ?*const mlir.Attribute, res_attrs: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -1790,6 +2029,8 @@ pub fn launch_kernel(ctx: *mlir.Context, kernel_: *const mlir.Value, grid: []con
     });
 }
 
+// Construit l'opération MLIR `cuda.library.get_kernel`.
+// Opérandes : `library`, `kernel_name` ; résultats : `result_type`, `kernel_type`.
 /// `cuda.library.get_kernel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value, kernel_name: *const mlir.Value, result_type: *const mlir.Type, kernel_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.library.get_kernel", .{
@@ -1799,6 +2040,8 @@ pub fn library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value, kernel
     });
 }
 
+// Construit l'opération MLIR `cuda.library.load_data`.
+// Opérande : `data` ; résultats : `result_type`, `library_type`.
 /// `cuda.library.load_data`. Result types are explicit; attributes use mlir.Attribute.
 pub fn library_load_data(ctx: *mlir.Context, data: *const mlir.Value, result_type: *const mlir.Type, library_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.library.load_data", .{
@@ -1808,6 +2051,8 @@ pub fn library_load_data(ctx: *mlir.Context, data: *const mlir.Value, result_typ
     });
 }
 
+// Construit l'opération MLIR `cuda.library.unload`.
+// Opérande : `library` ; résultat : `result_type`.
 /// `cuda.library.unload`. Result types are explicit; attributes use mlir.Attribute.
 pub fn library_unload(ctx: *mlir.Context, library: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.library.unload", .{
@@ -1817,6 +2062,8 @@ pub fn library_unload(ctx: *mlir.Context, library: *const mlir.Value, result_typ
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.alloc`.
+// Opérande : `bytes` ; résultats : `cuda_result_type`, `ptr_type`.
 /// `cuda.memory.alloc`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_alloc(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_result_type: *const mlir.Type, ptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.alloc", .{
@@ -1826,6 +2073,8 @@ pub fn memory_alloc(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_result_ty
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.alloc_async`.
+// Opérandes : `bytes`, `stream` ; résultats : `cuda_result_type`, `ptr_type`.
 /// `cuda.memory.alloc_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_alloc_async(ctx: *mlir.Context, bytes: *const mlir.Value, stream: *const mlir.Value, cuda_result_type: *const mlir.Type, ptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.alloc_async", .{
@@ -1835,6 +2084,8 @@ pub fn memory_alloc_async(ctx: *mlir.Context, bytes: *const mlir.Value, stream: 
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.alloc_host`.
+// Opérande : `bytes` ; résultats : `cuda_result_type`, `ptr_type`.
 /// `cuda.memory.alloc_host`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_alloc_host(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_result_type: *const mlir.Type, ptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.alloc_host", .{
@@ -1844,6 +2095,8 @@ pub fn memory_alloc_host(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_resu
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.alloc_managed`.
+// Opérande : `bytes` ; résultats : `cuda_result_type`, `ptr_type`.
 /// `cuda.memory.alloc_managed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_alloc_managed(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_result_type: *const mlir.Type, ptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.alloc_managed", .{
@@ -1853,6 +2106,8 @@ pub fn memory_alloc_managed(ctx: *mlir.Context, bytes: *const mlir.Value, cuda_r
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.copy`.
+// Opérandes : `src`, `dst`, `bytes` ; résultat : `cuda_result_type` ; attribut : `kind`.
 /// `cuda.memory.copy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_copy(ctx: *mlir.Context, src: *const mlir.Value, dst: *const mlir.Value, bytes: *const mlir.Value, cuda_result_type: *const mlir.Type, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.copy", .{
@@ -1865,6 +2120,8 @@ pub fn memory_copy(ctx: *mlir.Context, src: *const mlir.Value, dst: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.copy_async`.
+// Opérandes : `src`, `dst`, `bytes`, `stream` ; résultat : `cuda_result_type` ; attribut : `kind`.
 /// `cuda.memory.copy_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_copy_async(ctx: *mlir.Context, src: *const mlir.Value, dst: *const mlir.Value, bytes: *const mlir.Value, stream: ?*const mlir.Value, cuda_result_type: *const mlir.Type, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.copy_async", .{
@@ -1877,6 +2134,8 @@ pub fn memory_copy_async(ctx: *mlir.Context, src: *const mlir.Value, dst: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.free`.
+// Opérande : `ptr` ; résultat : `cuda_result_type`.
 /// `cuda.memory.free`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_free(ctx: *mlir.Context, ptr: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.free", .{
@@ -1886,6 +2145,8 @@ pub fn memory_free(ctx: *mlir.Context, ptr: *const mlir.Value, cuda_result_type:
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.free_async`.
+// Opérandes : `ptr`, `stream` ; résultat : `cuda_result_type`.
 /// `cuda.memory.free_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_free_async(ctx: *mlir.Context, ptr: *const mlir.Value, stream: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.free_async", .{
@@ -1895,6 +2156,8 @@ pub fn memory_free_async(ctx: *mlir.Context, ptr: *const mlir.Value, stream: *co
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.free_host`.
+// Opérande : `ptr` ; résultat : `cuda_result_type`.
 /// `cuda.memory.free_host`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_free_host(ctx: *mlir.Context, ptr: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.free_host", .{
@@ -1904,6 +2167,8 @@ pub fn memory_free_host(ctx: *mlir.Context, ptr: *const mlir.Value, cuda_result_
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.set`.
+// Opérandes : `ptr`, `value_`, `bytes` ; résultat : `cuda_result_type`.
 /// `cuda.memory.set`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_set(ctx: *mlir.Context, ptr: *const mlir.Value, value_: *const mlir.Value, bytes: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.set", .{
@@ -1913,6 +2178,8 @@ pub fn memory_set(ctx: *mlir.Context, ptr: *const mlir.Value, value_: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.memory.set_async`.
+// Opérandes : `ptr`, `value_`, `bytes`, `stream` ; résultat : `cuda_result_type`.
 /// `cuda.memory.set_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_set_async(ctx: *mlir.Context, ptr: *const mlir.Value, value_: *const mlir.Value, bytes: *const mlir.Value, stream: ?*const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.memory.set_async", .{
@@ -1922,6 +2189,8 @@ pub fn memory_set_async(ctx: *mlir.Context, ptr: *const mlir.Value, value_: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.occupancy_max_active_blocks_per_multiprocessor`.
+// Opérandes : `block_size`, `dynamic_smem_size` ; résultats : `res_type`, `num_blocks_type` ; attribut : `func_`.
 /// `cuda.occupancy_max_active_blocks_per_multiprocessor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn occupancy_max_active_blocks_per_multiprocessor(ctx: *mlir.Context, block_size: *const mlir.Value, dynamic_smem_size: *const mlir.Value, res_type: *const mlir.Type, num_blocks_type: *const mlir.Type, func_: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.occupancy_max_active_blocks_per_multiprocessor", .{
@@ -1934,6 +2203,8 @@ pub fn occupancy_max_active_blocks_per_multiprocessor(ctx: *mlir.Context, block_
     });
 }
 
+// Construit l'opération MLIR `cuda.profiler.start`.
+// Résultat : `result_type`.
 /// `cuda.profiler.start`. Result types are explicit; attributes use mlir.Attribute.
 pub fn profiler_start(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.profiler.start", .{
@@ -1942,6 +2213,8 @@ pub fn profiler_start(ctx: *mlir.Context, result_type: *const mlir.Type, locatio
     });
 }
 
+// Construit l'opération MLIR `cuda.profiler.stop`.
+// Résultat : `result_type`.
 /// `cuda.profiler.stop`. Result types are explicit; attributes use mlir.Attribute.
 pub fn profiler_stop(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.profiler.stop", .{
@@ -1950,6 +2223,8 @@ pub fn profiler_stop(ctx: *mlir.Context, result_type: *const mlir.Type, location
     });
 }
 
+// Construit l'opération MLIR `cuda.result.assert_success`.
+// Opérande : `cuda_result`.
 /// `cuda.result.assert_success`. Result types are explicit; attributes use mlir.Attribute.
 pub fn result_assert_success(ctx: *mlir.Context, cuda_result: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.result.assert_success", .{
@@ -1958,6 +2233,8 @@ pub fn result_assert_success(ctx: *mlir.Context, cuda_result: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.result.failed`.
+// Opération sans opérande ni résultat (effet de bord ou terminator).
 /// `cuda.result.failed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn result_failed(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.result.failed", .{
@@ -1965,6 +2242,8 @@ pub fn result_failed(ctx: *mlir.Context, location: *const mlir.Location) *mlir.O
     });
 }
 
+// Construit l'opération MLIR `cuda.result.print_on_error`.
+// Opérande : `cuda_result`.
 /// `cuda.result.print_on_error`. Result types are explicit; attributes use mlir.Attribute.
 pub fn result_print_on_error(ctx: *mlir.Context, cuda_result: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.result.print_on_error", .{
@@ -1973,6 +2252,8 @@ pub fn result_print_on_error(ctx: *mlir.Context, cuda_result: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `cuda.result.succeeded`.
+// Opérande : `cuda_result` ; résultat : `success_type`.
 /// `cuda.result.succeeded`. Result types are explicit; attributes use mlir.Attribute.
 pub fn result_succeeded(ctx: *mlir.Context, cuda_result: *const mlir.Value, success_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.result.succeeded", .{
@@ -1982,6 +2263,8 @@ pub fn result_succeeded(ctx: *mlir.Context, cuda_result: *const mlir.Value, succ
     });
 }
 
+// Construit l'opération MLIR `cuda.return`.
+// Opérande : `inputs`.
 /// `cuda.return`. Result types are explicit; attributes use mlir.Attribute. Not verified on creation: a terminator is only one in its block.
 pub fn @"return"(ctx: *mlir.Context, inputs: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.return", .{
@@ -1991,6 +2274,8 @@ pub fn @"return"(ctx: *mlir.Context, inputs: []const *const mlir.Value, location
     });
 }
 
+// Construit l'opération MLIR `cuda.return_if_error`.
+// Opérande : `inputs`.
 /// `cuda.return_if_error`. Result types are explicit; attributes use mlir.Attribute.
 pub fn return_if_error(ctx: *mlir.Context, inputs: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.return_if_error", .{
@@ -1999,6 +2284,8 @@ pub fn return_if_error(ctx: *mlir.Context, inputs: []const *const mlir.Value, lo
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device.properties`.
+// Opérande : `device` ; résultats : `cuda_result_type`, `prop_type`.
 /// `cuda.runtime.device.properties`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_properties(ctx: *mlir.Context, device: *const mlir.Value, cuda_result_type: *const mlir.Type, prop_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device.properties", .{
@@ -2008,6 +2295,8 @@ pub fn runtime_device_properties(ctx: *mlir.Context, device: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_access_policy_max_window_size`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_access_policy_max_window_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_access_policy_max_window_size(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_access_policy_max_window_size", .{
@@ -2017,6 +2306,8 @@ pub fn runtime_device_prop_get_access_policy_max_window_size(ctx: *mlir.Context,
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_async_engine_count`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_async_engine_count`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_async_engine_count(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_async_engine_count", .{
@@ -2026,6 +2317,8 @@ pub fn runtime_device_prop_get_async_engine_count(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_can_map_host_memory`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_can_map_host_memory`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_can_map_host_memory(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_can_map_host_memory", .{
@@ -2035,6 +2328,8 @@ pub fn runtime_device_prop_get_can_map_host_memory(ctx: *mlir.Context, source: *
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_can_use_host_pointer_for_registered_mem`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_can_use_host_pointer_for_registered_mem`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_can_use_host_pointer_for_registered_mem(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_can_use_host_pointer_for_registered_mem", .{
@@ -2044,6 +2339,8 @@ pub fn runtime_device_prop_get_can_use_host_pointer_for_registered_mem(ctx: *mli
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_cluster_launch`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_cluster_launch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_cluster_launch(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_cluster_launch", .{
@@ -2053,6 +2350,8 @@ pub fn runtime_device_prop_get_cluster_launch(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_compute_preemption_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_compute_preemption_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_compute_preemption_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_compute_preemption_supported", .{
@@ -2062,6 +2361,8 @@ pub fn runtime_device_prop_get_compute_preemption_supported(ctx: *mlir.Context, 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_concurrent_kernels`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_concurrent_kernels`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_concurrent_kernels(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_concurrent_kernels", .{
@@ -2071,6 +2372,8 @@ pub fn runtime_device_prop_get_concurrent_kernels(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_concurrent_managed_access`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_concurrent_managed_access`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_concurrent_managed_access(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_concurrent_managed_access", .{
@@ -2080,6 +2383,8 @@ pub fn runtime_device_prop_get_concurrent_managed_access(ctx: *mlir.Context, sou
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_cooperative_launch`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_cooperative_launch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_cooperative_launch(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_cooperative_launch", .{
@@ -2089,6 +2394,8 @@ pub fn runtime_device_prop_get_cooperative_launch(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_deferred_mapping_cuda_array_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_deferred_mapping_cuda_array_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_deferred_mapping_cuda_array_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_deferred_mapping_cuda_array_supported", .{
@@ -2098,6 +2405,8 @@ pub fn runtime_device_prop_get_deferred_mapping_cuda_array_supported(ctx: *mlir.
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_device_numa_config`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_device_numa_config`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_device_numa_config(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_device_numa_config", .{
@@ -2107,6 +2416,8 @@ pub fn runtime_device_prop_get_device_numa_config(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_device_numa_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_device_numa_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_device_numa_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_device_numa_id", .{
@@ -2116,6 +2427,8 @@ pub fn runtime_device_prop_get_device_numa_id(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_direct_managed_mem_access_from_host`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_direct_managed_mem_access_from_host`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_direct_managed_mem_access_from_host(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_direct_managed_mem_access_from_host", .{
@@ -2125,6 +2438,8 @@ pub fn runtime_device_prop_get_direct_managed_mem_access_from_host(ctx: *mlir.Co
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_ecc_enabled`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_ecc_enabled`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_ecc_enabled(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_ecc_enabled", .{
@@ -2134,6 +2449,8 @@ pub fn runtime_device_prop_get_ecc_enabled(ctx: *mlir.Context, source: *const ml
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_global_l1cache_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_global_l1cache_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_global_l1cache_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_global_l1cache_supported", .{
@@ -2143,6 +2460,8 @@ pub fn runtime_device_prop_get_global_l1cache_supported(ctx: *mlir.Context, sour
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_gpu_direct_rdma_flush_writes_options`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_gpu_direct_rdma_flush_writes_options`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_gpu_direct_rdma_flush_writes_options(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_gpu_direct_rdma_flush_writes_options", .{
@@ -2152,6 +2471,8 @@ pub fn runtime_device_prop_get_gpu_direct_rdma_flush_writes_options(ctx: *mlir.C
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_gpu_direct_rdma_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_gpu_direct_rdma_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_gpu_direct_rdma_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_gpu_direct_rdma_supported", .{
@@ -2161,6 +2482,8 @@ pub fn runtime_device_prop_get_gpu_direct_rdma_supported(ctx: *mlir.Context, sou
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_gpu_direct_rdma_writes_ordering`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_gpu_direct_rdma_writes_ordering`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_gpu_direct_rdma_writes_ordering(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_gpu_direct_rdma_writes_ordering", .{
@@ -2170,6 +2493,8 @@ pub fn runtime_device_prop_get_gpu_direct_rdma_writes_ordering(ctx: *mlir.Contex
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_gpu_pci_device_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_gpu_pci_device_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_gpu_pci_device_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_gpu_pci_device_id", .{
@@ -2179,6 +2504,8 @@ pub fn runtime_device_prop_get_gpu_pci_device_id(ctx: *mlir.Context, source: *co
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_gpu_pci_subsystem_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_gpu_pci_subsystem_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_gpu_pci_subsystem_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_gpu_pci_subsystem_id", .{
@@ -2188,6 +2515,8 @@ pub fn runtime_device_prop_get_gpu_pci_subsystem_id(ctx: *mlir.Context, source: 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_host_native_atomic_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_host_native_atomic_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_host_native_atomic_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_host_native_atomic_supported", .{
@@ -2197,6 +2526,8 @@ pub fn runtime_device_prop_get_host_native_atomic_supported(ctx: *mlir.Context, 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_host_numa_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_host_numa_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_host_numa_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_host_numa_id", .{
@@ -2206,6 +2537,8 @@ pub fn runtime_device_prop_get_host_numa_id(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_host_numa_multinode_ipc_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_host_numa_multinode_ipc_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_host_numa_multinode_ipc_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_host_numa_multinode_ipc_supported", .{
@@ -2215,6 +2548,8 @@ pub fn runtime_device_prop_get_host_numa_multinode_ipc_supported(ctx: *mlir.Cont
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_host_register_read_only_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_host_register_read_only_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_host_register_read_only_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_host_register_read_only_supported", .{
@@ -2224,6 +2559,8 @@ pub fn runtime_device_prop_get_host_register_read_only_supported(ctx: *mlir.Cont
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_host_register_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_host_register_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_host_register_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_host_register_supported", .{
@@ -2233,6 +2570,8 @@ pub fn runtime_device_prop_get_host_register_supported(ctx: *mlir.Context, sourc
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_integrated`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_integrated`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_integrated(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_integrated", .{
@@ -2242,6 +2581,8 @@ pub fn runtime_device_prop_get_integrated(ctx: *mlir.Context, source: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_ipc_event_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_ipc_event_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_ipc_event_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_ipc_event_supported", .{
@@ -2251,6 +2592,8 @@ pub fn runtime_device_prop_get_ipc_event_supported(ctx: *mlir.Context, source: *
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_is_multi_gpu_board`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_is_multi_gpu_board`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_is_multi_gpu_board(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_is_multi_gpu_board", .{
@@ -2260,6 +2603,8 @@ pub fn runtime_device_prop_get_is_multi_gpu_board(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_l_2cache_size`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_l_2cache_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_l_2cache_size(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_l_2cache_size", .{
@@ -2269,6 +2614,8 @@ pub fn runtime_device_prop_get_l_2cache_size(ctx: *mlir.Context, source: *const 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_local_l1cache_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_local_l1cache_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_local_l1cache_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_local_l1cache_supported", .{
@@ -2278,6 +2625,8 @@ pub fn runtime_device_prop_get_local_l1cache_supported(ctx: *mlir.Context, sourc
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_luid`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_luid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_luid(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_luid", .{
@@ -2287,6 +2636,8 @@ pub fn runtime_device_prop_get_luid(ctx: *mlir.Context, source: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_luid_device_node_mask`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_luid_device_node_mask`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_luid_device_node_mask(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_luid_device_node_mask", .{
@@ -2296,6 +2647,8 @@ pub fn runtime_device_prop_get_luid_device_node_mask(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_major`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_major`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_major(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_major", .{
@@ -2305,6 +2658,8 @@ pub fn runtime_device_prop_get_major(ctx: *mlir.Context, source: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_managed_memory`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_managed_memory`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_managed_memory(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_managed_memory", .{
@@ -2314,6 +2669,8 @@ pub fn runtime_device_prop_get_managed_memory(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_blocks_per_multi_processor`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_blocks_per_multi_processor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_blocks_per_multi_processor(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_blocks_per_multi_processor", .{
@@ -2323,6 +2680,8 @@ pub fn runtime_device_prop_get_max_blocks_per_multi_processor(ctx: *mlir.Context
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_grid_size`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_grid_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_grid_size(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_grid_size", .{
@@ -2332,6 +2691,8 @@ pub fn runtime_device_prop_get_max_grid_size(ctx: *mlir.Context, source: *const 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_1d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_1d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_1d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_1d", .{
@@ -2341,6 +2702,8 @@ pub fn runtime_device_prop_get_max_surface_1d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_1d_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_1d_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_1d_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_1d_layered", .{
@@ -2350,6 +2713,8 @@ pub fn runtime_device_prop_get_max_surface_1d_layered(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_2d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_2d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_2d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_2d", .{
@@ -2359,6 +2724,8 @@ pub fn runtime_device_prop_get_max_surface_2d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_2d_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_2d_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_2d_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_2d_layered", .{
@@ -2368,6 +2735,8 @@ pub fn runtime_device_prop_get_max_surface_2d_layered(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_3d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_3d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_3d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_3d", .{
@@ -2377,6 +2746,8 @@ pub fn runtime_device_prop_get_max_surface_3d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_cubemap`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_cubemap`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_cubemap(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_cubemap", .{
@@ -2386,6 +2757,8 @@ pub fn runtime_device_prop_get_max_surface_cubemap(ctx: *mlir.Context, source: *
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_surface_cubemap_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_surface_cubemap_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_surface_cubemap_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_surface_cubemap_layered", .{
@@ -2395,6 +2768,8 @@ pub fn runtime_device_prop_get_max_surface_cubemap_layered(ctx: *mlir.Context, s
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_1d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_1d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_1d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_1d", .{
@@ -2404,6 +2779,8 @@ pub fn runtime_device_prop_get_max_texture_1d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_1d_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_1d_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_1d_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_1d_layered", .{
@@ -2413,6 +2790,8 @@ pub fn runtime_device_prop_get_max_texture_1d_layered(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_1d_mipmap`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_1d_mipmap`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_1d_mipmap(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_1d_mipmap", .{
@@ -2422,6 +2801,8 @@ pub fn runtime_device_prop_get_max_texture_1d_mipmap(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_2d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_2d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_2d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_2d", .{
@@ -2431,6 +2812,8 @@ pub fn runtime_device_prop_get_max_texture_2d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_2d_gather`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_2d_gather`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_2d_gather(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_2d_gather", .{
@@ -2440,6 +2823,8 @@ pub fn runtime_device_prop_get_max_texture_2d_gather(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_2d_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_2d_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_2d_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_2d_layered", .{
@@ -2449,6 +2834,8 @@ pub fn runtime_device_prop_get_max_texture_2d_layered(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_2d_linear`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_2d_linear`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_2d_linear(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_2d_linear", .{
@@ -2458,6 +2845,8 @@ pub fn runtime_device_prop_get_max_texture_2d_linear(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_2d_mipmap`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_2d_mipmap`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_2d_mipmap(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_2d_mipmap", .{
@@ -2467,6 +2856,8 @@ pub fn runtime_device_prop_get_max_texture_2d_mipmap(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_3d`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_3d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_3d(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_3d", .{
@@ -2476,6 +2867,8 @@ pub fn runtime_device_prop_get_max_texture_3d(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_3d_alt`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_3d_alt`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_3d_alt(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_3d_alt", .{
@@ -2485,6 +2878,8 @@ pub fn runtime_device_prop_get_max_texture_3d_alt(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_cubemap`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_cubemap`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_cubemap(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_cubemap", .{
@@ -2494,6 +2889,8 @@ pub fn runtime_device_prop_get_max_texture_cubemap(ctx: *mlir.Context, source: *
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_texture_cubemap_layered`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_texture_cubemap_layered`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_texture_cubemap_layered(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_texture_cubemap_layered", .{
@@ -2503,6 +2900,8 @@ pub fn runtime_device_prop_get_max_texture_cubemap_layered(ctx: *mlir.Context, s
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_threads_dim`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_threads_dim`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_threads_dim(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_threads_dim", .{
@@ -2512,6 +2911,8 @@ pub fn runtime_device_prop_get_max_threads_dim(ctx: *mlir.Context, source: *cons
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_threads_per_block`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_threads_per_block`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_threads_per_block(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_threads_per_block", .{
@@ -2521,6 +2922,8 @@ pub fn runtime_device_prop_get_max_threads_per_block(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_max_threads_per_multi_processor`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_max_threads_per_multi_processor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_max_threads_per_multi_processor(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_max_threads_per_multi_processor", .{
@@ -2530,6 +2933,8 @@ pub fn runtime_device_prop_get_max_threads_per_multi_processor(ctx: *mlir.Contex
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_mem_pitch`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_mem_pitch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_mem_pitch(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_mem_pitch", .{
@@ -2539,6 +2944,8 @@ pub fn runtime_device_prop_get_mem_pitch(ctx: *mlir.Context, source: *const mlir
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_memory_bus_width`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_memory_bus_width`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_memory_bus_width(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_memory_bus_width", .{
@@ -2548,6 +2955,8 @@ pub fn runtime_device_prop_get_memory_bus_width(ctx: *mlir.Context, source: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_memory_pool_supported_handle_types`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_memory_pool_supported_handle_types`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_memory_pool_supported_handle_types(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_memory_pool_supported_handle_types", .{
@@ -2557,6 +2966,8 @@ pub fn runtime_device_prop_get_memory_pool_supported_handle_types(ctx: *mlir.Con
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_memory_pools_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_memory_pools_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_memory_pools_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_memory_pools_supported", .{
@@ -2566,6 +2977,8 @@ pub fn runtime_device_prop_get_memory_pools_supported(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_minor`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_minor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_minor(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_minor", .{
@@ -2575,6 +2988,8 @@ pub fn runtime_device_prop_get_minor(ctx: *mlir.Context, source: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_mps_enabled`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_mps_enabled`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_mps_enabled(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_mps_enabled", .{
@@ -2584,6 +2999,8 @@ pub fn runtime_device_prop_get_mps_enabled(ctx: *mlir.Context, source: *const ml
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_multi_gpu_board_group_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_multi_gpu_board_group_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_multi_gpu_board_group_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_multi_gpu_board_group_id", .{
@@ -2593,6 +3010,8 @@ pub fn runtime_device_prop_get_multi_gpu_board_group_id(ctx: *mlir.Context, sour
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_multi_processor_count`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_multi_processor_count`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_multi_processor_count(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_multi_processor_count", .{
@@ -2602,6 +3021,8 @@ pub fn runtime_device_prop_get_multi_processor_count(ctx: *mlir.Context, source:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_name`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_name`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_name(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_name", .{
@@ -2611,6 +3032,8 @@ pub fn runtime_device_prop_get_name(ctx: *mlir.Context, source: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_pageable_memory_access`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_pageable_memory_access`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_pageable_memory_access(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_pageable_memory_access", .{
@@ -2620,6 +3043,8 @@ pub fn runtime_device_prop_get_pageable_memory_access(ctx: *mlir.Context, source
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_pageable_memory_access_uses_host_page_tables`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_pageable_memory_access_uses_host_page_tables`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_pageable_memory_access_uses_host_page_tables(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_pageable_memory_access_uses_host_page_tables", .{
@@ -2629,6 +3054,8 @@ pub fn runtime_device_prop_get_pageable_memory_access_uses_host_page_tables(ctx:
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_pci_bus_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_pci_bus_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_pci_bus_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_pci_bus_id", .{
@@ -2638,6 +3065,8 @@ pub fn runtime_device_prop_get_pci_bus_id(ctx: *mlir.Context, source: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_pci_device_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_pci_device_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_pci_device_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_pci_device_id", .{
@@ -2647,6 +3076,8 @@ pub fn runtime_device_prop_get_pci_device_id(ctx: *mlir.Context, source: *const 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_pci_domain_id`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_pci_domain_id`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_pci_domain_id(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_pci_domain_id", .{
@@ -2656,6 +3087,8 @@ pub fn runtime_device_prop_get_pci_domain_id(ctx: *mlir.Context, source: *const 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_persisting_l2cache_max_size`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_persisting_l2cache_max_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_persisting_l2cache_max_size(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_persisting_l2cache_max_size", .{
@@ -2665,6 +3098,8 @@ pub fn runtime_device_prop_get_persisting_l2cache_max_size(ctx: *mlir.Context, s
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_regs_per_block`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_regs_per_block`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_regs_per_block(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_regs_per_block", .{
@@ -2674,6 +3109,8 @@ pub fn runtime_device_prop_get_regs_per_block(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_regs_per_multiprocessor`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_regs_per_multiprocessor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_regs_per_multiprocessor(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_regs_per_multiprocessor", .{
@@ -2683,6 +3120,8 @@ pub fn runtime_device_prop_get_regs_per_multiprocessor(ctx: *mlir.Context, sourc
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_reserved_shared_mem_per_block`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_reserved_shared_mem_per_block`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_reserved_shared_mem_per_block(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_reserved_shared_mem_per_block", .{
@@ -2692,6 +3131,8 @@ pub fn runtime_device_prop_get_reserved_shared_mem_per_block(ctx: *mlir.Context,
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_shared_mem_per_block`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_shared_mem_per_block`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_shared_mem_per_block(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_shared_mem_per_block", .{
@@ -2701,6 +3142,8 @@ pub fn runtime_device_prop_get_shared_mem_per_block(ctx: *mlir.Context, source: 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_shared_mem_per_block_optin`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_shared_mem_per_block_optin`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_shared_mem_per_block_optin(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_shared_mem_per_block_optin", .{
@@ -2710,6 +3153,8 @@ pub fn runtime_device_prop_get_shared_mem_per_block_optin(ctx: *mlir.Context, so
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_shared_mem_per_multiprocessor`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_shared_mem_per_multiprocessor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_shared_mem_per_multiprocessor(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_shared_mem_per_multiprocessor", .{
@@ -2719,6 +3164,8 @@ pub fn runtime_device_prop_get_shared_mem_per_multiprocessor(ctx: *mlir.Context,
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_sparse_cuda_array_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_sparse_cuda_array_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_sparse_cuda_array_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_sparse_cuda_array_supported", .{
@@ -2728,6 +3175,8 @@ pub fn runtime_device_prop_get_sparse_cuda_array_supported(ctx: *mlir.Context, s
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_stream_priorities_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_stream_priorities_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_stream_priorities_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_stream_priorities_supported", .{
@@ -2737,6 +3186,8 @@ pub fn runtime_device_prop_get_stream_priorities_supported(ctx: *mlir.Context, s
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_surface_alignment`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_surface_alignment`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_surface_alignment(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_surface_alignment", .{
@@ -2746,6 +3197,8 @@ pub fn runtime_device_prop_get_surface_alignment(ctx: *mlir.Context, source: *co
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_tcc_driver`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_tcc_driver`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_tcc_driver(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_tcc_driver", .{
@@ -2755,6 +3208,8 @@ pub fn runtime_device_prop_get_tcc_driver(ctx: *mlir.Context, source: *const mli
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_texture_alignment`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_texture_alignment`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_texture_alignment(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_texture_alignment", .{
@@ -2764,6 +3219,8 @@ pub fn runtime_device_prop_get_texture_alignment(ctx: *mlir.Context, source: *co
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_texture_pitch_alignment`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_texture_pitch_alignment`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_texture_pitch_alignment(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_texture_pitch_alignment", .{
@@ -2773,6 +3230,8 @@ pub fn runtime_device_prop_get_texture_pitch_alignment(ctx: *mlir.Context, sourc
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_timeline_semaphore_interop_supported`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_timeline_semaphore_interop_supported`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_timeline_semaphore_interop_supported(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_timeline_semaphore_interop_supported", .{
@@ -2782,6 +3241,8 @@ pub fn runtime_device_prop_get_timeline_semaphore_interop_supported(ctx: *mlir.C
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_total_const_mem`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_total_const_mem`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_total_const_mem(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_total_const_mem", .{
@@ -2791,6 +3252,8 @@ pub fn runtime_device_prop_get_total_const_mem(ctx: *mlir.Context, source: *cons
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_total_global_mem`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_total_global_mem`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_total_global_mem(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_total_global_mem", .{
@@ -2800,6 +3263,8 @@ pub fn runtime_device_prop_get_total_global_mem(ctx: *mlir.Context, source: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_unified_addressing`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_unified_addressing`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_unified_addressing(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_unified_addressing", .{
@@ -2809,6 +3274,8 @@ pub fn runtime_device_prop_get_unified_addressing(ctx: *mlir.Context, source: *c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_unified_function_pointers`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_unified_function_pointers`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_unified_function_pointers(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_unified_function_pointers", .{
@@ -2818,6 +3285,8 @@ pub fn runtime_device_prop_get_unified_function_pointers(ctx: *mlir.Context, sou
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_uuid`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_uuid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_uuid(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_uuid", .{
@@ -2827,6 +3296,8 @@ pub fn runtime_device_prop_get_uuid(ctx: *mlir.Context, source: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.device_prop.get_warp_size`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.device_prop.get_warp_size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_device_prop_get_warp_size(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.device_prop.get_warp_size", .{
@@ -2836,6 +3307,8 @@ pub fn runtime_device_prop_get_warp_size(ctx: *mlir.Context, source: *const mlir
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.dim_3.get_x`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.dim_3.get_x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_dim_3_get_x(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.dim_3.get_x", .{
@@ -2845,6 +3318,8 @@ pub fn runtime_dim_3_get_x(ctx: *mlir.Context, source: *const mlir.Value, result
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.dim_3.get_y`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.dim_3.get_y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_dim_3_get_y(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.dim_3.get_y", .{
@@ -2854,6 +3329,8 @@ pub fn runtime_dim_3_get_y(ctx: *mlir.Context, source: *const mlir.Value, result
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.dim_3.get_z`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.dim_3.get_z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_dim_3_get_z(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.dim_3.get_z", .{
@@ -2863,6 +3340,8 @@ pub fn runtime_dim_3_get_z(ctx: *mlir.Context, source: *const mlir.Value, result
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.event.create_with_flags`.
+// Opérande : `flags` ; résultats : `cuda_result_type`, `event_type`.
 /// `cuda.runtime.event.create_with_flags`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_event_create_with_flags(ctx: *mlir.Context, flags: *const mlir.Value, cuda_result_type: *const mlir.Type, event_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.event.create_with_flags", .{
@@ -2872,6 +3351,8 @@ pub fn runtime_event_create_with_flags(ctx: *mlir.Context, flags: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.event.query`.
+// Opérande : `event` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.event.query`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_event_query(ctx: *mlir.Context, event: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.event.query", .{
@@ -2881,6 +3362,8 @@ pub fn runtime_event_query(ctx: *mlir.Context, event: *const mlir.Value, cuda_re
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.event.record_with_flags`.
+// Opérandes : `event`, `stream`, `flags` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.event.record_with_flags`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_event_record_with_flags(ctx: *mlir.Context, event: *const mlir.Value, stream: *const mlir.Value, flags: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.event.record_with_flags", .{
@@ -2890,6 +3373,8 @@ pub fn runtime_event_record_with_flags(ctx: *mlir.Context, event: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.event.synchronize`.
+// Opérande : `event` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.event.synchronize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_event_synchronize(ctx: *mlir.Context, event: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.event.synchronize", .{
@@ -2899,6 +3384,8 @@ pub fn runtime_event_synchronize(ctx: *mlir.Context, event: *const mlir.Value, c
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.extent.get_depth`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.extent.get_depth`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_extent_get_depth(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.extent.get_depth", .{
@@ -2908,6 +3395,8 @@ pub fn runtime_extent_get_depth(ctx: *mlir.Context, source: *const mlir.Value, r
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.extent.get_height`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.extent.get_height`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_extent_get_height(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.extent.get_height", .{
@@ -2917,6 +3406,8 @@ pub fn runtime_extent_get_height(ctx: *mlir.Context, source: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.extent.get_width`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.extent.get_width`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_extent_get_width(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.extent.get_width", .{
@@ -2926,6 +3417,8 @@ pub fn runtime_extent_get_width(ctx: *mlir.Context, source: *const mlir.Value, r
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.graph.add_kernel_node`.
+// Opérandes : `graph`, `pDependencies`, `numDependencies`, `pNodeParams` ; résultats : `cuda_result_type`, `pGraphNode_type`.
 /// `cuda.runtime.graph.add_kernel_node`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_graph_add_kernel_node(ctx: *mlir.Context, graph: *const mlir.Value, pDependencies: *const mlir.Value, numDependencies: *const mlir.Value, pNodeParams: *const mlir.Value, cuda_result_type: *const mlir.Type, pGraphNode_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.graph.add_kernel_node", .{
@@ -2935,6 +3428,8 @@ pub fn runtime_graph_add_kernel_node(ctx: *mlir.Context, graph: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.graph.create`.
+// Opérande : `flags` ; résultats : `cuda_result_type`, `pGraph_type`.
 /// `cuda.runtime.graph.create`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_graph_create(ctx: *mlir.Context, flags: *const mlir.Value, cuda_result_type: *const mlir.Type, pGraph_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.graph.create", .{
@@ -2944,6 +3439,8 @@ pub fn runtime_graph_create(ctx: *mlir.Context, flags: *const mlir.Value, cuda_r
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.graph.kernel_node_get_attribute`.
+// Opérandes : `hNode`, `attr` ; résultats : `cuda_result_type`, `value_out_type`.
 /// `cuda.runtime.graph.kernel_node_get_attribute`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_graph_kernel_node_get_attribute(ctx: *mlir.Context, hNode: *const mlir.Value, attr: *const mlir.Value, cuda_result_type: *const mlir.Type, value_out_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.graph.kernel_node_get_attribute", .{
@@ -2953,6 +3450,8 @@ pub fn runtime_graph_kernel_node_get_attribute(ctx: *mlir.Context, hNode: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.graph.kernel_node_set_attribute`.
+// Opérandes : `hNode`, `attr`, `value_` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.graph.kernel_node_set_attribute`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_graph_kernel_node_set_attribute(ctx: *mlir.Context, hNode: *const mlir.Value, attr: *const mlir.Value, value_: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.graph.kernel_node_set_attribute", .{
@@ -2962,6 +3461,8 @@ pub fn runtime_graph_kernel_node_set_attribute(ctx: *mlir.Context, hNode: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_block_dim`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_block_dim`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_block_dim(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_block_dim", .{
@@ -2971,6 +3472,8 @@ pub fn runtime_kernel_node_params_get_block_dim(ctx: *mlir.Context, source: *con
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_extra`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_extra`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_extra(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_extra", .{
@@ -2980,6 +3483,8 @@ pub fn runtime_kernel_node_params_get_extra(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_func`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_func`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_func(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_func", .{
@@ -2989,6 +3494,8 @@ pub fn runtime_kernel_node_params_get_func(ctx: *mlir.Context, source: *const ml
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_grid_dim`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_grid_dim`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_grid_dim(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_grid_dim", .{
@@ -2998,6 +3505,8 @@ pub fn runtime_kernel_node_params_get_grid_dim(ctx: *mlir.Context, source: *cons
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_kernel_params`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_kernel_params`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_kernel_params(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_kernel_params", .{
@@ -3007,6 +3516,8 @@ pub fn runtime_kernel_node_params_get_kernel_params(ctx: *mlir.Context, source: 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.kernel_node_params.get_shared_mem_bytes`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.kernel_node_params.get_shared_mem_bytes`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_kernel_node_params_get_shared_mem_bytes(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.kernel_node_params.get_shared_mem_bytes", .{
@@ -3016,6 +3527,8 @@ pub fn runtime_kernel_node_params_get_shared_mem_bytes(ctx: *mlir.Context, sourc
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.get_global`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `dptr_type`, `bytes_type`.
 /// `cuda.runtime.library.get_global`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_get_global(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, dptr_type: *const mlir.Type, bytes_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.get_global", .{
@@ -3025,6 +3538,8 @@ pub fn runtime_library_get_global(ctx: *mlir.Context, library: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.get_kernel`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `pKernel_type`.
 /// `cuda.runtime.library.get_kernel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, pKernel_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.get_kernel", .{
@@ -3034,6 +3549,8 @@ pub fn runtime_library_get_kernel(ctx: *mlir.Context, library: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.get_kernel_count`.
+// Opérande : `lib` ; résultats : `cuda_result_type`, `count_type`.
 /// `cuda.runtime.library.get_kernel_count`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_get_kernel_count(ctx: *mlir.Context, lib: *const mlir.Value, cuda_result_type: *const mlir.Type, count_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.get_kernel_count", .{
@@ -3043,6 +3560,8 @@ pub fn runtime_library_get_kernel_count(ctx: *mlir.Context, lib: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.get_managed`.
+// Opérandes : `library`, `name_arg` ; résultats : `cuda_result_type`, `dptr_type`, `bytes_type`.
 /// `cuda.runtime.library.get_managed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_get_managed(ctx: *mlir.Context, library: *const mlir.Value, name_arg: *const mlir.Value, cuda_result_type: *const mlir.Type, dptr_type: *const mlir.Type, bytes_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.get_managed", .{
@@ -3052,6 +3571,8 @@ pub fn runtime_library_get_managed(ctx: *mlir.Context, library: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.get_unified_function`.
+// Opérandes : `library`, `symbol` ; résultats : `cuda_result_type`, `fptr_type`.
 /// `cuda.runtime.library.get_unified_function`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_get_unified_function(ctx: *mlir.Context, library: *const mlir.Value, symbol: *const mlir.Value, cuda_result_type: *const mlir.Type, fptr_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.get_unified_function", .{
@@ -3061,6 +3582,8 @@ pub fn runtime_library_get_unified_function(ctx: *mlir.Context, library: *const 
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.load_data`.
+// Opérandes : `code_arg`, `jitOptions`, `jitOptionsValues`, `numJitOptions`, `libraryOptions`, `libraryOptionValues`, `numLibraryOptions` ; résultats : `cuda_result_type`, `library_type`.
 /// `cuda.runtime.library.load_data`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_load_data(ctx: *mlir.Context, code_arg: *const mlir.Value, jitOptions: *const mlir.Value, jitOptionsValues: *const mlir.Value, numJitOptions: *const mlir.Value, libraryOptions: *const mlir.Value, libraryOptionValues: *const mlir.Value, numLibraryOptions: *const mlir.Value, cuda_result_type: *const mlir.Type, library_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.load_data", .{
@@ -3070,6 +3593,8 @@ pub fn runtime_library_load_data(ctx: *mlir.Context, code_arg: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.load_from_file`.
+// Opérandes : `fileName`, `jitOptions`, `jitOptionsValues`, `numJitOptions`, `libraryOptions`, `libraryOptionValues`, `numLibraryOptions` ; résultats : `cuda_result_type`, `library_type`.
 /// `cuda.runtime.library.load_from_file`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_load_from_file(ctx: *mlir.Context, fileName: *const mlir.Value, jitOptions: *const mlir.Value, jitOptionsValues: *const mlir.Value, numJitOptions: *const mlir.Value, libraryOptions: *const mlir.Value, libraryOptionValues: *const mlir.Value, numLibraryOptions: *const mlir.Value, cuda_result_type: *const mlir.Type, library_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.load_from_file", .{
@@ -3079,6 +3604,8 @@ pub fn runtime_library_load_from_file(ctx: *mlir.Context, fileName: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.library.unload`.
+// Opérande : `library` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.library.unload`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_library_unload(ctx: *mlir.Context, library: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.library.unload", .{
@@ -3088,6 +3615,8 @@ pub fn runtime_library_unload(ctx: *mlir.Context, library: *const mlir.Value, cu
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_dst_array`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_dst_array`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_dst_array(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_dst_array", .{
@@ -3097,6 +3626,8 @@ pub fn runtime_memcpy_3d_params_get_dst_array(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_dst_pos`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_dst_pos`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_dst_pos(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_dst_pos", .{
@@ -3106,6 +3637,8 @@ pub fn runtime_memcpy_3d_params_get_dst_pos(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_dst_ptr`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_dst_ptr`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_dst_ptr(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_dst_ptr", .{
@@ -3115,6 +3648,8 @@ pub fn runtime_memcpy_3d_params_get_dst_ptr(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_extent`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_extent`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_extent(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_extent", .{
@@ -3124,6 +3659,8 @@ pub fn runtime_memcpy_3d_params_get_extent(ctx: *mlir.Context, source: *const ml
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_kind`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_kind`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_kind(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_kind", .{
@@ -3133,6 +3670,8 @@ pub fn runtime_memcpy_3d_params_get_kind(ctx: *mlir.Context, source: *const mlir
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_src_array`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_src_array`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_src_array(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_src_array", .{
@@ -3142,6 +3681,8 @@ pub fn runtime_memcpy_3d_params_get_src_array(ctx: *mlir.Context, source: *const
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_src_pos`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_src_pos`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_src_pos(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_src_pos", .{
@@ -3151,6 +3692,8 @@ pub fn runtime_memcpy_3d_params_get_src_pos(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memcpy_3d_params.get_src_ptr`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.memcpy_3d_params.get_src_ptr`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memcpy_3d_params_get_src_ptr(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memcpy_3d_params.get_src_ptr", .{
@@ -3160,6 +3703,8 @@ pub fn runtime_memcpy_3d_params_get_src_ptr(ctx: *mlir.Context, source: *const m
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memory.cpy3d`.
+// Opérande : `p` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.memory.cpy3d`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memory_cpy3d(ctx: *mlir.Context, p: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memory.cpy3d", .{
@@ -3169,6 +3714,8 @@ pub fn runtime_memory_cpy3d(ctx: *mlir.Context, p: *const mlir.Value, cuda_resul
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.memory.cpy3d_async`.
+// Opérandes : `p`, `stream` ; résultat : `cuda_result_type`.
 /// `cuda.runtime.memory.cpy3d_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_memory_cpy3d_async(ctx: *mlir.Context, p: *const mlir.Value, stream: *const mlir.Value, cuda_result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.memory.cpy3d_async", .{
@@ -3178,6 +3725,8 @@ pub fn runtime_memory_cpy3d_async(ctx: *mlir.Context, p: *const mlir.Value, stre
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pitched_ptr.get_pitch`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pitched_ptr.get_pitch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pitched_ptr_get_pitch(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pitched_ptr.get_pitch", .{
@@ -3187,6 +3736,8 @@ pub fn runtime_pitched_ptr_get_pitch(ctx: *mlir.Context, source: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pitched_ptr.get_ptr`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pitched_ptr.get_ptr`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pitched_ptr_get_ptr(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pitched_ptr.get_ptr", .{
@@ -3196,6 +3747,8 @@ pub fn runtime_pitched_ptr_get_ptr(ctx: *mlir.Context, source: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pitched_ptr.get_xsize`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pitched_ptr.get_xsize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pitched_ptr_get_xsize(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pitched_ptr.get_xsize", .{
@@ -3205,6 +3758,8 @@ pub fn runtime_pitched_ptr_get_xsize(ctx: *mlir.Context, source: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pitched_ptr.get_ysize`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pitched_ptr.get_ysize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pitched_ptr_get_ysize(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pitched_ptr.get_ysize", .{
@@ -3214,6 +3769,8 @@ pub fn runtime_pitched_ptr_get_ysize(ctx: *mlir.Context, source: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pos.get_x`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pos.get_x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pos_get_x(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pos.get_x", .{
@@ -3223,6 +3780,8 @@ pub fn runtime_pos_get_x(ctx: *mlir.Context, source: *const mlir.Value, result_t
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pos.get_y`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pos.get_y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pos_get_y(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pos.get_y", .{
@@ -3232,6 +3791,8 @@ pub fn runtime_pos_get_y(ctx: *mlir.Context, source: *const mlir.Value, result_t
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.pos.get_z`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.pos.get_z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_pos_get_z(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.pos.get_z", .{
@@ -3241,6 +3802,8 @@ pub fn runtime_pos_get_z(ctx: *mlir.Context, source: *const mlir.Value, result_t
     });
 }
 
+// Construit l'opération MLIR `cuda.runtime.uuid.get_bytes`.
+// Opérande : `source` ; résultat : `result_type`.
 /// `cuda.runtime.uuid.get_bytes`. Result types are explicit; attributes use mlir.Attribute.
 pub fn runtime_uuid_get_bytes(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.runtime.uuid.get_bytes", .{
@@ -3250,6 +3813,8 @@ pub fn runtime_uuid_get_bytes(ctx: *mlir.Context, source: *const mlir.Value, res
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.add_callback`.
+// Opérandes : `stream`, `user_data` ; résultat : `result_type` ; attribut : `callback`.
 /// `cuda.stream.add_callback`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_add_callback(ctx: *mlir.Context, stream: *const mlir.Value, user_data: *const mlir.Value, result_type: *const mlir.Type, callback: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.add_callback", .{
@@ -3262,6 +3827,8 @@ pub fn stream_add_callback(ctx: *mlir.Context, stream: *const mlir.Value, user_d
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.begin_capture`.
+// Opérande : `stream` ; résultat : `result_type` ; attribut : `mode`.
 /// `cuda.stream.begin_capture`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_begin_capture(ctx: *mlir.Context, stream: *const mlir.Value, result_type: *const mlir.Type, mode: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.begin_capture", .{
@@ -3274,6 +3841,8 @@ pub fn stream_begin_capture(ctx: *mlir.Context, stream: *const mlir.Value, resul
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.create`.
+// Résultats : `cuda_result_type`, `stream_type`.
 /// `cuda.stream.create`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_create(ctx: *mlir.Context, cuda_result_type: *const mlir.Type, stream_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.create", .{
@@ -3282,6 +3851,8 @@ pub fn stream_create(ctx: *mlir.Context, cuda_result_type: *const mlir.Type, str
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.destroy`.
+// Opérande : `stream` ; résultat : `result_type`.
 /// `cuda.stream.destroy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_destroy(ctx: *mlir.Context, stream: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.destroy", .{
@@ -3291,6 +3862,8 @@ pub fn stream_destroy(ctx: *mlir.Context, stream: *const mlir.Value, result_type
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.end_capture`.
+// Opérande : `stream` ; résultats : `result_type`, `graph_type`.
 /// `cuda.stream.end_capture`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_end_capture(ctx: *mlir.Context, stream: *const mlir.Value, result_type: *const mlir.Type, graph_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.end_capture", .{
@@ -3300,6 +3873,8 @@ pub fn stream_end_capture(ctx: *mlir.Context, stream: *const mlir.Value, result_
     });
 }
 
+// Construit l'opération MLIR `cuda.stream.synchronize`.
+// Opérandes : `stream`, `event` ; résultat : `result_type`.
 /// `cuda.stream.synchronize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stream_synchronize(ctx: *mlir.Context, stream: *const mlir.Value, event: ?*const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.stream.synchronize", .{
@@ -3309,6 +3884,8 @@ pub fn stream_synchronize(ctx: *mlir.Context, stream: *const mlir.Value, event: 
     });
 }
 
+// Construit l'opération MLIR `cuda.tensor_map_encode_tiled`.
+// Opérandes : `tensorDataType`, `tensorRank`, `globalAddress`, `globalDims`, `globalStrides`, `boxDims`, `elementStrides`, `interleave`, `swizzle`, `l2Promotion`, `oobFill` ; résultats : `cuda_result_type`, `cuTensorMap_type`.
 /// `cuda.tensor_map_encode_tiled`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tensor_map_encode_tiled(ctx: *mlir.Context, tensorDataType: *const mlir.Value, tensorRank: *const mlir.Value, globalAddress: *const mlir.Value, globalDims: *const mlir.Value, globalStrides: *const mlir.Value, boxDims: *const mlir.Value, elementStrides: *const mlir.Value, interleave: *const mlir.Value, swizzle: *const mlir.Value, l2Promotion: *const mlir.Value, oobFill: *const mlir.Value, cuda_result_type: *const mlir.Type, cuTensorMap_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "cuda.tensor_map_encode_tiled", .{

@@ -825,19 +825,23 @@ pub const AtomicOpKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "atomic_op";
+    // Écrit la forme imprimée `#nvvm.atomic_op` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.atomic_op` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: AtomicOpKind,
     };
+    // Construit l'attribut `#nvvm.atomic_op` dans `ctx` via `mlirCuteNVVMAtomicOpKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMAtomicOpKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`AtomicOpKind`) encapsulée dans l'attribut `#nvvm.atomic_op`.
     pub fn getValue(self: *const Self) AtomicOpKind {
         return @enumFromInt(c.mlirCuteNVVMAtomicOpKindAttrGetValue(self.ptr()));
     }
@@ -852,19 +856,23 @@ pub const BarrierReductionAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "reduction";
+    // Écrit la forme imprimée `#nvvm.reduction` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.reduction` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: BarrierReduction,
     };
+    // Construit l'attribut `#nvvm.reduction` dans `ctx` via `mlirCuteNVVMBarrierReductionAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMBarrierReductionAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`BarrierReduction`) encapsulée dans l'attribut `#nvvm.reduction`.
     pub fn getValue(self: *const Self) BarrierReduction {
         return @enumFromInt(c.mlirCuteNVVMBarrierReductionAttrGetValue(self.ptr()));
     }
@@ -879,19 +887,23 @@ pub const BarrierReduxKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "barrier_redux_kind";
+    // Écrit la forme imprimée `#nvvm.barrier_redux_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.barrier_redux_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: BarrierReduxKind,
     };
+    // Construit l'attribut `#nvvm.barrier_redux_kind` dans `ctx` via `mlirCuteNVVMBarrierReduxKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMBarrierReduxKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`BarrierReduxKind`) encapsulée dans l'attribut `#nvvm.barrier_redux_kind`.
     pub fn getValue(self: *const Self) BarrierReduxKind {
         return @enumFromInt(c.mlirCuteNVVMBarrierReduxKindAttrGetValue(self.ptr()));
     }
@@ -906,19 +918,23 @@ pub const BlockScaleFormatAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "block_scale_format";
+    // Écrit la forme imprimée `#nvvm.block_scale_format` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.block_scale_format` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: BlockScaleFormat,
     };
+    // Construit l'attribut `#nvvm.block_scale_format` dans `ctx` via `mlirCuteNVVMBlockScaleFormatAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMBlockScaleFormatAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`BlockScaleFormat`) encapsulée dans l'attribut `#nvvm.block_scale_format`.
     pub fn getValue(self: *const Self) BlockScaleFormat {
         return @enumFromInt(c.mlirCuteNVVMBlockScaleFormatAttrGetValue(self.ptr()));
     }
@@ -933,19 +949,23 @@ pub const CTAGroupKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "cta_group";
+    // Écrit la forme imprimée `#nvvm.cta_group` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.cta_group` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CTAGroupKind,
     };
+    // Construit l'attribut `#nvvm.cta_group` dans `ctx` via `mlirCuteNVVMCTAGroupKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMCTAGroupKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`CTAGroupKind`) encapsulée dans l'attribut `#nvvm.cta_group`.
     pub fn getValue(self: *const Self) CTAGroupKind {
         return @enumFromInt(c.mlirCuteNVVMCTAGroupKindAttrGetValue(self.ptr()));
     }
@@ -960,19 +980,23 @@ pub const CVTPackFloatKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "packfloat_type";
+    // Écrit la forme imprimée `#nvvm.packfloat_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.packfloat_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CVTPackFloatKind,
     };
+    // Construit l'attribut `#nvvm.packfloat_type` dans `ctx` via `mlirCuteNVVMCVTPackFloatKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMCVTPackFloatKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`CVTPackFloatKind`) encapsulée dans l'attribut `#nvvm.packfloat_type`.
     pub fn getValue(self: *const Self) CVTPackFloatKind {
         return @enumFromInt(c.mlirCuteNVVMCVTPackFloatKindAttrGetValue(self.ptr()));
     }
@@ -987,19 +1011,23 @@ pub const CacheEvictionPriorityAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "cache_eviction_priority";
+    // Écrit la forme imprimée `#nvvm.cache_eviction_priority` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.cache_eviction_priority` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CacheEvictionPriority,
     };
+    // Construit l'attribut `#nvvm.cache_eviction_priority` dans `ctx` via `mlirCuteNVVMCacheEvictionPriorityAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMCacheEvictionPriorityAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`CacheEvictionPriority`) encapsulée dans l'attribut `#nvvm.cache_eviction_priority`.
     pub fn getValue(self: *const Self) CacheEvictionPriority {
         return @enumFromInt(c.mlirCuteNVVMCacheEvictionPriorityAttrGetValue(self.ptr()));
     }
@@ -1014,19 +1042,23 @@ pub const ClusterLaunchControlQueryTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "cluster_launch_control_query_type";
+    // Écrit la forme imprimée `#nvvm.cluster_launch_control_query_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.cluster_launch_control_query_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ClusterLaunchControlQueryType,
     };
+    // Construit l'attribut `#nvvm.cluster_launch_control_query_type` dans `ctx` via `mlirCuteNVVMClusterLaunchControlQueryTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMClusterLaunchControlQueryTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ClusterLaunchControlQueryType`) encapsulée dans l'attribut `#nvvm.cluster_launch_control_query_type`.
     pub fn getValue(self: *const Self) ClusterLaunchControlQueryType {
         return @enumFromInt(c.mlirCuteNVVMClusterLaunchControlQueryTypeAttrGetValue(self.ptr()));
     }
@@ -1041,19 +1073,23 @@ pub const CompareOpKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "op";
+    // Écrit la forme imprimée `#nvvm.op` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.op` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CompareOpKind,
     };
+    // Construit l'attribut `#nvvm.op` dans `ctx` via `mlirCuteNVVMCompareOpKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMCompareOpKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`CompareOpKind`) encapsulée dans l'attribut `#nvvm.op`.
     pub fn getValue(self: *const Self) CompareOpKind {
         return @enumFromInt(c.mlirCuteNVVMCompareOpKindAttrGetValue(self.ptr()));
     }
@@ -1068,19 +1104,23 @@ pub const ConvertFP4TypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "convert_fp4_type";
+    // Écrit la forme imprimée `#nvvm.convert_fp4_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.convert_fp4_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ConvertFP4Type,
     };
+    // Construit l'attribut `#nvvm.convert_fp4_type` dans `ctx` via `mlirCuteNVVMConvertFP4TypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMConvertFP4TypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ConvertFP4Type`) encapsulée dans l'attribut `#nvvm.convert_fp4_type`.
     pub fn getValue(self: *const Self) ConvertFP4Type {
         return @enumFromInt(c.mlirCuteNVVMConvertFP4TypeAttrGetValue(self.ptr()));
     }
@@ -1095,19 +1135,23 @@ pub const ConvertFP8TypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "convert_fp8_type";
+    // Écrit la forme imprimée `#nvvm.convert_fp8_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.convert_fp8_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ConvertFP8Type,
     };
+    // Construit l'attribut `#nvvm.convert_fp8_type` dans `ctx` via `mlirCuteNVVMConvertFP8TypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMConvertFP8TypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ConvertFP8Type`) encapsulée dans l'attribut `#nvvm.convert_fp8_type`.
     pub fn getValue(self: *const Self) ConvertFP8Type {
         return @enumFromInt(c.mlirCuteNVVMConvertFP8TypeAttrGetValue(self.ptr()));
     }
@@ -1122,19 +1166,23 @@ pub const ConvertScaleKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "convert_scale_kind";
+    // Écrit la forme imprimée `#nvvm.convert_scale_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.convert_scale_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ConvertScaleKind,
     };
+    // Construit l'attribut `#nvvm.convert_scale_kind` dans `ctx` via `mlirCuteNVVMConvertScaleKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMConvertScaleKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ConvertScaleKind`) encapsulée dans l'attribut `#nvvm.convert_scale_kind`.
     pub fn getValue(self: *const Self) ConvertScaleKind {
         return @enumFromInt(c.mlirCuteNVVMConvertScaleKindAttrGetValue(self.ptr()));
     }
@@ -1149,19 +1197,23 @@ pub const DotAccumulateTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "dot_accumulate_type";
+    // Écrit la forme imprimée `#nvvm.dot_accumulate_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.dot_accumulate_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: DotAccumulateType,
     };
+    // Construit l'attribut `#nvvm.dot_accumulate_type` dans `ctx` via `mlirCuteNVVMDotAccumulateTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMDotAccumulateTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`DotAccumulateType`) encapsulée dans l'attribut `#nvvm.dot_accumulate_type`.
     pub fn getValue(self: *const Self) DotAccumulateType {
         return @enumFromInt(c.mlirCuteNVVMDotAccumulateTypeAttrGetValue(self.ptr()));
     }
@@ -1176,19 +1228,23 @@ pub const EvictKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "evict_kind";
+    // Écrit la forme imprimée `#nvvm.evict_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.evict_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: EvictKind,
     };
+    // Construit l'attribut `#nvvm.evict_kind` dans `ctx` via `mlirCuteNVVMEvictKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMEvictKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`EvictKind`) encapsulée dans l'attribut `#nvvm.evict_kind`.
     pub fn getValue(self: *const Self) EvictKind {
         return @enumFromInt(c.mlirCuteNVVMEvictKindAttrGetValue(self.ptr()));
     }
@@ -1203,19 +1259,23 @@ pub const FPRoundingModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "fp_rnd_mode";
+    // Écrit la forme imprimée `#nvvm.fp_rnd_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.fp_rnd_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: FPRoundingMode,
     };
+    // Construit l'attribut `#nvvm.fp_rnd_mode` dans `ctx` via `mlirCuteNVVMFPRoundingModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMFPRoundingModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`FPRoundingMode`) encapsulée dans l'attribut `#nvvm.fp_rnd_mode`.
     pub fn getValue(self: *const Self) FPRoundingMode {
         return @enumFromInt(c.mlirCuteNVVMFPRoundingModeAttrGetValue(self.ptr()));
     }
@@ -1230,19 +1290,23 @@ pub const GridDepActionKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "grid_dep_action";
+    // Écrit la forme imprimée `#nvvm.grid_dep_action` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.grid_dep_action` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: GridDepActionKind,
     };
+    // Construit l'attribut `#nvvm.grid_dep_action` dans `ctx` via `mlirCuteNVVMGridDepActionKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMGridDepActionKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`GridDepActionKind`) encapsulée dans l'attribut `#nvvm.grid_dep_action`.
     pub fn getValue(self: *const Self) GridDepActionKind {
         return @enumFromInt(c.mlirCuteNVVMGridDepActionKindAttrGetValue(self.ptr()));
     }
@@ -1257,19 +1321,23 @@ pub const IntegerRoundingModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "int_rnd_mode";
+    // Écrit la forme imprimée `#nvvm.int_rnd_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.int_rnd_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: IntegerRoundingMode,
     };
+    // Construit l'attribut `#nvvm.int_rnd_mode` dans `ctx` via `mlirCuteNVVMIntegerRoundingModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMIntegerRoundingModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`IntegerRoundingMode`) encapsulée dans l'attribut `#nvvm.int_rnd_mode`.
     pub fn getValue(self: *const Self) IntegerRoundingMode {
         return @enumFromInt(c.mlirCuteNVVMIntegerRoundingModeAttrGetValue(self.ptr()));
     }
@@ -1284,19 +1352,23 @@ pub const L2PrefetchSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "l2_prefetch";
+    // Écrit la forme imprimée `#nvvm.l2_prefetch` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.l2_prefetch` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: L2PrefetchSize,
     };
+    // Construit l'attribut `#nvvm.l2_prefetch` dans `ctx` via `mlirCuteNVVML2PrefetchSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVML2PrefetchSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`L2PrefetchSize`) encapsulée dans l'attribut `#nvvm.l2_prefetch`.
     pub fn getValue(self: *const Self) L2PrefetchSize {
         return @enumFromInt(c.mlirCuteNVVML2PrefetchSizeAttrGetValue(self.ptr()));
     }
@@ -1311,19 +1383,23 @@ pub const LdStMatrixEltTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "ld_st_matrix_elt_type";
+    // Écrit la forme imprimée `#nvvm.ld_st_matrix_elt_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.ld_st_matrix_elt_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: LdStMatrixEltType,
     };
+    // Construit l'attribut `#nvvm.ld_st_matrix_elt_type` dans `ctx` via `mlirCuteNVVMLdStMatrixEltTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLdStMatrixEltTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`LdStMatrixEltType`) encapsulée dans l'attribut `#nvvm.ld_st_matrix_elt_type`.
     pub fn getValue(self: *const Self) LdStMatrixEltType {
         return @enumFromInt(c.mlirCuteNVVMLdStMatrixEltTypeAttrGetValue(self.ptr()));
     }
@@ -1338,19 +1414,23 @@ pub const LoadCacheModifierExtKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "load_cache_modifier_ext";
+    // Écrit la forme imprimée `#nvvm.load_cache_modifier_ext` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.load_cache_modifier_ext` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: LoadCacheModifierExtKind,
     };
+    // Construit l'attribut `#nvvm.load_cache_modifier_ext` dans `ctx` via `mlirCuteNVVMLoadCacheModifierExtKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLoadCacheModifierExtKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`LoadCacheModifierExtKind`) encapsulée dans l'attribut `#nvvm.load_cache_modifier_ext`.
     pub fn getValue(self: *const Self) LoadCacheModifierExtKind {
         return @enumFromInt(c.mlirCuteNVVMLoadCacheModifierExtKindAttrGetValue(self.ptr()));
     }
@@ -1365,19 +1445,23 @@ pub const LoadCacheModifierKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "load_cache_modifier";
+    // Écrit la forme imprimée `#nvvm.load_cache_modifier` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.load_cache_modifier` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: LoadCacheModifierKind,
     };
+    // Construit l'attribut `#nvvm.load_cache_modifier` dans `ctx` via `mlirCuteNVVMLoadCacheModifierKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLoadCacheModifierKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`LoadCacheModifierKind`) encapsulée dans l'attribut `#nvvm.load_cache_modifier`.
     pub fn getValue(self: *const Self) LoadCacheModifierKind {
         return @enumFromInt(c.mlirCuteNVVMLoadCacheModifierKindAttrGetValue(self.ptr()));
     }
@@ -1392,19 +1476,23 @@ pub const LoadShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "load_shape";
+    // Écrit la forme imprimée `#nvvm.load_shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.load_shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: LoadShape,
     };
+    // Construit l'attribut `#nvvm.load_shape` dans `ctx` via `mlirCuteNVVMLoadShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLoadShapeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`LoadShape`) encapsulée dans l'attribut `#nvvm.load_shape`.
     pub fn getValue(self: *const Self) LoadShape {
         return @enumFromInt(c.mlirCuteNVVMLoadShapeAttrGetValue(self.ptr()));
     }
@@ -1419,19 +1507,23 @@ pub const LoadSrcFormatAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "load_src_format";
+    // Écrit la forme imprimée `#nvvm.load_src_format` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.load_src_format` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: LoadSrcFormat,
     };
+    // Construit l'attribut `#nvvm.load_src_format` dans `ctx` via `mlirCuteNVVMLoadSrcFormatAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLoadSrcFormatAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`LoadSrcFormat`) encapsulée dans l'attribut `#nvvm.load_src_format`.
     pub fn getValue(self: *const Self) LoadSrcFormat {
         return @enumFromInt(c.mlirCuteNVVMLoadSrcFormatAttrGetValue(self.ptr()));
     }
@@ -1446,19 +1538,23 @@ pub const MBarrierLayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbarrier_layout";
+    // Écrit la forme imprimée `#nvvm.mbarrier_layout` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbarrier_layout` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierLayout,
     };
+    // Construit l'attribut `#nvvm.mbarrier_layout` dans `ctx` via `mlirCuteNVVMMBarrierLayoutAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierLayoutAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierLayout`) encapsulée dans l'attribut `#nvvm.mbarrier_layout`.
     pub fn getValue(self: *const Self) MBarrierLayout {
         return @enumFromInt(c.mlirCuteNVVMMBarrierLayoutAttrGetValue(self.ptr()));
     }
@@ -1473,19 +1569,23 @@ pub const MBarrierPhaseAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbarrier_phase";
+    // Écrit la forme imprimée `#nvvm.mbarrier_phase` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbarrier_phase` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierPhase,
     };
+    // Construit l'attribut `#nvvm.mbarrier_phase` dans `ctx` via `mlirCuteNVVMMBarrierPhaseAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierPhaseAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierPhase`) encapsulée dans l'attribut `#nvvm.mbarrier_phase`.
     pub fn getValue(self: *const Self) MBarrierPhase {
         return @enumFromInt(c.mlirCuteNVVMMBarrierPhaseAttrGetValue(self.ptr()));
     }
@@ -1500,19 +1600,23 @@ pub const MBarrierScopeKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbar_scope";
+    // Écrit la forme imprimée `#nvvm.mbar_scope` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbar_scope` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierScopeKind,
     };
+    // Construit l'attribut `#nvvm.mbar_scope` dans `ctx` via `mlirCuteNVVMMBarrierScopeKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierScopeKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierScopeKind`) encapsulée dans l'attribut `#nvvm.mbar_scope`.
     pub fn getValue(self: *const Self) MBarrierScopeKind {
         return @enumFromInt(c.mlirCuteNVVMMBarrierScopeKindAttrGetValue(self.ptr()));
     }
@@ -1527,19 +1631,23 @@ pub const MBarrierSpaceKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbar_space";
+    // Écrit la forme imprimée `#nvvm.mbar_space` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbar_space` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierSpaceKind,
     };
+    // Construit l'attribut `#nvvm.mbar_space` dans `ctx` via `mlirCuteNVVMMBarrierSpaceKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierSpaceKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierSpaceKind`) encapsulée dans l'attribut `#nvvm.mbar_space`.
     pub fn getValue(self: *const Self) MBarrierSpaceKind {
         return @enumFromInt(c.mlirCuteNVVMMBarrierSpaceKindAttrGetValue(self.ptr()));
     }
@@ -1554,19 +1662,23 @@ pub const MBarrierTxnKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbar_txn_kind";
+    // Écrit la forme imprimée `#nvvm.mbar_txn_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbar_txn_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierTxnKind,
     };
+    // Construit l'attribut `#nvvm.mbar_txn_kind` dans `ctx` via `mlirCuteNVVMMBarrierTxnKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierTxnKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierTxnKind`) encapsulée dans l'attribut `#nvvm.mbar_txn_kind`.
     pub fn getValue(self: *const Self) MBarrierTxnKind {
         return @enumFromInt(c.mlirCuteNVVMMBarrierTxnKindAttrGetValue(self.ptr()));
     }
@@ -1581,19 +1693,23 @@ pub const MBarrierWaitKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mbar_wait";
+    // Écrit la forme imprimée `#nvvm.mbar_wait` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mbar_wait` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MBarrierWaitKind,
     };
+    // Construit l'attribut `#nvvm.mbar_wait` dans `ctx` via `mlirCuteNVVMMBarrierWaitKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMBarrierWaitKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MBarrierWaitKind`) encapsulée dans l'attribut `#nvvm.mbar_wait`.
     pub fn getValue(self: *const Self) MBarrierWaitKind {
         return @enumFromInt(c.mlirCuteNVVMMBarrierWaitKindAttrGetValue(self.ptr()));
     }
@@ -1608,19 +1724,23 @@ pub const MMAB1OpAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_b1op";
+    // Écrit la forme imprimée `#nvvm.mma_b1op` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_b1op` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMAB1Op,
     };
+    // Construit l'attribut `#nvvm.mma_b1op` dans `ctx` via `mlirCuteNVVMMMAB1OpAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMAB1OpAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMAB1Op`) encapsulée dans l'attribut `#nvvm.mma_b1op`.
     pub fn getValue(self: *const Self) MMAB1Op {
         return @enumFromInt(c.mlirCuteNVVMMMAB1OpAttrGetValue(self.ptr()));
     }
@@ -1635,19 +1755,23 @@ pub const MMABlockScaleKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "block_scale_kind";
+    // Écrit la forme imprimée `#nvvm.block_scale_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.block_scale_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMABlockScaleKind,
     };
+    // Construit l'attribut `#nvvm.block_scale_kind` dans `ctx` via `mlirCuteNVVMMMABlockScaleKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMABlockScaleKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMABlockScaleKind`) encapsulée dans l'attribut `#nvvm.block_scale_kind`.
     pub fn getValue(self: *const Self) MMABlockScaleKind {
         return @enumFromInt(c.mlirCuteNVVMMMABlockScaleKindAttrGetValue(self.ptr()));
     }
@@ -1662,19 +1786,23 @@ pub const MMACtaCountAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_cta_count";
+    // Écrit la forme imprimée `#nvvm.mma_cta_count` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_cta_count` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMACtaCount,
     };
+    // Construit l'attribut `#nvvm.mma_cta_count` dans `ctx` via `mlirCuteNVVMMMACtaCountAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMACtaCountAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMACtaCount`) encapsulée dans l'attribut `#nvvm.mma_cta_count`.
     pub fn getValue(self: *const Self) MMACtaCount {
         return @enumFromInt(c.mlirCuteNVVMMMACtaCountAttrGetValue(self.ptr()));
     }
@@ -1689,19 +1817,23 @@ pub const MMAFragAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_frag";
+    // Écrit la forme imprimée `#nvvm.mma_frag` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_frag` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMAFrag,
     };
+    // Construit l'attribut `#nvvm.mma_frag` dans `ctx` via `mlirCuteNVVMMMAFragAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMAFragAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMAFrag`) encapsulée dans l'attribut `#nvvm.mma_frag`.
     pub fn getValue(self: *const Self) MMAFrag {
         return @enumFromInt(c.mlirCuteNVVMMMAFragAttrGetValue(self.ptr()));
     }
@@ -1716,19 +1848,23 @@ pub const MMAIntOverflowAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_int_overflow";
+    // Écrit la forme imprimée `#nvvm.mma_int_overflow` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_int_overflow` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMAIntOverflow,
     };
+    // Construit l'attribut `#nvvm.mma_int_overflow` dans `ctx` via `mlirCuteNVVMMMAIntOverflowAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMAIntOverflowAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMAIntOverflow`) encapsulée dans l'attribut `#nvvm.mma_int_overflow`.
     pub fn getValue(self: *const Self) MMAIntOverflow {
         return @enumFromInt(c.mlirCuteNVVMMMAIntOverflowAttrGetValue(self.ptr()));
     }
@@ -1743,19 +1879,23 @@ pub const MMAKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_kind";
+    // Écrit la forme imprimée `#nvvm.mma_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMAKind,
     };
+    // Construit l'attribut `#nvvm.mma_kind` dans `ctx` via `mlirCuteNVVMMMAKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMAKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMAKind`) encapsulée dans l'attribut `#nvvm.mma_kind`.
     pub fn getValue(self: *const Self) MMAKind {
         return @enumFromInt(c.mlirCuteNVVMMMAKindAttrGetValue(self.ptr()));
     }
@@ -1770,19 +1910,23 @@ pub const MMALayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_layout";
+    // Écrit la forme imprimée `#nvvm.mma_layout` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_layout` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMALayout,
     };
+    // Construit l'attribut `#nvvm.mma_layout` dans `ctx` via `mlirCuteNVVMMMALayoutAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMALayoutAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMALayout`) encapsulée dans l'attribut `#nvvm.mma_layout`.
     pub fn getValue(self: *const Self) MMALayout {
         return @enumFromInt(c.mlirCuteNVVMMMALayoutAttrGetValue(self.ptr()));
     }
@@ -1797,19 +1941,23 @@ pub const MMATypesAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mma_type";
+    // Écrit la forme imprimée `#nvvm.mma_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mma_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MMATypes,
     };
+    // Construit l'attribut `#nvvm.mma_type` dans `ctx` via `mlirCuteNVVMMMATypesAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMATypesAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MMATypes`) encapsulée dans l'attribut `#nvvm.mma_type`.
     pub fn getValue(self: *const Self) MMATypes {
         return @enumFromInt(c.mlirCuteNVVMMMATypesAttrGetValue(self.ptr()));
     }
@@ -1824,19 +1972,23 @@ pub const MatchSyncKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "match_sync_kind";
+    // Écrit la forme imprimée `#nvvm.match_sync_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.match_sync_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MatchSyncKind,
     };
+    // Construit l'attribut `#nvvm.match_sync_kind` dans `ctx` via `mlirCuteNVVMMatchSyncKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMatchSyncKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MatchSyncKind`) encapsulée dans l'attribut `#nvvm.match_sync_kind`.
     pub fn getValue(self: *const Self) MatchSyncKind {
         return @enumFromInt(c.mlirCuteNVVMMatchSyncKindAttrGetValue(self.ptr()));
     }
@@ -1851,19 +2003,23 @@ pub const MemOrderKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mem_order";
+    // Écrit la forme imprimée `#nvvm.mem_order` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mem_order` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MemOrderKind,
     };
+    // Construit l'attribut `#nvvm.mem_order` dans `ctx` via `mlirCuteNVVMMemOrderKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMemOrderKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MemOrderKind`) encapsulée dans l'attribut `#nvvm.mem_order`.
     pub fn getValue(self: *const Self) MemOrderKind {
         return @enumFromInt(c.mlirCuteNVVMMemOrderKindAttrGetValue(self.ptr()));
     }
@@ -1878,19 +2034,23 @@ pub const MemScopeKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mem_scope";
+    // Écrit la forme imprimée `#nvvm.mem_scope` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mem_scope` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MemScopeKind,
     };
+    // Construit l'attribut `#nvvm.mem_scope` dans `ctx` via `mlirCuteNVVMMemScopeKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMemScopeKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MemScopeKind`) encapsulée dans l'attribut `#nvvm.mem_scope`.
     pub fn getValue(self: *const Self) MemScopeKind {
         return @enumFromInt(c.mlirCuteNVVMMemScopeKindAttrGetValue(self.ptr()));
     }
@@ -1905,19 +2065,23 @@ pub const MulModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "mul_mode";
+    // Écrit la forme imprimée `#nvvm.mul_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.mul_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: MulMode,
     };
+    // Construit l'attribut `#nvvm.mul_mode` dans `ctx` via `mlirCuteNVVMMulModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMulModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`MulMode`) encapsulée dans l'attribut `#nvvm.mul_mode`.
     pub fn getValue(self: *const Self) MulMode {
         return @enumFromInt(c.mlirCuteNVVMMulModeAttrGetValue(self.ptr()));
     }
@@ -1932,19 +2096,23 @@ pub const NVVMMemorySpaceAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "memory_space";
+    // Écrit la forme imprimée `#nvvm.memory_space` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.memory_space` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: NVVMMemorySpace,
     };
+    // Construit l'attribut `#nvvm.memory_space` dans `ctx` via `mlirCuteNVVMNVVMMemorySpaceAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMNVVMMemorySpaceAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`NVVMMemorySpace`) encapsulée dans l'attribut `#nvvm.memory_space`.
     pub fn getValue(self: *const Self) NVVMMemorySpace {
         return @enumFromInt(c.mlirCuteNVVMNVVMMemorySpaceAttrGetValue(self.ptr()));
     }
@@ -1959,19 +2127,23 @@ pub const PermuteModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "permute_mode";
+    // Écrit la forme imprimée `#nvvm.permute_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.permute_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: PermuteMode,
     };
+    // Construit l'attribut `#nvvm.permute_mode` dans `ctx` via `mlirCuteNVVMPermuteModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMPermuteModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`PermuteMode`) encapsulée dans l'attribut `#nvvm.permute_mode`.
     pub fn getValue(self: *const Self) PermuteMode {
         return @enumFromInt(c.mlirCuteNVVMPermuteModeAttrGetValue(self.ptr()));
     }
@@ -1986,19 +2158,23 @@ pub const PrefetchCacheLevelAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "prefetch_cache_level";
+    // Écrit la forme imprimée `#nvvm.prefetch_cache_level` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.prefetch_cache_level` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: PrefetchCacheLevel,
     };
+    // Construit l'attribut `#nvvm.prefetch_cache_level` dans `ctx` via `mlirCuteNVVMPrefetchCacheLevelAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMPrefetchCacheLevelAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`PrefetchCacheLevel`) encapsulée dans l'attribut `#nvvm.prefetch_cache_level`.
     pub fn getValue(self: *const Self) PrefetchCacheLevel {
         return @enumFromInt(c.mlirCuteNVVMPrefetchCacheLevelAttrGetValue(self.ptr()));
     }
@@ -2013,19 +2189,23 @@ pub const ProxyKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "proxy_kind";
+    // Écrit la forme imprimée `#nvvm.proxy_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.proxy_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ProxyKind,
     };
+    // Construit l'attribut `#nvvm.proxy_kind` dans `ctx` via `mlirCuteNVVMProxyKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMProxyKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ProxyKind`) encapsulée dans l'attribut `#nvvm.proxy_kind`.
     pub fn getValue(self: *const Self) ProxyKind {
         return @enumFromInt(c.mlirCuteNVVMProxyKindAttrGetValue(self.ptr()));
     }
@@ -2040,19 +2220,23 @@ pub const ReductionKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "reduction_kind";
+    // Écrit la forme imprimée `#nvvm.reduction_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.reduction_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ReductionKind,
     };
+    // Construit l'attribut `#nvvm.reduction_kind` dans `ctx` via `mlirCuteNVVMReductionKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMReductionKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ReductionKind`) encapsulée dans l'attribut `#nvvm.reduction_kind`.
     pub fn getValue(self: *const Self) ReductionKind {
         return @enumFromInt(c.mlirCuteNVVMReductionKindAttrGetValue(self.ptr()));
     }
@@ -2067,19 +2251,23 @@ pub const ReductionOpAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "red_op";
+    // Écrit la forme imprimée `#nvvm.red_op` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.red_op` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ReductionOp,
     };
+    // Construit l'attribut `#nvvm.red_op` dans `ctx` via `mlirCuteNVVMReductionOpAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMReductionOpAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ReductionOp`) encapsulée dans l'attribut `#nvvm.red_op`.
     pub fn getValue(self: *const Self) ReductionOp {
         return @enumFromInt(c.mlirCuteNVVMReductionOpAttrGetValue(self.ptr()));
     }
@@ -2094,19 +2282,23 @@ pub const ReductionTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "red_type";
+    // Écrit la forme imprimée `#nvvm.red_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.red_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ReductionType,
     };
+    // Construit l'attribut `#nvvm.red_type` dans `ctx` via `mlirCuteNVVMReductionTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMReductionTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ReductionType`) encapsulée dans l'attribut `#nvvm.red_type`.
     pub fn getValue(self: *const Self) ReductionType {
         return @enumFromInt(c.mlirCuteNVVMReductionTypeAttrGetValue(self.ptr()));
     }
@@ -2121,19 +2313,23 @@ pub const SPCompressElemSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spcomp_elem_size";
+    // Écrit la forme imprimée `#nvvm.spcomp_elem_size` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spcomp_elem_size` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPCompressElemSize,
     };
+    // Construit l'attribut `#nvvm.spcomp_elem_size` dans `ctx` via `mlirCuteNVVMSPCompressElemSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPCompressElemSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPCompressElemSize`) encapsulée dans l'attribut `#nvvm.spcomp_elem_size`.
     pub fn getValue(self: *const Self) SPCompressElemSize {
         return @enumFromInt(c.mlirCuteNVVMSPCompressElemSizeAttrGetValue(self.ptr()));
     }
@@ -2148,19 +2344,23 @@ pub const SPCompressFactorTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spcomp_factor";
+    // Écrit la forme imprimée `#nvvm.spcomp_factor` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spcomp_factor` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPCompressFactorType,
     };
+    // Construit l'attribut `#nvvm.spcomp_factor` dans `ctx` via `mlirCuteNVVMSPCompressFactorTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPCompressFactorTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPCompressFactorType`) encapsulée dans l'attribut `#nvvm.spcomp_factor`.
     pub fn getValue(self: *const Self) SPCompressFactorType {
         return @enumFromInt(c.mlirCuteNVVMSPCompressFactorTypeAttrGetValue(self.ptr()));
     }
@@ -2175,19 +2375,23 @@ pub const SPCompressIndexSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spcomp_index_size";
+    // Écrit la forme imprimée `#nvvm.spcomp_index_size` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spcomp_index_size` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPCompressIndexSize,
     };
+    // Construit l'attribut `#nvvm.spcomp_index_size` dans `ctx` via `mlirCuteNVVMSPCompressIndexSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPCompressIndexSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPCompressIndexSize`) encapsulée dans l'attribut `#nvvm.spcomp_index_size`.
     pub fn getValue(self: *const Self) SPCompressIndexSize {
         return @enumFromInt(c.mlirCuteNVVMSPCompressIndexSizeAttrGetValue(self.ptr()));
     }
@@ -2202,19 +2406,23 @@ pub const SPCompressOpKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spcomp_op_kind";
+    // Écrit la forme imprimée `#nvvm.spcomp_op_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spcomp_op_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPCompressOpKind,
     };
+    // Construit l'attribut `#nvvm.spcomp_op_kind` dans `ctx` via `mlirCuteNVVMSPCompressOpKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPCompressOpKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPCompressOpKind`) encapsulée dans l'attribut `#nvvm.spcomp_op_kind`.
     pub fn getValue(self: *const Self) SPCompressOpKind {
         return @enumFromInt(c.mlirCuteNVVMSPCompressOpKindAttrGetValue(self.ptr()));
     }
@@ -2229,19 +2437,23 @@ pub const SPCompressRepFactorAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spcomp_rep_factor";
+    // Écrit la forme imprimée `#nvvm.spcomp_rep_factor` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spcomp_rep_factor` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPCompressRepFactor,
     };
+    // Construit l'attribut `#nvvm.spcomp_rep_factor` dans `ctx` via `mlirCuteNVVMSPCompressRepFactorAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPCompressRepFactorAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPCompressRepFactor`) encapsulée dans l'attribut `#nvvm.spcomp_rep_factor`.
     pub fn getValue(self: *const Self) SPCompressRepFactor {
         return @enumFromInt(c.mlirCuteNVVMSPCompressRepFactorAttrGetValue(self.ptr()));
     }
@@ -2256,19 +2468,23 @@ pub const SPDecompressElemSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spdecomp_elem_size";
+    // Écrit la forme imprimée `#nvvm.spdecomp_elem_size` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spdecomp_elem_size` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPDecompressElemSize,
     };
+    // Construit l'attribut `#nvvm.spdecomp_elem_size` dans `ctx` via `mlirCuteNVVMSPDecompressElemSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPDecompressElemSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPDecompressElemSize`) encapsulée dans l'attribut `#nvvm.spdecomp_elem_size`.
     pub fn getValue(self: *const Self) SPDecompressElemSize {
         return @enumFromInt(c.mlirCuteNVVMSPDecompressElemSizeAttrGetValue(self.ptr()));
     }
@@ -2283,19 +2499,23 @@ pub const SPDecompressFactorTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spdecomp_factor";
+    // Écrit la forme imprimée `#nvvm.spdecomp_factor` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spdecomp_factor` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPDecompressFactorType,
     };
+    // Construit l'attribut `#nvvm.spdecomp_factor` dans `ctx` via `mlirCuteNVVMSPDecompressFactorTypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPDecompressFactorTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPDecompressFactorType`) encapsulée dans l'attribut `#nvvm.spdecomp_factor`.
     pub fn getValue(self: *const Self) SPDecompressFactorType {
         return @enumFromInt(c.mlirCuteNVVMSPDecompressFactorTypeAttrGetValue(self.ptr()));
     }
@@ -2310,19 +2530,23 @@ pub const SPDecompressIndexSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spdecomp_index_size";
+    // Écrit la forme imprimée `#nvvm.spdecomp_index_size` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spdecomp_index_size` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPDecompressIndexSize,
     };
+    // Construit l'attribut `#nvvm.spdecomp_index_size` dans `ctx` via `mlirCuteNVVMSPDecompressIndexSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPDecompressIndexSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPDecompressIndexSize`) encapsulée dans l'attribut `#nvvm.spdecomp_index_size`.
     pub fn getValue(self: *const Self) SPDecompressIndexSize {
         return @enumFromInt(c.mlirCuteNVVMSPDecompressIndexSizeAttrGetValue(self.ptr()));
     }
@@ -2337,19 +2561,23 @@ pub const SPDecompressRepFactorAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "spdecomp_rep_factor";
+    // Écrit la forme imprimée `#nvvm.spdecomp_rep_factor` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.spdecomp_rep_factor` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SPDecompressRepFactor,
     };
+    // Construit l'attribut `#nvvm.spdecomp_rep_factor` dans `ctx` via `mlirCuteNVVMSPDecompressRepFactorAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSPDecompressRepFactorAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SPDecompressRepFactor`) encapsulée dans l'attribut `#nvvm.spdecomp_rep_factor`.
     pub fn getValue(self: *const Self) SPDecompressRepFactor {
         return @enumFromInt(c.mlirCuteNVVMSPDecompressRepFactorAttrGetValue(self.ptr()));
     }
@@ -2364,19 +2592,23 @@ pub const SaturationModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sat_mode";
+    // Écrit la forme imprimée `#nvvm.sat_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.sat_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SaturationMode,
     };
+    // Construit l'attribut `#nvvm.sat_mode` dans `ctx` via `mlirCuteNVVMSaturationModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSaturationModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SaturationMode`) encapsulée dans l'attribut `#nvvm.sat_mode`.
     pub fn getValue(self: *const Self) SaturationMode {
         return @enumFromInt(c.mlirCuteNVVMSaturationModeAttrGetValue(self.ptr()));
     }
@@ -2391,19 +2623,23 @@ pub const SaturationModeKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sat";
+    // Écrit la forme imprimée `#nvvm.sat` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.sat` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SaturationModeKind,
     };
+    // Construit l'attribut `#nvvm.sat` dans `ctx` via `mlirCuteNVVMSaturationModeKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSaturationModeKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SaturationModeKind`) encapsulée dans l'attribut `#nvvm.sat`.
     pub fn getValue(self: *const Self) SaturationModeKind {
         return @enumFromInt(c.mlirCuteNVVMSaturationModeKindAttrGetValue(self.ptr()));
     }
@@ -2418,19 +2654,23 @@ pub const ScaleVecSizeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "scale_vec_size";
+    // Écrit la forme imprimée `#nvvm.scale_vec_size` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.scale_vec_size` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ScaleVecSize,
     };
+    // Construit l'attribut `#nvvm.scale_vec_size` dans `ctx` via `mlirCuteNVVMScaleVecSizeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMScaleVecSizeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ScaleVecSize`) encapsulée dans l'attribut `#nvvm.scale_vec_size`.
     pub fn getValue(self: *const Self) ScaleVecSize {
         return @enumFromInt(c.mlirCuteNVVMScaleVecSizeAttrGetValue(self.ptr()));
     }
@@ -2445,19 +2685,23 @@ pub const SetMaxRegisterActionAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "action";
+    // Écrit la forme imprimée `#nvvm.action` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.action` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SetMaxRegisterAction,
     };
+    // Construit l'attribut `#nvvm.action` dans `ctx` via `mlirCuteNVVMSetMaxRegisterActionAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSetMaxRegisterActionAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SetMaxRegisterAction`) encapsulée dans l'attribut `#nvvm.action`.
     pub fn getValue(self: *const Self) SetMaxRegisterAction {
         return @enumFromInt(c.mlirCuteNVVMSetMaxRegisterActionAttrGetValue(self.ptr()));
     }
@@ -2472,19 +2716,23 @@ pub const SharedSpaceAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "shared_space";
+    // Écrit la forme imprimée `#nvvm.shared_space` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.shared_space` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SharedSpace,
     };
+    // Construit l'attribut `#nvvm.shared_space` dans `ctx` via `mlirCuteNVVMSharedSpaceAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSharedSpaceAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SharedSpace`) encapsulée dans l'attribut `#nvvm.shared_space`.
     pub fn getValue(self: *const Self) SharedSpace {
         return @enumFromInt(c.mlirCuteNVVMSharedSpaceAttrGetValue(self.ptr()));
     }
@@ -2499,19 +2747,23 @@ pub const ShflKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "shfl_kind";
+    // Écrit la forme imprimée `#nvvm.shfl_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.shfl_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ShflKind,
     };
+    // Construit l'attribut `#nvvm.shfl_kind` dans `ctx` via `mlirCuteNVVMShflKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMShflKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ShflKind`) encapsulée dans l'attribut `#nvvm.shfl_kind`.
     pub fn getValue(self: *const Self) ShflKind {
         return @enumFromInt(c.mlirCuteNVVMShflKindAttrGetValue(self.ptr()));
     }
@@ -2526,19 +2778,23 @@ pub const SparsityFormatAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "sparsity_format";
+    // Écrit la forme imprimée `#nvvm.sparsity_format` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.sparsity_format` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: SparsityFormat,
     };
+    // Construit l'attribut `#nvvm.sparsity_format` dans `ctx` via `mlirCuteNVVMSparsityFormatAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMSparsityFormatAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`SparsityFormat`) encapsulée dans l'attribut `#nvvm.sparsity_format`.
     pub fn getValue(self: *const Self) SparsityFormat {
         return @enumFromInt(c.mlirCuteNVVMSparsityFormatAttrGetValue(self.ptr()));
     }
@@ -2553,19 +2809,23 @@ pub const StateSpaceAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "state_space";
+    // Écrit la forme imprimée `#nvvm.state_space` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.state_space` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: StateSpace,
     };
+    // Construit l'attribut `#nvvm.state_space` dans `ctx` via `mlirCuteNVVMStateSpaceAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMStateSpaceAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`StateSpace`) encapsulée dans l'attribut `#nvvm.state_space`.
     pub fn getValue(self: *const Self) StateSpace {
         return @enumFromInt(c.mlirCuteNVVMStateSpaceAttrGetValue(self.ptr()));
     }
@@ -2580,19 +2840,23 @@ pub const StoreCacheModifierKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "store_cache_modifier";
+    // Écrit la forme imprimée `#nvvm.store_cache_modifier` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.store_cache_modifier` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: StoreCacheModifierKind,
     };
+    // Construit l'attribut `#nvvm.store_cache_modifier` dans `ctx` via `mlirCuteNVVMStoreCacheModifierKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMStoreCacheModifierKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`StoreCacheModifierKind`) encapsulée dans l'attribut `#nvvm.store_cache_modifier`.
     pub fn getValue(self: *const Self) StoreCacheModifierKind {
         return @enumFromInt(c.mlirCuteNVVMStoreCacheModifierKindAttrGetValue(self.ptr()));
     }
@@ -2607,19 +2871,23 @@ pub const StoreShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "store_shape";
+    // Écrit la forme imprimée `#nvvm.store_shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.store_shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: StoreShape,
     };
+    // Construit l'attribut `#nvvm.store_shape` dans `ctx` via `mlirCuteNVVMStoreShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMStoreShapeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`StoreShape`) encapsulée dans l'attribut `#nvvm.store_shape`.
     pub fn getValue(self: *const Self) StoreShape {
         return @enumFromInt(c.mlirCuteNVVMStoreShapeAttrGetValue(self.ptr()));
     }
@@ -2634,19 +2902,23 @@ pub const TCBarParamAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "TCBarParam";
+    // Écrit la forme imprimée `#nvvm.TCBarParam` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.TCBarParam` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TCBarParam,
     };
+    // Construit l'attribut `#nvvm.TCBarParam` dans `ctx` via `mlirCuteNVVMTCBarParamAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTCBarParamAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TCBarParam`) encapsulée dans l'attribut `#nvvm.TCBarParam`.
     pub fn getValue(self: *const Self) TCBarParam {
         return @enumFromInt(c.mlirCuteNVVMTCBarParamAttrGetValue(self.ptr()));
     }
@@ -2661,19 +2933,23 @@ pub const TMALoadModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tma_load_mode";
+    // Écrit la forme imprimée `#nvvm.tma_load_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tma_load_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TMALoadMode,
     };
+    // Construit l'attribut `#nvvm.tma_load_mode` dans `ctx` via `mlirCuteNVVMTMALoadModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTMALoadModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TMALoadMode`) encapsulée dans l'attribut `#nvvm.tma_load_mode`.
     pub fn getValue(self: *const Self) TMALoadMode {
         return @enumFromInt(c.mlirCuteNVVMTMALoadModeAttrGetValue(self.ptr()));
     }
@@ -2688,19 +2964,23 @@ pub const TMAReduxKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tma_redux_kind";
+    // Écrit la forme imprimée `#nvvm.tma_redux_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tma_redux_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TMAReduxKind,
     };
+    // Construit l'attribut `#nvvm.tma_redux_kind` dans `ctx` via `mlirCuteNVVMTMAReduxKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTMAReduxKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TMAReduxKind`) encapsulée dans l'attribut `#nvvm.tma_redux_kind`.
     pub fn getValue(self: *const Self) TMAReduxKind {
         return @enumFromInt(c.mlirCuteNVVMTMAReduxKindAttrGetValue(self.ptr()));
     }
@@ -2715,19 +2995,23 @@ pub const TMAStoreModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tma_store_mode";
+    // Écrit la forme imprimée `#nvvm.tma_store_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tma_store_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TMAStoreMode,
     };
+    // Construit l'attribut `#nvvm.tma_store_mode` dans `ctx` via `mlirCuteNVVMTMAStoreModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTMAStoreModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TMAStoreMode`) encapsulée dans l'attribut `#nvvm.tma_store_mode`.
     pub fn getValue(self: *const Self) TMAStoreMode {
         return @enumFromInt(c.mlirCuteNVVMTMAStoreModeAttrGetValue(self.ptr()));
     }
@@ -2742,19 +3026,23 @@ pub const Tcgen05CpMulticastAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_cp_multicast";
+    // Écrit la forme imprimée `#nvvm.tcgen05_cp_multicast` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_cp_multicast` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05CpMulticast,
     };
+    // Construit l'attribut `#nvvm.tcgen05_cp_multicast` dans `ctx` via `mlirCuteNVVMTcgen05CpMulticastAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05CpMulticastAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05CpMulticast`) encapsulée dans l'attribut `#nvvm.tcgen05_cp_multicast`.
     pub fn getValue(self: *const Self) Tcgen05CpMulticast {
         return @enumFromInt(c.mlirCuteNVVMTcgen05CpMulticastAttrGetValue(self.ptr()));
     }
@@ -2769,19 +3057,23 @@ pub const Tcgen05CpShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_cp_shape";
+    // Écrit la forme imprimée `#nvvm.tcgen05_cp_shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_cp_shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05CpShape,
     };
+    // Construit l'attribut `#nvvm.tcgen05_cp_shape` dans `ctx` via `mlirCuteNVVMTcgen05CpShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05CpShapeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05CpShape`) encapsulée dans l'attribut `#nvvm.tcgen05_cp_shape`.
     pub fn getValue(self: *const Self) Tcgen05CpShape {
         return @enumFromInt(c.mlirCuteNVVMTcgen05CpShapeAttrGetValue(self.ptr()));
     }
@@ -2796,19 +3088,23 @@ pub const Tcgen05CpSrcFormatAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_cp_src_fmt";
+    // Écrit la forme imprimée `#nvvm.tcgen05_cp_src_fmt` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_cp_src_fmt` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05CpSrcFormat,
     };
+    // Construit l'attribut `#nvvm.tcgen05_cp_src_fmt` dans `ctx` via `mlirCuteNVVMTcgen05CpSrcFormatAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05CpSrcFormatAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05CpSrcFormat`) encapsulée dans l'attribut `#nvvm.tcgen05_cp_src_fmt`.
     pub fn getValue(self: *const Self) Tcgen05CpSrcFormat {
         return @enumFromInt(c.mlirCuteNVVMTcgen05CpSrcFormatAttrGetValue(self.ptr()));
     }
@@ -2823,19 +3119,23 @@ pub const Tcgen05FenceKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_fence";
+    // Écrit la forme imprimée `#nvvm.tcgen05_fence` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_fence` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05FenceKind,
     };
+    // Construit l'attribut `#nvvm.tcgen05_fence` dans `ctx` via `mlirCuteNVVMTcgen05FenceKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05FenceKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05FenceKind`) encapsulée dans l'attribut `#nvvm.tcgen05_fence`.
     pub fn getValue(self: *const Self) Tcgen05FenceKind {
         return @enumFromInt(c.mlirCuteNVVMTcgen05FenceKindAttrGetValue(self.ptr()));
     }
@@ -2850,19 +3150,23 @@ pub const Tcgen05LdStShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_ldst_shape";
+    // Écrit la forme imprimée `#nvvm.tcgen05_ldst_shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_ldst_shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05LdStShape,
     };
+    // Construit l'attribut `#nvvm.tcgen05_ldst_shape` dans `ctx` via `mlirCuteNVVMTcgen05LdStShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05LdStShapeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05LdStShape`) encapsulée dans l'attribut `#nvvm.tcgen05_ldst_shape`.
     pub fn getValue(self: *const Self) Tcgen05LdStShape {
         return @enumFromInt(c.mlirCuteNVVMTcgen05LdStShapeAttrGetValue(self.ptr()));
     }
@@ -2877,19 +3181,23 @@ pub const Tcgen05MMABlockScaleAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_mma_block_scale";
+    // Écrit la forme imprimée `#nvvm.tcgen05_mma_block_scale` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_mma_block_scale` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05MMABlockScale,
     };
+    // Construit l'attribut `#nvvm.tcgen05_mma_block_scale` dans `ctx` via `mlirCuteNVVMTcgen05MMABlockScaleAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05MMABlockScaleAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05MMABlockScale`) encapsulée dans l'attribut `#nvvm.tcgen05_mma_block_scale`.
     pub fn getValue(self: *const Self) Tcgen05MMABlockScale {
         return @enumFromInt(c.mlirCuteNVVMTcgen05MMABlockScaleAttrGetValue(self.ptr()));
     }
@@ -2904,19 +3212,23 @@ pub const Tcgen05MMACollectorBBufferAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_mma_collectorb";
+    // Écrit la forme imprimée `#nvvm.tcgen05_mma_collectorb` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_mma_collectorb` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05MMACollectorBBuffer,
     };
+    // Construit l'attribut `#nvvm.tcgen05_mma_collectorb` dans `ctx` via `mlirCuteNVVMTcgen05MMACollectorBBufferAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05MMACollectorBBufferAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05MMACollectorBBuffer`) encapsulée dans l'attribut `#nvvm.tcgen05_mma_collectorb`.
     pub fn getValue(self: *const Self) Tcgen05MMACollectorBBuffer {
         return @enumFromInt(c.mlirCuteNVVMTcgen05MMACollectorBBufferAttrGetValue(self.ptr()));
     }
@@ -2931,19 +3243,23 @@ pub const Tcgen05MMACollectorOpAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_mma_collectorop";
+    // Écrit la forme imprimée `#nvvm.tcgen05_mma_collectorop` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_mma_collectorop` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05MMACollectorOp,
     };
+    // Construit l'attribut `#nvvm.tcgen05_mma_collectorop` dans `ctx` via `mlirCuteNVVMTcgen05MMACollectorOpAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05MMACollectorOpAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05MMACollectorOp`) encapsulée dans l'attribut `#nvvm.tcgen05_mma_collectorop`.
     pub fn getValue(self: *const Self) Tcgen05MMACollectorOp {
         return @enumFromInt(c.mlirCuteNVVMTcgen05MMACollectorOpAttrGetValue(self.ptr()));
     }
@@ -2958,19 +3274,23 @@ pub const Tcgen05MMAKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_mma_kind";
+    // Écrit la forme imprimée `#nvvm.tcgen05_mma_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_mma_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05MMAKind,
     };
+    // Construit l'attribut `#nvvm.tcgen05_mma_kind` dans `ctx` via `mlirCuteNVVMTcgen05MMAKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05MMAKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05MMAKind`) encapsulée dans l'attribut `#nvvm.tcgen05_mma_kind`.
     pub fn getValue(self: *const Self) Tcgen05MMAKind {
         return @enumFromInt(c.mlirCuteNVVMTcgen05MMAKindAttrGetValue(self.ptr()));
     }
@@ -2985,19 +3305,23 @@ pub const Tcgen05WaitKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tcgen05_wait";
+    // Écrit la forme imprimée `#nvvm.tcgen05_wait` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tcgen05_wait` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: Tcgen05WaitKind,
     };
+    // Construit l'attribut `#nvvm.tcgen05_wait` dans `ctx` via `mlirCuteNVVMTcgen05WaitKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTcgen05WaitKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`Tcgen05WaitKind`) encapsulée dans l'attribut `#nvvm.tcgen05_wait`.
     pub fn getValue(self: *const Self) Tcgen05WaitKind {
         return @enumFromInt(c.mlirCuteNVVMTcgen05WaitKindAttrGetValue(self.ptr()));
     }
@@ -3012,19 +3336,23 @@ pub const TensormapElemtypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_elemtype";
+    // Écrit la forme imprimée `#nvvm.tensormap_elemtype` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_elemtype` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapElemtype,
     };
+    // Construit l'attribut `#nvvm.tensormap_elemtype` dans `ctx` via `mlirCuteNVVMTensormapElemtypeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapElemtypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapElemtype`) encapsulée dans l'attribut `#nvvm.tensormap_elemtype`.
     pub fn getValue(self: *const Self) TensormapElemtype {
         return @enumFromInt(c.mlirCuteNVVMTensormapElemtypeAttrGetValue(self.ptr()));
     }
@@ -3039,19 +3367,23 @@ pub const TensormapFieldAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_field";
+    // Écrit la forme imprimée `#nvvm.tensormap_field` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_field` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapField,
     };
+    // Construit l'attribut `#nvvm.tensormap_field` dans `ctx` via `mlirCuteNVVMTensormapFieldAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapFieldAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapField`) encapsulée dans l'attribut `#nvvm.tensormap_field`.
     pub fn getValue(self: *const Self) TensormapField {
         return @enumFromInt(c.mlirCuteNVVMTensormapFieldAttrGetValue(self.ptr()));
     }
@@ -3066,19 +3398,23 @@ pub const TensormapFillModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_fill_mode";
+    // Écrit la forme imprimée `#nvvm.tensormap_fill_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_fill_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapFillMode,
     };
+    // Construit l'attribut `#nvvm.tensormap_fill_mode` dans `ctx` via `mlirCuteNVVMTensormapFillModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapFillModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapFillMode`) encapsulée dans l'attribut `#nvvm.tensormap_fill_mode`.
     pub fn getValue(self: *const Self) TensormapFillMode {
         return @enumFromInt(c.mlirCuteNVVMTensormapFillModeAttrGetValue(self.ptr()));
     }
@@ -3093,19 +3429,23 @@ pub const TensormapInterleaveLayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_interleave_layout";
+    // Écrit la forme imprimée `#nvvm.tensormap_interleave_layout` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_interleave_layout` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapInterleaveLayout,
     };
+    // Construit l'attribut `#nvvm.tensormap_interleave_layout` dans `ctx` via `mlirCuteNVVMTensormapInterleaveLayoutAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapInterleaveLayoutAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapInterleaveLayout`) encapsulée dans l'attribut `#nvvm.tensormap_interleave_layout`.
     pub fn getValue(self: *const Self) TensormapInterleaveLayout {
         return @enumFromInt(c.mlirCuteNVVMTensormapInterleaveLayoutAttrGetValue(self.ptr()));
     }
@@ -3120,19 +3460,23 @@ pub const TensormapSwizzleAtomicityAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_swizzle_atomicity";
+    // Écrit la forme imprimée `#nvvm.tensormap_swizzle_atomicity` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_swizzle_atomicity` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapSwizzleAtomicity,
     };
+    // Construit l'attribut `#nvvm.tensormap_swizzle_atomicity` dans `ctx` via `mlirCuteNVVMTensormapSwizzleAtomicityAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapSwizzleAtomicityAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapSwizzleAtomicity`) encapsulée dans l'attribut `#nvvm.tensormap_swizzle_atomicity`.
     pub fn getValue(self: *const Self) TensormapSwizzleAtomicity {
         return @enumFromInt(c.mlirCuteNVVMTensormapSwizzleAtomicityAttrGetValue(self.ptr()));
     }
@@ -3147,19 +3491,23 @@ pub const TensormapSwizzleModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "tensormap_swizzle_mode";
+    // Écrit la forme imprimée `#nvvm.tensormap_swizzle_mode` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.tensormap_swizzle_mode` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TensormapSwizzleMode,
     };
+    // Construit l'attribut `#nvvm.tensormap_swizzle_mode` dans `ctx` via `mlirCuteNVVMTensormapSwizzleModeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTensormapSwizzleModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TensormapSwizzleMode`) encapsulée dans l'attribut `#nvvm.tensormap_swizzle_mode`.
     pub fn getValue(self: *const Self) TensormapSwizzleMode {
         return @enumFromInt(c.mlirCuteNVVMTensormapSwizzleModeAttrGetValue(self.ptr()));
     }
@@ -3174,19 +3522,23 @@ pub const TmemLayoutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "TmemLayout";
+    // Écrit la forme imprimée `#nvvm.TmemLayout` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.TmemLayout` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: TmemLayout,
     };
+    // Construit l'attribut `#nvvm.TmemLayout` dans `ctx` via `mlirCuteNVVMTmemLayoutAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTmemLayoutAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`TmemLayout`) encapsulée dans l'attribut `#nvvm.TmemLayout`.
     pub fn getValue(self: *const Self) TmemLayout {
         return @enumFromInt(c.mlirCuteNVVMTmemLayoutAttrGetValue(self.ptr()));
     }
@@ -3201,19 +3553,23 @@ pub const ValidatePatternAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "validate_pattern";
+    // Écrit la forme imprimée `#nvvm.validate_pattern` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.validate_pattern` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ValidatePattern,
     };
+    // Construit l'attribut `#nvvm.validate_pattern` dans `ctx` via `mlirCuteNVVMValidatePatternAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMValidatePatternAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`ValidatePattern`) encapsulée dans l'attribut `#nvvm.validate_pattern`.
     pub fn getValue(self: *const Self) ValidatePattern {
         return @enumFromInt(c.mlirCuteNVVMValidatePatternAttrGetValue(self.ptr()));
     }
@@ -3228,19 +3584,23 @@ pub const VoteSyncKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "vote_sync_kind";
+    // Écrit la forme imprimée `#nvvm.vote_sync_kind` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.vote_sync_kind` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: VoteSyncKind,
     };
+    // Construit l'attribut `#nvvm.vote_sync_kind` dans `ctx` via `mlirCuteNVVMVoteSyncKindAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMVoteSyncKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`VoteSyncKind`) encapsulée dans l'attribut `#nvvm.vote_sync_kind`.
     pub fn getValue(self: *const Self) VoteSyncKind {
         return @enumFromInt(c.mlirCuteNVVMVoteSyncKindAttrGetValue(self.ptr()));
     }
@@ -3255,19 +3615,23 @@ pub const WGMMAScaleInAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "wgmma_scale_in";
+    // Écrit la forme imprimée `#nvvm.wgmma_scale_in` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.wgmma_scale_in` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: WGMMAScaleIn,
     };
+    // Construit l'attribut `#nvvm.wgmma_scale_in` dans `ctx` via `mlirCuteNVVMWGMMAScaleInAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMWGMMAScaleInAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`WGMMAScaleIn`) encapsulée dans l'attribut `#nvvm.wgmma_scale_in`.
     pub fn getValue(self: *const Self) WGMMAScaleIn {
         return @enumFromInt(c.mlirCuteNVVMWGMMAScaleInAttrGetValue(self.ptr()));
     }
@@ -3282,19 +3646,23 @@ pub const WGMMAScaleOutAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "wgmma_scale_out";
+    // Écrit la forme imprimée `#nvvm.wgmma_scale_out` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.wgmma_scale_out` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: WGMMAScaleOut,
     };
+    // Construit l'attribut `#nvvm.wgmma_scale_out` dans `ctx` via `mlirCuteNVVMWGMMAScaleOutAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMWGMMAScaleOutAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`WGMMAScaleOut`) encapsulée dans l'attribut `#nvvm.wgmma_scale_out`.
     pub fn getValue(self: *const Self) WGMMAScaleOut {
         return @enumFromInt(c.mlirCuteNVVMWGMMAScaleOutAttrGetValue(self.ptr()));
     }
@@ -3309,19 +3677,23 @@ pub const WGMMATypesAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "wgmma_type";
+    // Écrit la forme imprimée `#nvvm.wgmma_type` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.wgmma_type` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: WGMMATypes,
     };
+    // Construit l'attribut `#nvvm.wgmma_type` dans `ctx` via `mlirCuteNVVMWGMMATypesAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMWGMMATypesAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Extrait la valeur scalaire (`WGMMATypes`) encapsulée dans l'attribut `#nvvm.wgmma_type`.
     pub fn getValue(self: *const Self) WGMMATypes {
         return @enumFromInt(c.mlirCuteNVVMWGMMATypesAttrGetValue(self.ptr()));
     }
@@ -3336,9 +3708,11 @@ pub const LdStMatrixShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "ld_st_matrix_shape";
+    // Écrit la forme imprimée `#nvvm.ld_st_matrix_shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.ld_st_matrix_shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -3346,13 +3720,16 @@ pub const LdStMatrixShapeAttr = opaque {
         m: c_int,
         n: c_int,
     };
+    // Construit l'attribut `#nvvm.ld_st_matrix_shape` dans `ctx` via `mlirCuteNVVMLdStMatrixShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMLdStMatrixShapeAttrGet(ctx.ptr(), args.m, args.n);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit le champ `M` de l'attribut `#nvvm.ld_st_matrix_shape` via `mlirCuteNVVMLdStMatrixShapeAttrGetM`.
     pub fn getM(self: *const Self) c_int {
         return c.mlirCuteNVVMLdStMatrixShapeAttrGetM(self.ptr());
     }
+    // Lit le champ `N` de l'attribut `#nvvm.ld_st_matrix_shape` via `mlirCuteNVVMLdStMatrixShapeAttrGetN`.
     pub fn getN(self: *const Self) c_int {
         return c.mlirCuteNVVMLdStMatrixShapeAttrGetN(self.ptr());
     }
@@ -3367,9 +3744,11 @@ pub const MMAShapeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "shape";
+    // Écrit la forme imprimée `#nvvm.shape` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.shape` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -3378,16 +3757,20 @@ pub const MMAShapeAttr = opaque {
         n: c_int,
         k: c_int,
     };
+    // Construit l'attribut `#nvvm.shape` dans `ctx` via `mlirCuteNVVMMMAShapeAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMMMAShapeAttrGet(ctx.ptr(), args.m, args.n, args.k);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit le champ `M` de l'attribut `#nvvm.shape` via `mlirCuteNVVMMMAShapeAttrGetM`.
     pub fn getM(self: *const Self) c_int {
         return c.mlirCuteNVVMMMAShapeAttrGetM(self.ptr());
     }
+    // Lit le champ `N` de l'attribut `#nvvm.shape` via `mlirCuteNVVMMMAShapeAttrGetN`.
     pub fn getN(self: *const Self) c_int {
         return c.mlirCuteNVVMMMAShapeAttrGetN(self.ptr());
     }
+    // Lit le champ `K` de l'attribut `#nvvm.shape` via `mlirCuteNVVMMMAShapeAttrGetK`.
     pub fn getK(self: *const Self) c_int {
         return c.mlirCuteNVVMMMAShapeAttrGetK(self.ptr());
     }
@@ -3402,9 +3785,11 @@ pub const TargetAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "target";
+    // Écrit la forme imprimée `#nvvm.target` de l'attribut dans `writer` (délègue à `attribute().format`).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Réinterprète ce pointeur `#nvvm.target` en `mlir.Attribute` brut (`@ptrCast`, sans copie).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -3417,37 +3802,46 @@ pub const TargetAttr = opaque {
         link: ?*const mlir.Attribute = null,
         verifyTarget: bool = false,
     };
+    // Construit l'attribut `#nvvm.target` dans `ctx` via `mlirCuteNVVMTargetAttrGet` à partir de `args`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCuteNVVMTargetAttrGet(ctx.ptr(), args.O, mlir.stringRef(args.triple), mlir.stringRef(args.chip), mlir.stringRef(args.features), if (args.flags) |v| v.ptr() else .{ .ptr = null }, if (args.link) |v| v.ptr() else .{ .ptr = null }, args.verifyTarget);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit le champ `O` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetO`.
     pub fn getO(self: *const Self) c_int {
         return c.mlirCuteNVVMTargetAttrGetO(self.ptr());
     }
+    // Lit le champ `Triple` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetTriple`.
     pub fn getTriple(self: *const Self) []const u8 {
         const s = c.mlirCuteNVVMTargetAttrGetTriple(self.ptr());
         return if (s.length == 0) "" else mlir.string(s);
     }
+    // Lit le champ `Chip` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetChip`.
     pub fn getChip(self: *const Self) []const u8 {
         const s = c.mlirCuteNVVMTargetAttrGetChip(self.ptr());
         return if (s.length == 0) "" else mlir.string(s);
     }
+    // Lit le champ `Features` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetFeatures`.
     pub fn getFeatures(self: *const Self) []const u8 {
         const s = c.mlirCuteNVVMTargetAttrGetFeatures(self.ptr());
         return if (s.length == 0) "" else mlir.string(s);
     }
+    // Lit le champ `Flags` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetFlags`.
     pub fn getFlags(self: *const Self) ?*const mlir.Attribute {
         return @ptrCast(c.mlirCuteNVVMTargetAttrGetFlags(self.ptr()).ptr);
     }
+    // Lit le champ `Link` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetLink`.
     pub fn getLink(self: *const Self) ?*const mlir.Attribute {
         return @ptrCast(c.mlirCuteNVVMTargetAttrGetLink(self.ptr()).ptr);
     }
+    // Lit le champ `VerifyTarget` de l'attribut `#nvvm.target` via `mlirCuteNVVMTargetAttrGetVerifyTarget`.
     pub fn getVerifyTarget(self: *const Self) bool {
         return c.mlirCuteNVVMTargetAttrGetVerifyTarget(self.ptr());
     }
 };
 
 // Operation builders, generated from the operations' .td.
+// Construit l'opération MLIR `nvvm.add.packed.bf16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.add.packed.bf16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.add.packed.bf16x2.f32x2.f32x2", .{
@@ -3457,6 +3851,7 @@ pub fn add_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.add.packed.f16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.add.packed.f16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.add.packed.f16x2.f32x2.f32x2", .{
@@ -3466,6 +3861,7 @@ pub fn add_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.add.packed.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.add.packed.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3479,6 +3875,7 @@ pub fn add_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.add.packed.f32x2.bf16x2.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.add.packed.f32x2.bf16x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_packed_f32x2_bf16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3491,6 +3888,7 @@ pub fn add_packed_f32x2_bf16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.add.packed.f32x2.f16x2.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.add.packed.f32x2.f16x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn add_packed_f32x2_f16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3503,6 +3901,7 @@ pub fn add_packed_f32x2_f16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.addf` (opérandes: lhs, rhs; attributs: rnd (optionnel), sat (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.addf`. Result types are explicit; attributes use mlir.Attribute.
 pub fn addf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -3517,6 +3916,7 @@ pub fn addf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `nvvm.applypriority.async.bulk` (opérandes: ptr, size; attributs: evict (optionnel); aucun résultat).
 /// `nvvm.applypriority.async.bulk`. Result types are explicit; attributes use mlir.Attribute.
 pub fn applypriority_async_bulk(ctx: *mlir.Context, ptr: *const mlir.Value, size: *const mlir.Value, evict: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3528,6 +3928,7 @@ pub fn applypriority_async_bulk(ctx: *mlir.Context, ptr: *const mlir.Value, size
     });
 }
 
+// Construit l'opération MLIR `nvvm.applypriority.async.bulk.tensor` (opérandes: tmaDesc, coordinates (variadique), im2colArgs (variadique); attributs: mode (optionnel), evict (optionnel); aucun résultat).
 /// `nvvm.applypriority.async.bulk.tensor`. Result types are explicit; attributes use mlir.Attribute.
 pub fn applypriority_async_bulk_tensor(ctx: *mlir.Context, tmaDesc: *const mlir.Value, coordinates: []const *const mlir.Value, im2colArgs: []const *const mlir.Value, mode: ?*const mlir.Attribute, evict: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3544,6 +3945,7 @@ pub fn applypriority_async_bulk_tensor(ctx: *mlir.Context, tmaDesc: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.applypriority.async.bulk.tensor.override` (opérandes: tmaDesc, overrideAdrr, coordinates (variadique), tensorSize (variadique), lowerStride (variadique), upperStride (optionnel), im2colArgs (variadique); attributs: mode (optionnel), evict (optionnel); aucun résultat).
 /// `nvvm.applypriority.async.bulk.tensor.override`. Result types are explicit; attributes use mlir.Attribute.
 pub fn applypriority_async_bulk_tensor_override(ctx: *mlir.Context, tmaDesc: *const mlir.Value, overrideAdrr: *const mlir.Value, coordinates: []const *const mlir.Value, tensorSize: []const *const mlir.Value, lowerStride: []const *const mlir.Value, upperStride: ?*const mlir.Value, im2colArgs: []const *const mlir.Value, mode: ?*const mlir.Attribute, evict: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3564,6 +3966,7 @@ pub fn applypriority_async_bulk_tensor_override(ctx: *mlir.Context, tmaDesc: *co
     });
 }
 
+// Construit l'opération MLIR `nvvm.atomicrmw` (opérandes: ptr, a, b (optionnel); attributs: op, memOrder (optionnel), syncscope (optionnel); résultat: res_type).
 /// `nvvm.atomicrmw`. Result types are explicit; attributes use mlir.Attribute.
 pub fn atomicrmw(ctx: *mlir.Context, ptr: *const mlir.Value, a: *const mlir.Value, b: ?*const mlir.Value, res_type: *const mlir.Type, op: *const mlir.Attribute, memOrder: ?*const mlir.Attribute, syncscope: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -3578,6 +3981,7 @@ pub fn atomicrmw(ctx: *mlir.Context, ptr: *const mlir.Value, a: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `nvvm.bar.warp.sync` (opérandes: mask; aucun résultat).
 /// `nvvm.bar.warp.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn bar_warp_sync(ctx: *mlir.Context, mask: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.bar.warp.sync", .{
@@ -3586,6 +3990,7 @@ pub fn bar_warp_sync(ctx: *mlir.Context, mask: *const mlir.Value, location: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier` (opérandes: barrierId (optionnel), numberOfThreads (optionnel), reductionPredicate (optionnel); attributs: reductionOp (optionnel); résultat: res_type (optionnel)).
 /// `nvvm.barrier`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier(ctx: *mlir.Context, barrierId: ?*const mlir.Value, numberOfThreads: ?*const mlir.Value, reductionPredicate: ?*const mlir.Value, res_type: ?*const mlir.Type, reductionOp: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -3604,6 +4009,7 @@ pub fn barrier(ctx: *mlir.Context, barrierId: ?*const mlir.Value, numberOfThread
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier.arrive` (opérandes: barrierId (optionnel), numberOfThreads; aucun résultat).
 /// `nvvm.barrier.arrive`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier_arrive(ctx: *mlir.Context, barrierId: ?*const mlir.Value, numberOfThreads: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.barrier.arrive", .{
@@ -3612,6 +4018,7 @@ pub fn barrier_arrive(ctx: *mlir.Context, barrierId: ?*const mlir.Value, numberO
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier.cta.arrive` (opérandes: barrierId, threadCount; attributs: aligned (optionnel); aucun résultat).
 /// `nvvm.barrier.cta.arrive`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier_cta_arrive(ctx: *mlir.Context, barrierId: *const mlir.Value, threadCount: *const mlir.Value, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3623,6 +4030,7 @@ pub fn barrier_cta_arrive(ctx: *mlir.Context, barrierId: *const mlir.Value, thre
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier.cta.red` (opérandes: pred, barrierId, threadCount (optionnel); attributs: kind, aligned (optionnel); résultat: res_type).
 /// `nvvm.barrier.cta.red`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier_cta_red(ctx: *mlir.Context, pred: *const mlir.Value, barrierId: *const mlir.Value, threadCount: ?*const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3636,6 +4044,7 @@ pub fn barrier_cta_red(ctx: *mlir.Context, pred: *const mlir.Value, barrierId: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier.cta.sync` (opérandes: barrierId, threadCount (optionnel); attributs: aligned (optionnel); aucun résultat).
 /// `nvvm.barrier.cta.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier_cta_sync(ctx: *mlir.Context, barrierId: *const mlir.Value, threadCount: ?*const mlir.Value, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3647,6 +4056,7 @@ pub fn barrier_cta_sync(ctx: *mlir.Context, barrierId: *const mlir.Value, thread
     });
 }
 
+// Construit l'opération MLIR `nvvm.barrier0` (aucun résultat).
 /// `nvvm.barrier0`. Result types are explicit; attributes use mlir.Attribute.
 pub fn barrier0(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.barrier0", .{
@@ -3654,6 +4064,7 @@ pub fn barrier0(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operat
     });
 }
 
+// Construit l'opération MLIR `nvvm.breakpoint` (aucun résultat).
 /// `nvvm.breakpoint`. Result types are explicit; attributes use mlir.Attribute.
 pub fn breakpoint(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.breakpoint", .{
@@ -3661,6 +4072,7 @@ pub fn breakpoint(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Oper
     });
 }
 
+// Construit l'opération MLIR `nvvm.clmad` (opérandes: a, b, c_; attributs: high (optionnel); résultat: res_type).
 /// `nvvm.clmad`. Result types are explicit; attributes use mlir.Attribute.
 pub fn clmad(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: *const mlir.Value, res_type: *const mlir.Type, high: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3673,6 +4085,7 @@ pub fn clmad(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_:
     });
 }
 
+// Construit l'opération MLIR `nvvm.cluster.arrive` (attributs: aligned (optionnel); aucun résultat).
 /// `nvvm.cluster.arrive`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cluster_arrive(ctx: *mlir.Context, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3683,6 +4096,7 @@ pub fn cluster_arrive(ctx: *mlir.Context, aligned: ?*const mlir.Attribute, locat
     });
 }
 
+// Construit l'opération MLIR `nvvm.cluster.arrive.relaxed` (attributs: aligned (optionnel); aucun résultat).
 /// `nvvm.cluster.arrive.relaxed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cluster_arrive_relaxed(ctx: *mlir.Context, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3693,6 +4107,7 @@ pub fn cluster_arrive_relaxed(ctx: *mlir.Context, aligned: ?*const mlir.Attribut
     });
 }
 
+// Construit l'opération MLIR `nvvm.cluster.wait` (attributs: aligned (optionnel); aucun résultat).
 /// `nvvm.cluster.wait`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cluster_wait(ctx: *mlir.Context, aligned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3703,6 +4118,7 @@ pub fn cluster_wait(ctx: *mlir.Context, aligned: ?*const mlir.Attribute, locatio
     });
 }
 
+// Construit l'opération MLIR `nvvm.clusterlaunchcontrol.query.cancel` (opérandes: try_cancel_response; attributs: query_type; résultat: res_type).
 /// `nvvm.clusterlaunchcontrol.query.cancel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn clusterlaunchcontrol_query_cancel(ctx: *mlir.Context, try_cancel_response: *const mlir.Value, res_type: *const mlir.Type, query_type: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.clusterlaunchcontrol.query.cancel", .{
@@ -3715,6 +4131,7 @@ pub fn clusterlaunchcontrol_query_cancel(ctx: *mlir.Context, try_cancel_response
     });
 }
 
+// Construit l'opération MLIR `nvvm.clusterlaunchcontrol.try.cancel` (opérandes: smemAddress, mbarrier; attributs: multicast (optionnel); aucun résultat).
 /// `nvvm.clusterlaunchcontrol.try.cancel`. Result types are explicit; attributes use mlir.Attribute.
 pub fn clusterlaunchcontrol_try_cancel(ctx: *mlir.Context, smemAddress: *const mlir.Value, mbarrier: *const mlir.Value, multicast: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3726,6 +4143,7 @@ pub fn clusterlaunchcontrol_try_cancel(ctx: *mlir.Context, smemAddress: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.compare.and.set` (opérandes: a, b; attributs: op; résultat: result_type).
 /// `nvvm.compare.and.set`. Result types are explicit; attributes use mlir.Attribute.
 pub fn compare_and_set(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, result_type: *const mlir.Type, op: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.compare.and.set", .{
@@ -3738,6 +4156,7 @@ pub fn compare_and_set(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.and.pack.integer` (opérandes: srcA, srcB, srcC (optionnel); attributs: is_signed (optionnel), convert_type; résultat: dst_type).
 /// `nvvm.convert.and.pack.integer`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_and_pack_integer(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, srcC: ?*const mlir.Value, dst_type: *const mlir.Type, is_signed: ?*const mlir.Attribute, convert_type: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3751,6 +4170,7 @@ pub fn convert_and_pack_integer(ctx: *mlir.Context, srcA: *const mlir.Value, src
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.bf16x2.to.f4x2` (opérandes: src, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.bf16x2.to.f4x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_bf16x2_to_f4x2(ctx: *mlir.Context, src: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3767,6 +4187,7 @@ pub fn convert_bf16x2_to_f4x2(ctx: *mlir.Context, src: *const mlir.Value, scale_
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.bf16x2.to.f6x2` (opérandes: src, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.bf16x2.to.f6x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_bf16x2_to_f6x2(ctx: *mlir.Context, src: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3783,6 +4204,7 @@ pub fn convert_bf16x2_to_f6x2(ctx: *mlir.Context, src: *const mlir.Value, scale_
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.bf16x2.to.f8x2` (opérandes: src, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), sat (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.bf16x2.to.f8x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_bf16x2_to_f8x2(ctx: *mlir.Context, src: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -3800,6 +4222,7 @@ pub fn convert_bf16x2_to_f8x2(ctx: *mlir.Context, src: *const mlir.Value, scale_
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.bf16x2.to.s2f6x2` (opérandes: src, scaleFactor (optionnel); attributs: relu (optionnel); résultat: dst_type).
 /// `nvvm.convert.bf16x2.to.s2f6x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_bf16x2_to_s2f6x2(ctx: *mlir.Context, src: *const mlir.Value, scaleFactor: ?*const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3812,6 +4235,7 @@ pub fn convert_bf16x2_to_s2f6x2(ctx: *mlir.Context, src: *const mlir.Value, scal
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f16x2.to.f4x2` (opérandes: src, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f16x2.to.f4x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f16x2_to_f4x2(ctx: *mlir.Context, src: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3828,6 +4252,7 @@ pub fn convert_f16x2_to_f4x2(ctx: *mlir.Context, src: *const mlir.Value, scale_f
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f16x2.to.f6x2` (opérandes: src, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f16x2.to.f6x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f16x2_to_f6x2(ctx: *mlir.Context, src: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3844,6 +4269,7 @@ pub fn convert_f16x2_to_f6x2(ctx: *mlir.Context, src: *const mlir.Value, scale_f
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f16x2.to.f8x2` (opérandes: a, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), sat (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f16x2.to.f8x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f16x2_to_f8x2(ctx: *mlir.Context, a: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -3861,6 +4287,7 @@ pub fn convert_f16x2_to_f8x2(ctx: *mlir.Context, a: *const mlir.Value, scale_fac
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.bf16x2` (opérandes: src_hi, src_lo, random_bits (optionnel); attributs: rnd (optionnel), sat (optionnel), relu (optionnel); résultat: dst_type).
 /// `nvvm.convert.f32x2.to.bf16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_bf16x2(ctx: *mlir.Context, src_hi: *const mlir.Value, src_lo: *const mlir.Value, random_bits: ?*const mlir.Value, dst_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -3875,6 +4302,7 @@ pub fn convert_f32x2_to_bf16x2(ctx: *mlir.Context, src_hi: *const mlir.Value, sr
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.f16x2` (opérandes: src_hi, src_lo, random_bits (optionnel); attributs: rnd (optionnel), sat (optionnel), relu (optionnel); résultat: dst_type).
 /// `nvvm.convert.f32x2.to.f16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_f16x2(ctx: *mlir.Context, src_hi: *const mlir.Value, src_lo: *const mlir.Value, random_bits: ?*const mlir.Value, dst_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -3889,6 +4317,7 @@ pub fn convert_f32x2_to_f16x2(ctx: *mlir.Context, src_hi: *const mlir.Value, src
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.f4x2` (opérandes: a, b, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstType; résultat: dst_type).
 /// `nvvm.convert.f32x2.to.f4x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_f4x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3905,6 +4334,7 @@ pub fn convert_f32x2_to_f4x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.f6x2` (opérandes: a, b, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f32x2.to.f6x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_f6x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -3921,6 +4351,7 @@ pub fn convert_f32x2_to_f6x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.f8x2` (opérandes: a, b, scale_factor (optionnel); attributs: isPZO (optionnel), scale_factor_kind (optionnel), rnd (optionnel), sat (optionnel), relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f32x2.to.f8x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_f8x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, scale_factor: ?*const mlir.Value, dst_type: *const mlir.Type, isPZO: ?*const mlir.Attribute, scale_factor_kind: ?*const mlir.Attribute, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -3938,6 +4369,7 @@ pub fn convert_f32x2_to_f8x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x2.to.s2f6x2` (opérandes: a, b, scaleFactor (optionnel); attributs: relu (optionnel); résultat: dst_type).
 /// `nvvm.convert.f32x2.to.s2f6x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x2_to_s2f6x2(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, scaleFactor: ?*const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -3950,6 +4382,7 @@ pub fn convert_f32x2_to_s2f6x2(ctx: *mlir.Context, a: *const mlir.Value, b: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x4.to.f4x4` (opérandes: src, rbits; attributs: relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f32x4.to.f4x4`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x4_to_f4x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3963,6 +4396,7 @@ pub fn convert_f32x4_to_f4x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x4.to.f6x4` (opérandes: src, rbits; attributs: relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f32x4.to.f6x4`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x4_to_f6x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3976,6 +4410,7 @@ pub fn convert_f32x4_to_f6x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f32x4.to.f8x4` (opérandes: src, rbits; attributs: relu (optionnel), dstTy; résultat: dst_type).
 /// `nvvm.convert.f32x4.to.f8x4`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f32x4_to_f8x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, dstTy: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -3989,6 +4424,7 @@ pub fn convert_f32x4_to_f8x4(ctx: *mlir.Context, src: *const mlir.Value, rbits: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f4x2.to.f16x2` (opérandes: src; attributs: relu (optionnel), srcType; résultat: dst_type).
 /// `nvvm.convert.f4x2.to.f16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f4x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, srcType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4002,6 +4438,7 @@ pub fn convert_f4x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f6x2.to.f16x2` (opérandes: src; attributs: relu (optionnel), srcType; résultat: dst_type).
 /// `nvvm.convert.f6x2.to.f16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f6x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, srcType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4015,6 +4452,7 @@ pub fn convert_f6x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f8x2.to.bf16x2` (opérandes: src, scaleFactor (optionnel); attributs: sat (optionnel), srcType; résultat: dst_type).
 /// `nvvm.convert.f8x2.to.bf16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f8x2_to_bf16x2(ctx: *mlir.Context, src: *const mlir.Value, scaleFactor: ?*const mlir.Value, dst_type: *const mlir.Type, sat: ?*const mlir.Attribute, srcType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4028,6 +4466,7 @@ pub fn convert_f8x2_to_bf16x2(ctx: *mlir.Context, src: *const mlir.Value, scaleF
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.f8x2.to.f16x2` (opérandes: src; attributs: relu (optionnel), srcType; résultat: dst_type).
 /// `nvvm.convert.f8x2.to.f16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_f8x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, relu: ?*const mlir.Attribute, srcType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4041,6 +4480,7 @@ pub fn convert_f8x2_to_f16x2(ctx: *mlir.Context, src: *const mlir.Value, dst_typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.float.to.integer` (opérandes: src; attributs: rnd (optionnel), sat (optionnel), ftz (optionnel), is_signed (optionnel); résultat: dst_type).
 /// `nvvm.convert.float.to.integer`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_float_to_integer(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, is_signed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -4056,6 +4496,7 @@ pub fn convert_float_to_integer(ctx: *mlir.Context, src: *const mlir.Value, dst_
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.float.to.tf32` (opérandes: src; attributs: rnd (optionnel), sat (optionnel), relu (optionnel); résultat: res_type).
 /// `nvvm.convert.float.to.tf32`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_float_to_tf32(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4070,6 +4511,7 @@ pub fn convert_float_to_tf32(ctx: *mlir.Context, src: *const mlir.Value, res_typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.convert.s2f6x2.to.bf16x2` (opérandes: src, scaleFactor (optionnel); attributs: sat (optionnel), relu (optionnel); résultat: dst_type).
 /// `nvvm.convert.s2f6x2.to.bf16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn convert_s2f6x2_to_bf16x2(ctx: *mlir.Context, src: *const mlir.Value, scaleFactor: ?*const mlir.Value, dst_type: *const mlir.Type, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4083,6 +4525,7 @@ pub fn convert_s2f6x2_to_bf16x2(ctx: *mlir.Context, src: *const mlir.Value, scal
     });
 }
 
+// Construit l'opération MLIR `nvvm.cos` (opérandes: src; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.cos`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cos(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4095,6 +4538,7 @@ pub fn cos(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.commit.group` (aucun résultat).
 /// `nvvm.cp.async.bulk.commit.group`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_commit_group(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.bulk.commit.group", .{
@@ -4102,6 +4546,7 @@ pub fn cp_async_bulk_commit_group(ctx: *mlir.Context, location: *const mlir.Loca
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.global.shared.cta` (opérandes: dstMem, srcMem, size, l2CacheHint (optionnel), byteMask (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.global.shared.cta`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_global_shared_cta(ctx: *mlir.Context, dstMem: *const mlir.Value, srcMem: *const mlir.Value, size: *const mlir.Value, l2CacheHint: ?*const mlir.Value, byteMask: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.bulk.global.shared.cta", .{
@@ -4116,6 +4561,7 @@ pub fn cp_async_bulk_global_shared_cta(ctx: *mlir.Context, dstMem: *const mlir.V
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.prefetch` (opérandes: srcMem, size, l2CacheHint (optionnel); attributs: evict (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.prefetch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_prefetch(ctx: *mlir.Context, srcMem: *const mlir.Value, size: *const mlir.Value, l2CacheHint: ?*const mlir.Value, evict: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4127,6 +4573,7 @@ pub fn cp_async_bulk_prefetch(ctx: *mlir.Context, srcMem: *const mlir.Value, siz
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.shared.cluster.global` (opérandes: dstMem, srcMem, mbar, size, multicastMask (optionnel), l2CacheHint (optionnel); attributs: validatePattern (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.shared.cluster.global`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_shared_cluster_global(ctx: *mlir.Context, dstMem: *const mlir.Value, srcMem: *const mlir.Value, mbar: *const mlir.Value, size: *const mlir.Value, multicastMask: ?*const mlir.Value, l2CacheHint: ?*const mlir.Value, validatePattern: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4145,6 +4592,7 @@ pub fn cp_async_bulk_shared_cluster_global(ctx: *mlir.Context, dstMem: *const ml
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.shared.cluster.shared.cta` (opérandes: dstMem, srcMem, mbar, size; aucun résultat).
 /// `nvvm.cp.async.bulk.shared.cluster.shared.cta`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_shared_cluster_shared_cta(ctx: *mlir.Context, dstMem: *const mlir.Value, srcMem: *const mlir.Value, mbar: *const mlir.Value, size: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.bulk.shared.cluster.shared.cta", .{
@@ -4153,6 +4601,7 @@ pub fn cp_async_bulk_shared_cluster_shared_cta(ctx: *mlir.Context, dstMem: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.global.shared.cta` (opérandes: tmaDescriptor, srcMem, coordinates (variadique), l2CacheHint (optionnel), predicate (optionnel); attributs: mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.global.shared.cta`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_global_shared_cta(ctx: *mlir.Context, tmaDescriptor: *const mlir.Value, srcMem: *const mlir.Value, coordinates: []const *const mlir.Value, l2CacheHint: ?*const mlir.Value, predicate: ?*const mlir.Value, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4170,6 +4619,7 @@ pub fn cp_async_bulk_tensor_global_shared_cta(ctx: *mlir.Context, tmaDescriptor:
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.global.shared.cta.override` (opérandes: tmaDesc, srcMem, overrideAdrr, coordinates (variadique), tensorSize (variadique), lowerStride (variadique), upperStride (optionnel), l2CacheHint (optionnel); attributs: mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.global.shared.cta.override`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_global_shared_cta_override(ctx: *mlir.Context, tmaDesc: *const mlir.Value, srcMem: *const mlir.Value, overrideAdrr: *const mlir.Value, coordinates: []const *const mlir.Value, tensorSize: []const *const mlir.Value, lowerStride: []const *const mlir.Value, upperStride: ?*const mlir.Value, l2CacheHint: ?*const mlir.Value, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4190,6 +4640,7 @@ pub fn cp_async_bulk_tensor_global_shared_cta_override(ctx: *mlir.Context, tmaDe
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.prefetch` (opérandes: tmaDescriptor, coordinates (variadique), im2colOffsets (variadique), l2CacheHint (optionnel); attributs: mode (optionnel), evict (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.prefetch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_prefetch(ctx: *mlir.Context, tmaDescriptor: *const mlir.Value, coordinates: []const *const mlir.Value, im2colOffsets: []const *const mlir.Value, l2CacheHint: ?*const mlir.Value, mode: ?*const mlir.Attribute, evict: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4207,6 +4658,7 @@ pub fn cp_async_bulk_tensor_prefetch(ctx: *mlir.Context, tmaDescriptor: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.prefetch.override` (opérandes: tmaDesc, overrideAdrr, coordinates (variadique), tensorSize (variadique), lowerStride (variadique), upperStride (optionnel), im2colOffsets (variadique), l2CacheHint (optionnel); attributs: evict (optionnel), mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.prefetch.override`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_prefetch_override(ctx: *mlir.Context, tmaDesc: *const mlir.Value, overrideAdrr: *const mlir.Value, coordinates: []const *const mlir.Value, tensorSize: []const *const mlir.Value, lowerStride: []const *const mlir.Value, upperStride: ?*const mlir.Value, im2colOffsets: []const *const mlir.Value, l2CacheHint: ?*const mlir.Value, evict: ?*const mlir.Attribute, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4228,6 +4680,7 @@ pub fn cp_async_bulk_tensor_prefetch_override(ctx: *mlir.Context, tmaDesc: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.reduce` (opérandes: tmaDescriptor, srcMem, coordinates (variadique), l2CacheHint (optionnel); attributs: redKind, mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.reduce`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_reduce(ctx: *mlir.Context, tmaDescriptor: *const mlir.Value, srcMem: *const mlir.Value, coordinates: []const *const mlir.Value, l2CacheHint: ?*const mlir.Value, redKind: *const mlir.Attribute, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4245,6 +4698,7 @@ pub fn cp_async_bulk_tensor_reduce(ctx: *mlir.Context, tmaDescriptor: *const mli
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.reduce.override` (opérandes: tmaDesc, srcMem, overrideAdrr, coordinates (variadique), tensorSize (variadique), lowerStride (variadique), upperStride (optionnel), l2CacheHint (optionnel); attributs: redKind, mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.reduce.override`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_reduce_override(ctx: *mlir.Context, tmaDesc: *const mlir.Value, srcMem: *const mlir.Value, overrideAdrr: *const mlir.Value, coordinates: []const *const mlir.Value, tensorSize: []const *const mlir.Value, lowerStride: []const *const mlir.Value, upperStride: ?*const mlir.Value, l2CacheHint: ?*const mlir.Value, redKind: *const mlir.Attribute, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4266,6 +4720,7 @@ pub fn cp_async_bulk_tensor_reduce_override(ctx: *mlir.Context, tmaDesc: *const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.shared.cluster.global` (opérandes: dstMem, tmaDescriptor, coordinates (variadique), mbar, im2colOffsets (variadique), multicastMask (optionnel), l2CacheHint (optionnel), predicate (optionnel); attributs: validatePattern (optionnel), mode (optionnel), isCTAOnly (optionnel), group (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.shared.cluster.global`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_shared_cluster_global(ctx: *mlir.Context, dstMem: *const mlir.Value, tmaDescriptor: *const mlir.Value, coordinates: []const *const mlir.Value, mbar: *const mlir.Value, im2colOffsets: []const *const mlir.Value, multicastMask: ?*const mlir.Value, l2CacheHint: ?*const mlir.Value, predicate: ?*const mlir.Value, validatePattern: ?*const mlir.Attribute, mode: ?*const mlir.Attribute, isCTAOnly: ?*const mlir.Attribute, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -4289,6 +4744,7 @@ pub fn cp_async_bulk_tensor_shared_cluster_global(ctx: *mlir.Context, dstMem: *c
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.tensor.shared.cluster.global.override` (opérandes: dstMem, tmaDesc, mbar, overrideAddr, coordinates (variadique), im2colArgs (variadique), tensorSize (variadique), lowerStride (variadique), upperStride (optionnel), multicastMask (optionnel), l2CacheHint (optionnel); attributs: group (optionnel), validatePattern (optionnel), mode (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.tensor.shared.cluster.global.override`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_tensor_shared_cluster_global_override(ctx: *mlir.Context, dstMem: *const mlir.Value, tmaDesc: *const mlir.Value, mbar: *const mlir.Value, overrideAddr: *const mlir.Value, coordinates: []const *const mlir.Value, im2colArgs: []const *const mlir.Value, tensorSize: []const *const mlir.Value, lowerStride: []const *const mlir.Value, upperStride: ?*const mlir.Value, multicastMask: ?*const mlir.Value, l2CacheHint: ?*const mlir.Value, group: ?*const mlir.Attribute, validatePattern: ?*const mlir.Attribute, mode: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4314,6 +4770,7 @@ pub fn cp_async_bulk_tensor_shared_cluster_global_override(ctx: *mlir.Context, d
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.bulk.wait_group` (attributs: group, read (optionnel); aucun résultat).
 /// `nvvm.cp.async.bulk.wait_group`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_bulk_wait_group(ctx: *mlir.Context, group: *const mlir.Attribute, read: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4325,6 +4782,7 @@ pub fn cp_async_bulk_wait_group(ctx: *mlir.Context, group: *const mlir.Attribute
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.commit.group` (aucun résultat).
 /// `nvvm.cp.async.commit.group`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_commit_group(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.commit.group", .{
@@ -4332,6 +4790,7 @@ pub fn cp_async_commit_group(ctx: *mlir.Context, location: *const mlir.Location)
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.mbarrier.arrive` (opérandes: addr; attributs: noinc (optionnel); aucun résultat).
 /// `nvvm.cp.async.mbarrier.arrive`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_mbarrier_arrive(ctx: *mlir.Context, addr: *const mlir.Value, noinc: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4343,6 +4802,7 @@ pub fn cp_async_mbarrier_arrive(ctx: *mlir.Context, addr: *const mlir.Value, noi
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.shared.global` (opérandes: dst, src, cpSize (optionnel); attributs: size, modifier; aucun résultat).
 /// `nvvm.cp.async.shared.global`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_shared_global(ctx: *mlir.Context, dst: *const mlir.Value, src: *const mlir.Value, cpSize: ?*const mlir.Value, size: *const mlir.Attribute, modifier: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.shared.global", .{
@@ -4355,6 +4815,7 @@ pub fn cp_async_shared_global(ctx: *mlir.Context, dst: *const mlir.Value, src: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.cp.async.wait.group` (attributs: n; aucun résultat).
 /// `nvvm.cp.async.wait.group`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cp_async_wait_group(ctx: *mlir.Context, n: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.cp.async.wait.group", .{
@@ -4365,6 +4826,7 @@ pub fn cp_async_wait_group(ctx: *mlir.Context, n: *const mlir.Attribute, locatio
     });
 }
 
+// Construit l'opération MLIR `nvvm.cvt.packfloat` (opérandes: srcA, srcC; attributs: from, to, rnd (optionnel), sat (optionnel), relu (optionnel), extractHi (optionnel); résultat: res_type).
 /// `nvvm.cvt.packfloat`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cvt_packfloat(ctx: *mlir.Context, srcA: *const mlir.Value, srcC: *const mlir.Value, res_type: *const mlir.Type, from: *const mlir.Attribute, to: *const mlir.Attribute, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, extractHi: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -4382,6 +4844,7 @@ pub fn cvt_packfloat(ctx: *mlir.Context, srcA: *const mlir.Value, srcC: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.cvt.packfloat.f32` (opérandes: srcA, srcB, srcC; attributs: to, rnd (optionnel), sat (optionnel), relu (optionnel), extractHi (optionnel); résultat: res_type).
 /// `nvvm.cvt.packfloat.f32`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cvt_packfloat_f32(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, srcC: *const mlir.Value, res_type: *const mlir.Type, to: *const mlir.Attribute, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, extractHi: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -4398,6 +4861,7 @@ pub fn cvt_packfloat_f32(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.cvt.to.f4x8.packed` (opérandes: srcs (variadique); attributs: rnd (optionnel), srcType, dstType; résultat: dst_type).
 /// `nvvm.cvt.to.f4x8.packed`. Result types are explicit; attributes use mlir.Attribute.
 pub fn cvt_to_f4x8_packed(ctx: *mlir.Context, srcs: []const *const mlir.Value, dst_type: *const mlir.Type, rnd: ?*const mlir.Attribute, srcType: *const mlir.Attribute, dstType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4412,6 +4876,7 @@ pub fn cvt_to_f4x8_packed(ctx: *mlir.Context, srcs: []const *const mlir.Value, d
     });
 }
 
+// Construit l'opération MLIR `nvvm.dot.accumulate.2way` (opérandes: a, b, c_; attributs: a_type, b_type, b_hi; résultat: res_type).
 /// `nvvm.dot.accumulate.2way`. Result types are explicit; attributes use mlir.Attribute.
 pub fn dot_accumulate_2way(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: *const mlir.Value, res_type: *const mlir.Type, a_type: *const mlir.Attribute, b_type: *const mlir.Attribute, b_hi: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.dot.accumulate.2way", .{
@@ -4426,6 +4891,7 @@ pub fn dot_accumulate_2way(ctx: *mlir.Context, a: *const mlir.Value, b: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.dot.accumulate.4way` (opérandes: a, b, c_; attributs: a_type, b_type; résultat: res_type).
 /// `nvvm.dot.accumulate.4way`. Result types are explicit; attributes use mlir.Attribute.
 pub fn dot_accumulate_4way(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: *const mlir.Value, res_type: *const mlir.Type, a_type: *const mlir.Attribute, b_type: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.dot.accumulate.4way", .{
@@ -4439,6 +4905,7 @@ pub fn dot_accumulate_4way(ctx: *mlir.Context, a: *const mlir.Value, b: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.elect.sync` (opérandes: membermask (optionnel); résultat: pred_type).
 /// `nvvm.elect.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn elect_sync(ctx: *mlir.Context, membermask: ?*const mlir.Value, pred_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.elect.sync", .{
@@ -4448,6 +4915,7 @@ pub fn elect_sync(ctx: *mlir.Context, membermask: ?*const mlir.Value, pred_type:
     });
 }
 
+// Construit l'opération MLIR `nvvm.ex2` (opérandes: src; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.ex2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ex2(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4460,6 +4928,7 @@ pub fn ex2(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.exit` (aucun résultat).
 /// `nvvm.exit`. Result types are explicit; attributes use mlir.Attribute.
 pub fn exit(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.exit", .{
@@ -4467,6 +4936,7 @@ pub fn exit(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation 
     });
 }
 
+// Construit l'opération MLIR `nvvm.fabs` (opérandes: value_; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.fabs`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fabs(ctx: *mlir.Context, value_: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4479,6 +4949,7 @@ pub fn fabs(ctx: *mlir.Context, value_: *const mlir.Value, res_type: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.mbarrier.init` (aucun résultat).
 /// `nvvm.fence.mbarrier.init`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_mbarrier_init(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.fence.mbarrier.init", .{
@@ -4486,6 +4957,7 @@ pub fn fence_mbarrier_init(ctx: *mlir.Context, location: *const mlir.Location) *
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.proxy` (attributs: kind, space (optionnel); aucun résultat).
 /// `nvvm.fence.proxy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_proxy(ctx: *mlir.Context, kind: *const mlir.Attribute, space: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4497,6 +4969,7 @@ pub fn fence_proxy(ctx: *mlir.Context, kind: *const mlir.Attribute, space: ?*con
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.proxy.acquire` (opérandes: addr, size; attributs: scope, fromProxy (optionnel), toProxy (optionnel); aucun résultat).
 /// `nvvm.fence.proxy.acquire`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_proxy_acquire(ctx: *mlir.Context, addr: *const mlir.Value, size: *const mlir.Value, scope: *const mlir.Attribute, fromProxy: ?*const mlir.Attribute, toProxy: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4510,6 +4983,7 @@ pub fn fence_proxy_acquire(ctx: *mlir.Context, addr: *const mlir.Value, size: *c
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.proxy.release` (attributs: scope, fromProxy (optionnel), toProxy (optionnel); aucun résultat).
 /// `nvvm.fence.proxy.release`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_proxy_release(ctx: *mlir.Context, scope: *const mlir.Attribute, fromProxy: ?*const mlir.Attribute, toProxy: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4522,6 +4996,7 @@ pub fn fence_proxy_release(ctx: *mlir.Context, scope: *const mlir.Attribute, fro
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.proxy.sync_restrict` (attributs: order, fromProxy (optionnel), toProxy (optionnel); aucun résultat).
 /// `nvvm.fence.proxy.sync_restrict`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_proxy_sync_restrict(ctx: *mlir.Context, order: *const mlir.Attribute, fromProxy: ?*const mlir.Attribute, toProxy: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4534,6 +5009,7 @@ pub fn fence_proxy_sync_restrict(ctx: *mlir.Context, order: *const mlir.Attribut
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.sc.cluster` (aucun résultat).
 /// `nvvm.fence.sc.cluster`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_sc_cluster(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.fence.sc.cluster", .{
@@ -4541,6 +5017,7 @@ pub fn fence_sc_cluster(ctx: *mlir.Context, location: *const mlir.Location) *mli
     });
 }
 
+// Construit l'opération MLIR `nvvm.fence.sync_restrict` (attributs: order; aucun résultat).
 /// `nvvm.fence.sync_restrict`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fence_sync_restrict(ctx: *mlir.Context, order: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.fence.sync_restrict", .{
@@ -4551,6 +5028,7 @@ pub fn fence_sync_restrict(ctx: *mlir.Context, order: *const mlir.Attribute, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.fma` (opérandes: a, b, c_; attributs: rnd, sat (optionnel), ftz (optionnel), relu (optionnel), oob (optionnel); résultat: res_type).
 /// `nvvm.fma`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fma(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: *const mlir.Value, res_type: *const mlir.Type, rnd: *const mlir.Attribute, sat: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, relu: ?*const mlir.Attribute, oob: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -4567,6 +5045,7 @@ pub fn fma(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.fma.packed.f32x2` (opérandes: srcA, srcB, srcC; attributs: rnd (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.fma.packed.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fma_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, srcC: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4580,6 +5059,7 @@ pub fn fma_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.fma.packed.f32x2.bf16x2.f32x2.f32x2` (opérandes: srcA, srcB, srcC; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.fma.packed.f32x2.bf16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fma_packed_f32x2_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, srcC: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4592,6 +5072,7 @@ pub fn fma_packed_f32x2_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.fma.packed.f32x2.f16x2.f32x2.f32x2` (opérandes: srcA, srcB, srcC; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.fma.packed.f32x2.f16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fma_packed_f32x2_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, srcC: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4604,6 +5085,7 @@ pub fn fma_packed_f32x2_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.fmax` (opérandes: a, b, c_ (optionnel); attributs: ftz (optionnel), nan (optionnel), abs (optionnel); résultat: res_type).
 /// `nvvm.fmax`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fmax(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: ?*const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, nan: ?*const mlir.Attribute, abs: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4618,6 +5100,7 @@ pub fn fmax(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.fmin` (opérandes: a, b, c_ (optionnel); attributs: ftz (optionnel), nan (optionnel), abs (optionnel); résultat: res_type).
 /// `nvvm.fmin`. Result types are explicit; attributes use mlir.Attribute.
 pub fn fmin(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: ?*const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, nan: ?*const mlir.Attribute, abs: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4632,6 +5115,7 @@ pub fn fmin(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, c_: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.griddepcontrol` (attributs: kind; aucun résultat).
 /// `nvvm.griddepcontrol`. Result types are explicit; attributes use mlir.Attribute.
 pub fn griddepcontrol(ctx: *mlir.Context, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.griddepcontrol", .{
@@ -4642,6 +5126,7 @@ pub fn griddepcontrol(ctx: *mlir.Context, kind: *const mlir.Attribute, location:
     });
 }
 
+// Construit l'opération MLIR `nvvm.inline_ptx` (opérandes: readOnlyArgs (variadique), readWriteArgs (variadique), predicate (optionnel); attributs: ptxCode; résultat: writeOnlyArgs_type (optionnel)).
 /// `nvvm.inline_ptx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn inline_ptx(ctx: *mlir.Context, readOnlyArgs: []const *const mlir.Value, readWriteArgs: []const *const mlir.Value, predicate: ?*const mlir.Value, writeOnlyArgs_type: ?*const mlir.Type, ptxCode: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -4660,6 +5145,7 @@ pub fn inline_ptx(ctx: *mlir.Context, readOnlyArgs: []const *const mlir.Value, r
     });
 }
 
+// Construit l'opération MLIR `nvvm.ldmatrix` (opérandes: ptr; attributs: num, layout, shape (optionnel), srcFormat (optionnel); résultat: res_type).
 /// `nvvm.ldmatrix`. Result types are explicit; attributes use mlir.Attribute.
 pub fn ldmatrix(ctx: *mlir.Context, ptr: *const mlir.Value, res_type: *const mlir.Type, num: *const mlir.Attribute, layout: *const mlir.Attribute, shape: ?*const mlir.Attribute, srcFormat: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -4675,6 +5161,7 @@ pub fn ldmatrix(ctx: *mlir.Context, ptr: *const mlir.Value, res_type: *const mli
     });
 }
 
+// Construit l'opération MLIR `nvvm.load.ext` (opérandes: addr, l2CacheHint (optionnel); attributs: order (optionnel), scope (optionnel), prefetch_ (optionnel), evict (optionnel), cacheModifier (optionnel), sharedSpace (optionnel), unified (optionnel); résultat: res_type).
 /// `nvvm.load.ext`. Result types are explicit; attributes use mlir.Attribute.
 pub fn load_ext(ctx: *mlir.Context, addr: *const mlir.Value, l2CacheHint: ?*const mlir.Value, res_type: *const mlir.Type, order: ?*const mlir.Attribute, scope: ?*const mlir.Attribute, prefetch_: ?*const mlir.Attribute, evict: ?*const mlir.Attribute, cacheModifier: ?*const mlir.Attribute, sharedSpace: ?*const mlir.Attribute, unified: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 7) = .empty;
@@ -4693,6 +5180,7 @@ pub fn load_ext(ctx: *mlir.Context, addr: *const mlir.Value, l2CacheHint: ?*cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.log2` (opérandes: src; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.log2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn log2(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4705,6 +5193,7 @@ pub fn log2(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Ty
     });
 }
 
+// Construit l'opération MLIR `nvvm.mapa` (opérandes: a, b; résultat: res_type).
 /// `nvvm.mapa`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mapa(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mapa", .{
@@ -4714,6 +5203,7 @@ pub fn mapa(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, res_
     });
 }
 
+// Construit l'opération MLIR `nvvm.match.sync` (opérandes: thread_mask, val; attributs: kind; résultat: res_type).
 /// `nvvm.match.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn match_sync(ctx: *mlir.Context, thread_mask: *const mlir.Value, val: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.match.sync", .{
@@ -4726,6 +5216,7 @@ pub fn match_sync(ctx: *mlir.Context, thread_mask: *const mlir.Value, val: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive` (opérandes: addr, count (optionnel), multicastMask (optionnel); attributs: scope (optionnel), relaxed (optionnel); résultat: res_type (optionnel)).
 /// `nvvm.mbarrier.arrive`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive(ctx: *mlir.Context, addr: *const mlir.Value, count: ?*const mlir.Value, multicastMask: ?*const mlir.Value, res_type: ?*const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -4745,6 +5236,7 @@ pub fn mbarrier_arrive(ctx: *mlir.Context, addr: *const mlir.Value, count: ?*con
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive.expect_tx` (opérandes: addr, txcount, multicastMask (optionnel), predicate (optionnel); attributs: scope (optionnel), relaxed (optionnel); résultat: res_type (optionnel)).
 /// `nvvm.mbarrier.arrive.expect_tx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive_expect_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount: *const mlir.Value, multicastMask: ?*const mlir.Value, predicate: ?*const mlir.Value, res_type: ?*const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -4765,6 +5257,7 @@ pub fn mbarrier_arrive_expect_tx(ctx: *mlir.Context, addr: *const mlir.Value, tx
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive.nocomplete` (opérandes: addr, count; résultat: res_type).
 /// `nvvm.mbarrier.arrive.nocomplete`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive_nocomplete(ctx: *mlir.Context, addr: *const mlir.Value, count: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mbarrier.arrive.nocomplete", .{
@@ -4774,6 +5267,7 @@ pub fn mbarrier_arrive_nocomplete(ctx: *mlir.Context, addr: *const mlir.Value, c
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive_drop` (opérandes: addr, count (optionnel), multicastMask (optionnel); attributs: scope (optionnel), relaxed (optionnel); résultat: res_type (optionnel)).
 /// `nvvm.mbarrier.arrive_drop`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive_drop(ctx: *mlir.Context, addr: *const mlir.Value, count: ?*const mlir.Value, multicastMask: ?*const mlir.Value, res_type: ?*const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -4793,6 +5287,7 @@ pub fn mbarrier_arrive_drop(ctx: *mlir.Context, addr: *const mlir.Value, count: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive_drop.expect_tx` (opérandes: addr, txcount, multicastMask (optionnel); attributs: scope (optionnel), relaxed (optionnel); résultat: res_type (optionnel)).
 /// `nvvm.mbarrier.arrive_drop.expect_tx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive_drop_expect_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount: *const mlir.Value, multicastMask: ?*const mlir.Value, res_type: ?*const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var results: stdx.BoundedArray(*const mlir.Type, 256) = .empty;
@@ -4808,6 +5303,7 @@ pub fn mbarrier_arrive_drop_expect_tx(ctx: *mlir.Context, addr: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.arrive_drop.nocomplete` (opérandes: addr, count; résultat: res_type).
 /// `nvvm.mbarrier.arrive_drop.nocomplete`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_arrive_drop_nocomplete(ctx: *mlir.Context, addr: *const mlir.Value, count: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mbarrier.arrive_drop.nocomplete", .{
@@ -4817,6 +5313,7 @@ pub fn mbarrier_arrive_drop_nocomplete(ctx: *mlir.Context, addr: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.check.layout` (opérandes: addr; attributs: layout; résultat: res_type).
 /// `nvvm.mbarrier.check.layout`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_check_layout(ctx: *mlir.Context, addr: *const mlir.Value, res_type: *const mlir.Type, layout: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mbarrier.check.layout", .{
@@ -4829,6 +5326,7 @@ pub fn mbarrier_check_layout(ctx: *mlir.Context, addr: *const mlir.Value, res_ty
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.complete_tx` (opérandes: addr, txcount, report (optionnel), multicastMask (optionnel); attributs: scope (optionnel); aucun résultat).
 /// `nvvm.mbarrier.complete_tx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_complete_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount: *const mlir.Value, report: ?*const mlir.Value, multicastMask: ?*const mlir.Value, scope: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4845,6 +5343,7 @@ pub fn mbarrier_complete_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.expect_tx` (opérandes: addr, txcount, multicastMask (optionnel); attributs: scope (optionnel); aucun résultat).
 /// `nvvm.mbarrier.expect_tx`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_expect_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount: *const mlir.Value, multicastMask: ?*const mlir.Value, scope: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4856,6 +5355,7 @@ pub fn mbarrier_expect_tx(ctx: *mlir.Context, addr: *const mlir.Value, txcount: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.init` (opérandes: addr, count, predicate (optionnel); attributs: layout (optionnel); aucun résultat).
 /// `nvvm.mbarrier.init`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_init(ctx: *mlir.Context, addr: *const mlir.Value, count: *const mlir.Value, predicate: ?*const mlir.Value, layout: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4867,6 +5367,7 @@ pub fn mbarrier_init(ctx: *mlir.Context, addr: *const mlir.Value, count: *const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.inval` (opérandes: addr; aucun résultat).
 /// `nvvm.mbarrier.inval`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_inval(ctx: *mlir.Context, addr: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mbarrier.inval", .{
@@ -4875,6 +5376,7 @@ pub fn mbarrier_inval(ctx: *mlir.Context, addr: *const mlir.Value, location: *co
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.test.wait` (opérandes: addr, stateOrPhase; attributs: scope (optionnel), relaxed (optionnel), mbarrierPhase (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.test.wait`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_test_wait(ctx: *mlir.Context, addr: *const mlir.Value, stateOrPhase: *const mlir.Value, res_type: *const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, mbarrierPhase: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4889,6 +5391,7 @@ pub fn mbarrier_test_wait(ctx: *mlir.Context, addr: *const mlir.Value, stateOrPh
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.try_wait` (opérandes: addr, stateOrPhase, ticks (optionnel); attributs: scope (optionnel), relaxed (optionnel), mbarrierPhase (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.try_wait`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_try_wait(ctx: *mlir.Context, addr: *const mlir.Value, stateOrPhase: *const mlir.Value, ticks: ?*const mlir.Value, res_type: *const mlir.Type, scope: ?*const mlir.Attribute, relaxed: ?*const mlir.Attribute, mbarrierPhase: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4903,6 +5406,7 @@ pub fn mbarrier_try_wait(ctx: *mlir.Context, addr: *const mlir.Value, stateOrPha
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.try_wait.parity` (opérandes: addr, phase, ticks; attributs: useIntrinsic (optionnel); aucun résultat).
 /// `nvvm.mbarrier.try_wait.parity`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_try_wait_parity(ctx: *mlir.Context, addr: *const mlir.Value, phase: *const mlir.Value, ticks: *const mlir.Value, useIntrinsic: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -4914,6 +5418,7 @@ pub fn mbarrier_try_wait_parity(ctx: *mlir.Context, addr: *const mlir.Value, pha
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.try_wait.parity.timelimit` (opérandes: addr, phase, timeLimit; attributs: scope (optionnel), order (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.try_wait.parity.timelimit`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_try_wait_parity_timelimit(ctx: *mlir.Context, addr: *const mlir.Value, phase: *const mlir.Value, timeLimit: *const mlir.Value, res_type: *const mlir.Type, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4927,6 +5432,7 @@ pub fn mbarrier_try_wait_parity_timelimit(ctx: *mlir.Context, addr: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.try_wait.timelimit` (opérandes: addr, state, timeLimit; attributs: scope (optionnel), order (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.try_wait.timelimit`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_try_wait_timelimit(ctx: *mlir.Context, addr: *const mlir.Value, state: *const mlir.Value, timeLimit: *const mlir.Value, res_type: *const mlir.Type, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -4940,6 +5446,7 @@ pub fn mbarrier_try_wait_timelimit(ctx: *mlir.Context, addr: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.txn` (opérandes: addr, count, multicast (optionnel); attributs: kind, space (optionnel), scope (optionnel), order (optionnel); aucun résultat).
 /// `nvvm.mbarrier.txn`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_txn(ctx: *mlir.Context, addr: *const mlir.Value, count: *const mlir.Value, multicast: ?*const mlir.Value, kind: *const mlir.Attribute, space: ?*const mlir.Attribute, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -4954,6 +5461,7 @@ pub fn mbarrier_txn(ctx: *mlir.Context, addr: *const mlir.Value, count: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.txn.cta` (opérandes: addr, count; attributs: kind, scope (optionnel), order (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.txn.cta`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_txn_cta(ctx: *mlir.Context, addr: *const mlir.Value, count: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4968,6 +5476,7 @@ pub fn mbarrier_txn_cta(ctx: *mlir.Context, addr: *const mlir.Value, count: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.wait` (opérandes: addr, state; attributs: kind, scope (optionnel), order (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.wait`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_wait(ctx: *mlir.Context, addr: *const mlir.Value, state: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4982,6 +5491,7 @@ pub fn mbarrier_wait(ctx: *mlir.Context, addr: *const mlir.Value, state: *const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mbarrier.wait.parity` (opérandes: addr, phase; attributs: kind, scope (optionnel), order (optionnel); résultat: res_type).
 /// `nvvm.mbarrier.wait.parity`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mbarrier_wait_parity(ctx: *mlir.Context, addr: *const mlir.Value, phase: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, scope: ?*const mlir.Attribute, order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -4996,6 +5506,7 @@ pub fn mbarrier_wait_parity(ctx: *mlir.Context, addr: *const mlir.Value, phase: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.memory.barrier` (attributs: scope; aucun résultat).
 /// `nvvm.memory.barrier`. Result types are explicit; attributes use mlir.Attribute.
 pub fn memory_barrier(ctx: *mlir.Context, scope: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.memory.barrier", .{
@@ -5006,6 +5517,7 @@ pub fn memory_barrier(ctx: *mlir.Context, scope: *const mlir.Attribute, location
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.block_scale` (opérandes: operandA (variadique), operandB (variadique), operandC (variadique), scaleAData, byteIdA, threadIdA, scaleBData, byteIdB, threadIdB; attributs: shape, multiplicandAPtxType (optionnel), multiplicandBPtxType (optionnel), scaleVecSize, blockScaleFormat, kind; résultat: res_type).
 /// `nvvm.mma.block_scale`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_block_scale(ctx: *mlir.Context, operandA: []const *const mlir.Value, operandB: []const *const mlir.Value, operandC: []const *const mlir.Value, scaleAData: *const mlir.Value, byteIdA: *const mlir.Value, threadIdA: *const mlir.Value, scaleBData: *const mlir.Value, byteIdB: *const mlir.Value, threadIdB: *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, multiplicandAPtxType: ?*const mlir.Attribute, multiplicandBPtxType: ?*const mlir.Attribute, scaleVecSize: *const mlir.Attribute, blockScaleFormat: *const mlir.Attribute, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -5033,6 +5545,7 @@ pub fn mma_block_scale(ctx: *mlir.Context, operandA: []const *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.block_scale.internal` (opérandes: operandA, scaleAData, byteIdA, threadIdA, operandB, scaleBData, byteIdB, threadIdB, operandC; attributs: shape, layoutA, layoutB, aType, bType, cType, scaleVecSize, blockScaleFormat, kind (optionnel); résultat: res_type).
 /// `nvvm.mma.block_scale.internal`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_block_scale_internal(ctx: *mlir.Context, operandA: *const mlir.Value, scaleAData: *const mlir.Value, byteIdA: *const mlir.Value, threadIdA: *const mlir.Value, operandB: *const mlir.Value, scaleBData: *const mlir.Value, byteIdB: *const mlir.Value, threadIdB: *const mlir.Value, operandC: *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, layoutA: *const mlir.Attribute, layoutB: *const mlir.Attribute, aType: *const mlir.Attribute, bType: *const mlir.Attribute, cType: *const mlir.Attribute, scaleVecSize: *const mlir.Attribute, blockScaleFormat: *const mlir.Attribute, kind: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 9) = .empty;
@@ -5053,6 +5566,7 @@ pub fn mma_block_scale_internal(ctx: *mlir.Context, operandA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.sp.block_scale` (opérandes: operandA (variadique), operandB (variadique), operandC (variadique), sparseMetadata, sparsitySelector, scaleAData, byteIdA, threadIdA, scaleBData, byteIdB, threadIdB; attributs: shape, multiplicandAPtxType (optionnel), multiplicandBPtxType (optionnel), scaleVecSize, blockScaleFormat, kind, orderedMetadata (optionnel); résultat: res_type).
 /// `nvvm.mma.sp.block_scale`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_sp_block_scale(ctx: *mlir.Context, operandA: []const *const mlir.Value, operandB: []const *const mlir.Value, operandC: []const *const mlir.Value, sparseMetadata: *const mlir.Value, sparsitySelector: *const mlir.Value, scaleAData: *const mlir.Value, byteIdA: *const mlir.Value, threadIdA: *const mlir.Value, scaleBData: *const mlir.Value, byteIdB: *const mlir.Value, threadIdB: *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, multiplicandAPtxType: ?*const mlir.Attribute, multiplicandBPtxType: ?*const mlir.Attribute, scaleVecSize: *const mlir.Attribute, blockScaleFormat: *const mlir.Attribute, kind: *const mlir.Attribute, orderedMetadata: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 7) = .empty;
@@ -5083,6 +5597,7 @@ pub fn mma_sp_block_scale(ctx: *mlir.Context, operandA: []const *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.sp.block_scale.internal` (opérandes: operandA, scaleAData, byteIdA, threadIdA, operandB, scaleBData, byteIdB, threadIdB, operandC, sp_metadata, selector; attributs: shape, b1Op (optionnel), intOverflowBehavior (optionnel), layoutA, layoutB, aType, bType, cType, scaleVecSize, blockScaleFormat, sparsityFormat; résultat: res_type).
 /// `nvvm.mma.sp.block_scale.internal`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_sp_block_scale_internal(ctx: *mlir.Context, operandA: *const mlir.Value, scaleAData: *const mlir.Value, byteIdA: *const mlir.Value, threadIdA: *const mlir.Value, operandB: *const mlir.Value, scaleBData: *const mlir.Value, byteIdB: *const mlir.Value, threadIdB: *const mlir.Value, operandC: *const mlir.Value, sp_metadata: *const mlir.Value, selector: *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, b1Op: ?*const mlir.Attribute, intOverflowBehavior: ?*const mlir.Attribute, layoutA: *const mlir.Attribute, layoutB: *const mlir.Attribute, aType: *const mlir.Attribute, bType: *const mlir.Attribute, cType: *const mlir.Attribute, scaleVecSize: *const mlir.Attribute, blockScaleFormat: *const mlir.Attribute, sparsityFormat: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 11) = .empty;
@@ -5105,6 +5620,7 @@ pub fn mma_sp_block_scale_internal(ctx: *mlir.Context, operandA: *const mlir.Val
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.sp.sync` (opérandes: operandA (variadique), operandB (variadique), operandC (variadique), sparseMetadata, sparsitySelector; attributs: shape, intOverflowBehavior (optionnel), multiplicandAPtxType (optionnel), multiplicandBPtxType (optionnel), orderedMetadata (optionnel), kind (optionnel); résultat: res_type).
 /// `nvvm.mma.sp.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_sp_sync(ctx: *mlir.Context, operandA: []const *const mlir.Value, operandB: []const *const mlir.Value, operandC: []const *const mlir.Value, sparseMetadata: *const mlir.Value, sparsitySelector: *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, intOverflowBehavior: ?*const mlir.Attribute, multiplicandAPtxType: ?*const mlir.Attribute, multiplicandBPtxType: ?*const mlir.Attribute, orderedMetadata: ?*const mlir.Attribute, kind: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -5128,6 +5644,7 @@ pub fn mma_sp_sync(ctx: *mlir.Context, operandA: []const *const mlir.Value, oper
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma.sync` (opérandes: operandA (variadique), operandB (variadique), operandC (variadique); attributs: shape, b1Op (optionnel), intOverflowBehavior (optionnel), layoutA, layoutB, multiplicandAPtxType (optionnel), multiplicandBPtxType (optionnel); résultat: res_type).
 /// `nvvm.mma.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_sync(ctx: *mlir.Context, operandA: []const *const mlir.Value, operandB: []const *const mlir.Value, operandC: []const *const mlir.Value, res_type: *const mlir.Type, shape: *const mlir.Attribute, b1Op: ?*const mlir.Attribute, intOverflowBehavior: ?*const mlir.Attribute, layoutA: *const mlir.Attribute, layoutB: *const mlir.Attribute, multiplicandAPtxType: ?*const mlir.Attribute, multiplicandBPtxType: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 7) = .empty;
@@ -5150,6 +5667,7 @@ pub fn mma_sync(ctx: *mlir.Context, operandA: []const *const mlir.Value, operand
     });
 }
 
+// Construit l'opération MLIR `nvvm.mma_smem_desc` (opérandes: pointer, ldm, stride, baseOffset, swizzle; attributs: mmaDescVersion (optionnel); résultat: res_type).
 /// `nvvm.mma_smem_desc`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mma_smem_desc(ctx: *mlir.Context, pointer: *const mlir.Value, ldm: *const mlir.Value, stride: *const mlir.Value, baseOffset: *const mlir.Value, swizzle: *const mlir.Value, res_type: *const mlir.Type, mmaDescVersion: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5162,6 +5680,7 @@ pub fn mma_smem_desc(ctx: *mlir.Context, pointer: *const mlir.Value, ldm: *const
     });
 }
 
+// Construit l'opération MLIR `nvvm.movmatrix` (opérandes: src; attributs: shape, layout (optionnel), eltType; résultat: dst_type).
 /// `nvvm.movmatrix`. Result types are explicit; attributes use mlir.Attribute.
 pub fn movmatrix(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const mlir.Type, shape: *const mlir.Attribute, layout: ?*const mlir.Attribute, eltType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -5176,6 +5695,7 @@ pub fn movmatrix(ctx: *mlir.Context, src: *const mlir.Value, dst_type: *const ml
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul` (opérandes: a, b; attributs: mode, isSigned (optionnel); résultat: res_type).
 /// `nvvm.mul`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, res_type: *const mlir.Type, mode: *const mlir.Attribute, isSigned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -5189,6 +5709,7 @@ pub fn mul(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, res_t
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul.packed.bf16x2.bf16x2.f16x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.mul.packed.bf16x2.bf16x2.f16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul_packed_bf16x2_bf16x2_f16x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mul.packed.bf16x2.bf16x2.f16x2", .{
@@ -5198,6 +5719,7 @@ pub fn mul_packed_bf16x2_bf16x2_f16x2(ctx: *mlir.Context, srcA: *const mlir.Valu
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul.packed.bf16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.mul.packed.bf16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mul.packed.bf16x2.f32x2.f32x2", .{
@@ -5207,6 +5729,7 @@ pub fn mul_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul.packed.f16x2.f16x2.bf16x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.mul.packed.f16x2.f16x2.bf16x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul_packed_f16x2_f16x2_bf16x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mul.packed.f16x2.f16x2.bf16x2", .{
@@ -5216,6 +5739,7 @@ pub fn mul_packed_f16x2_f16x2_bf16x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul.packed.f16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.mul.packed.f16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.mul.packed.f16x2.f32x2.f32x2", .{
@@ -5225,6 +5749,7 @@ pub fn mul_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.mul.packed.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.mul.packed.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn mul_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -5238,6 +5763,7 @@ pub fn mul_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.multimem.ld.reduce` (opérandes: addr; attributs: ordering, op, dataType, accPrec (optionnel); résultat: res_type).
 /// `nvvm.multimem.ld.reduce`. Result types are explicit; attributes use mlir.Attribute.
 pub fn multimem_ld_reduce(ctx: *mlir.Context, addr: *const mlir.Value, res_type: *const mlir.Type, ordering: *const mlir.Attribute, op: *const mlir.Attribute, dataType: *const mlir.Attribute, accPrec: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -5253,6 +5779,7 @@ pub fn multimem_ld_reduce(ctx: *mlir.Context, addr: *const mlir.Value, res_type:
     });
 }
 
+// Construit l'opération MLIR `nvvm.multimem.red` (opérandes: val, addr; attributs: ordering, scope, op, dataType; aucun résultat).
 /// `nvvm.multimem.red`. Result types are explicit; attributes use mlir.Attribute.
 pub fn multimem_red(ctx: *mlir.Context, val: *const mlir.Value, addr: *const mlir.Value, ordering: *const mlir.Attribute, scope: *const mlir.Attribute, op: *const mlir.Attribute, dataType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.multimem.red", .{
@@ -5267,6 +5794,7 @@ pub fn multimem_red(ctx: *mlir.Context, val: *const mlir.Value, addr: *const mli
     });
 }
 
+// Construit l'opération MLIR `nvvm.multimem.st` (opérandes: val, addr; attributs: ordering, scope, dataType; aucun résultat).
 /// `nvvm.multimem.st`. Result types are explicit; attributes use mlir.Attribute.
 pub fn multimem_st(ctx: *mlir.Context, val: *const mlir.Value, addr: *const mlir.Value, ordering: *const mlir.Attribute, scope: *const mlir.Attribute, dataType: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.multimem.st", .{
@@ -5280,6 +5808,7 @@ pub fn multimem_st(ctx: *mlir.Context, val: *const mlir.Value, addr: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.nanosleep` (opérandes: duration; aucun résultat).
 /// `nvvm.nanosleep`. Result types are explicit; attributes use mlir.Attribute.
 pub fn nanosleep(ctx: *mlir.Context, duration: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.nanosleep", .{
@@ -5288,6 +5817,7 @@ pub fn nanosleep(ctx: *mlir.Context, duration: *const mlir.Value, location: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.pmevent` (attributs: maskedEventId (optionnel), eventId (optionnel); aucun résultat).
 /// `nvvm.pmevent`. Result types are explicit; attributes use mlir.Attribute.
 pub fn pmevent(ctx: *mlir.Context, maskedEventId: ?*const mlir.Attribute, eventId: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -5299,6 +5829,7 @@ pub fn pmevent(ctx: *mlir.Context, maskedEventId: ?*const mlir.Attribute, eventI
     });
 }
 
+// Construit l'opération MLIR `nvvm.prefetch` (opérandes: addr, predicate (optionnel); attributs: cacheLevel (optionnel), evictPriority (optionnel), tensormap (optionnel), uniform (optionnel), in_param_space (optionnel); aucun résultat).
 /// `nvvm.prefetch`. Result types are explicit; attributes use mlir.Attribute.
 pub fn prefetch(ctx: *mlir.Context, addr: *const mlir.Value, predicate: ?*const mlir.Value, cacheLevel: ?*const mlir.Attribute, evictPriority: ?*const mlir.Attribute, tensormap: ?*const mlir.Attribute, uniform: ?*const mlir.Attribute, in_param_space: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -5314,6 +5845,7 @@ pub fn prefetch(ctx: *mlir.Context, addr: *const mlir.Value, predicate: ?*const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.prmt` (opérandes: lo, hi (optionnel), selector; attributs: mode; résultat: res_type).
 /// `nvvm.prmt`. Result types are explicit; attributes use mlir.Attribute.
 pub fn prmt(ctx: *mlir.Context, lo: *const mlir.Value, hi: ?*const mlir.Value, selector: *const mlir.Value, res_type: *const mlir.Type, mode: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.prmt", .{
@@ -5326,6 +5858,7 @@ pub fn prmt(ctx: *mlir.Context, lo: *const mlir.Value, hi: ?*const mlir.Value, s
     });
 }
 
+// Construit l'opération MLIR `nvvm.rcp.approx.ftz.f` (opérandes: arg; résultat: res_type).
 /// `nvvm.rcp.approx.ftz.f`. Result types are explicit; attributes use mlir.Attribute.
 pub fn rcp_approx_ftz_f(ctx: *mlir.Context, arg: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.rcp.approx.ftz.f", .{
@@ -5335,6 +5868,7 @@ pub fn rcp_approx_ftz_f(ctx: *mlir.Context, arg: *const mlir.Value, res_type: *c
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.aggr.smem.size` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.aggr.smem.size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_aggr_smem_size(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.aggr.smem.size", .{
@@ -5343,6 +5877,7 @@ pub fn read_ptx_sreg_aggr_smem_size(ctx: *mlir.Context, res_type: *const mlir.Ty
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.clock` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.clock`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_clock(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.clock", .{
@@ -5351,6 +5886,7 @@ pub fn read_ptx_sreg_clock(ctx: *mlir.Context, res_type: *const mlir.Type, locat
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.clock64` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.clock64`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_clock64(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.clock64", .{
@@ -5359,6 +5895,7 @@ pub fn read_ptx_sreg_clock64(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.ctaid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.ctaid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_ctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5370,6 +5907,7 @@ pub fn read_ptx_sreg_cluster_ctaid_x(ctx: *mlir.Context, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.ctaid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.ctaid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_ctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5381,6 +5919,7 @@ pub fn read_ptx_sreg_cluster_ctaid_y(ctx: *mlir.Context, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.ctaid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.ctaid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_ctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5392,6 +5931,7 @@ pub fn read_ptx_sreg_cluster_ctaid_z(ctx: *mlir.Context, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.ctarank` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.ctarank`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_ctarank(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5403,6 +5943,7 @@ pub fn read_ptx_sreg_cluster_ctarank(ctx: *mlir.Context, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.nctaid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.nctaid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_nctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5414,6 +5955,7 @@ pub fn read_ptx_sreg_cluster_nctaid_x(ctx: *mlir.Context, res_type: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.nctaid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.nctaid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_nctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5425,6 +5967,7 @@ pub fn read_ptx_sreg_cluster_nctaid_y(ctx: *mlir.Context, res_type: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.nctaid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.nctaid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_nctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5436,6 +5979,7 @@ pub fn read_ptx_sreg_cluster_nctaid_z(ctx: *mlir.Context, res_type: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.cluster.nctarank` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.cluster.nctarank`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_cluster_nctarank(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5447,6 +5991,7 @@ pub fn read_ptx_sreg_cluster_nctarank(ctx: *mlir.Context, res_type: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.clusterid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.clusterid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_clusterid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5458,6 +6003,7 @@ pub fn read_ptx_sreg_clusterid_x(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.clusterid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.clusterid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_clusterid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5469,6 +6015,7 @@ pub fn read_ptx_sreg_clusterid_y(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.clusterid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.clusterid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_clusterid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5480,6 +6027,7 @@ pub fn read_ptx_sreg_clusterid_z(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ctaid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ctaid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5491,6 +6039,7 @@ pub fn read_ptx_sreg_ctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, ran
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ctaid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ctaid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5502,6 +6051,7 @@ pub fn read_ptx_sreg_ctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, ran
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ctaid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ctaid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5513,6 +6063,7 @@ pub fn read_ptx_sreg_ctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, ran
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.dynamic.smem.size` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.dynamic.smem.size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_dynamic_smem_size(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.dynamic.smem.size", .{
@@ -5521,6 +6072,7 @@ pub fn read_ptx_sreg_dynamic_smem_size(ctx: *mlir.Context, res_type: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg0` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg0`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg0(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg0", .{
@@ -5529,6 +6081,7 @@ pub fn read_ptx_sreg_envreg0(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg1` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg1`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg1(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg1", .{
@@ -5537,6 +6090,7 @@ pub fn read_ptx_sreg_envreg1(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg10` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg10`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg10(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg10", .{
@@ -5545,6 +6099,7 @@ pub fn read_ptx_sreg_envreg10(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg11` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg11`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg11(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg11", .{
@@ -5553,6 +6108,7 @@ pub fn read_ptx_sreg_envreg11(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg12` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg12`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg12(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg12", .{
@@ -5561,6 +6117,7 @@ pub fn read_ptx_sreg_envreg12(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg13` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg13`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg13(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg13", .{
@@ -5569,6 +6126,7 @@ pub fn read_ptx_sreg_envreg13(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg14` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg14`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg14(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg14", .{
@@ -5577,6 +6135,7 @@ pub fn read_ptx_sreg_envreg14(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg15` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg15`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg15(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg15", .{
@@ -5585,6 +6144,7 @@ pub fn read_ptx_sreg_envreg15(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg16` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg16`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg16(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg16", .{
@@ -5593,6 +6153,7 @@ pub fn read_ptx_sreg_envreg16(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg17` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg17`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg17(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg17", .{
@@ -5601,6 +6162,7 @@ pub fn read_ptx_sreg_envreg17(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg18` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg18`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg18(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg18", .{
@@ -5609,6 +6171,7 @@ pub fn read_ptx_sreg_envreg18(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg19` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg19`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg19(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg19", .{
@@ -5617,6 +6180,7 @@ pub fn read_ptx_sreg_envreg19(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg2` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg2(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg2", .{
@@ -5625,6 +6189,7 @@ pub fn read_ptx_sreg_envreg2(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg20` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg20`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg20(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg20", .{
@@ -5633,6 +6198,7 @@ pub fn read_ptx_sreg_envreg20(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg21` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg21`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg21(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg21", .{
@@ -5641,6 +6207,7 @@ pub fn read_ptx_sreg_envreg21(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg22` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg22`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg22(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg22", .{
@@ -5649,6 +6216,7 @@ pub fn read_ptx_sreg_envreg22(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg23` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg23`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg23(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg23", .{
@@ -5657,6 +6225,7 @@ pub fn read_ptx_sreg_envreg23(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg24` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg24`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg24(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg24", .{
@@ -5665,6 +6234,7 @@ pub fn read_ptx_sreg_envreg24(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg25` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg25`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg25(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg25", .{
@@ -5673,6 +6243,7 @@ pub fn read_ptx_sreg_envreg25(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg26` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg26`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg26(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg26", .{
@@ -5681,6 +6252,7 @@ pub fn read_ptx_sreg_envreg26(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg27` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg27`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg27(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg27", .{
@@ -5689,6 +6261,7 @@ pub fn read_ptx_sreg_envreg27(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg28` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg28`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg28(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg28", .{
@@ -5697,6 +6270,7 @@ pub fn read_ptx_sreg_envreg28(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg29` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg29`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg29(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg29", .{
@@ -5705,6 +6279,7 @@ pub fn read_ptx_sreg_envreg29(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg3` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg3`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg3(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg3", .{
@@ -5713,6 +6288,7 @@ pub fn read_ptx_sreg_envreg3(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg30` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg30`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg30(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg30", .{
@@ -5721,6 +6297,7 @@ pub fn read_ptx_sreg_envreg30(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg31` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg31`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg31(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg31", .{
@@ -5729,6 +6306,7 @@ pub fn read_ptx_sreg_envreg31(ctx: *mlir.Context, res_type: *const mlir.Type, lo
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg4` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg4`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg4(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg4", .{
@@ -5737,6 +6315,7 @@ pub fn read_ptx_sreg_envreg4(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg5` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg5`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg5(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg5", .{
@@ -5745,6 +6324,7 @@ pub fn read_ptx_sreg_envreg5(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg6` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg6`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg6(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg6", .{
@@ -5753,6 +6333,7 @@ pub fn read_ptx_sreg_envreg6(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg7` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg7`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg7(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg7", .{
@@ -5761,6 +6342,7 @@ pub fn read_ptx_sreg_envreg7(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg8` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg8`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg8(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg8", .{
@@ -5769,6 +6351,7 @@ pub fn read_ptx_sreg_envreg8(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.envreg9` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.envreg9`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_envreg9(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.envreg9", .{
@@ -5777,6 +6360,7 @@ pub fn read_ptx_sreg_envreg9(ctx: *mlir.Context, res_type: *const mlir.Type, loc
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.globaltimer` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.globaltimer`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_globaltimer(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.globaltimer", .{
@@ -5785,6 +6369,7 @@ pub fn read_ptx_sreg_globaltimer(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.globaltimer.lo` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.globaltimer.lo`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_globaltimer_lo(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.globaltimer.lo", .{
@@ -5793,6 +6378,7 @@ pub fn read_ptx_sreg_globaltimer_lo(ctx: *mlir.Context, res_type: *const mlir.Ty
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.gridid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.gridid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_gridid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5804,6 +6390,7 @@ pub fn read_ptx_sreg_gridid(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.laneid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.laneid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_laneid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5815,6 +6402,7 @@ pub fn read_ptx_sreg_laneid(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.lanemask.eq` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.lanemask.eq`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_lanemask_eq(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.lanemask.eq", .{
@@ -5823,6 +6411,7 @@ pub fn read_ptx_sreg_lanemask_eq(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.lanemask.ge` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.lanemask.ge`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_lanemask_ge(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.lanemask.ge", .{
@@ -5831,6 +6420,7 @@ pub fn read_ptx_sreg_lanemask_ge(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.lanemask.gt` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.lanemask.gt`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_lanemask_gt(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.lanemask.gt", .{
@@ -5839,6 +6429,7 @@ pub fn read_ptx_sreg_lanemask_gt(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.lanemask.le` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.lanemask.le`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_lanemask_le(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.lanemask.le", .{
@@ -5847,6 +6438,7 @@ pub fn read_ptx_sreg_lanemask_le(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.lanemask.lt` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.lanemask.lt`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_lanemask_lt(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.lanemask.lt", .{
@@ -5855,6 +6447,7 @@ pub fn read_ptx_sreg_lanemask_lt(ctx: *mlir.Context, res_type: *const mlir.Type,
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nclusterid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nclusterid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nclusterid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5866,6 +6459,7 @@ pub fn read_ptx_sreg_nclusterid_x(ctx: *mlir.Context, res_type: *const mlir.Type
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nclusterid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nclusterid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nclusterid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5877,6 +6471,7 @@ pub fn read_ptx_sreg_nclusterid_y(ctx: *mlir.Context, res_type: *const mlir.Type
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nclusterid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nclusterid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nclusterid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5888,6 +6483,7 @@ pub fn read_ptx_sreg_nclusterid_z(ctx: *mlir.Context, res_type: *const mlir.Type
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nctaid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nctaid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5899,6 +6495,7 @@ pub fn read_ptx_sreg_nctaid_x(ctx: *mlir.Context, res_type: *const mlir.Type, ra
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nctaid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nctaid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5910,6 +6507,7 @@ pub fn read_ptx_sreg_nctaid_y(ctx: *mlir.Context, res_type: *const mlir.Type, ra
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nctaid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nctaid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5921,6 +6519,7 @@ pub fn read_ptx_sreg_nctaid_z(ctx: *mlir.Context, res_type: *const mlir.Type, ra
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nsmid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nsmid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nsmid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5932,6 +6531,7 @@ pub fn read_ptx_sreg_nsmid(ctx: *mlir.Context, res_type: *const mlir.Type, range
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ntid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ntid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ntid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5943,6 +6543,7 @@ pub fn read_ptx_sreg_ntid_x(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ntid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ntid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ntid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5954,6 +6555,7 @@ pub fn read_ptx_sreg_ntid_y(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.ntid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.ntid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_ntid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5965,6 +6567,7 @@ pub fn read_ptx_sreg_ntid_z(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.nwarpid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.nwarpid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_nwarpid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5976,6 +6579,7 @@ pub fn read_ptx_sreg_nwarpid(ctx: *mlir.Context, res_type: *const mlir.Type, ran
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.smid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.smid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_smid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5987,6 +6591,7 @@ pub fn read_ptx_sreg_smid(ctx: *mlir.Context, res_type: *const mlir.Type, range:
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.tid.x` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.tid.x`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_tid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -5998,6 +6603,7 @@ pub fn read_ptx_sreg_tid_x(ctx: *mlir.Context, res_type: *const mlir.Type, range
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.tid.y` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.tid.y`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_tid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6009,6 +6615,7 @@ pub fn read_ptx_sreg_tid_y(ctx: *mlir.Context, res_type: *const mlir.Type, range
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.tid.z` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.tid.z`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_tid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6020,6 +6627,7 @@ pub fn read_ptx_sreg_tid_z(ctx: *mlir.Context, res_type: *const mlir.Type, range
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.total.smem.size` (résultat: res_type).
 /// `nvvm.read.ptx.sreg.total.smem.size`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_total_smem_size(ctx: *mlir.Context, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.read.ptx.sreg.total.smem.size", .{
@@ -6028,6 +6636,7 @@ pub fn read_ptx_sreg_total_smem_size(ctx: *mlir.Context, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.warpid` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.warpid`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_warpid(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6039,6 +6648,7 @@ pub fn read_ptx_sreg_warpid(ctx: *mlir.Context, res_type: *const mlir.Type, rang
     });
 }
 
+// Construit l'opération MLIR `nvvm.read.ptx.sreg.warpsize` (attributs: range (optionnel); résultat: res_type).
 /// `nvvm.read.ptx.sreg.warpsize`. Result types are explicit; attributes use mlir.Attribute.
 pub fn read_ptx_sreg_warpsize(ctx: *mlir.Context, res_type: *const mlir.Type, range: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6050,6 +6660,7 @@ pub fn read_ptx_sreg_warpsize(ctx: *mlir.Context, res_type: *const mlir.Type, ra
     });
 }
 
+// Construit l'opération MLIR `nvvm.red` (opérandes: a, b, cacheHint (optionnel); attributs: memOrder (optionnel), memScope (optionnel), op, type_; aucun résultat).
 /// `nvvm.red`. Result types are explicit; attributes use mlir.Attribute.
 pub fn red(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, cacheHint: ?*const mlir.Value, memOrder: ?*const mlir.Attribute, memScope: ?*const mlir.Attribute, op: *const mlir.Attribute, type_: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -6064,6 +6675,7 @@ pub fn red(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, cache
     });
 }
 
+// Construit l'opération MLIR `nvvm.redux.sync` (opérandes: val, mask_and_clamp; attributs: kind, abs (optionnel), nan (optionnel); résultat: res_type).
 /// `nvvm.redux.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn redux_sync(ctx: *mlir.Context, val: *const mlir.Value, mask_and_clamp: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, abs: ?*const mlir.Attribute, nan: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -6078,6 +6690,7 @@ pub fn redux_sync(ctx: *mlir.Context, val: *const mlir.Value, mask_and_clamp: *c
     });
 }
 
+// Construit l'opération MLIR `nvvm.rsqrt` (opérandes: src; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.rsqrt`. Result types are explicit; attributes use mlir.Attribute.
 pub fn rsqrt(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6090,6 +6703,7 @@ pub fn rsqrt(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.T
     });
 }
 
+// Construit l'opération MLIR `nvvm.setmaxregister` (attributs: regCount, action; aucun résultat).
 /// `nvvm.setmaxregister`. Result types are explicit; attributes use mlir.Attribute.
 pub fn setmaxregister(ctx: *mlir.Context, regCount: *const mlir.Attribute, action: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.setmaxregister", .{
@@ -6101,6 +6715,7 @@ pub fn setmaxregister(ctx: *mlir.Context, regCount: *const mlir.Attribute, actio
     });
 }
 
+// Construit l'opération MLIR `nvvm.shfl.sync` (opérandes: thread_mask, val, offset, mask_and_clamp; attributs: kind, return_value_and_is_valid (optionnel); résultat: res_type).
 /// `nvvm.shfl.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn shfl_sync(ctx: *mlir.Context, thread_mask: *const mlir.Value, val: *const mlir.Value, offset: *const mlir.Value, mask_and_clamp: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, return_value_and_is_valid: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6114,6 +6729,7 @@ pub fn shfl_sync(ctx: *mlir.Context, thread_mask: *const mlir.Value, val: *const
     });
 }
 
+// Construit l'opération MLIR `nvvm.sin` (opérandes: src; attributs: ftz (optionnel); résultat: res_type).
 /// `nvvm.sin`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sin(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Type, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6126,6 +6742,7 @@ pub fn sin(ctx: *mlir.Context, src: *const mlir.Value, res_type: *const mlir.Typ
     });
 }
 
+// Construit l'opération MLIR `nvvm.spcompress` (opérandes: spDesc, data; attributs: compFactor, indexSize, elemSize, repFactor; résultat: metadata_type, compressed_data_type).
 /// `nvvm.spcompress`. Result types are explicit; attributes use mlir.Attribute.
 pub fn spcompress(ctx: *mlir.Context, spDesc: *const mlir.Value, data: *const mlir.Value, metadata_type: *const mlir.Type, compressed_data_type: *const mlir.Type, compFactor: *const mlir.Attribute, indexSize: *const mlir.Attribute, elemSize: *const mlir.Attribute, repFactor: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.spcompress", .{
@@ -6141,6 +6758,7 @@ pub fn spcompress(ctx: *mlir.Context, spDesc: *const mlir.Value, data: *const ml
     });
 }
 
+// Construit l'opération MLIR `nvvm.spdecompress` (opérandes: metadata, compressed_data; attributs: compFactor, indexSize, elemSize, repFactor; résultat: data_type).
 /// `nvvm.spdecompress`. Result types are explicit; attributes use mlir.Attribute.
 pub fn spdecompress(ctx: *mlir.Context, metadata: *const mlir.Value, compressed_data: *const mlir.Value, data_type: *const mlir.Type, compFactor: *const mlir.Attribute, indexSize: *const mlir.Attribute, elemSize: *const mlir.Attribute, repFactor: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.spdecompress", .{
@@ -6156,6 +6774,7 @@ pub fn spdecompress(ctx: *mlir.Context, metadata: *const mlir.Value, compressed_
     });
 }
 
+// Construit l'opération MLIR `nvvm.st.bulk` (opérandes: addr, size; attributs: initVal (optionnel); aucun résultat).
 /// `nvvm.st.bulk`. Result types are explicit; attributes use mlir.Attribute.
 pub fn st_bulk(ctx: *mlir.Context, addr: *const mlir.Value, size: *const mlir.Value, initVal: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6167,6 +6786,7 @@ pub fn st_bulk(ctx: *mlir.Context, addr: *const mlir.Value, size: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `nvvm.stmatrix` (opérandes: ptr, sources (variadique); attributs: layout, shape (optionnel); aucun résultat).
 /// `nvvm.stmatrix`. Result types are explicit; attributes use mlir.Attribute.
 pub fn stmatrix(ctx: *mlir.Context, ptr: *const mlir.Value, sources: []const *const mlir.Value, layout: *const mlir.Attribute, shape: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var operands: stdx.BoundedArray(*const mlir.Value, 256) = .empty;
@@ -6182,6 +6802,7 @@ pub fn stmatrix(ctx: *mlir.Context, ptr: *const mlir.Value, sources: []const *co
     });
 }
 
+// Construit l'opération MLIR `nvvm.store.async` (opérandes: addr, value_, mbarrier; aucun résultat).
 /// `nvvm.store.async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn store_async(ctx: *mlir.Context, addr: *const mlir.Value, value_: *const mlir.Value, mbarrier: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.store.async", .{
@@ -6190,6 +6811,7 @@ pub fn store_async(ctx: *mlir.Context, addr: *const mlir.Value, value_: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.store.ext` (opérandes: value_, addr, l2CacheHint (optionnel); attributs: order (optionnel), scope (optionnel), evict (optionnel), cacheModifier (optionnel), sharedSpace (optionnel); aucun résultat).
 /// `nvvm.store.ext`. Result types are explicit; attributes use mlir.Attribute.
 pub fn store_ext(ctx: *mlir.Context, value_: *const mlir.Value, addr: *const mlir.Value, l2CacheHint: ?*const mlir.Value, order: ?*const mlir.Attribute, scope: ?*const mlir.Attribute, evict: ?*const mlir.Attribute, cacheModifier: ?*const mlir.Attribute, sharedSpace: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6205,6 +6827,7 @@ pub fn store_ext(ctx: *mlir.Context, value_: *const mlir.Value, addr: *const mli
     });
 }
 
+// Construit l'opération MLIR `nvvm.sub.packed.bf16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.sub.packed.bf16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sub_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.sub.packed.bf16x2.f32x2.f32x2", .{
@@ -6214,6 +6837,7 @@ pub fn sub_packed_bf16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.sub.packed.f16x2.f32x2.f32x2` (opérandes: srcA, srcB; résultat: res_type).
 /// `nvvm.sub.packed.f16x2.f32x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sub_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.sub.packed.f16x2.f32x2.f32x2", .{
@@ -6223,6 +6847,7 @@ pub fn sub_packed_f16x2_f32x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.sub.packed.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.sub.packed.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sub_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6236,6 +6861,7 @@ pub fn sub_packed_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.sub.packed.f32x2.bf16x2.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.sub.packed.f32x2.bf16x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sub_packed_f32x2_bf16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6248,6 +6874,7 @@ pub fn sub_packed_f32x2_bf16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.sub.packed.f32x2.f16x2.f32x2` (opérandes: srcA, srcB; attributs: rnd (optionnel); résultat: res_type).
 /// `nvvm.sub.packed.f32x2.f16x2.f32x2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn sub_packed_f32x2_f16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value, srcB: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6260,6 +6887,7 @@ pub fn sub_packed_f32x2_f16x2_f32x2(ctx: *mlir.Context, srcA: *const mlir.Value,
     });
 }
 
+// Construit l'opération MLIR `nvvm.subf` (opérandes: lhs, rhs; attributs: rnd (optionnel), sat (optionnel), ftz (optionnel); résultat: res_type).
 /// `nvvm.subf`. Result types are explicit; attributes use mlir.Attribute.
 pub fn subf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, res_type: *const mlir.Type, rnd: ?*const mlir.Attribute, sat: ?*const mlir.Attribute, ftz: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -6274,6 +6902,7 @@ pub fn subf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.alloc` (opérandes: addr, nCols; attributs: isExclusive (optionnel), group (optionnel); aucun résultat).
 /// `nvvm.tcgen05.alloc`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_alloc(ctx: *mlir.Context, addr: *const mlir.Value, nCols: *const mlir.Value, isExclusive: ?*const mlir.Attribute, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6286,6 +6915,7 @@ pub fn tcgen05_alloc(ctx: *mlir.Context, addr: *const mlir.Value, nCols: *const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.commit` (opérandes: addr, multicastMask (optionnel); attributs: smem_a_read (optionnel), group (optionnel); aucun résultat).
 /// `nvvm.tcgen05.commit`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_commit(ctx: *mlir.Context, addr: *const mlir.Value, multicastMask: ?*const mlir.Value, smem_a_read: ?*const mlir.Attribute, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6298,6 +6928,7 @@ pub fn tcgen05_commit(ctx: *mlir.Context, addr: *const mlir.Value, multicastMask
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.cp` (opérandes: taddr, smem_desc; attributs: shape, group (optionnel), multicast (optionnel), srcFormat (optionnel); aucun résultat).
 /// `nvvm.tcgen05.cp`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_cp(ctx: *mlir.Context, taddr: *const mlir.Value, smem_desc: *const mlir.Value, shape: *const mlir.Attribute, group: ?*const mlir.Attribute, multicast: ?*const mlir.Attribute, srcFormat: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -6312,6 +6943,7 @@ pub fn tcgen05_cp(ctx: *mlir.Context, taddr: *const mlir.Value, smem_desc: *cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.dealloc` (opérandes: taddr, nCols; attributs: isExclusive (optionnel), group (optionnel); aucun résultat).
 /// `nvvm.tcgen05.dealloc`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_dealloc(ctx: *mlir.Context, taddr: *const mlir.Value, nCols: *const mlir.Value, isExclusive: ?*const mlir.Attribute, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6324,6 +6956,7 @@ pub fn tcgen05_dealloc(ctx: *mlir.Context, taddr: *const mlir.Value, nCols: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.fence` (attributs: kind; aucun résultat).
 /// `nvvm.tcgen05.fence`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_fence(ctx: *mlir.Context, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.tcgen05.fence", .{
@@ -6334,6 +6967,7 @@ pub fn tcgen05_fence(ctx: *mlir.Context, kind: *const mlir.Attribute, location: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.ld` (opérandes: tmemAddr, offset (optionnel); attributs: pack (optionnel), shape; résultat: res_type).
 /// `nvvm.tcgen05.ld`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_ld(ctx: *mlir.Context, tmemAddr: *const mlir.Value, offset: ?*const mlir.Value, res_type: *const mlir.Type, pack: ?*const mlir.Attribute, shape: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6347,6 +6981,7 @@ pub fn tcgen05_ld(ctx: *mlir.Context, tmemAddr: *const mlir.Value, offset: ?*con
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.ld.red` (opérandes: addr, offset (optionnel); attributs: shape, op, abs (optionnel), nan (optionnel), isSigned (optionnel); résultat: data_type, redVal_type).
 /// `nvvm.tcgen05.ld.red`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_ld_red(ctx: *mlir.Context, addr: *const mlir.Value, offset: ?*const mlir.Value, data_type: *const mlir.Type, redVal_type: *const mlir.Type, shape: *const mlir.Attribute, op: *const mlir.Attribute, abs: ?*const mlir.Attribute, nan: ?*const mlir.Attribute, isSigned: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6363,6 +6998,7 @@ pub fn tcgen05_ld_red(ctx: *mlir.Context, addr: *const mlir.Value, offset: ?*con
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.ld.red.spcompress` (opérandes: tmemAddr; attributs: abs (optionnel), nan (optionnel), shape, opKind, compFactor, repFactor; résultat: metadata_type, compressedData_type, redVal_type).
 /// `nvvm.tcgen05.ld.red.spcompress`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_ld_red_spcompress(ctx: *mlir.Context, tmemAddr: *const mlir.Value, metadata_type: *const mlir.Type, compressedData_type: *const mlir.Type, redVal_type: *const mlir.Type, abs: ?*const mlir.Attribute, nan: ?*const mlir.Attribute, shape: *const mlir.Attribute, opKind: *const mlir.Attribute, compFactor: *const mlir.Attribute, repFactor: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 6) = .empty;
@@ -6380,6 +7016,7 @@ pub fn tcgen05_ld_red_spcompress(ctx: *mlir.Context, tmemAddr: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.ld.spcompress` (opérandes: tmemAddr; attributs: abs (optionnel), shape, opKind, compFactor, repFactor; résultat: metadata_type, compressedData_type).
 /// `nvvm.tcgen05.ld.spcompress`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_ld_spcompress(ctx: *mlir.Context, tmemAddr: *const mlir.Value, metadata_type: *const mlir.Type, compressedData_type: *const mlir.Type, abs: ?*const mlir.Attribute, shape: *const mlir.Attribute, opKind: *const mlir.Attribute, compFactor: *const mlir.Attribute, repFactor: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6396,6 +7033,7 @@ pub fn tcgen05_ld_spcompress(ctx: *mlir.Context, tmemAddr: *const mlir.Value, me
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, scaleInputD (optionnel), disableOutputLane (optionnel); attributs: kind, ctaGroup, collectorOp (optionnel), collectorOpB (optionnel), aShift (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, scaleInputD: ?*const mlir.Value, disableOutputLane: ?*const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, collectorOp: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, aShift: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6419,6 +7057,7 @@ pub fn tcgen05_mma(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *con
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.block_scale` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, scaleA, scaleB; attributs: kind, ctaGroup, blockScale (optionnel), collectorOp (optionnel), collectorOpB (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.block_scale`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_block_scale(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, scaleA: *const mlir.Value, scaleB: *const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, blockScale: ?*const mlir.Attribute, collectorOp: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6434,6 +7073,7 @@ pub fn tcgen05_mma_block_scale(ctx: *mlir.Context, matrixD: *const mlir.Value, m
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.block_scale.decompress_b` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, scaleA, scaleB, decompressBMetadata; attributs: kind, ctaGroup, blockScale (optionnel), collectorOpA (optionnel), collectorOpB (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.block_scale.decompress_b`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_block_scale_decompress_b(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, scaleA: *const mlir.Value, scaleB: *const mlir.Value, decompressBMetadata: *const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, blockScale: ?*const mlir.Attribute, collectorOpA: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6449,6 +7089,7 @@ pub fn tcgen05_mma_block_scale_decompress_b(ctx: *mlir.Context, matrixD: *const 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.decompress_b` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, decompressBMetadata, disableOutputLane (optionnel); attributs: kind, ctaGroup, collectorOpA (optionnel), collectorOpB (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.decompress_b`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_decompress_b(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, decompressBMetadata: *const mlir.Value, disableOutputLane: ?*const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, collectorOpA: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -6463,6 +7104,7 @@ pub fn tcgen05_mma_decompress_b(ctx: *mlir.Context, matrixD: *const mlir.Value, 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.sp` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, sparseMetadata, scaleInputD (optionnel), disableOutputLane (optionnel); attributs: kind, ctaGroup, collectorOp (optionnel), collectorOpB (optionnel), aShift (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.sp`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_sp(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, sparseMetadata: *const mlir.Value, scaleInputD: ?*const mlir.Value, disableOutputLane: ?*const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, collectorOp: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, aShift: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6487,6 +7129,7 @@ pub fn tcgen05_mma_sp(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.sp.block_scale` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, sparseMetadata, scaleA, scaleB; attributs: kind, ctaGroup, blockScale (optionnel), collectorOp (optionnel), collectorOpB (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.sp.block_scale`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_sp_block_scale(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, sparseMetadata: *const mlir.Value, scaleA: *const mlir.Value, scaleB: *const mlir.Value, kind: *const mlir.Attribute, ctaGroup: *const mlir.Attribute, blockScale: ?*const mlir.Attribute, collectorOp: ?*const mlir.Attribute, collectorOpB: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -6502,6 +7145,7 @@ pub fn tcgen05_mma_sp_block_scale(ctx: *mlir.Context, matrixD: *const mlir.Value
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.ws` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, zeroColMask (optionnel); attributs: kind, collectorBBuffer (optionnel), collectorOp (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.ws`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_ws(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, zeroColMask: ?*const mlir.Value, kind: *const mlir.Attribute, collectorBBuffer: ?*const mlir.Attribute, collectorOp: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -6515,6 +7159,7 @@ pub fn tcgen05_mma_ws(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma.ws.sp` (opérandes: matrixD, matrixA, matrixB, idesc, enableInputD, sparseMetadata, zeroColMask (optionnel); attributs: kind, collectorBBuffer (optionnel), collectorOp (optionnel); aucun résultat).
 /// `nvvm.tcgen05.mma.ws.sp`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_ws_sp(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA: *const mlir.Value, matrixB: *const mlir.Value, idesc: *const mlir.Value, enableInputD: *const mlir.Value, sparseMetadata: *const mlir.Value, zeroColMask: ?*const mlir.Value, kind: *const mlir.Attribute, collectorBBuffer: ?*const mlir.Attribute, collectorOp: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -6528,6 +7173,7 @@ pub fn tcgen05_mma_ws_sp(ctx: *mlir.Context, matrixD: *const mlir.Value, matrixA
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.mma_smem_desc` (opérandes: startAddr, leadingDimOffset, strideDimOffset, baseOffset, leadingDimMode, swizzleMode; résultat: res_type).
 /// `nvvm.tcgen05.mma_smem_desc`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_smem_desc(ctx: *mlir.Context, startAddr: *const mlir.Value, leadingDimOffset: *const mlir.Value, strideDimOffset: *const mlir.Value, baseOffset: *const mlir.Value, leadingDimMode: *const mlir.Value, swizzleMode: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.tcgen05.mma_smem_desc", .{
@@ -6537,6 +7183,7 @@ pub fn tcgen05_mma_smem_desc(ctx: *mlir.Context, startAddr: *const mlir.Value, l
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.relinquish_alloc_permit` (attributs: group (optionnel); aucun résultat).
 /// `nvvm.tcgen05.relinquish_alloc_permit`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_relinquish_alloc_permit(ctx: *mlir.Context, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6547,6 +7194,7 @@ pub fn tcgen05_relinquish_alloc_permit(ctx: *mlir.Context, group: ?*const mlir.A
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.shift` (opérandes: taddr; attributs: group (optionnel); aucun résultat).
 /// `nvvm.tcgen05.shift`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_shift(ctx: *mlir.Context, taddr: *const mlir.Value, group: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -6558,6 +7206,7 @@ pub fn tcgen05_shift(ctx: *mlir.Context, taddr: *const mlir.Value, group: ?*cons
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.st` (opérandes: tmemAddr, val, offset (optionnel); attributs: unpack (optionnel), shape; aucun résultat).
 /// `nvvm.tcgen05.st`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_st(ctx: *mlir.Context, tmemAddr: *const mlir.Value, val: *const mlir.Value, offset: ?*const mlir.Value, unpack: ?*const mlir.Attribute, shape: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -6570,6 +7219,7 @@ pub fn tcgen05_st(ctx: *mlir.Context, tmemAddr: *const mlir.Value, val: *const m
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05.wait` (attributs: kind; aucun résultat).
 /// `nvvm.tcgen05.wait`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_wait(ctx: *mlir.Context, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.tcgen05.wait", .{
@@ -6580,6 +7230,7 @@ pub fn tcgen05_wait(ctx: *mlir.Context, kind: *const mlir.Attribute, location: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.tcgen05_mma_smem_desc_v2` (opérandes: startAddress, leadingDimOffset, strideDimOffset, descriptorVersion, baseOffset, leadingDimMode, kSegmentOffset, swizzleType; résultat: res_type).
 /// `nvvm.tcgen05_mma_smem_desc_v2`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tcgen05_mma_smem_desc_v2(ctx: *mlir.Context, startAddress: *const mlir.Value, leadingDimOffset: *const mlir.Value, strideDimOffset: *const mlir.Value, descriptorVersion: *const mlir.Value, baseOffset: *const mlir.Value, leadingDimMode: *const mlir.Value, kSegmentOffset: *const mlir.Value, swizzleType: *const mlir.Value, res_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.tcgen05_mma_smem_desc_v2", .{
@@ -6589,6 +7240,7 @@ pub fn tcgen05_mma_smem_desc_v2(ctx: *mlir.Context, startAddress: *const mlir.Va
     });
 }
 
+// Construit l'opération MLIR `nvvm.tensormap.cp_fenceproxy` (opérandes: dst, src, size; attributs: scope; aucun résultat).
 /// `nvvm.tensormap.cp_fenceproxy`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tensormap_cp_fenceproxy(ctx: *mlir.Context, dst: *const mlir.Value, src: *const mlir.Value, size: *const mlir.Value, scope: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.tensormap.cp_fenceproxy", .{
@@ -6600,6 +7252,7 @@ pub fn tensormap_cp_fenceproxy(ctx: *mlir.Context, dst: *const mlir.Value, src: 
     });
 }
 
+// Construit l'opération MLIR `nvvm.tensormap.replace` (opérandes: addr, new_value (optionnel); attributs: field, ord (optionnel), new_value_attr (optionnel); aucun résultat).
 /// `nvvm.tensormap.replace`. Result types are explicit; attributes use mlir.Attribute.
 pub fn tensormap_replace(ctx: *mlir.Context, addr: *const mlir.Value, new_value: ?*const mlir.Value, field: *const mlir.Attribute, ord: ?*const mlir.Attribute, new_value_attr: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 3) = .empty;
@@ -6613,6 +7266,7 @@ pub fn tensormap_replace(ctx: *mlir.Context, addr: *const mlir.Value, new_value:
     });
 }
 
+// Construit l'opération MLIR `nvvm.trace.mark` (opérandes: payload (optionnel), predicate (optionnel); attributs: eventType, domain, event, payloadDescriptor (optionnel); aucun résultat).
 /// `nvvm.trace.mark`. Result types are explicit; attributes use mlir.Attribute.
 pub fn trace_mark(ctx: *mlir.Context, payload: ?*const mlir.Value, predicate: ?*const mlir.Value, eventType: *const mlir.Attribute, domain: *const mlir.Attribute, event: *const mlir.Attribute, payloadDescriptor: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 4) = .empty;
@@ -6630,6 +7284,7 @@ pub fn trace_mark(ctx: *mlir.Context, payload: ?*const mlir.Value, predicate: ?*
     });
 }
 
+// Construit l'opération MLIR `nvvm.vote.sync` (opérandes: mask, pred; attributs: kind; résultat: res_type).
 /// `nvvm.vote.sync`. Result types are explicit; attributes use mlir.Attribute.
 pub fn vote_sync(ctx: *mlir.Context, mask: *const mlir.Value, pred: *const mlir.Value, res_type: *const mlir.Type, kind: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.vote.sync", .{
@@ -6642,6 +7297,7 @@ pub fn vote_sync(ctx: *mlir.Context, mask: *const mlir.Value, pred: *const mlir.
     });
 }
 
+// Construit l'opération MLIR `nvvm.wgmma.commit.group.sync.aligned` (aucun résultat).
 /// `nvvm.wgmma.commit.group.sync.aligned`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wgmma_commit_group_sync_aligned(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.wgmma.commit.group.sync.aligned", .{
@@ -6649,6 +7305,7 @@ pub fn wgmma_commit_group_sync_aligned(ctx: *mlir.Context, location: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.wgmma.fence.aligned` (aucun résultat).
 /// `nvvm.wgmma.fence.aligned`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wgmma_fence_aligned(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.wgmma.fence.aligned", .{
@@ -6656,6 +7313,7 @@ pub fn wgmma_fence_aligned(ctx: *mlir.Context, location: *const mlir.Location) *
     });
 }
 
+// Construit l'opération MLIR `nvvm.wgmma.mma_async` (opérandes: inouts, descriptorA, descriptorB; attributs: shape, typeA, typeB, typeD, scaleD, scaleA, scaleB, layoutA, layoutB, satfinite (optionnel); résultat: results__type).
 /// `nvvm.wgmma.mma_async`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wgmma_mma_async(ctx: *mlir.Context, inouts: *const mlir.Value, descriptorA: *const mlir.Value, descriptorB: *const mlir.Value, results__type: *const mlir.Type, shape: *const mlir.Attribute, typeA: *const mlir.Attribute, typeB: *const mlir.Attribute, typeD: *const mlir.Attribute, scaleD: *const mlir.Attribute, scaleA: *const mlir.Attribute, scaleB: *const mlir.Attribute, layoutA: *const mlir.Attribute, layoutB: *const mlir.Attribute, satfinite: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 10) = .empty;
@@ -6677,6 +7335,7 @@ pub fn wgmma_mma_async(ctx: *mlir.Context, inouts: *const mlir.Value, descriptor
     });
 }
 
+// Construit l'opération MLIR `nvvm.wgmma.wait.group.sync.aligned` (attributs: group; aucun résultat).
 /// `nvvm.wgmma.wait.group.sync.aligned`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wgmma_wait_group_sync_aligned(ctx: *mlir.Context, group: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.wgmma.wait.group.sync.aligned", .{
@@ -6687,6 +7346,7 @@ pub fn wgmma_wait_group_sync_aligned(ctx: *mlir.Context, group: *const mlir.Attr
     });
 }
 
+// Construit l'opération MLIR `nvvm.wmma.load` (opérandes: ptr, stride; attributs: m, n, k, layout, eltype, frag; résultat: res_type).
 /// `nvvm.wmma.load`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wmma_load(ctx: *mlir.Context, ptr: *const mlir.Value, stride: *const mlir.Value, res_type: *const mlir.Type, m: *const mlir.Attribute, n: *const mlir.Attribute, k: *const mlir.Attribute, layout: *const mlir.Attribute, eltype: *const mlir.Attribute, frag: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.wmma.load", .{
@@ -6704,6 +7364,7 @@ pub fn wmma_load(ctx: *mlir.Context, ptr: *const mlir.Value, stride: *const mlir
     });
 }
 
+// Construit l'opération MLIR `nvvm.wmma.mma` (opérandes: args (variadique); attributs: m, n, k, layoutA, layoutB, eltypeA, eltypeB; résultat: res_type).
 /// `nvvm.wmma.mma`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wmma_mma(ctx: *mlir.Context, args: []const *const mlir.Value, res_type: *const mlir.Type, m: *const mlir.Attribute, n: *const mlir.Attribute, k: *const mlir.Attribute, layoutA: *const mlir.Attribute, layoutB: *const mlir.Attribute, eltypeA: *const mlir.Attribute, eltypeB: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "nvvm.wmma.mma", .{
@@ -6722,6 +7383,7 @@ pub fn wmma_mma(ctx: *mlir.Context, args: []const *const mlir.Value, res_type: *
     });
 }
 
+// Construit l'opération MLIR `nvvm.wmma.store` (opérandes: ptr, args (variadique), stride; attributs: m, n, k, layout, eltype; aucun résultat).
 /// `nvvm.wmma.store`. Result types are explicit; attributes use mlir.Attribute.
 pub fn wmma_store(ctx: *mlir.Context, ptr: *const mlir.Value, args: []const *const mlir.Value, stride: *const mlir.Value, m: *const mlir.Attribute, n: *const mlir.Attribute, k: *const mlir.Attribute, layout: *const mlir.Attribute, eltype: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var operands: stdx.BoundedArray(*const mlir.Value, 256) = .empty;
@@ -6741,6 +7403,8 @@ pub fn wmma_store(ctx: *mlir.Context, ptr: *const mlir.Value, args: []const *con
     });
 }
 
+// Vérifie que chaque attribut d'énumération du dialecte s'imprime exactement
+// comme le compilateur MLIR : compare la sortie de `format` au motif `#nvvm...` attendu.
 test "every enum attribute prints as the compiler does" {
     @setEvalBranchQuota(1_000_000);
     const registry = try mlir.DialectRegistry.init();
