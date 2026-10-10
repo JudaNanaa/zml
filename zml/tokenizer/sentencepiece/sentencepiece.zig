@@ -25,6 +25,7 @@ pub const Error = error{
     Unauthenticated,
 };
 
+// Convertit un code de statut sentencepiece en erreur Zig, ou ne fait rien si OK.
 fn assertOk(code: c.sentencepiece_util_StatusCode) Error!void {
     return switch (code) {
         c.sentencepiece_util_StatusCode_kOk => {},
@@ -52,6 +53,7 @@ pub const Encoder = struct {
     inner: *SentencePieceProcessor,
     vec: *c.std_vector_int,
 
+    // Initialise un encodeur sentencepiece et son vecteur d'identifiants.
     fn init(inner: *SentencePieceProcessor) Encoder {
         return .{
             .inner = inner,
@@ -59,20 +61,24 @@ pub const Encoder = struct {
         };
     }
 
+    // Libere le vecteur d'identifiants de l'encodeur.
     pub fn deinit(self: *Encoder) void {
         c.std_vector_int_delete(self.vec);
     }
 
+    // Vide le vecteur d'identifiants de l'encodeur.
     pub fn reset(self: *Encoder) void {
         c.std_vector_int_clear(self.vec);
     }
 
+    // Encode le texte en identifiants de tokens via sentencepiece.
     pub fn encode(self: *Encoder, input: []const u8) ![]const u32 {
         c.std_vector_int_reserve(self.vec, input.len / StringToTokenRatio);
         try assertOk(c.SentencePieceProcessor_Encode(@ptrCast(self.inner), ffi.ZigSlice.from(input), self.vec));
         return self.ids();
     }
 
+    // Renvoie la tranche des identifiants encodes actuellement detenus.
     pub fn ids(self: *const Encoder) []const u32 {
         return ffi.ZigSlice.to(u32, .{
             .ptr = c.std_vector_int_data(self.vec),
@@ -91,6 +97,7 @@ pub const Decoder = struct {
     str: *c.std_string,
     last_string: StringBuffer = .empty,
 
+    // Initialise un decodeur sentencepiece (vecteur d'ids et tampon de chaine).
     fn init(inner: *SentencePieceProcessor) !Decoder {
         const vec = try (c.std_vector_int_new() orelse std.mem.Allocator.Error.OutOfMemory);
         c.std_vector_int_reserve(vec, TokenIdsBufferSize);
@@ -107,16 +114,19 @@ pub const Decoder = struct {
         };
     }
 
+    // Libere le vecteur d'identifiants et la chaine du decodeur.
     pub fn deinit(self: *Decoder) void {
         c.std_vector_int_delete(self.vec);
         c.std_string_delete(self.str);
     }
 
+    // Vide le vecteur d'identifiants et la chaine du decodeur.
     pub fn reset(self: *Decoder) void {
         c.std_vector_int_clear(self.vec);
         c.std_string_clear(self.str);
     }
 
+    // Decode une liste d'identifiants en chaine de texte.
     pub fn decode(self: *Decoder, ids_: []const u32) ![]const u8 {
         c.std_vector_int_reserve(self.vec, ids_.len);
         c.std_string_reserve(self.str, ids_.len * StringToTokenRatio);
@@ -127,16 +137,19 @@ pub const Decoder = struct {
         return self.string();
     }
 
+    // Renvoie la chaine courante du decodeur.
     pub fn string(self: *const Decoder) []const u8 {
         const res = c.std_string_data(self.str);
         return ffi.ZigSlice.to(u8, res);
     }
 
+    // Renvoie la tranche mutable des identifiants detenus par le decodeur.
     fn ids(self: *const Decoder) []u32 {
         const ptr: [*c]u32 = @ptrCast(c.std_vector_int_data(self.vec));
         return ptr[0..c.std_vector_int_size(self.vec)];
     }
 
+    // Decode un token en supprimant le prefixe deja emis, pour le decodage incremental.
     pub fn next(self: *Decoder, token_id: u32) !?[]const u8 {
         const current_ids = self.ids();
         if (current_ids.len >= c.std_vector_int_capacity(self.vec)) {
@@ -166,6 +179,7 @@ pub const Decoder = struct {
 };
 
 pub const SentencePieceProcessor = opaque {
+    // Charge un modele sentencepiece depuis un fichier.
     pub fn fromFile(model: []const u8) !*SentencePieceProcessor {
         const sp: *SentencePieceProcessor = @ptrCast(c.SentencePieceProcessor_new());
         errdefer sp.deinit();
@@ -173,6 +187,7 @@ pub const SentencePieceProcessor = opaque {
         return sp;
     }
 
+    // Charge un modele sentencepiece depuis un proto serialise en memoire.
     pub fn fromBytes(bytes: []const u8) !*SentencePieceProcessor {
         const sp: *SentencePieceProcessor = @ptrCast(c.SentencePieceProcessor_new());
         errdefer sp.deinit();
@@ -180,22 +195,27 @@ pub const SentencePieceProcessor = opaque {
         return sp;
     }
 
+    // Libere le processeur sentencepiece.
     pub fn deinit(self: *SentencePieceProcessor) void {
         c.SentencePieceProcessor_delete(@ptrCast(self));
     }
 
+    // Cree un encodeur derive de ce processeur.
     pub fn encoder(self: *SentencePieceProcessor) !Encoder {
         return Encoder.init(self);
     }
 
+    // Cree un decodeur derive de ce processeur.
     pub fn decoder(self: *SentencePieceProcessor) !Decoder {
         return try Decoder.init(self);
     }
 
+    // Renvoie l'identifiant d'un token a partir de sa chaine.
     pub fn tokenId(self: *SentencePieceProcessor, token: []const u8) u32 {
         return @intCast(c.SentencePieceProcessor_PieceToId(@ptrCast(self), ffi.ZigSlice.from(token)));
     }
 
+    // Renvoie le texte d'un token a partir de son identifiant, ou null si hors bornes.
     pub fn decode(self: *SentencePieceProcessor, token_id: u32) ?[]const u8 {
         if (token_id >= @as(u32, @intCast(c.SentencePieceProcessor_GetPieceSize(@ptrCast(self))))) return null;
         return ffi.ZigSlice.to(u8, c.SentencePieceProcessor_IdToPiece(@ptrCast(self), @intCast(token_id)));

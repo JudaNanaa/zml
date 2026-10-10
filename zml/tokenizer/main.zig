@@ -12,6 +12,7 @@ const Flags = struct {
     verbose: bool = false,
 };
 
+// Point d'entree CLI: charge un tokenizer, encode/decode un prompt et verifie le resultat.
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
 

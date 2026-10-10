@@ -7,6 +7,7 @@ const upb = @import("upb");
 const xspace_to_perfetto = @import("tools/xspace_to_perfetto");
 const zffi = @import("ffi");
 
+// Cree un profilateur PJRT a partir des options, serialisees en protobuf.
 pub fn profiler(api: *const pjrt.Api, allocator: std.mem.Allocator, io: std.Io, options: ProfilerOptions) !Profiler {
     var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
@@ -38,10 +39,12 @@ pub const ProfilerOptions = struct {
     pub const TraceOptions = struct {
         host_traceme_filter_mask: ?u64 = null,
 
+        // Indique si aucune option de trace n'est definie.
         fn isEmpty(self: TraceOptions) bool {
             return self.host_traceme_filter_mask == null;
         }
 
+        // Ecrit les options de trace dans le proto upb si le masque est defini.
         fn writeProto(self: TraceOptions, proto: *c.tensorflow_ProfileOptions_TraceOptions) void {
             if (self.host_traceme_filter_mask) |value| {
                 c.tensorflow_ProfileOptions_TraceOptions_set_host_traceme_filter_mask(proto, value);
@@ -54,6 +57,7 @@ pub const ProfilerOptions = struct {
         boolean: bool,
         int64: i64,
 
+        // Ecrit une valeur de configuration avancee dans le proto upb selon sa variante.
         fn writeProto(self: AdvancedConfigValue, proto: *c.tensorflow_ProfileOptions_AdvancedConfigValue) void {
             switch (self) {
                 .string => |value| c.tensorflow_ProfileOptions_AdvancedConfigValue_set_string_value(proto, upb.stringView(value)),
@@ -86,6 +90,7 @@ pub const ProfilerOptions = struct {
     raise_error_on_start_failure: ?bool = null,
     override_hostname: ?[]const u8 = null,
 
+    // Renseigne le proto ProfileOptions a partir de tous les champs definis du ProfilerOptions.
     pub fn writeProto(self: ProfilerOptions, upb_arena: *c.upb_Arena, proto: *c.tensorflow_ProfileOptions) !void {
         c.tensorflow_ProfileOptions_set_version(proto, self.version);
         c.tensorflow_ProfileOptions_set_session_id(proto, upb.stringView(self.session_id));
@@ -156,6 +161,7 @@ pub const Profiler = struct {
         perfetto_path: []const u8,
     };
 
+    // Initialise le Profiler et prepare les chemins de sortie du profil dans la session.
     pub fn init(allocator: std.mem.Allocator, io: std.Io, inner: ?pjrt.Profiler, options: ProfilerOptions) !Profiler {
         var arena = std.heap.ArenaAllocator.init(allocator);
         errdefer arena.deinit();
@@ -189,6 +195,7 @@ pub const Profiler = struct {
         };
     }
 
+    // Libere les chemins alloues et l'arene du Profiler.
     pub fn deinit(self: *Profiler) void {
         self.allocator.free(self.profile.protobuf_path);
         self.allocator.free(self.profile.perfetto_path);
@@ -196,6 +203,7 @@ pub const Profiler = struct {
         self.arena.deinit();
     }
 
+    // Demarre le profilage PJRT et/ou le trace hote local, en tolerant un echec du backend.
     pub fn start(self: *Profiler) !void {
         self.start_timestamp_ns = @intCast(std.Io.Timestamp.now(self.io, .real).nanoseconds);
         self.stop_timestamp_ns = null;
@@ -221,6 +229,7 @@ pub const Profiler = struct {
         }
     }
 
+    // Arrete le profilage, collecte et normalise le protobuf, puis ecrit xplane et Perfetto.
     pub fn stop(self: *Profiler) !?Profile {
         self.stop_timestamp_ns = @intCast(std.Io.Timestamp.now(self.io, .real).nanoseconds);
 
@@ -273,6 +282,7 @@ pub const Profiler = struct {
         return self.profile;
     }
 
+    // Ecrit un fichier complet a la position 0 dans le chemin donne.
     fn writeFile(self: *const Profiler, path: []const u8, contents: []const u8) !void {
         const file = try std.Io.Dir.createFile(.cwd(), self.io, path, .{});
         defer file.close(self.io);
@@ -281,6 +291,7 @@ pub const Profiler = struct {
     }
 };
 
+// Indique si la variable d'environnement SKIP_PJRT_PROFILER vaut « true ».
 fn shouldSkipPjrtProfiler() bool {
     const value = std.c.getenv("SKIP_PJRT_PROFILER") orelse return false;
     return std.mem.eql(u8, std.mem.span(value), "true");

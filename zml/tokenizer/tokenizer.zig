@@ -17,6 +17,7 @@ pub const Tokenizer = union(Tokenizers) {
         iree: iree.Normalizer,
         sentencepiece: void,
 
+        // Libere les ressources du normaliseur selon son backend.
         pub fn deinit(self: *Normalizer) void {
             switch (self.*) {
                 .iree => |*n| n.deinit(),
@@ -24,6 +25,7 @@ pub const Tokenizer = union(Tokenizers) {
             }
         }
 
+        // Normalise le texte via le backend iree; non supporte pour sentencepiece.
         pub fn normalize(self: *Normalizer, allocator: std.mem.Allocator, text: []const u8) ![]const u8 {
             return switch (self.*) {
                 .iree => |*n| n.normalize(allocator, text),
@@ -36,18 +38,21 @@ pub const Tokenizer = union(Tokenizers) {
         iree: iree.Tokenizer.Encoder,
         sentencepiece: sentencepiece.Encoder,
 
+        // Libere l'encodeur selon son backend.
         pub fn deinit(self: *Encoder) void {
             switch (self.*) {
                 inline else => |*v| v.deinit(),
             }
         }
 
+        // Reinitialise l'etat de l'encodeur pour une nouvelle saisie.
         pub fn reset(self: *Encoder) void {
             switch (self.*) {
                 inline else => |*v| v.reset(),
             }
         }
 
+        // Encode le texte en identifiants de tokens, alloues par l'appelant.
         pub fn encodeAlloc(self: *Encoder, allocator: std.mem.Allocator, text: []const u8) ![]u32 {
             return switch (self.*) {
                 .iree => |*encoder_| encoder_.encodeAlloc(allocator, text),
@@ -55,6 +60,7 @@ pub const Tokenizer = union(Tokenizers) {
             };
         }
 
+        // Ecrit dans le writer les identifiants de tokens encodes (bruts en octets).
         pub fn encode(self: *Encoder, writer: *std.Io.Writer, text: []const u8) !void {
             return switch (self.*) {
                 .iree => |*e| {
@@ -68,6 +74,7 @@ pub const Tokenizer = union(Tokenizers) {
             };
         }
 
+        // Ecrit les identifiants de tokens fournis dans le writer.
         pub fn appendTokens(_: *Encoder, writer: *std.Io.Writer, tokens: []const u32) !void {
             try writer.writeAll(@ptrCast(tokens));
         }
@@ -77,18 +84,21 @@ pub const Tokenizer = union(Tokenizers) {
         iree: iree.Tokenizer.Decoder,
         sentencepiece: sentencepiece.Decoder,
 
+        // Libere le decodeur selon son backend.
         pub fn deinit(self: *Decoder) void {
             switch (self.*) {
                 inline else => |*v| v.deinit(),
             }
         }
 
+        // Reinitialise l'etat du decodeur.
         pub fn reset(self: *Decoder) void {
             switch (self.*) {
                 inline else => |*v| v.reset(),
             }
         }
 
+        // Decode des identifiants en texte, renvoye dans une liste d'octets allouee.
         pub fn decodeAlloc(self: *Decoder, allocator: std.mem.Allocator, token_ids: []const u32) !std.ArrayList(u8) {
             return switch (self.*) {
                 .iree => |*d| {
@@ -102,6 +112,7 @@ pub const Tokenizer = union(Tokenizers) {
         }
 
         // Only valid until the next decode and while the decoder AND buffer is alive.
+        // Decode un seul token dans le buffer fourni et renvoie le texte produit.
         pub fn feedOne(self: *Decoder, token_id: u32, buffer: []u8) ![]const u8 {
             return switch (self.*) {
                 .iree => |*d| d.feedOne(token_id, buffer),
@@ -109,6 +120,7 @@ pub const Tokenizer = union(Tokenizers) {
             };
         }
 
+        // Finalise le decodage et renvoie le texte restant dans le buffer.
         /// Output is only valid until the next feed/finalize call and while the decoder AND buffer is alive.
         pub fn finalize(self: *Decoder, buffer: []u8) ![]const u8 {
             return switch (self.*) {
@@ -121,6 +133,7 @@ pub const Tokenizer = union(Tokenizers) {
     iree: iree.Tokenizer,
     sentencepiece: *sentencepiece.SentencePieceProcessor,
 
+    // Charge un tokenizer depuis un fichier .pb (sentencepiece) ou .json (iree).
     pub fn fromFile(allocator: std.mem.Allocator, io: std.Io, model: []const u8) !Tokenizer {
         if (std.mem.endsWith(u8, model, ".pb")) {
             return .{ .sentencepiece = try .fromFile(model) };
@@ -132,6 +145,7 @@ pub const Tokenizer = union(Tokenizers) {
         return error.InvalidArgument;
     }
 
+    // Charge un tokenizer depuis des octets, en detectant le format JSON.
     pub fn fromBytes(allocator: std.mem.Allocator, bytes: []const u8) !Tokenizer {
         if (bytes[0] == '{') {
             return .{ .iree = try .fromBytes(allocator, bytes) };
@@ -139,24 +153,28 @@ pub const Tokenizer = union(Tokenizers) {
         return .{ .sentencepiece = try .fromBytes(bytes) };
     }
 
+    // Libere le tokenizer selon son backend.
     pub fn deinit(self: *Tokenizer) void {
         switch (self.*) {
             inline else => |*t| t.*.deinit(),
         }
     }
 
+    // Cree un encodeur pour ce tokenizer.
     pub fn encoder(self: *const Tokenizer) !Encoder {
         return switch (self.*) {
             inline else => |*v, tag| @unionInit(Encoder, @tagName(tag), try v.*.encoder()),
         };
     }
 
+    // Cree un decodeur pour ce tokenizer.
     pub fn decoder(self: *const Tokenizer) !Decoder {
         return switch (self.*) {
             inline else => |*v, tag| @unionInit(Decoder, @tagName(tag), try v.*.decoder()),
         };
     }
 
+    // Cree un normaliseur depuis une sequence de types; supporte uniquement par iree.
     pub fn normalizer(self: *const Tokenizer, sequence: []const Normalizer.Kind) !Normalizer {
         return switch (self.*) {
             .iree => |*backend| .{ .iree = try backend.normalizer(sequence) },
@@ -164,6 +182,7 @@ pub const Tokenizer = union(Tokenizers) {
         };
     }
 
+    // Cree un normaliseur depuis la config JSON HuggingFace; supporte uniquement par iree.
     pub fn normalizerFromHuggingFaceJson(self: *const Tokenizer, json: []const u8) !Normalizer {
         return switch (self.*) {
             .iree => |*backend| .{ .iree = try backend.normalizerFromHuggingFaceJson(json) },
@@ -171,12 +190,14 @@ pub const Tokenizer = union(Tokenizers) {
         };
     }
 
+    // Renvoie l'identifiant d'un token a partir de sa chaine, ou null.
     pub fn tokenId(self: *const Tokenizer, token: []const u8) ?u32 {
         return switch (self.*) {
             inline else => |v| v.tokenId(token),
         };
     }
 
+    // Renvoie le texte d'un token a partir de son identifiant, ou null.
     pub fn decode(self: *const Tokenizer, token_id: u32) ?[]const u8 {
         return switch (self.*) {
             inline else => |v| v.decode(token_id),
@@ -184,6 +205,7 @@ pub const Tokenizer = union(Tokenizers) {
     }
 };
 
+// Verifie que toutes les declarations publiques du module se compilent.
 test {
     std.testing.refAllDecls(@This());
 }

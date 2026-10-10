@@ -25,18 +25,22 @@ pub const Error = error{
 
 const StatusCodeMask = 0x1F;
 
+// Construit une iree_string_view_t a partir d'une tranche d'octets.
 inline fn stringView(s: []const u8) c.iree_string_view_t {
     return .{ .data = s.ptr, .size = s.len };
 }
 
+// Construit une iree_mutable_string_view_t a partir d'une tranche mutable.
 inline fn mutableStringView(s: []u8) c.iree_mutable_string_view_t {
     return .{ .data = s.ptr, .size = s.len };
 }
 
+// Construit un iree_byte_span_t a partir d'une tranche d'octets mutable.
 inline fn byteSpan(bytes: []u8) c.iree_byte_span_t {
     return .{ .data = bytes.ptr, .data_length = bytes.len };
 }
 
+// Prepare une sortie de tokens IREE pointant vers la tranche d'identifiants fournie.
 inline fn tokenOutput(ids: []u32) c.iree_tokenizer_token_output_t {
     comptime {
         if (@sizeOf(c.iree_tokenizer_token_id_t) != @sizeOf(u32) or @alignOf(c.iree_tokenizer_token_id_t) != @alignOf(u32)) {
@@ -51,6 +55,7 @@ inline fn tokenOutput(ids: []u32) c.iree_tokenizer_token_output_t {
     };
 }
 
+// Construit une iree_tokenizer_token_id_list_t a partir d'une tranche d'identifiants.
 inline fn tokenIdList(ids: []const u32) c.iree_tokenizer_token_id_list_t {
     comptime {
         if (@sizeOf(c.iree_tokenizer_token_id_t) != @sizeOf(u32) or @alignOf(c.iree_tokenizer_token_id_t) != @alignOf(u32)) {
@@ -60,10 +65,12 @@ inline fn tokenIdList(ids: []const u32) c.iree_tokenizer_token_id_list_t {
     return .{ .count = ids.len, .values = @ptrCast(ids.ptr) };
 }
 
+// Extrait le code de statut des bits de poids faible d'un iree_status_t.
 inline fn statusCode(status: c.iree_status_t) u32 {
     return @intCast(@intFromPtr(status.?) & StatusCodeMask);
 }
 
+// Verifie un statut IREE, journalise l'erreur et la convertit en erreur Zig.
 fn checkOk(status: c.iree_status_t) !void {
     if (status == null) return;
     const code = statusCode(status);
@@ -99,6 +106,7 @@ pub const Tokenizer = struct {
     allocator: std.mem.Allocator,
     inner: *c.iree_tokenizer_t,
 
+    // Charge un tokenizer IREE depuis une configuration JSON HuggingFace.
     pub fn fromHuggingFaceJson(allocator: std.mem.Allocator, json: []const u8) !Tokenizer {
         // TODO: wrap allocator into an iree allocator
         var raw: ?*c.iree_tokenizer_t = null;
@@ -109,36 +117,44 @@ pub const Tokenizer = struct {
         };
     }
 
+    // Charge un tokenizer depuis des octets JSON (alias de fromHuggingFaceJson).
     pub fn fromBytes(allocator: std.mem.Allocator, bytes: []const u8) !Tokenizer {
         return fromHuggingFaceJson(allocator, bytes);
     }
 
+    // Lit un fichier JSON puis charge le tokenizer correspondant.
     pub fn fromFile(allocator: std.mem.Allocator, io: std.Io, model: []const u8) !Tokenizer {
         const json = try std.Io.Dir.cwd().readFileAlloc(io, model, allocator, .unlimited);
         defer allocator.free(json);
         return try fromHuggingFaceJson(allocator, json);
     }
 
+    // Libere le tokenizer IREE.
     pub fn deinit(self: *Tokenizer) void {
         c.iree_tokenizer_free(self.inner);
     }
 
+    // Cree un encodeur adosse a ce tokenizer.
     pub fn encoder(self: *const Tokenizer) !Encoder {
         return Encoder.init(self);
     }
 
+    // Cree un decodeur adosse a ce tokenizer.
     pub fn decoder(self: *const Tokenizer) !Decoder {
         return Decoder.init(self, self.allocator);
     }
 
+    // Construit une sequence de normaliseurs a partir des types demandes.
     pub fn normalizer(self: *const Tokenizer, sequence: []const Normalizer.Kind) !Normalizer {
         return Normalizer.init(self.allocator, sequence);
     }
 
+    // Construit un normaliseur depuis la config JSON HuggingFace.
     pub fn normalizerFromHuggingFaceJson(_: *const Tokenizer, json: []const u8) !Normalizer {
         return Normalizer.fromHuggingFaceJson(json);
     }
 
+    // Cherche l'identifiant d'un token dans le vocabulaire, ou null.
     pub fn tokenId(self: *const Tokenizer, token: []const u8) ?u32 {
         const vocab = c.iree_tokenizer_vocab(self.inner);
         if (vocab == null) return null;
@@ -149,6 +165,7 @@ pub const Tokenizer = struct {
         return if (id < 0) null else @intCast(id);
     }
 
+    // Renvoie le texte associe a un identifiant de token, ou null.
     pub fn decode(self: *const Tokenizer, token_id: u32) ?[]const u8 {
         const vocab = c.iree_tokenizer_vocab(self.inner);
         if (vocab == null) return null;
@@ -167,6 +184,7 @@ pub const Tokenizer = struct {
         transform_buffer: []u8,
         state: *c.iree_tokenizer_encode_state_t,
 
+        // Calcule et initialise l'etat d'encodage IREE avec ses tampons de stockage.
         fn init(tokenizer: *const Tokenizer) !Encoder {
             var state_size: usize = undefined;
             try checkOk(c.iree_tokenizer_encode_state_calculate_size(tokenizer.inner, &state_size));
@@ -195,16 +213,19 @@ pub const Tokenizer = struct {
             };
         }
 
+        // Desinitialise l'etat d'encodage et libere ses tampons.
         pub fn deinit(self: *Encoder) void {
             c.iree_tokenizer_encode_state_deinitialize(self.state);
             self.tokenizer.allocator.free(self.state_storage);
             self.tokenizer.allocator.free(self.transform_buffer);
         }
 
+        // Reinitialise l'etat d'encodage pour un nouvel input.
         pub fn reset(self: *Encoder) void {
             c.iree_tokenizer_encode_state_reset(self.state, c.IREE_TOKENIZER_ENCODE_FLAG_AT_INPUT_START);
         }
 
+        // Encode le texte et renvoie les identifiants dans un tableau alloue aligne.
         pub fn encodeAlloc(self: *Encoder, allocator: std.mem.Allocator, text: []const u8) ![]u32 {
             var token_ids = std.Io.Writer.Allocating.initAligned(allocator, .of(u32));
             errdefer token_ids.deinit();
@@ -217,6 +238,7 @@ pub const Tokenizer = struct {
             return std.mem.bytesAsSlice(u32, aligned_bytes);
         }
 
+        // Cree un Writer qui encode en flux les octets ecrits vers le writer de sortie.
         /// /!\ Assumes the writer provides buffers with proper alignment.
         /// /!\ Remember to call the finalize() method
         pub fn writer(self: *Encoder, buffer: []u8, out: *std.Io.Writer) Writer {
@@ -228,6 +250,7 @@ pub const Tokenizer = struct {
             out: *std.Io.Writer,
             interface: std.Io.Writer,
 
+            // Initialise le Writer en branchant son interface sur l'encodeur et la sortie.
             fn init(encoder_: *Encoder, buffer: []u8, out: *std.Io.Writer) Writer {
                 return .{
                     .encoder = encoder_,
@@ -243,6 +266,7 @@ pub const Tokenizer = struct {
                 };
             }
 
+            // Vide l'interface puis finalise l'encodage sur le writer de sortie.
             pub fn finalize(self: *Writer) std.Io.Writer.Error!void {
                 try self.interface.flush();
                 self.encoder.finalize(self.out) catch |e| {
@@ -251,6 +275,7 @@ pub const Tokenizer = struct {
                 };
             }
 
+            // Envoie a l'encodeur les octets en attente dans le tampon de l'interface.
             fn flush(w: *std.Io.Writer) std.Io.Writer.Error!void {
                 if (w.end == 0) return;
                 const self: *Writer = @alignCast(@fieldParentPtr("interface", w));
@@ -258,6 +283,7 @@ pub const Tokenizer = struct {
                 w.end = 0;
             }
 
+            // Ecrit les tranches fournies (prefixes puis motif repete) vers l'encodeur.
             fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
                 const self: *Writer = @alignCast(@fieldParentPtr("interface", w));
 
@@ -282,6 +308,7 @@ pub const Tokenizer = struct {
                 return total;
             }
 
+            // Pousse un morceau de texte vers l'encodeur, en traduisant les erreurs d'ecriture.
             fn feed(self: *Writer, chunk: []const u8) std.Io.Writer.Error!void {
                 self.encoder.feed(chunk, self.out) catch |e| {
                     log.err("Feed failed with {s}", .{@errorName(e)});
@@ -290,6 +317,7 @@ pub const Tokenizer = struct {
             }
         };
 
+        // Alimente l'encodeur avec du texte, en gerant les reprises sur ResourceExhausted.
         /// /!\ Assumes the writer provides buffers with proper alignment.
         pub fn feed(self: *Encoder, text: []const u8, out: *std.Io.Writer) !void {
             var min_tokens: usize = @max(text.len / 4, 32);
@@ -327,6 +355,7 @@ pub const Tokenizer = struct {
             }
         }
 
+        // Finalise l'encodage en vidant les tokens en attente dans la sortie.
         /// /!\ Assumes the writer provides buffers with proper alignment.
         pub fn finalize(self: *Encoder, out: *std.Io.Writer) !void {
             var min_tokens: usize = 4;
@@ -356,6 +385,7 @@ pub const Tokenizer = struct {
             }
         }
 
+        // Reserve dans le writer au moins min_tokens identifiants u32 correctement alignes.
         fn writableTokenSliceGreedy(out: *std.Io.Writer, min_tokens: usize) std.Io.Writer.Error![]u32 {
             std.debug.assert(@mod(out.end, @sizeOf(u32)) == 0);
             const bytes = try out.writableSliceGreedy(min_tokens * @sizeOf(u32));
@@ -371,6 +401,7 @@ pub const Tokenizer = struct {
         state_storage: []u8,
         state: *c.iree_tokenizer_decode_state_t,
 
+        // Calcule et initialise l'etat de decodage IREE avec son tampon de stockage.
         fn init(tokenizer: *const Tokenizer, allocator: std.mem.Allocator) !Decoder {
             var state_size: usize = undefined;
             try checkOk(c.iree_tokenizer_decode_state_calculate_size(tokenizer.inner, &state_size));
@@ -392,11 +423,13 @@ pub const Tokenizer = struct {
             };
         }
 
+        // Desinitialise l'etat de decodage et libere son tampon.
         pub fn deinit(self: *Decoder) void {
             c.iree_tokenizer_decode_state_deinitialize(self.state);
             self.tokenizer.allocator.free(self.state_storage);
         }
 
+        // Reinitialise l'etat de decodage pour une nouvelle sequence.
         pub fn reset(self: *Decoder) !void {
             c.iree_tokenizer_decode_state_deinitialize(self.state);
             var state: ?*c.iree_tokenizer_decode_state_t = null;
@@ -409,6 +442,7 @@ pub const Tokenizer = struct {
             self.state = state.?;
         }
 
+        // Decode un seul token dans le buffer out et renvoie le texte produit.
         pub fn feedOne(self: *Decoder, token_id: u32, out: []u8) ![]u8 {
             std.debug.assert(out.len != 0);
             var consumed: usize = 0;
@@ -424,6 +458,7 @@ pub const Tokenizer = struct {
             return out[0..produced];
         }
 
+        // Finalise le decodage en vidant le texte restant dans out.
         pub fn finalize(self: *Decoder, out: []u8) ![]u8 {
             std.debug.assert(out.len != 0);
             var produced: usize = 0;
@@ -435,6 +470,7 @@ pub const Tokenizer = struct {
             return out[0..produced];
         }
 
+        // Decode une liste d'identifiants vers le writer, en gerant les reprises de capacite.
         pub fn decode(self: *Decoder, token_ids: []const u32, out: *std.Io.Writer) !void {
             var min_output: usize = @max(token_ids.len * 4, 128);
             var remaining = token_ids;
@@ -536,6 +572,7 @@ pub const Normalizer = struct {
     //   - Prepend: Prefix string insertion
     //   - StripAccents: Removes combining marks (without NFD)
     //   - BertNormalizer: Combined BERT normalization pipeline
+    // Parse un normaliseur HuggingFace et calcule la taille de son etat.
     pub fn fromHuggingFaceJson(json: []const u8) !Normalizer {
         var normalizer: ?*c.iree_tokenizer_normalizer_t = null;
         errdefer if (normalizer) |ptr| c.iree_tokenizer_normalizer_free(ptr);
@@ -551,6 +588,7 @@ pub const Normalizer = struct {
         };
     }
 
+    // Alloue le normaliseur IREE correspondant a un type Kind donne.
     fn createNormalizer(normalizer_kind: Kind) !?*c.iree_tokenizer_normalizer_t {
         var norm: ?*c.iree_tokenizer_normalizer_t = null;
 
@@ -588,6 +626,7 @@ pub const Normalizer = struct {
         return norm;
     }
 
+    // Construit un normaliseur (simple ou sequence) a partir d'une liste de types.
     pub fn init(allocator: std.mem.Allocator, sequence: []const Kind) !Normalizer {
         if (sequence.len == 0) return error.EmptySequence;
 
@@ -627,10 +666,12 @@ pub const Normalizer = struct {
         };
     }
 
+    // Libere la sequence de normaliseurs.
     pub fn deinit(self: *Normalizer) void {
         c.iree_tokenizer_normalizer_free(self.sequence);
     }
 
+    // Applique le normaliseur au texte et renvoie le resultat alloue.
     pub fn normalize(self: *Normalizer, allocator: std.mem.Allocator, text: []const u8) ![]const u8 {
         const storage: []align(16) u8 = try allocator.alignedAlloc(u8, .@"16", self.sequence_size);
         defer allocator.free(storage);
@@ -682,6 +723,7 @@ pub const Normalizer = struct {
     }
 };
 
+// Verifie un normaliseur HuggingFace sur plusieurs cas, dont vides et accents.
 test "normalizer from Hugging Face" {
     const allocator = std.testing.allocator;
 
@@ -725,6 +767,7 @@ test "normalizer from Hugging Face" {
     }
 }
 
+// Verifie qu'une sequence Strip puis Lowercase normalise correctement.
 test "normalizer sequence" {
     const allocator = std.testing.allocator;
 
@@ -740,6 +783,7 @@ test "normalizer sequence" {
     try std.testing.expectEqualSlices(u8, "hello world", res);
 }
 
+// Verifie que la normalisation preserve les espaces a travers tuiles et sequences.
 test "normalizer preserves whitespace across output and sequence boundaries" {
     const allocator = std.testing.allocator;
     for ([_][]const Normalizer.Kind{
@@ -761,6 +805,7 @@ test "normalizer preserves whitespace across output and sequence boundaries" {
     }
 }
 
+// Verifie que les codepoints Unicode sont preserves a travers les tuiles de sortie.
 test "normalizer sequence preserves Unicode across tiles" {
     const allocator = std.testing.allocator;
     var normalizer = try Normalizer.fromHuggingFaceJson(
@@ -781,6 +826,7 @@ test "normalizer sequence preserves Unicode across tiles" {
     }
 }
 
+// Verifie que la composition Unicode est preservee a travers les tuiles.
 test "normalizer sequence preserves composition across tiles" {
     const allocator = std.testing.allocator;
     var normalizer = try Normalizer.init(allocator, &.{ .NFC, .Lowercase });
@@ -791,8 +837,10 @@ test "normalizer sequence preserves composition across tiles" {
     try std.testing.expectEqualSlices(u8, "a" ** 63 ++ "éb", output);
 }
 
+// Verifie qu'un echec d'allocation de sequence ne corrompt pas les enfants.
 test "normalizer sequence allocation failure retains child ownership" {
     const FailAllocator = struct {
+        // Allocateur de test qui echoue toujours avec RESOURCE_EXHAUSTED.
         fn control(_: ?*anyopaque, _: c.iree_allocator_command_t, _: ?*const anyopaque, _: [*c]?*anyopaque) callconv(.c) c.iree_status_t {
             return @ptrFromInt(c.IREE_STATUS_RESOURCE_EXHAUSTED);
         }
@@ -817,20 +865,24 @@ test "normalizer sequence allocation failure retains child ownership" {
     try std.testing.expectEqualStrings("hello", output);
 }
 
+// Cree un writer de sortie aligne sur u32 pour les identifiants de tokens.
 fn tokenOutputWriter(allocator: std.mem.Allocator) std.Io.Writer.Allocating {
     return std.Io.Writer.Allocating.initAligned(allocator, .of(u32));
 }
 
+// Relit les identifiants de tokens ecrits par un writer allouant.
 fn writtenTokenIds(out: *std.Io.Writer.Allocating) []const u32 {
     const bytes = out.written();
     const aligned_bytes: []align(4) u8 = @alignCast(bytes[0..bytes.len]);
     return std.mem.bytesAsSlice(u32, aligned_bytes);
 }
 
+// Cree un writer allouant pour le texte decode.
 fn decodedTextWriter(allocator: std.mem.Allocator) std.Io.Writer.Allocating {
     return std.Io.Writer.Allocating.init(allocator);
 }
 
+// Verifie l'encodage et le decodage d'un tokenizer WordPiece depuis un JSON HuggingFace.
 test "huggingface json encode/decode" {
     const allocator = std.testing.allocator;
     const json =
@@ -878,6 +930,7 @@ test "huggingface json encode/decode" {
     try std.testing.expectEqualStrings("hello world", decoded.written());
 }
 
+// Verifie le chargement d'un tokenizer BPE avec split sur retour a la ligne et unk ajoute.
 test "loads bpe tokenizer with newline lookahead split and added unk" {
     const allocator = std.testing.allocator;
     const json =
@@ -939,6 +992,7 @@ test "loads bpe tokenizer with newline lookahead split and added unk" {
     try std.testing.expectEqualSlices(u32, &.{ 5, 6, 4 }, ids);
 }
 
+// Verifie que le Writer produit les memes tokens que l'encodage direct.
 test "writer" {
     const allocator = std.testing.allocator;
     const json =
@@ -1015,6 +1069,7 @@ const test_tokenizer_json =
     \\}
 ;
 
+// Verifie que le writer force le chemin drain quand le tampon est plus petit que l'entree.
 test "writer with tiny buffer forces drain" {
     // A buffer smaller than the input forces the drain path (not just flush).
     const allocator = std.testing.allocator;
@@ -1036,6 +1091,7 @@ test "writer with tiny buffer forces drain" {
     try std.testing.expectEqualSlices(u32, &.{ 1, 2 }, writtenTokenIds(&out));
 }
 
+// Verifie l'ecriture octet par octet a travers le writer.
 test "writer byte-by-byte" {
     // Feed one byte at a time through the writer to stress buffer/drain boundaries.
     const allocator = std.testing.allocator;
@@ -1058,6 +1114,7 @@ test "writer byte-by-byte" {
     try std.testing.expectEqualSlices(u32, &.{ 1, 2 }, writtenTokenIds(&out));
 }
 
+// Verifie que reset rend les encodages successifs independants.
 test "encoder reset between multiple encodes" {
     // Ensure reset properly clears state so successive encodes are independent.
     const allocator = std.testing.allocator;
@@ -1092,6 +1149,7 @@ test "encoder reset between multiple encodes" {
     }
 }
 
+// Verifie que le writer et encodeAlloc donnent des resultats identiques.
 test "writer and encodeAlloc produce same results" {
     const allocator = std.testing.allocator;
 
@@ -1126,6 +1184,7 @@ test "writer and encodeAlloc produce same results" {
     }
 }
 
+// Verifie que l'encodage d'une chaine vide ne produit aucun token.
 test "encode empty string" {
     const allocator = std.testing.allocator;
 
@@ -1156,6 +1215,7 @@ test "encode empty string" {
     }
 }
 
+// Verifie que les mots hors vocabulaire sont mappes sur le token [UNK].
 test "unknown tokens" {
     // Words not in the vocabulary should map to the [UNK] token (id 0).
     const allocator = std.testing.allocator;
@@ -1171,6 +1231,7 @@ test "unknown tokens" {
     try std.testing.expectEqualSlices(u32, &.{0}, ids);
 }
 
+// Verifie l'aller-retour encodage puis decodage sur plusieurs chaines.
 test "decode round-trip" {
     // Encode then decode several strings and verify round-trip fidelity.
     const allocator = std.testing.allocator;
@@ -1203,6 +1264,7 @@ test "decode round-trip" {
     }
 }
 
+// Verifie que reset permet de decoder plusieurs sequences independamment.
 test "decoder reset between decodes" {
     const allocator = std.testing.allocator;
 
@@ -1229,6 +1291,7 @@ test "decoder reset between decodes" {
     }
 }
 
+// Verifie la recherche d'identifiants par chaine, y compris absents et vides.
 test "tokenId lookup" {
     const allocator = std.testing.allocator;
 
@@ -1244,6 +1307,7 @@ test "tokenId lookup" {
     try std.testing.expect(tokenizer.tokenId("") == null);
 }
 
+// Verifie la coherence entre tokenId et decode pour chaque token.
 test "tokenId <-> decode" {
     const allocator = std.testing.allocator;
 
@@ -1255,6 +1319,7 @@ test "tokenId <-> decode" {
     }
 }
 
+// Verifie l'encodage avec un writer de sortie pre-alloue.
 test "writer with pre-allocated output writer" {
     // Pass an already-allocated aligned output writer to the encoder stream.
     const allocator = std.testing.allocator;
