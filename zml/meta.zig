@@ -5,9 +5,11 @@ const stdx = @import("stdx");
 const FnParam = stdx.meta.FnParam;
 const asSlice = stdx.meta.asSlice;
 
+// Construit un transformateur de type qui remplace recursivement From par To dans les champs.
 /// Visit a given type `T` and replace all fields containing `From` by fields containing `To`.
 pub fn MapType(From: type, To: type) type {
     return struct {
+        // Applique recursivement le remplacement From->To au type T (structs, unions, tableaux, pointeurs).
         pub fn map(T: type) type {
             switch (T) {
                 To => return To,
@@ -109,6 +111,7 @@ pub fn MapType(From: type, To: type) type {
     };
 }
 
+// Verifie que MapType remplace From par To dans des structs et unions imbriques.
 test MapType {
     const A = struct { a: u32 };
     const B = struct { b: u32 };
@@ -134,6 +137,7 @@ test MapType {
     _ = union_b;
 }
 
+// Visite `from` et ecrit dans `to` en appelant `cb` sur chaque From, en allouant les slices necessaires.
 /// Given a callback: `fn(Ctx, From) To`, recursively visits the given `from` struct
 /// and calls the callback when it finds a `From` element, and writes it to the `to` struct.
 /// The `to` parameter must be passed with mutable pointer, and tensor data need to be mutable if callback needs it.
@@ -248,10 +252,12 @@ pub fn mapAlloc(comptime cb: anytype, allocator: std.mem.Allocator, ctx: FnParam
     }
 }
 
+// Verifie mapAlloc sur structs, tableaux, slices et champs comptime.
 test mapAlloc {
     const B = struct { b: u8 };
     const A = struct {
         a: u8,
+        // Callback de test convertissant un A en B.
         pub fn convert(_: void, a: @This()) B {
             return .{ .b = a.a };
         }
@@ -307,6 +313,7 @@ test mapAlloc {
     try testing.expectEqual(12, bb.static_slice[1].b);
 }
 
+// Transformateur de type qui remplace From par To et supprime les champs sans From.
 /// Visit a given type `T` and:
 /// * replace all fields containing `From` by fields containing `To`
 /// * drop all fields not containing any `From`.
@@ -315,6 +322,7 @@ test mapAlloc {
 pub fn MapRestrict(From: type, To: type) type {
     @setEvalBranchQuota(100000);
     return struct {
+        // Applique le remplacement From->To en eliminant les champs qui ne contiennent pas From.
         pub fn map(T: type) type {
             switch (T) {
                 From => return To,
@@ -417,6 +425,7 @@ pub fn MapRestrict(From: type, To: type) type {
     };
 }
 
+// Verifie que MapRestrict ne garde que les champs contenant From.
 test MapRestrict {
     const A = struct { a: u32 };
     const B = struct { b: u32 };
@@ -443,6 +452,7 @@ test MapRestrict {
     _ = union_b;
 }
 
+// Calcule le type de retour de `visit` selon que le callback peut echouer ou non.
 /// Recursively visit the given struct and calls the callback for each K found.
 /// The `v` parameter must me a pointer, and tensor data need to be mutable if callbacks needs it.
 pub fn VisitReturn(comptime cb: anytype) type {
@@ -459,6 +469,7 @@ const Visitor = struct {
         exit,
     };
 
+    // Decide pour `visit` s'il faut appeler le callback, recurser ou s'arreter.
     pub fn determineAction(comptime callback: anytype, comptime PtrTypeOfV: type) Action {
         const ptr_info = switch (@typeInfo(PtrTypeOfV)) {
             .pointer => |info| info,
@@ -485,6 +496,7 @@ const Visitor = struct {
     }
 };
 
+// Parcourt recursivement v et appelle `callback` sur chaque valeur du type cible.
 pub fn visit(comptime callback: anytype, ctx: FnParam(callback, 0), v: anytype) VisitReturn(callback) {
     const action = comptime Visitor.determineAction(callback, @TypeOf(v));
 
@@ -540,6 +552,7 @@ pub fn visit(comptime callback: anytype, ctx: FnParam(callback, 0), v: anytype) 
     };
 }
 
+// Verifie la visite recursive (structs, arrays, optionnels, BoundedArray).
 test visit {
     const Attr = struct { data: usize };
     const OtherAttr = struct { other: []const u8 };
@@ -552,10 +565,12 @@ test visit {
     const LocalContext = struct {
         result: usize,
 
+        // Callback de test immuable accumulant les donnees des Attr visites.
         fn cb(ctx: *@This(), attr: *const Attr) void {
             ctx.result += attr.data;
         }
 
+        // Callback de test mutable accumulant les donnees des Attr visites.
         fn mutCb(ctx: *@This(), attr: *Attr) void {
             ctx.result += attr.data;
         }
@@ -616,6 +631,7 @@ test visit {
     }
 }
 
+// Comme `visit` mais sans suivre les pointeurs/slices, pour garantir un struct plat.
 /// Similar to `visit` but doesn't follow pointers or slices.
 /// This guarantees that the given type is a flat struct.
 ///
@@ -675,6 +691,7 @@ pub fn visitFlatStruct(comptime callback: anytype, ctx: FnParam(callback, 0), v:
     }
 }
 
+// Verifie la visite de structs plats (avec BoundedArray).
 test visitFlatStruct {
     const Attr = struct { data: usize };
     const OtherAttr = struct { other: []const u8 };
@@ -688,10 +705,12 @@ test visitFlatStruct {
     const LocalContext = struct {
         result: usize,
 
+        // Callback de test immuable accumulant les donnees des Attr visites.
         fn cb(ctx: *@This(), attr: *const Attr) void {
             ctx.result += attr.data;
         }
 
+        // Callback de test mutable accumulant les donnees des Attr visites.
         fn mutCb(ctx: *@This(), attr: *Attr) void {
             ctx.result += attr.data;
         }
@@ -748,9 +767,11 @@ test visitFlatStruct {
         try std.testing.expectEqual(1 + 2 + 3 + 4 + 4, context.result);
     }
 }
+// Compte le nombre d'elements de type T presents dans value.
 pub fn count(T: type, value: anytype) u32 {
     var counter: u32 = 0;
     visit(struct {
+        // Callback de comptage incrementant le compteur.
         pub fn cb(res: *u32, _: *const T) void {
             res.* += 1;
         }
@@ -758,9 +779,11 @@ pub fn count(T: type, value: anytype) u32 {
     return counter;
 }
 
+// Renvoie le premier element de type T trouve dans value.
 pub fn first(T: type, value: anytype) T {
     var res: ?T = null;
     visit(struct {
+        // Callback memorisant le premier element rencontre.
         pub fn cb(res_ptr: *?T, x: *const T) void {
             if (res_ptr.* == null) res_ptr.* = x.*;
         }
@@ -768,6 +791,7 @@ pub fn first(T: type, value: anytype) T {
     return res.?;
 }
 
+// Combine un tableau de structures champ par champ via `func`, avec des allocations temporaires.
 /// Given a `fn([]const T, Args) T` and a slice of values,
 /// will combine all values in one value.
 /// Only T elements of values will be looked at.
@@ -820,12 +844,14 @@ pub fn zip(comptime func: anytype, allocator: std.mem.Allocator, values: anytype
     };
 }
 
+// Verifie que zip somme champ par champ plusieurs structures.
 test zip {
     const A = struct { a: u8, b: [2]u8 };
     const a0: A = .{ .a = 1, .b = .{ 2, 3 } };
     const a1: A = .{ .a = 4, .b = .{ 5, 6 } };
 
     const Sum = struct {
+        // Callback de test sommant une slice d'octets.
         pub fn call(x: []const u8) u8 {
             var res: u8 = 0;
             for (x) |xx| res += xx;
@@ -836,6 +862,7 @@ test zip {
     try testing.expectEqual(A{ .a = 5, .b = .{ 7, 9 } }, a_sum);
 }
 
+// Collecte dans un tableau alloue dynamiquement le resultat de `func` sur chaque X trouve.
 /// Given a func(X) -> Y or a func(Ctx, X) -> Y,
 /// finds all X in the given object, and write the result of func(X) into an arraylist.
 pub fn collectAlloc(
@@ -852,6 +879,7 @@ pub fn collectAlloc(
         out: std.ArrayList(stdx.meta.FnReturn(func)) = .empty,
         oom: bool = false,
 
+        // Callback appliquant `func` et ajoutant le resultat (gere l'OOM).
         fn cb(ctx: *@This(), val: *const _CollectArg(func)) void {
             if (ctx.oom) return;
             const res = if (_CollectCtx(func) == void) func(val.*) else func(ctx.func_ctx, val.*);
@@ -867,6 +895,7 @@ pub fn collectAlloc(
     return context.out.toOwnedSlice(allocator);
 }
 
+// Collecte le resultat de `func` sur chaque X dans le slice `out` fourni.
 /// Given a func(X) -> Y or a func(Ctx, X) -> Y,
 /// finds all X in the given object, and write the result of func(X) into a given slice.
 /// Asserts that the number of X found is equal to the slice len.
@@ -879,6 +908,7 @@ pub fn collectBuf(func: anytype, func_ctx: _CollectCtx(func), obj: anytype, out:
     };
     var context = LocalContext{ .func_ctx = func_ctx, .out = out };
     visit((struct {
+        // Callback appliquant `func` et ecrivant dans le slice de sortie.
         fn cb(ctx: *LocalContext, val: *const _CollectArg(func)) void {
             if (ctx.idx >= ctx.out.len) return;
 
@@ -890,6 +920,7 @@ pub fn collectBuf(func: anytype, func_ctx: _CollectCtx(func), obj: anytype, out:
     std.debug.assert(context.idx == context.out.len);
 }
 
+// Collecte les pointeurs vers chaque T trouve dans obj dans un tableau alloue.
 /// Finds all X in the given object, and write their pointers into an arraylist.
 pub fn collectPtrs(
     T: type,
@@ -901,6 +932,7 @@ pub fn collectPtrs(
         out: std.ArrayList(*const T) = .empty,
         oom: bool = false,
 
+        // Callback ajoutant le pointeur trouve au tableau (gere l'OOM).
         fn cb(ctx: *@This(), val: *const T) void {
             if (ctx.oom) return;
             ctx.out.append(ctx.allocator, val) catch {
@@ -915,17 +947,20 @@ pub fn collectPtrs(
     return context.out.toOwnedSlice(allocator);
 }
 
+// Deduit le type du contexte passe a `func` dans collect (void si un seul argument).
 fn _CollectCtx(func: anytype) type {
     const params = @typeInfo(@TypeOf(func)).@"fn".params;
     if (params.len == 1) return void;
     return params[0].type orelse @compileError("anytype not supported in collect");
 }
 
+// Deduit le type de l'argument X collecte par `func`.
 fn _CollectArg(func: anytype) type {
     const params = @typeInfo(@TypeOf(func)).@"fn".params;
     return params[params.len - 1].type orelse @compileError("anytype not supported in collect");
 }
 
+// Renvoie vrai si le type Haystack contient recursivement le type T.
 pub fn Contains(Haystack: type, T: type) bool {
     switch (Haystack) {
         T, ?T => return true,
@@ -962,6 +997,7 @@ pub fn Contains(Haystack: type, T: type) bool {
     };
 }
 
+// Visite v en appelant f(index, elem, ...args) pour chaque T rencontre.
 pub fn forEachVisit(v: anytype, comptime T: type, f: anytype, args: stdx.meta.TupleRange(std.meta.ArgsTuple(@TypeOf(f)), 2, null)) void {
     const Ctx = struct {
         i: usize,
@@ -972,6 +1008,7 @@ pub fn forEachVisit(v: anytype, comptime T: type, f: anytype, args: stdx.meta.Tu
         .args_ = args,
     };
     visit(struct {
+        // Callback appelant f avec l'index courant puis l'element visite.
         fn cb(ctx_: *Ctx, elem: T) void {
             @call(.auto, f, .{ ctx_.i, elem } ++ ctx_.args_);
             ctx_.i += 1;

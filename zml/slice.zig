@@ -7,6 +7,7 @@ const DataType = @import("dtype.zig").DataType;
 const floats = @import("floats.zig");
 const Shape = @import("shape.zig").Shape;
 
+// Renvoie vrai si T est un slice/pointeur d'octets (u8 ou tableau de u8).
 pub fn isBytes(comptime T: type) bool {
     const type_info = @typeInfo(T);
     if (type_info != .pointer) return false;
@@ -24,6 +25,7 @@ pub const Slice = struct {
     offset_bytes: usize = 0,
     byte_strides: stdx.BoundedArray(i64, constants.MAX_RANK),
 
+    // Construit un Slice depuis une Shape et un buffer d'octets, en deduisant la mutabilite.
     pub fn init(shape: Shape, bytes: anytype) Slice {
         stdx.debug.assertComptime(isBytes(@TypeOf(bytes)), "Expected \"bytes\" to be a []u8 or []const u8, got {s}", .{@typeName(@TypeOf(bytes))});
         stdx.debug.assert(bytes.len == shape.byteSize(), "Expected \"bytes\" to have the same length as shape.byteSize() ({}), got {}", .{ shape.byteSize(), bytes.len });
@@ -38,6 +40,7 @@ pub const Slice = struct {
         };
     }
 
+    // Construit un Slice constant depuis une Shape et des octets en lecture seule.
     pub fn initConst(shape: Shape, bytes: []const u8) Slice {
         stdx.debug.assert(bytes.len == shape.byteSize(), "Expected \"bytes\" to have the same length as shape.byteSize() ({}), got {}", .{ shape.byteSize(), bytes.len });
         return .{
@@ -49,6 +52,7 @@ pub const Slice = struct {
         };
     }
 
+    // Alloue un Slice mutable pour la Shape donnee, avec l'alignement du dtype.
     pub fn alloc(allocator: std.mem.Allocator, shape_: Shape) !Slice {
         const size = shape_.byteSize();
         const bytes: []u8 = switch (shape_.dtype().alignOf()) {
@@ -71,6 +75,7 @@ pub const Slice = struct {
         };
     }
 
+    // Libere la memoire d'un Slice avec l'alignement correspondant a son dtype.
     pub fn free(slice: Slice, allocator: std.mem.Allocator) void {
         const d = slice.bytes;
         // TODO: It would be better to store the aligment, this can be error prone in the presence of type casting
@@ -86,10 +91,12 @@ pub const Slice = struct {
         }
     }
 
+    // Renvoie le DataType du Slice.
     pub fn dtype(slice: Slice) DataType {
         return slice.shape.dtype();
     }
 
+    // Renvoie vrai si les strides du Slice correspondent a une disposition contigue.
     pub fn isContiguous(slice: Slice) bool {
         const expected = slice.shape.computeByteStrides();
         for (expected.slice(), slice.byte_strides.slice()) |exp, actual| {
@@ -98,6 +105,7 @@ pub const Slice = struct {
         return true;
     }
 
+    // Renvoie les strides en elements (octets divises par la taille du dtype).
     /// Returns the actual element-wise strides for this specific slice.
     /// This respects transpositions and non-contiguous views.
     pub fn elementStrides(self: Slice) stdx.BoundedArray(i64, constants.MAX_RANK) {
@@ -110,6 +118,7 @@ pub const Slice = struct {
         return res;
     }
 
+    // Renvoie un sous-Slice le long d'un axe, en decalant l'offset et reduisant la dimension.
     pub fn subSlice(slice: Slice, axis: anytype, start: i64, size: i64) Slice {
         const dim = slice.shape.dim(axis);
 
@@ -125,6 +134,7 @@ pub const Slice = struct {
         return res;
     }
 
+    // Supprime une dimension de taille 1 (retire aussi son stride).
     pub fn squeeze(slice: Slice, axis_: anytype) Slice {
         const axis = slice.shape.axis(axis_);
         var res = slice;
@@ -133,6 +143,7 @@ pub const Slice = struct {
         return res;
     }
 
+    // Renvoie les octets mutables du Slice (exige mutabilite et contiguite).
     pub fn data(slice: Slice) []u8 {
         std.debug.assert(slice.mutable);
         std.debug.assert(slice.isContiguous());
@@ -140,27 +151,32 @@ pub const Slice = struct {
         return @constCast(slice.bytes[slice.offset_bytes..end]);
     }
 
+    // Renvoie les octets en lecture seule du Slice (exige contiguite).
     pub fn constData(slice: Slice) []const u8 {
         std.debug.assert(slice.isContiguous());
         const end = slice.offset_bytes + slice.shape.byteSize();
         return slice.bytes[slice.offset_bytes..end];
     }
 
+    // Reinterprete les donnees contigues en slice de T mutables.
     pub fn items(slice: Slice, comptime T: type) []T {
         stdx.debug.assertComptime(T == bool or @bitSizeOf(T) >= 8, "zml.Slice stores packed sub-bytes type so you need to pass a packed type here like @Vector({}, {}). Got: {}", .{ @divFloor(8, @bitSizeOf(T)), T, T });
         return @ptrCast(@alignCast(slice.data()));
     }
 
+    // Reinterprete les donnees contigues en slice de T en lecture seule.
     pub fn constItems(slice: Slice, comptime T: type) []const T {
         stdx.debug.assertComptime(T == bool or @bitSizeOf(T) >= 8, "zml.Slice stores packed sub-bytes type so you need to pass a packed type here like @Vector({}, {}). Got: {}", .{ @divFloor(8, @bitSizeOf(T)), T, T });
         return @ptrCast(@alignCast(slice.constData()));
     }
 
+    // Cree un iterateur sur les blocs contigus d'elements T du Slice.
     pub fn contiguousItemsIterator(slice: *const Slice, comptime T: type) ContiguousItemsIterator(T) {
         std.debug.assert(slice.dtype() == DataType.fromZigType(T));
         return .init(slice);
     }
 
+    // Retourne le type de l'iterateur qui enumere les blocs contigus d'elements.
     fn ContiguousItemsIterator(comptime T: type) type {
         return struct {
             slice: *const Slice,
@@ -173,6 +189,7 @@ pub const Slice = struct {
 
             const Iterator = @This();
 
+            // Initialise l'iterateur en detectant l'axe de contiguite le plus profond.
             fn init(slice: *const Slice) Iterator {
                 const rank = slice.shape.rank();
                 const total_count = slice.shape.count();
@@ -206,6 +223,7 @@ pub const Slice = struct {
                 };
             }
 
+            // Renvoie le prochain bloc contigu d'elements, ou null en fin d'iteration.
             pub fn next(self: *Iterator) ?[]const T {
                 if (self.outer_index >= self.outer_count) return null;
 
@@ -219,6 +237,7 @@ pub const Slice = struct {
                 return @ptrCast(@alignCast(self.slice.bytes[start..][0..byte_len]));
             }
 
+            // Avance les coordonnees des axes externes et met a jour l'offset du prochain bloc.
             fn advanceOuterCoords(self: *Iterator) void {
                 var axis = self.contiguous_axis_start;
                 while (axis > 0) {
@@ -237,6 +256,7 @@ pub const Slice = struct {
         };
     }
 
+    // Formate l'en-tete du Slice (forme, pointeur, mutabilite, offset, strides).
     pub fn format(
         slice: @This(),
         writer: *std.Io.Writer,
@@ -244,14 +264,17 @@ pub const Slice = struct {
         return writer.print("Slice({f})@0x{x} [mut={}, off={d}, strides={any}]", .{ slice.shape, @intFromPtr(slice.bytes.ptr), slice.mutable, slice.offset_bytes, slice.byte_strides.slice() });
     }
 
+    // Formate le Slice en utilisant le pretty-printer indente.
     pub fn formatNumber(slice: Slice, writer: *std.Io.Writer, n: std.fmt.Number) std.Io.Writer.Error!void {
         return slice.prettyPrintIndented(writer, 4, 0, n);
     }
 
+    // Imprime le Slice de facon lisible pour l'humain.
     pub fn prettyPrint(slice: Slice, writer: *std.Io.Writer, options: std.fmt.Number) !void {
         return slice.prettyPrintIndented(writer, 4, 0, options);
     }
 
+    // Imprime le Slice recursivement avec indentation, ellipsis et gestion des scalaires.
     fn prettyPrintIndented(slice: Slice, writer: *std.Io.Writer, num_rows: u8, indent_level: u8, options: std.fmt.Number) !void {
         if (slice.shape.rank() == 0) {
             // Special case input tensor is a scalar
@@ -338,6 +361,7 @@ pub const Slice = struct {
         _ = try writer.write("}");
     }
 
+    // Copie un buffer source dans ce Slice (meme non contigu), en preservant sa forme.
     pub fn copy(destination: Slice, source: []const u8) void {
         const total_bytes = destination.shape.byteSize();
         stdx.debug.assert(source.len >= total_bytes, "Source buffer size ({}) smaller than destination shape ({})", .{ source.len, total_bytes });
@@ -367,6 +391,7 @@ pub const Slice = struct {
     }
 };
 
+// Verifie que expectClose compare correctement un slice dense et un slice strided.
 test "slice expectClose compares dense and strided slices" {
     const testing = @import("testing.zig");
 
@@ -388,6 +413,7 @@ test "slice expectClose compares dense and strided slices" {
     try testing.expectClose(std.testing.io, strided, dense, .exact_match);
 }
 
+// Verifie l'application de la fraction de proximite sur des slices strided.
 test "slice expectClose applies close fraction across strided slices" {
     const testing = @import("testing.zig");
 
@@ -414,6 +440,7 @@ test "slice expectClose applies close fraction across strided slices" {
     try testing.expectClose(std.testing.io, strided, dense, opts);
 }
 
+// Verifie le pretty-print d'un slice de rang 3.
 test "slice pretty print rank 3" {
     const data: [4][4][4]i32 = .{
         .{
@@ -474,6 +501,7 @@ test "slice pretty print rank 3" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie le pretty-print d'un slice de rang 2.
 test "slice pretty print rank 2" {
     const data: [4]i32 = .{ 0, 1, 2, 3 };
     const slice = Slice.init(.init(.{ 1, 4 }, .i32), std.mem.asBytes(&data));
@@ -485,6 +513,7 @@ test "slice pretty print rank 2" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie le pretty-print d'un slice de rang 1.
 test "slice pretty print rank 1" {
     const data: [4]i32 = .{ 0, 1, 2, 3 };
     const slice = Slice.init(.init(.{4}, .i32), std.mem.asBytes(&data));
@@ -492,6 +521,7 @@ test "slice pretty print rank 1" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie le pretty-print d'un slice de rang 0 (scalaire).
 test "slice pretty print rank 0" {
     const data: [1]i32 = .{0};
     const slice = Slice.init(.init(.{}, .i32), std.mem.asBytes(&data));
@@ -499,6 +529,7 @@ test "slice pretty print rank 0" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie le pretty-print d'un slice de booleens.
 test "slice pretty print bool" {
     const data: [2]bool = .{ true, false };
     const slice = Slice.init(.init(.{2}, .bool), std.mem.asBytes(&data));
@@ -507,6 +538,7 @@ test "slice pretty print bool" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie l'affichage de l'ellipsis lors du pretty-print d'une grande dimension.
 test "slice pretty print ellipsis" {
     const data: [9][1]i32 = .{ .{0}, .{1}, .{2}, .{3}, .{4}, .{5}, .{6}, .{7}, .{8} };
     const slice = Slice.init(.init(.{ 9, 1 }, .i32), std.mem.asBytes(&data));
@@ -526,6 +558,7 @@ test "slice pretty print ellipsis" {
     try std.testing.expectFmt(expected, "{d}", .{slice});
 }
 
+// Verifie le pretty-print d'un slice de float4 packes.
 test "slice pretty print f4" {
     const x_f4_packed = [_]floats.Float4E2M1.Packed{ .fromF32(0, 0.5), .fromF32(1, 1.5), .fromF32(2, 3), .fromF32(4, 6) };
     const slice = Slice.initConst(.init(.{8}, .f4e2m1), @ptrCast(&x_f4_packed));

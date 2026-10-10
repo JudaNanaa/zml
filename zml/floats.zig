@@ -1,6 +1,7 @@
 ///! Conversion utilities between different Floating point formats.
 const std = @import("std");
 
+// Genere les helpers de conversion f32 <-> type flottant personnalise (fromF32/toF32).
 fn FloatConversionHelpers(Float: type) type {
     const info = @typeInfo(Float);
     const err_msg = "FloatHelpers expect a packed struct { mantissa: uXX, exponent: uXX, sign: u1}";
@@ -23,6 +24,7 @@ fn FloatConversionHelpers(Float: type) type {
         const exp_bias: i16 = std.math.maxInt(std.meta.Int(.unsigned, exponent_bits - 1));
         const exp_off: u8 = FloatConversionHelpers(Float32).exp_bias - exp_bias;
 
+        // Conversion (avec perte, style @floatCast) depuis f32, gerant debordement et sous-depassement.
         /// Lossy conversion from f32, similar to @floatCast
         pub fn fromF32(f: f32) Float {
             @setRuntimeSafety(false);
@@ -54,6 +56,7 @@ fn FloatConversionHelpers(Float: type) type {
                 };
         }
 
+        // Conversion sans perte vers f32 depuis ce format.
         /// Lossless conversion to f32.
         pub fn toF32(x: Float) f32 {
             @setRuntimeSafety(false);
@@ -79,11 +82,13 @@ fn FloatConversionHelpers(Float: type) type {
             return @bitCast(vf32);
         }
 
+        // Tronque la mantisse f32 (avec arrondi) au nombre de bits de mantisse cible.
         fn truncMantissa(f32_mantissa: u32) @FieldType(Float, "mantissa") {
             const rounding_val: u32 = @as(u32, 1) << (f32_mantissa_bits - mantissa_bits - 1);
             return @truncate((f32_mantissa + rounding_val) >> (f32_mantissa_bits - mantissa_bits));
         }
 
+        // Decale la mantisse f32 vers la droite pour un exposant en sous-depassement.
         fn shiftMantissa(f32_mantissa: u32, underflow: u8) @FieldType(Float, "mantissa") {
             const upper_bit: u32 = @as(u32, 1) << f32_mantissa_bits;
             const full_mant32: u32 = f32_mantissa | upper_bit;
@@ -92,6 +97,7 @@ fn FloatConversionHelpers(Float: type) type {
             return truncMantissa(shifted_mant);
         }
 
+        // Etend la mantisse de ce format vers la position de la mantisse f32.
         fn f32Mantissa(x: Float) @FieldType(Float32, "mantissa") {
             const T = @FieldType(Float32, "mantissa");
             return @as(T, x.mantissa) << f32_mantissa_bits - mantissa_bits;
@@ -99,6 +105,7 @@ fn FloatConversionHelpers(Float: type) type {
     };
 }
 
+// Helpers communs (zero, negation, formatage) pour un type flottant personnalise.
 fn FloatHelpers(Float: type) type {
     const info = @typeInfo(Float);
     const err_msg = "FloatHelpers expect a packed struct { mantissa: uXX, exponent: uXX, sign: u1}";
@@ -115,6 +122,7 @@ fn FloatHelpers(Float: type) type {
     return struct {
         pub const zero: Float = .{ .sign = 0, .exponent = 0, .mantissa = 0 };
 
+        // Renvoie l'oppose de x en inversant son bit de signe.
         pub fn neg(x: Float) Float {
             return .{
                 .sign = x.sign ^ 1,
@@ -123,6 +131,7 @@ fn FloatHelpers(Float: type) type {
             };
         }
 
+        // Formate x : champs bruts en binaire/hex, sinon via sa valeur f32.
         pub fn formatNumber(x: Float, writer: *std.Io.Writer, n: std.fmt.Number) std.Io.Writer.Error!void {
             switch (n.mode) {
                 .binary, .octal, .hex => try writer.print("{{ .sign={}, .exp={}, .mantissa={} }}", .{ x.sign, x.exponent, x.mantissa }),
@@ -143,6 +152,7 @@ pub const Float32 = packed struct(u32) {
     pub const inf: Float32 = .{ .sign = 0, .exponent = std.math.maxInt(u8), .mantissa = 0 };
     pub const minus_inf = neg(inf);
 
+    // Renvoie vrai si ce Float32 encode un NaN.
     pub fn isNan(self: Float32) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
@@ -151,10 +161,12 @@ pub const Float32 = packed struct(u32) {
     pub const zero = Helpers.zero;
     pub const neg = Helpers.neg;
 
+    // Convertit un f32 natif vers Float32 (simple recopie de bits).
     pub fn fromF32(f: f32) Float32 {
         return @bitCast(f);
     }
 
+    // Convertit ce Float32 vers le f32 natif (recopie de bits).
     pub fn toF32(x: Float32) f32 {
         return @bitCast(x);
     }
@@ -175,6 +187,7 @@ pub const Float64 = packed struct(u64) {
     pub const inf: Float64 = .{ .sign = 0, .exponent = std.math.maxInt(u11), .mantissa = 0 };
     pub const minus_inf = neg(inf);
 
+    // Renvoie vrai si ce Float64 encode un NaN.
     pub fn isNan(self: Float64) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
@@ -182,10 +195,12 @@ pub const Float64 = packed struct(u64) {
     const Helpers = FloatHelpers(@This());
     pub const zero = Helpers.zero;
     pub const neg = Helpers.neg;
+    // Convertit un f32 vers Float64 en passant par f64.
     pub fn fromF32(f: f32) Float64 {
         return @bitCast(@as(f64, @floatCast(f)));
     }
 
+    // Convertit ce Float64 vers un f32 en passant par f64.
     pub fn toF32(x: Float64) f32 {
         return @floatCast(@as(f64, @bitCast(x)));
     }
@@ -202,6 +217,7 @@ pub const Float8E4M3B11FNUZ = packed struct(u8) {
     pub const max: Float8E4M3B11FNUZ = .{ .sign = 0, .exponent = std.math.maxInt(u4), .mantissa = std.math.maxInt(u3) };
     pub const min: Float8E4M3B11FNUZ = neg(max);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E4M3B11FNUZ) bool {
         return self == nan;
     }
@@ -223,6 +239,7 @@ pub const Float8E4M3FN = packed struct(u8) {
     pub const max: Float8E4M3FN = .{ .sign = 0, .exponent = std.math.maxInt(u4), .mantissa = 0b110 };
     pub const min: Float8E4M3FN = neg(max);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E4M3FN) bool {
         return self.exponent == nan.exponent and self.mantissa == nan.mantissa;
     }
@@ -244,6 +261,7 @@ pub const Float8E4M3FNUZ = packed struct(u8) {
     pub const max: Float8E4M3FNUZ = .{ .sign = 0, .exponent = std.math.maxInt(u4), .mantissa = std.math.maxInt(u3) };
     pub const min: Float8E4M3FNUZ = neg(max);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E4M3FNUZ) bool {
         return self == nan;
     }
@@ -256,6 +274,7 @@ pub const Float8E4M3FNUZ = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Verifie les conversions exactes/approchees des float8 E4M3 et l'absence d'infini.
 test "Float8E4" {
     // With 4 bits of exponents power of two can be represented exactly up to 64.
     const test_case_e4: TestCase = .{
@@ -286,6 +305,7 @@ pub const Float8E5M2 = packed struct(u8) {
     pub const inf: Float8E5M2 = .{ .sign = 0, .exponent = std.math.maxInt(u5), .mantissa = 0 };
     pub const minus_inf: Float8E5M2 = .neg(inf);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E5M2) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
@@ -307,6 +327,7 @@ pub const Float8E5M2FNUZ = packed struct(u8) {
     pub const max: Float8E5M2FNUZ = .{ .sign = 0, .exponent = std.math.maxInt(u5), .mantissa = std.math.maxInt(u2) };
     pub const min: Float8E5M2FNUZ = neg(max);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E5M2FNUZ) bool {
         return self == nan;
     }
@@ -319,6 +340,7 @@ pub const Float8E5M2FNUZ = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Verifie les conversions des float8 E5M2 et E5M2FNUZ.
 test "Float8E5" {
     const test_case_e5: TestCase = .{
         .lossless = &[_]f32{ 0, 1.0, -2, 1.0 / 128.0, -128 },
@@ -340,17 +362,20 @@ pub const BFloat16 = packed struct(u16) {
     pub const inf: BFloat16 = .{ .sign = 0, .exponent = std.math.maxInt(u8), .mantissa = 0 };
     pub const minus_inf: BFloat16 = .neg(inf);
 
+    // Renvoie vrai si ce bfloat16 encode un NaN.
     pub fn isNan(self: BFloat16) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
 
     // Specialized versions of to/from F32. Since BFloat16 has the same exponent range than F32,
     // no overflow/underflow can happen, simplifiying conversion logic.
+    // Convertit un bfloat16 vers f32 en completant les bits faibles par des zeros.
     pub fn toF32(self: BFloat16) f32 {
         // Pad the BF16 with zeros 0
         return @bitCast([2]u16{ 0, @bitCast(self) });
     }
 
+    // Convertit un f32 vers bfloat16 avec arrondi par ajout de 0x8000.
     pub fn fromF32(float32: f32) BFloat16 {
         var int: u32 = @bitCast(float32);
         // Round up if needed.
@@ -365,6 +390,7 @@ pub const BFloat16 = packed struct(u16) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Verifie les cas de conversion bfloat16 documentes, puis les cas generiques.
 test BFloat16 {
     // From https://en.wikipedia.org/wiki/Bfloat16_floating-point_format#Examples
     try std.testing.expectEqual(BFloat16.fromF32(0), BFloat16{ .sign = 0, .exponent = 0, .mantissa = 0 });
@@ -391,6 +417,7 @@ pub const Float8E4M3 = packed struct(u8) {
     pub const inf: Float8E4M3 = .{ .sign = 0, .exponent = std.math.maxInt(u4), .mantissa = 0 };
     pub const minus_inf = neg(inf);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E4M3) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
@@ -414,6 +441,7 @@ pub const Float8E3M4 = packed struct(u8) {
     pub const inf: Float8E3M4 = .{ .sign = 0, .exponent = std.math.maxInt(u3), .mantissa = 0 };
     pub const minus_inf = neg(inf);
 
+    // Renvoie vrai si ce float8 encode un NaN.
     pub fn isNan(self: Float8E3M4) bool {
         return self.exponent == nan.exponent and self.mantissa != 0;
     }
@@ -435,12 +463,14 @@ pub const Float8E8M0 = packed struct(u8) {
     pub const min: Float8E8M0 = .{ .exponent = 0 };
     pub const min_scale: f32 = @bitCast(Float32{ .sign = 0, .exponent = 0, .mantissa = 0b1 << 22 });
 
+    // Conversion (avec perte) de f32 vers e8m0 : ne conserve que l'exposant.
     /// Lossy conversion from f32, similar to @floatCast
     pub fn fromF32(f: f32) Float8E8M0 {
         const vf32: Float32 = @bitCast(f);
         return .{ .exponent = @intCast(vf32.exponent) };
     }
 
+    // Convertit un e8m0 vers f32 (echelle minimale si l'exposant est nul).
     /// Lossless conversion to f32.
     pub fn toF32(x: Float8E8M0) f32 {
         if (x.exponent == 0) return min_scale;
@@ -456,6 +486,7 @@ pub const Float8E8M0 = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Verifie les conversions e8m0 (echelles puissances de deux).
 test Float8E8M0 {
     try std.testing.expectEqual(Float8E8M0{ .exponent = 127 }, Float8E8M0.fromF32(1.0));
     // try std.testing.expectEqual(5.877472e-39, Float8E8M0.toF32(.{ .exponent = 0}));
@@ -481,11 +512,13 @@ pub const Float4E2M1 = packed struct(u4) {
 
     pub const values = [_]f32{ 0.0, 0.5, 1, 1.5, 2, 3, 4, 6, -0.0, -0.5, -1, -1.5, -2, -3, -4, -6 };
 
+    // Convertit un float4 vers f32 en indexant une table de 16 valeurs.
     pub fn toF32(x: Float4E2M1) f32 {
         // faster implementation
         return values[@as(u4, @bitCast(x))];
     }
 
+    // Verifie que la conversion float4->f32 correspond a la table de valeurs.
     test toF32 {
         var to_f32_res: [16]f32 = undefined;
         for (&to_f32_res, 0..) |*r, i| {
@@ -495,6 +528,7 @@ pub const Float4E2M1 = packed struct(u4) {
         try std.testing.expectEqualSlices(f32, &Float4E2M1.values, &to_f32_res);
     }
 
+    // Verifie que f32->float4 pour chaque valeur de la table redonne l'index attendu.
     test fromF32 {
         var from_f32_res: [16]Float4E2M1 = undefined;
         for (&from_f32_res, 0..) |*r, i| {
@@ -507,14 +541,17 @@ pub const Float4E2M1 = packed struct(u4) {
         x: Float4E2M1,
         y: Float4E2M1,
 
+        // Convertit deux f32 vers un paquet de deux float4.
         pub fn fromF32(x: f32, y: f32) Packed {
             return .{ .x = .fromF32(x), .y = .fromF32(y) };
         }
 
+        // Decompose un paquet de deux float4 en deux f32.
         pub fn toF32(xy: Packed) [2]f32 {
             return .{ xy.x.toF32(), xy.y.toF32() };
         }
 
+        // Formate un paquet de deux float4 en separant par une virgule.
         pub fn formatNumber(xy: Packed, w: *std.Io.Writer, n: std.fmt.Number) std.Io.Writer.Error!void {
             try xy.x.formatNumber(w, n);
             w.writeByte(',');
@@ -523,6 +560,7 @@ pub const Float4E2M1 = packed struct(u4) {
     };
 };
 
+// Convertit x vers le type T, natif ou personnalise, en passant par f32 si necessaire.
 pub fn floatCast(T: type, x: anytype) T {
     return switch (T) {
         f64, f32, f16 => switch (@TypeOf(x)) {
@@ -536,6 +574,7 @@ pub fn floatCast(T: type, x: anytype) T {
     };
 }
 
+// Renvoie vrai si x est un infini, y compris pour les formats personnalises.
 pub fn isInf(x: anytype) bool {
     const Float = @TypeOf(x);
     switch (Float) {
@@ -555,6 +594,7 @@ const TestCase = struct {
     tolerance: f32 = 1e-2,
 };
 
+// Verifie les conversions exactes puis approchees d'un type flottant sur un jeu de cas.
 fn testCustomFloat(FloatT: type, test_case: TestCase) !void {
     for (test_case.lossless) |x| {
         try std.testing.expectEqual(x, FloatT.fromF32(x).toF32());
@@ -564,6 +604,7 @@ fn testCustomFloat(FloatT: type, test_case: TestCase) !void {
     }
 }
 
+// Asserte que x et y sont proches relativement, en journalisant en cas d'echec.
 fn expectApproxEqRel(FloatT: type, x: FloatT, y: FloatT, tolerance: FloatT) !void {
     if (!std.math.approxEqRel(f32, x, y, tolerance)) {
         std.log.err("expected ~{d}, got {d}", .{ x, y });

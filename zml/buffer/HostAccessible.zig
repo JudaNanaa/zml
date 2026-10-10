@@ -49,6 +49,7 @@ const Mapping = struct {
     /// through the origins and the layout.
     contiguous: bool,
 
+    // Crée le Mapping et prend possession des allocations uniquement en cas de succès.
     /// Takes ownership of the allocations, on success only.
     fn create(
         allocator: std.mem.Allocator,
@@ -107,10 +108,12 @@ const HostPinnedAllocations = struct {
     /// were added. Reads use the first.
     const Region = struct { start: u8, len: u8 };
 
+    // Libère la liste des allocations hôte.
     fn deinit(self: *HostPinnedAllocations, allocator: std.mem.Allocator) void {
         self.entries.deinit(allocator);
     }
 
+    // Ajoute une allocation aux réplicas de sa région, dans la capacité réservée.
     /// Add an allocation to the replicas of its region, within the
     /// reserved capacity.
     fn add(self: *HostPinnedAllocations, shard_shape: Shape, allocation: Allocation) void {
@@ -126,6 +129,7 @@ const HostPinnedAllocations = struct {
         for (self.regions.slice()[region_index + 1 ..]) |*next| next.start += 1;
     }
 
+    // Renvoie l'index de la région dont les shards débutent à `origin`, ou null.
     /// The index of the region holding the shards that start at `origin`.
     fn findRegion(self: *const HostPinnedAllocations, origin: Coordinates, shard_shape: Shape) ?usize {
         const origins = self.entries.items(.origin);
@@ -135,11 +139,13 @@ const HostPinnedAllocations = struct {
         return null;
     }
 
+    // Renvoie les pointeurs hôte des réplicas d'une région.
     /// The host pointers of a region's replicas.
     fn replicas(self: *const HostPinnedAllocations, region: Region) []const [*]u8 {
         return self.entries.items(.ptr)[region.start..][0..region.len];
     }
 
+    // Relit les pointeurs hôte depuis les handles PJRT courants et les mémorise.
     /// Read the host pointers of the allocations from their current handles.
     /// Each read takes and releases a hold on the PJRT buffer and allocates an
     /// external reference, about 0.9 us: llmd would make thousands per step if
@@ -155,6 +161,7 @@ const HostPinnedAllocations = struct {
         for (self.entries.items(.handle), shard_indices) |*handle, shard_index| handle.* = handles[shard_index];
     }
 
+    // Indique si les pointeurs hôte proviennent bien des handles actuels.
     /// Whether the host pointers were read from the current handles, which
     /// execution replaces for donated buffers.
     fn pointersAreCurrent(self: *const HostPinnedAllocations, handles: []const *pjrt.Buffer) bool {
@@ -166,6 +173,7 @@ const HostPinnedAllocations = struct {
         return true;
     }
 
+    // Détruit tous les handles, les vues device avant les allocations qu'elles empruntent.
     /// Destroy every handle, the device views before the allocations they borrow.
     fn deinitHandles(self: *const HostPinnedAllocations, api: *const pjrt.Api, handles: []const *pjrt.Buffer) void {
         const shard_indices = self.entries.items(.shard_index);
@@ -184,6 +192,7 @@ const HostPinnedAllocations = struct {
     }
 };
 
+// Construit un HostAccessible sur de la mémoire hôte simulée, pour tester des layouts indisponibles en CI.
 /// Host memory standing in for PJRT buffers, to test layouts and shardings
 /// that no available platform produces: every platform but TPU uses dense
 /// row-major layouts, and CI has few devices. `origins` holds the row-major
@@ -224,6 +233,7 @@ pub fn initForTests(
     };
 }
 
+// Alloue les buffers PJRT hôte-pinned, en partageant les allocations entre devices quand la plateforme le permet.
 /// With `.undonatable`, devices holding the same shard share one allocation on
 /// CPU, CUDA and ROCm: the first allocates it, and the others read it through
 /// device views. Elsewhere each device owns an allocation, and writes reach
@@ -304,6 +314,7 @@ pub fn init(
     };
 }
 
+// Libère handles, allocations et mapping ; à n'appeler qu'une fois les exécutions terminées.
 /// Execution must be done with the buffer. Copies must not be used after.
 pub fn deinit(self: *const HostAccessible, allocator: std.mem.Allocator) void {
     // Host memory in tests has neither handles nor a platform.
@@ -312,6 +323,7 @@ pub fn deinit(self: *const HostAccessible, allocator: std.mem.Allocator) void {
     allocator.destroy(self.mapping);
 }
 
+// Attend la fin de l'exécution puis relit les pointeurs hôte si les handles ont été remplacés.
 /// Wait for execution to finish, and read the host pointers of handles that
 /// execution replaced. Take new views to access the output.
 pub fn await(self: *HostAccessible, io: std.Io) !void {
@@ -321,6 +333,7 @@ pub fn await(self: *HostAccessible, io: std.Io) !void {
     if (!allocations.pointersAreCurrent(handles)) try allocations.refreshPointers(self.buffer._platform.pjrt_api, handles);
 }
 
+// Emprunte le mapping et renvoie une vue typée sur les éléments après vérification des pointeurs.
 /// Borrows the mapping. Executions using the buffer must have completed, and
 /// `await` must follow any that replaced the handles: `view` panics before
 /// then rather than write to an allocation the execution may have released.
@@ -333,6 +346,7 @@ pub fn view(self: *const HostAccessible, comptime T: type) View(T) {
     return .{ .mapping = mapping, .len = mapping.packed_shape.count() };
 }
 
+// Écrit les éléments en row-major sous la forme `HostAccessible(...){ ... }`.
 /// Prints every element, read through a view: the same rules as `view` apply.
 pub fn format(self: *const HostAccessible, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     try writer.print("HostAccessible({f}) {{", .{self.mapping.packed_shape});
@@ -349,6 +363,7 @@ pub fn format(self: *const HostAccessible, writer: *std.Io.Writer) std.Io.Writer
     try writer.writeAll(" }");
 }
 
+// Renvoie le type de vue d'éléments `T` empruntée à un HostAccessible.
 /// A range of the array's elements in row-major order, borrowed from a
 /// HostAccessible. Reads use the first replica, and writes reach every replica.
 pub fn View(comptime T: type) type {
@@ -365,6 +380,7 @@ pub fn View(comptime T: type) type {
             .len = 0,
         };
 
+        // Renvoie une sous-vue de `len_` éléments à partir de `start` (ou le reste si null).
         /// Select `len_` elements starting at `start`, or the rest of the view for null.
         pub fn slice(self: Self, start: usize, len_: ?usize) Self {
             std.debug.assert(start <= self.len);
@@ -377,16 +393,19 @@ pub fn View(comptime T: type) type {
         }
 
         // Single elements are addressed directly, without slicing and iterating.
+        // Renvoie l'élément d'index `index` du premier réplica.
         pub fn get(self: Self, index: usize) T {
             const element = self.locateElement(index);
             return itemAt(self.mapping.allocations.replicas(element.region)[0], element.byte_offset).*;
         }
 
+        // Écrit `value` à l'index `index` dans tous les réplicas.
         pub fn set(self: Self, index: usize, value: T) void {
             const element = self.locateElement(index);
             for (self.mapping.allocations.replicas(element.region)) |ptr| itemAt(ptr, element.byte_offset).* = value;
         }
 
+        // Localise la région et l'offset octet de l'élément d'index `index`.
         fn locateElement(self: *const Self, index: usize) struct { region: HostPinnedAllocations.Region, byte_offset: usize } {
             std.debug.assert(index < self.len);
             if (self.mapping.contiguous) {
@@ -396,6 +415,7 @@ pub fn View(comptime T: type) type {
             return .{ .region = location.region, .byte_offset = self.mapping.layout_metadata.byteOffset(location.offset, location.local) };
         }
 
+        // Remplit tous les éléments de la vue avec `value`, sur tous les réplicas.
         pub fn fill(self: Self, value: T) void {
             var iterator = self.blocks();
             while (iterator.next()) |block| {
@@ -403,6 +423,7 @@ pub fn View(comptime T: type) type {
             }
         }
 
+        // Remplit la vue avec `first + i*step` (i relatif à la vue) et propage aux réplicas.
         /// Fill with `first + i * step`, where `i` is relative to this view.
         /// `T` must be an integer type holding every `i` and value; safe builds check it.
         pub fn fillIota(self: Self, first: T, step: T) void {
@@ -415,6 +436,7 @@ pub fn View(comptime T: type) type {
             }
         }
 
+        // Copie `values` (même longueur que la vue) dans l'ordre row-major de la vue.
         pub fn copyFrom(self: Self, values: []const T) void {
             std.debug.assert(values.len == self.len);
             var iterator = self.blocks();
@@ -423,6 +445,7 @@ pub fn View(comptime T: type) type {
             }
         }
 
+        // Copie les éléments row-major de la vue vers `values`.
         pub fn copyTo(self: Self, values: []T) void {
             std.debug.assert(values.len == self.len);
             var iterator = self.blocks();
@@ -431,6 +454,7 @@ pub fn View(comptime T: type) type {
             }
         }
 
+        // Renvoie l'index du premier élément égal à `value`, ou null.
         /// The index of the first element equal to `value`, searching each
         /// block with `std.mem.indexOfScalar`.
         pub fn indexOfScalar(self: Self, value: T) ?usize {
@@ -441,6 +465,7 @@ pub fn View(comptime T: type) type {
             return null;
         }
 
+        // Renvoie l'index du premier élément présent dans `values`, ou null.
         /// The index of the first element equal to any of `values`, searching
         /// each block with `std.mem.indexOfAny`.
         pub fn indexOfAny(self: Self, values: []const T) ?usize {
@@ -451,6 +476,7 @@ pub fn View(comptime T: type) type {
             return null;
         }
 
+        // Copie les éléments d'une autre vue ; source et destination ne doivent pas se recouvrir.
         /// Source and destination must not overlap.
         pub fn copyFromView(self: Self, src: Self) void {
             std.debug.assert(src.len == self.len);
@@ -462,6 +488,7 @@ pub fn View(comptime T: type) type {
             }
         }
 
+        // Renvoie les éléments comme tranche constante, empruntée si contiguë sinon copiée dans `scratch`.
         /// The elements as one read-only slice, for reads that index or zip
         /// several views. Contiguous buffers, such as replicated ones on every
         /// platform but TPU, return their first replica in place; others
@@ -475,6 +502,7 @@ pub fn View(comptime T: type) type {
             return scratch[0..self.len];
         }
 
+        // Renvoie une vue éditable (tranche en place ou `scratch`) à valider ensuite avec `commit`.
         /// A slice to write the elements into, then `commit`, for writes
         /// that compute elements in place. Contiguous buffers hand out their
         /// first replica; others hand out `scratch`, which must hold `len`
@@ -492,6 +520,7 @@ pub fn View(comptime T: type) type {
             /// Holds the previous values or garbage: write every element.
             items: []T,
 
+            // Propage les écritures à tous les réplicas via `copyFrom`.
             /// Make the writes reach every replica: copy the first replica to
             /// the others, or `items` into the view.
             pub fn commit(self: Edit) void {
@@ -500,6 +529,7 @@ pub fn View(comptime T: type) type {
             }
         };
 
+        // Renvoie la vue comme un unique bloc si le buffer est contigu, sinon null.
         /// The view as a single block, when the buffer is contiguous.
         fn inPlace(self: Self) ?Block {
             if (self.len == 0 or !self.mapping.contiguous) return null;
@@ -507,6 +537,7 @@ pub fn View(comptime T: type) type {
             return iterator.next().?;
         }
 
+        // Renvoie un itérateur des blocs en ordre row-major global, groupant les réplicas.
         /// Visit runs of consecutive logical elements in global row-major
         /// order, without padding, grouping replicas of each logical range.
         /// Shards must cover the view with disjoint regions or exact replicas.
@@ -514,6 +545,7 @@ pub fn View(comptime T: type) type {
             return .init(self);
         }
 
+        // Renvoie un itérateur des mêmes blocs en ordre inverse.
         /// Visit the same blocks in reverse order. Elements within each
         /// replica slice remain in ascending logical order.
         pub fn reverseBlocks(self: Self) ReverseBlockIterator {
@@ -533,12 +565,14 @@ pub fn View(comptime T: type) type {
             /// Host pointer of each replica's allocation.
             replicas: []const [*]u8,
 
+            // Renvoie les éléments du bloc dans son i-ème réplica.
             /// The block's elements in its `i`-th replica.
             pub fn replica(self: Block, i: usize) []T {
                 const ptr: [*]T = @ptrCast(@alignCast(self.replicas[i] + self.byte_offset));
                 return ptr[0..self.len];
             }
 
+            // Renvoie les éléments du premier réplica, utilisés par les lectures.
             /// The elements in the first replica, which reads use.
             pub fn firstReplica(self: Block) []T {
                 return self.replica(0);
@@ -548,6 +582,7 @@ pub fn View(comptime T: type) type {
         pub const BlockIterator = OrderedBlockIterator(false);
         pub const ReverseBlockIterator = OrderedBlockIterator(true);
 
+        // Renvoie le type d'itérateur de blocs, en marche avant ou arrière selon `reverse`.
         fn OrderedBlockIterator(comptime reverse: bool) type {
             return struct {
                 view: Self,
@@ -558,6 +593,7 @@ pub fn View(comptime T: type) type {
 
                 const Iterator = @This();
 
+                // Initialise l'itérateur au début ou à la fin de la vue selon le sens.
                 fn init(v: Self) Iterator {
                     return .{
                         .view = v,
@@ -569,6 +605,7 @@ pub fn View(comptime T: type) type {
                     };
                 }
 
+                // Renvoie le bloc suivant dans le sens de parcours, ou null à la fin.
                 pub fn next(self: *Iterator) ?Block {
                     const v = &self.view;
                     if (if (reverse) self.offset == 0 else self.offset == v.len) return null;
@@ -599,6 +636,7 @@ pub fn View(comptime T: type) type {
 
         const Bounds = struct { start: usize, end: usize };
 
+        // Calcule les bornes [start,end) du bloc contigu contenant l'index local donné.
         /// The block containing a shard-local element: elements contiguous in both
         /// physical memory and global row-major order. Bounds are shard-local
         /// row-major indices, not physical memory offsets.
@@ -653,6 +691,7 @@ pub fn View(comptime T: type) type {
             return .{ .start = start, .end = @min(start + block_size, alignment_start + alignment_size) };
         }
 
+        // Construit un descripteur de bloc pour une région, un offset logique et un offset octet.
         fn blockAt(self: *const Self, region: HostPinnedAllocations.Region, offset: usize, len: usize, byte_offset: usize) Block {
             return .{
                 .offset = offset,
@@ -662,6 +701,7 @@ pub fn View(comptime T: type) type {
             };
         }
 
+        // Réinterprète un pointeur hôte plus un offset octet comme pointeur vers `T`.
         fn itemAt(ptr: [*]u8, byte_offset: usize) *T {
             return @ptrCast(@alignCast(ptr + byte_offset));
         }
@@ -674,6 +714,7 @@ pub fn View(comptime T: type) type {
             offset: usize,
         };
 
+        // Localise la région et les coordonnées shard-locales d'un élément global.
         /// Locate the region holding an element, retaining its shard-local
         /// coordinates for physical addressing.
         fn locate(self: *const Self, global: Coordinates) Location {
@@ -702,6 +743,7 @@ const Coordinates = struct {
 
     const zero: Coordinates = .{ .axes = @splat(0) };
 
+    // Renvoie les coordonnées globales du premier élément du shard d'un device.
     /// The global coordinates of the first element of a device's shard.
     fn ofShard(placement: *const Sharding.Placement, device: Sharding.Device) Coordinates {
         var result: Coordinates = .zero;
@@ -709,6 +751,7 @@ const Coordinates = struct {
         return result;
     }
 
+    // Convertit un index row-major en coordonnées pour `shape_`.
     /// The coordinates of the element at `offset` of `shape`, in row-major order.
     fn unflatten(shape_: Shape, offset: usize) Coordinates {
         var result: Coordinates = .zero;
@@ -723,11 +766,13 @@ const Coordinates = struct {
         return result;
     }
 
+    // Compare deux coordonnées sur les axes de `shape_`.
     /// Whether the coordinates match on the axes of `shape`.
     fn eqlWithin(self: Coordinates, other: Coordinates, shape_: Shape) bool {
         return std.mem.eql(usize, self.axes[0..shape_.rank()], other.axes[0..shape_.rank()]);
     }
 
+    // Avance les coordonnées de `count` positions en row-major, avant ou arrière.
     /// Advance in row-major order, decoding only axes that carry or borrow.
     /// The resulting coordinates must still be within the shape.
     fn move(self: *Coordinates, comptime reverse: bool, shape_: Shape, count: usize) void {
@@ -790,6 +835,7 @@ const LayoutMetadata = struct {
                 div_shift: ?std.math.Log2Int(usize),
                 is_mask: bool,
 
+                // Construit un digit physique depuis un axe, une dimension tuilée et un pas d'octet.
                 fn init(axis: u3, dim: TiledDims.Dim, byte_stride: usize) Digit {
                     // Unbounded digits keep every bit of the quotient.
                     const modulus = if (dim.modulus == 0) std.math.maxInt(usize) else dim.modulus;
@@ -804,6 +850,7 @@ const LayoutMetadata = struct {
                     };
                 }
 
+                // Calcule la valeur du digit pour une coordonnée (quotient masqué ou modulo).
                 fn value(self: Digit, coordinate: usize) usize {
                     const quotient = if (self.div_shift) |shift| coordinate >> shift else coordinate / self.divisor;
                     return if (self.is_mask) quotient & self.modulus else quotient % self.modulus;
@@ -812,6 +859,7 @@ const LayoutMetadata = struct {
         };
     };
 
+    // Prépare l'adressage physique et les bornes de blocs pour une forme et un layout.
     fn init(shape: Shape, shard_shape: Shape, layout: pjrt.MemoryLayout) LayoutMetadata {
         const last_dim_size: usize = if (shard_shape.rank() == 0) 1 else @intCast(shard_shape.dim(-1));
         const element_size: usize = shard_shape.dtype().sizeOf();
@@ -913,6 +961,7 @@ const LayoutMetadata = struct {
         };
     }
 
+    // Renvoie l'offset octet dans le shard de l'élément local donné.
     /// The byte offset in its shard of the element at shard-local row-major index
     /// `local` and coordinates `coordinates`: row-major layouts use the index,
     /// the others the coordinates.
@@ -933,6 +982,7 @@ const LayoutMetadata = struct {
     }
 };
 
+// Indique si un ordre minor-to-major PJRT correspond au row-major de ZML.
 /// Whether a PJRT minor-to-major order lays the axes out row-major, like ZML shapes.
 fn isMinorToMajorRowMajor(minor_to_major: []const i64, rank: usize) bool {
     if (minor_to_major.len != rank) return false;
@@ -956,6 +1006,7 @@ const TiledDims = struct {
         /// Zero for a digit without an upper bound, which holds `coordinate / divisor`.
         modulus: usize = 0,
 
+        // Renvoie la dimension de comptage de tuiles le long de cet axe.
         /// The index of the tile along this dimension.
         fn tileCount(self: Dim, tile: usize) Dim {
             const size = std.math.divCeil(usize, self.size, tile) catch unreachable;
@@ -966,6 +1017,7 @@ const TiledDims = struct {
             return .{ .axis = null, .size = size };
         }
 
+        // Renvoie la dimension d'index dans la tuile le long de cet axe.
         /// The index within the tile along this dimension.
         fn tileIndex(self: Dim, tile: usize) Dim {
             const axis = self.axis orelse return .{ .axis = null, .size = tile };
@@ -980,6 +1032,7 @@ const TiledDims = struct {
         }
     };
 
+    // Décompose un layout tuilé XLA en dimensions physiques major-to-minor.
     /// Follows XLA's LayoutUtil::LinearIndexForNestedTiling. The physical dimensions
     /// start in minor_to_major order. Each tile then splits the most minor ones,
     /// padded with leading unit dimensions if the tile has more, into tile counts
@@ -1029,6 +1082,7 @@ const TiledDims = struct {
 // =============
 //
 
+// Calcule l'offset octet depuis le layout directement, référence pour tester LayoutMetadata.
 /// The byte offset of an element, computed from the layout directly to check `LayoutMetadata`.
 fn referenceByteOffset(shape_: Shape, layout: pjrt.MemoryLayout, index: []const usize) usize {
     if (!builtin.is_test) @compileError("referenceByteOffset is only available in tests");
@@ -1047,6 +1101,7 @@ fn referenceByteOffset(shape_: Shape, layout: pjrt.MemoryLayout, index: []const 
     };
 }
 
+// Port direct de LinearIndexForNestedTiling de XLA, référence indépendante pour tester les tuilages.
 /// Computes the element offset for one logical index in XLA/PJRT tiled layout order,
 /// as XLA's LayoutUtil::LinearIndexForNestedTiling does. A direct port of that
 /// function, kept independent of `TiledDims`: a reference sharing the prepared
@@ -1094,6 +1149,7 @@ fn tiledElementOffset(shape_: Shape, layout: pjrt.MemoryLayout.Tiled, index: []c
     return offset;
 }
 
+// Vérifie que les offsets octets de LayoutMetadata correspondent aux layouts physiques.
 test "LayoutMetadata byte offsets match physical layouts" {
     const unit_tiles: [pjrt.DefaultMemoryLayout.MAX_TILE_DIMS]i64 = @splat(1);
     const tile_ranks: [pjrt.DefaultMemoryLayout.MAX_NUM_TILES]usize = @splat(Shape.MAX_RANK);
@@ -1194,6 +1250,7 @@ test "LayoutMetadata byte offsets match physical layouts" {
     }
 }
 
+// Vérifie que les offsets des layouts tuilés suivent XLA.
 test "tiled layout offsets follow XLA" {
     const Tiled = pjrt.MemoryLayout.Tiled;
     // Figure 1 of https://openxla.org/xla/tiled_layout: F32[3,5]{1,0:T(2,2)}.
@@ -1254,6 +1311,7 @@ test "tiled layout offsets follow XLA" {
     try std.testing.expectEqual(31, tiledElementOffset(.init(.{ 4, 8 }, .f32), cross_tile, &.{ 3, 7 }));
 }
 
+// Vérifie que les réplicas d'une région restent groupés malgré des ajouts entrelacés.
 test "HostAccessible.HostPinnedAllocations keeps each region's replicas together as allocations are added" {
     var allocations: HostAccessible.HostPinnedAllocations = .empty;
     defer allocations.deinit(std.testing.allocator);
@@ -1273,6 +1331,7 @@ test "HostAccessible.HostPinnedAllocations keeps each region's replicas together
     }
 }
 
+// Vérifie que `format` imprime les éléments en ordre row-major.
 test "HostAccessible.format prints the elements in row-major order" {
     const shape_ = Shape.init(.{ 2, 2 }, .i32);
     const column_major: pjrt.MemoryLayout = .{ .tiled = .{ .minor_to_major = &.{ 0, 1 }, .tile_dims = &.{}, .tile_dims_sizes = &.{} } };
@@ -1284,6 +1343,7 @@ test "HostAccessible.format prints the elements in row-major order" {
     try std.testing.expectStringEndsWith(printed, ") { 0 1 2 3 }");
 }
 
+// Vérifie qu'une vue emprunte les pointeurs du buffer à travers les slices.
 test "HostAccessible.View borrows the buffer's pointers through slicing" {
     const shape_ = Shape.init(.{4}, .i32);
     const layout: pjrt.MemoryLayout = .{ .strides = .{ .byte_strides = &.{4} } };
@@ -1302,6 +1362,7 @@ test "HostAccessible.View borrows the buffer's pointers through slicing" {
     try std.testing.expectEqualSlices(i32, &.{ 10, 99, 99, 13 }, &other);
 }
 
+// Vérifie que les blocs sautent le padding des tuiles.
 test "HostAccessible.View blocks skip tile padding" {
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
     const layout: pjrt.MemoryLayout = .{ .tiled = .{
@@ -1335,6 +1396,7 @@ test "HostAccessible.View blocks skip tile padding" {
     }, &storage);
 }
 
+// Vérifie le comportement des tuiles imbriquées.
 test "HostAccessible.View nested tiles" {
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
     const layout: pjrt.MemoryLayout = .{ .tiled = .{
@@ -1356,6 +1418,7 @@ test "HostAccessible.View nested tiles" {
     }, &storage);
 }
 
+// Vérifie les layouts denses, transposés, strided et tuilés partiels.
 test "HostAccessible.View dense, transposed, strided and partial-rank tiled layouts" {
     const shape_ = Shape.init(.{ 2, 3 }, .i32);
     const Case = struct { layout: pjrt.MemoryLayout, block_size: usize, expected: []const i32 };
@@ -1403,6 +1466,7 @@ test "HostAccessible.View dense, transposed, strided and partial-rank tiled layo
     }
 }
 
+// Vérifie qu'un layout row-major donne un seul bloc sur les lignes et réplicas.
 test "HostAccessible.View row-major layouts return one block across rows and replicas" {
     const shape_: Shape = .init(.{ 3, 5 }, .i32);
     const layouts = [_]pjrt.MemoryLayout{
@@ -1434,6 +1498,7 @@ test "HostAccessible.View row-major layouts return one block across rows and rep
     }
 }
 
+// Vérifie que les shards denses s'arrêtent aux trous de l'ordre row-major global.
 test "HostAccessible.View dense shards stop at gaps in global row-major order" {
     const Case = struct {
         shape: Shape,
@@ -1513,10 +1578,12 @@ const TestShards = struct {
         .tile_dims_sizes = &.{2},
     } };
 
+    // Libère le HostAccessible de test s'il existe.
     fn deinit(self: *TestShards) void {
         if (self.pinned) |pinned| pinned.deinit(std.testing.allocator);
     }
 
+    // Prépare pointeurs et origines puis renvoie une nouvelle vue sur le stockage (emprunté).
     /// The view borrows `pinned`, which borrows the storage: the storage must
     /// stay in place, and the next call replaces `pinned`.
     fn view(self: *TestShards, layout: pjrt.MemoryLayout) !HostAccessible.View(i32) {
@@ -1533,6 +1600,7 @@ const TestShards = struct {
         return pinned.view(i32);
     }
 
+    // Vérifie que chaque copie de chaque élément vaut `expected[global]` et que le padding reste intact.
     /// With the tiled layout, every copy of each element holds `expected[global]`
     /// and the tile padding is untouched.
     fn expectValues(self: *const TestShards, expected: [24]i32) !void {
@@ -1549,6 +1617,7 @@ const TestShards = struct {
     }
 };
 
+// Vérifie que les blocs parcourent des plages globales partielles dans chaque shard.
 test "HostAccessible.View blocks visit partial global ranges in every shard" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -1592,6 +1661,7 @@ test "HostAccessible.View blocks visit partial global ranges in every shard" {
     }
 }
 
+// Vérifie que les blocs fusionnent des shards mélangés et groupent les réplicas.
 test "HostAccessible.View blocks merge shuffled shards and group replicas" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -1636,6 +1706,7 @@ test "HostAccessible.View blocks merge shuffled shards and group replicas" {
     try expectReverseBlocksMirrorForward(selected);
 }
 
+// Vérifie qu'un bloc groupe le maximum de réplicas.
 test "HostAccessible.View blocks group the maximum number of replicas" {
     var storage: [Platform.MAX_NUM_DEVICES][4]i32 = @splat(@splat(-1));
     var ptrs: [Platform.MAX_NUM_DEVICES][*]u8 = undefined;
@@ -1661,6 +1732,7 @@ test "HostAccessible.View blocks group the maximum number of replicas" {
     try expectReverseBlocksMirrorForward(values);
 }
 
+// Vérifie le parcours du maximum de régions distinctes mélangées.
 test "HostAccessible.View visits the maximum number of distinct shuffled regions" {
     var storage: [Platform.MAX_NUM_DEVICES]i32 = @splat(-1);
     var ptrs: [Platform.MAX_NUM_DEVICES][*]u8 = undefined;
@@ -1694,6 +1766,7 @@ test "HostAccessible.View visits the maximum number of distinct shuffled regions
     try std.testing.expectEqual(null, reverse.next());
 }
 
+// Vérifie que les slices multidimensionnels préservent les coordonnées lors des retenues.
 test "HostAccessible.View multidimensional slices preserve coordinates across carries" {
     const shape_: Shape = .init(.{ 2, 3, 5 }, .i32);
     const layouts = [_]pjrt.MemoryLayout{
@@ -1722,6 +1795,7 @@ test "HostAccessible.View multidimensional slices preserve coordinates across ca
     }
 }
 
+// Vérifie que les blocs inverses reflètent exactement les blocs directs.
 test "HostAccessible.View reverse blocks mirror forward blocks" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -1750,6 +1824,7 @@ test "HostAccessible.View reverse blocks mirror forward blocks" {
     try expectReverseBlocksMirrorForward(scalar);
 }
 
+// Vérifie que l'itération inverse reproduit les blocs directs dans l'ordre inverse.
 fn expectReverseBlocksMirrorForward(values: HostAccessible.View(i32)) !void {
     var expected: [48]HostAccessible.View(i32).Block = undefined;
     var len: usize = 0;
@@ -1773,6 +1848,7 @@ fn expectReverseBlocksMirrorForward(values: HostAccessible.View(i32)) !void {
     try std.testing.expectEqual(null, reverse.next());
 }
 
+// Vérifie les cas scalaire, plages vides et padding rank-one.
 test "HostAccessible.View scalar, empty ranges and rank-one padding" {
     var scalar: i32 = 0;
     const scalar_ptrs = [_][*]u8{@ptrCast(&scalar)};
@@ -1811,6 +1887,7 @@ test "HostAccessible.View scalar, empty ranges and rank-one padding" {
     try std.testing.expectEqual(null, none_blocks.next());
 }
 
+// Vérifie que des devices partageant un shard lisent une seule allocation.
 test "HostAccessible devices holding a shard read one allocation" {
     const platform = testing.env();
     const shape_ = Shape.init(.{ .b = @as(i64, @intCast(platform.devices.len)), .d = 5 }, .i32);
@@ -1818,6 +1895,7 @@ test "HostAccessible devices holding a shard read one allocation" {
     try expectDevicesReadShards(platform, shape_.withPartitioning(platform.meshes.get("model").?, .{ .b = .model }));
 }
 
+// Vérifie le partage d'allocation par shard dans des groupes data-parallèles.
 test "HostAccessible devices holding a shard read one allocation in data-parallel groups" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -1836,6 +1914,7 @@ test "HostAccessible devices holding a shard read one allocation in data-paralle
     try expectDevicesReadShards(platform, Shape.init(.{ .b = 4, .d = 5 }, .i32).withPartitioning(&mesh, .{ .b = .batch }));
 }
 
+// Vérifie que des lignes écrites par une vue atteignent chaque device détenant le shard.
 /// Rows of `.d` elements written once through a view reach every device
 /// holding them, and devices holding the same shard share its allocation
 /// where the platform allows it.
@@ -1869,6 +1948,7 @@ fn expectDevicesReadShards(platform: *const Platform, shape_: Shape) !void {
     }
 }
 
+// Construit un maillage physique 2x2 en tore sur les quatre premiers devices.
 /// Like `zml/io.zig`'s, a 2x2 torus over the first four devices.
 fn buildMesh2x2(
     allocator: std.mem.Allocator,
@@ -1891,6 +1971,7 @@ fn buildMesh2x2(
     return Sharding.PhysicalMesh.fromTree(allocator, target, topology);
 }
 
+// Vérifie que des exécutions lisent des entrées partagées sur chaque device.
 test "HostAccessible executions read shared inputs on every device" {
     const zml = @import("../zml.zig");
     const allocator = std.testing.allocator;
@@ -1899,6 +1980,7 @@ test "HostAccessible executions read shared inputs on every device" {
     const api = platform.pjrt_api;
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
     const Test = struct {
+        // Fonction de test qui incrémente une entrée host_pinned en passant par le device.
         fn increment(input: zml.Tensor) zml.Tensor {
             return input.onMemory(.host_pinned).toMemory(.device).addConstant(1);
         }
@@ -1927,6 +2009,7 @@ test "HostAccessible executions read shared inputs on every device" {
     }
 }
 
+// Vérifie que `constSlice` emprunte les buffers contigus et copie les autres.
 test "HostAccessible.View.constSlice borrows contiguous buffers and copies the others" {
     const shape_ = Shape.init(.{ 2, 3 }, .i32);
     var scratch: [6]i32 = @splat(-1);
@@ -1951,6 +2034,7 @@ test "HostAccessible.View.constSlice borrows contiguous buffers and copies the o
     try std.testing.expectEqual(0, none.constSlice(&.{}).len);
 }
 
+// Vérifie que `edit` écrit en place pour les contigus et propage via `commit`.
 test "HostAccessible.View.edit writes contiguous buffers in place and commits every replica" {
     const shape_ = Shape.init(.{ 2, 3 }, .i32);
     var scratch: [6]i32 = @splat(-1);
@@ -1982,6 +2066,7 @@ test "HostAccessible.View.edit writes contiguous buffers in place and commits ev
     none.edit(&.{}).commit();
 }
 
+// Vérifie que `indexOfScalar` et `indexOfAny` parcourent les blocs en row-major.
 test "HostAccessible.View.indexOfScalar and indexOfAny search blocks in row-major order" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -2001,6 +2086,7 @@ test "HostAccessible.View.indexOfScalar and indexOfAny search blocks in row-majo
     try std.testing.expectEqual(null, values.indexOfAny(&.{}));
 }
 
+// Vérifie que les indexations adressent directement les réplicas d'un tableau dense.
 test "HostAccessible.View indexes replicas of a dense array directly" {
     const shape_ = Shape.init(.{ 2, 3 }, .i32);
     var storage: [2][6]i32 = @splat(@splat(-1));
@@ -2030,6 +2116,7 @@ test "HostAccessible.View indexes replicas of a dense array directly" {
     }
 }
 
+// Vérifie que `set`/`get` adressent un élément dans chaque réplica.
 test "HostAccessible.View set and get address single elements in every replica" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -2052,6 +2139,7 @@ test "HostAccessible.View set and get address single elements in every replica" 
     try std.testing.expectEqual(-5, nested.get(3));
 }
 
+// Vérifie les copies entre layouts, shards et réplicas.
 test "HostAccessible.View copies across layouts, shards and replicas" {
     var fixture: TestShards = .{};
     defer fixture.deinit();
@@ -2120,6 +2208,7 @@ test "HostAccessible.View copies across layouts, shards and replicas" {
     try std.testing.expectEqualSlices(i32, &expected, &actual);
 }
 
+// Vérifie qu'un `await` après donation permet la mise à jour hôte suivante.
 test "HostAccessible await after executable donation permits the next host update" {
     const zml = @import("../zml.zig");
     const allocator = std.testing.allocator;
@@ -2127,6 +2216,7 @@ test "HostAccessible await after executable donation permits the next host updat
     const platform = testing.env();
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
     const Test = struct {
+        // Fonction de test qui incrémente en réutilisant le buffer hôte.
         fn increment(input: zml.Tensor) zml.Tensor {
             const host_input = input.onMemory(.host_pinned);
             return host_input.toMemory(.device).addConstant(1).toMemory(.host_pinned).reuseBuffer(host_input);
@@ -2172,6 +2262,7 @@ test "HostAccessible await after executable donation permits the next host updat
     }
 }
 
+// Vérifie qu'`await` suit une sortie qui ne réutilise pas l'allocation pinned.
 test "HostAccessible await follows an output that doesn't reuse the pinned allocation" {
     const zml = @import("../zml.zig");
     const allocator = std.testing.allocator;
@@ -2179,6 +2270,7 @@ test "HostAccessible await follows an output that doesn't reuse the pinned alloc
     const platform = testing.env();
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
     const Test = struct {
+        // Fonction de test qui incrémente sans réutiliser le buffer.
         fn increment(input: zml.Tensor) zml.Tensor {
             // Without reuseBuffer, execution writes a new host allocation.
             return input.onMemory(.host_pinned).toMemory(.device).addConstant(1).toMemory(.host_pinned);

@@ -14,6 +14,7 @@ const log = std.log.scoped(.@"zml/pjrtx");
 pub const Client = opaque {
     pub const CompileError = std.mem.Allocator.Error || error{InvalidMlirBytecodeVersion} || pjrt.ApiError;
 
+    // Serialise le module MLIR en artifact stablehlo portable puis le compile cote PJRT.
     pub fn compile(client: *const pjrt.Client, api: *const pjrt.Api, allocator: std.mem.Allocator, io: std.Io, module: *const mlir.Module, compile_options_pb: []const u8) CompileError!*pjrt.LoadedExecutable {
         const stablehlo_version = blk: {
             if (api.stablehloCurrentVersion()) |requested_version| {
@@ -45,10 +46,12 @@ pub const Client = opaque {
     }
 };
 
+// Genere un type de tuple ou chaque Tensor est remplace par un CustomCallBuffer.
 pub fn TensorToCustomCallBuffer(T: type) type {
     return meta.MapRestrict(Tensor, CustomCallBuffer).map(T);
 }
 
+// Genere un type de tuple ou chaque Shape est remplacee par un CustomCallBuffer.
 pub fn ShapeToCustomCallBuffer(T: type) type {
     return meta.MapRestrict(Shape, CustomCallBuffer).map(T);
 }
@@ -57,6 +60,7 @@ pub const CustomCallBuffer = struct {
     shape: Shape,
     ptr: *anyopaque,
 
+    // Formate le buffer sous la forme « shape@adresse » pour les messages de log.
     pub fn format(
         self: @This(),
         writer: *std.Io.Writer,
@@ -64,6 +68,7 @@ pub const CustomCallBuffer = struct {
         try writer.print("{f}@{*}", .{ self.shape, self.ptr });
     }
 
+    // Construit un CustomCallBuffer depuis un buffer PJRT (pointeur + Shape deduite du dtype).
     pub fn fromPjrt(buffer: *const pjrt.ffi.Buffer) @This() {
         const dt = switch (buffer.dtype) {
             .invalid => @panic("Found an invalid pjrt buffer"),
@@ -85,30 +90,35 @@ pub const CustomCallBuffer = struct {
     pub const ALIGN = 64;
 
     // Assumes as host-side buffer
+    // Expose le buffer comme tranche d'octets hote mutable alignee sur ALIGN.
     pub fn asHostSlice(self: CustomCallBuffer) []align(ALIGN) u8 {
         const bytes: [*]align(ALIGN) u8 = @ptrCast(@alignCast(self.ptr));
         return bytes[0..self.shape.byteSize()];
     }
 
     // Assumes as host-side buffer
+    // Expose le buffer comme tranche d'octets hote constante alignee sur ALIGN.
     pub fn asHostConstSlice(self: CustomCallBuffer) []align(ALIGN) const u8 {
         const bytes: [*]align(ALIGN) const u8 = @ptrCast(@alignCast(self.ptr));
         return bytes[0..self.shape.byteSize()];
     }
 
     // Assumes as host-side buffer
+    // Interprete le buffer hote comme une valeur scalaire du type T.
     pub fn asHostScalar(self: CustomCallBuffer, T: type) T {
         std.debug.assert(self.shape.byteSize() == @sizeOf(T));
         return std.mem.bytesAsValue(T, self.asHostConstSlice()[0..@sizeOf(T)]).*;
     }
 };
 
+// Convertit un DataType ZML en type de buffer PJRT du meme nom.
 pub fn bufferTypeFromDtype(dt: DataType) pjrt.BufferType {
     return switch (dt) {
         inline else => |tag| @field(pjrt.BufferType, @tagName(tag)),
     };
 }
 
+// Convertit un type de buffer PJRT en DataType ZML correspondant.
 pub fn dtypeFromBufferType(pjrt_type: pjrt.BufferType) DataType {
     return switch (pjrt_type) {
         .invalid => @panic("Found an invalid pjrt buffer"),
@@ -116,6 +126,7 @@ pub fn dtypeFromBufferType(pjrt_type: pjrt.BufferType) DataType {
     };
 }
 
+// Verifie que les conversions DataType <-> BufferType sont bijectives.
 test bufferTypeFromDtype {
     inline for (@typeInfo(DataType).@"enum".fields) |field| {
         const dt: DataType = @enumFromInt(field.value);

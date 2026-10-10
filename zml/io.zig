@@ -36,6 +36,7 @@ pub const TensorStore = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
 
+    // Cree un TensorStore adosse a un registre et a une liste de meshes ; duplique les meshes dans son arene.
     pub fn fromRegistry(allocator: std.mem.Allocator, registry: *safetensors.TensorRegistry, meshes: []const *const Sharding.Mesh) TensorStore {
         var arena: std.heap.ArenaAllocator = .init(allocator);
         return .{
@@ -47,11 +48,13 @@ pub const TensorStore = struct {
         };
     }
 
+    // Libere la table id->sources et l'arene du store.
     pub fn deinit(self: *TensorStore) void {
         self.id_to_sources.deinit(self.allocator);
         self.arena.deinit();
     }
 
+    // Enregistre les sources d'un id de tenseur en refusant d'ecraser une entree existante.
     fn putSourcesNoClobber(self: *TensorStore, id: Tensor.Id, sources: Binding) std.mem.Allocator.Error!void {
         const gop = try self.id_to_sources.getOrPut(self.allocator, id);
         if (gop.found_existing) {
@@ -62,11 +65,13 @@ pub const TensorStore = struct {
         gop.value_ptr.* = sources;
     }
 
+    // Renvoie le pointeur vers le descripteur de tenseur du registre pour cette cle, ou null.
     fn getPtrFromKey(self: *const TensorStore, key: []const u8) ?*safetensors.Tensor {
         const tensor_desc_ptr = self.registry.tensors.getPtr(key) orelse return null;
         return tensor_desc_ptr;
     }
 
+    // Duplique un descripteur de tenseur du registre dans l'arene du store.
     fn dupeSource(self: *TensorStore, key: []const u8) ?*safetensors.Tensor {
         const entry = self.getPtrFromKey(key) orelse return null;
 
@@ -76,16 +81,19 @@ pub const TensorStore = struct {
         return copy;
     }
 
+    // Renvoie l'unique source associee a un id de tenseur (assertion sur l'unicite).
     fn getPtrFromId(self: *const TensorStore, id: usize) ?*safetensors.Tensor {
         const sources = self.id_to_sources.get(id) orelse return null;
         stdx.debug.assert(sources.tensors.len == 1, "Expect tensor with id {} to have only one source, got {}", .{ id, sources.tensors.len });
         return sources.tensors[0];
     }
 
+    // Renvoie un lecteur de tenseur pour la cle donnee via le registre.
     pub fn getReader(self: *const TensorStore, key: []const u8, io: std.Io, buffer: []u8) !safetensors.TensorReader {
         return self.registry.reader(io, key, buffer);
     }
 
+    // Renvoie un lecteur du tenseur identifie par son id, en verifiant qu'il n'a qu'une seule source.
     pub fn getReaderById(self: *const TensorStore, id: usize, io: std.Io, buffer: []u8) !safetensors.TensorReader {
         const sources = self.id_to_sources.get(id) orelse return error.NotFound;
         stdx.debug.assert(sources.tensors.len == 1, "Expect tensor with id {} to have only one source, got {}", .{ id, sources.tensors.len });
@@ -93,19 +101,23 @@ pub const TensorStore = struct {
         return sources.tensors[0].reader(io, buffer, .{});
     }
 
+    // Renvoie le Binding (sources, transforme, memoire) associe a un id, ou null.
     pub fn getSourcesById(self: *const TensorStore, id: Tensor.Id) ?Binding {
         return self.id_to_sources.get(id);
     }
 
+    // Renvoie la shape du tenseur de cle donnee, ou null.
     pub fn getShape(self: *const TensorStore, key: []const u8) ?Shape {
         const entry_ptr = self.getPtrFromKey(key) orelse return null;
         return entry_ptr.shape;
     }
 
+    // Cree une View du store, permettant de resoudre des cles prefixees.
     pub fn view(self: *TensorStore) View {
         return .{ .store = self };
     }
 
+    // Renvoie le mesh nomme, en paniquant s'il est absent avec la liste des meshes connus.
     pub fn mesh(store: *const TensorStore, name: @EnumLiteral()) *const Sharding.Mesh {
         const name_slice = @tagName(name);
         for (store.meshes) |m| {
@@ -126,12 +138,14 @@ pub const TensorStore = struct {
         prefix_buffer: [256]u8 = undefined,
         prefix_length: usize = 0,
 
+        // Renvoie une View a la racine (sans prefixe).
         pub fn root(self: *const View) View {
             return .{
                 .store = self.store,
             };
         }
 
+        // Renvoie la View du prefixe parent, ou la racine s'il n'y en a pas.
         pub fn parent(self: *const View) View {
             const slice = self.prefix() orelse unreachable;
             const index = std.mem.lastIndexOfScalar(u8, slice[0 .. slice.len - 1], '.') orelse return self.root();
@@ -144,6 +158,7 @@ pub const TensorStore = struct {
             };
         }
 
+        // Renvoie une View dont le prefixe est etendu du prefixe donne.
         pub fn withPrefix(self: *const View, prefix_: []const u8) View {
             var buffer: [256]u8 = undefined;
             const new_prefix = makeKey(&buffer, "{s}{s}.", .{ self.prefix() orelse "", prefix_ });
@@ -155,6 +170,7 @@ pub const TensorStore = struct {
             };
         }
 
+        // Renvoie une View dont le prefixe est etendu de l'index de couche donne.
         pub fn withLayer(self: *const View, index: usize) View {
             var buffer: [256]u8 = undefined;
             const new_prefix = makeKey(&buffer, "{s}{d}.", .{ self.prefix() orelse "", index });
@@ -166,10 +182,12 @@ pub const TensorStore = struct {
             };
         }
 
+        // Renvoie le prefixe courant, ou null si vide.
         pub fn prefix(self: *const View) ?[]const u8 {
             return if (self.prefix_length == 0) null else self.prefix_buffer[0..self.prefix_length];
         }
 
+        // Indique si au moins une cle du registre commence par prefixe+subkey.
         pub fn hasKey(self: *const View, subkey: []const u8) bool {
             var buffer: [256]u8 = undefined;
             const key = makeKey(&buffer, "{s}{s}", .{ self.prefix() orelse "", subkey });
@@ -178,12 +196,14 @@ pub const TensorStore = struct {
             } else false;
         }
 
+        // Cree un zml.Tensor depuis l'entree subkey du store, en paniquant si elle est absente.
         /// Creates a zml.Tensor from a specific entry in the store.
         pub fn createTensor(self: View, subkey: []const u8, tags: anytype, mesh_: @EnumLiteral(), partitioning: anytype) Tensor {
             return self.maybeCreateTensor(subkey, tags, mesh_, partitioning) orelse
                 stdx.debug.panic("Checkpoint has no tensor named {s}{s}", .{ self.prefix() orelse "", subkey });
         }
 
+        // Comme createTensor, mais renvoie null si l'entree est absente ; resout mesh et partitionnement.
         pub fn maybeCreateTensor(self: View, subkey: []const u8, comptime tags: anytype, mesh_: @EnumLiteral(), partitioning: anytype) ?Tensor {
             const has_tags: bool = comptime @TypeOf(tags) != @TypeOf(null);
             const parsed_tags: Shape.TagsArray = if (comptime has_tags) Shape.parseTags(tags) else undefined;
@@ -199,11 +219,13 @@ pub const TensorStore = struct {
             return self.maybeCreateTensorInternal(subkey, if (has_tags) parsed_tags.constSlice() else null, .{ .mesh = resolved_mesh, .partition = partition });
         }
 
+        // Comme createTensor mais marque la source comme memoire hote epinglee.
         pub fn createHostPinnedTensor(self: View, subkey: []const u8, tags: anytype, mesh_: @EnumLiteral(), partitioning: anytype) Tensor {
             return self.maybeCreateHostPinnedTensor(subkey, tags, mesh_, partitioning) orelse
                 stdx.debug.panic("Checkpoint has no tensor named {s}{s}", .{ self.prefix() orelse "", subkey });
         }
 
+        // Comme maybeCreateTensor mais marque la source en memoire hote epinglee si elle existe.
         pub fn maybeCreateHostPinnedTensor(self: View, subkey: []const u8, comptime tags: anytype, mesh_: @EnumLiteral(), comptime partitioning: anytype) ?Tensor {
             const tensor = self.maybeCreateTensor(subkey, tags, mesh_, partitioning);
             if (tensor) |t| {
@@ -213,6 +235,7 @@ pub const TensorStore = struct {
             return tensor;
         }
 
+        // Cree un tensor replique (sans sharding) depuis l'entree subkey, en paniquant si absente.
         pub fn createReplicatedTensor(self: View, subkey: []const u8, tags: anytype) Tensor {
             const has_tags: bool = comptime @TypeOf(tags) != @TypeOf(null);
             const parsed_tags: Shape.TagsArray = if (comptime has_tags) Shape.parseTags(tags) else undefined;
@@ -221,6 +244,7 @@ pub const TensorStore = struct {
                 stdx.debug.panic("Checkpoint has no tensor named {s}{s}", .{ self.prefix() orelse "", subkey });
         }
 
+        // Resout la cle prefixee en source, construit la Shape (tags+sharding) et cree le Tensor associe, ou null.
         fn maybeCreateTensorInternal(self: View, subkey: []const u8, tags: ?[]const Shape.Tag, sharding: Sharding) ?Tensor {
             var buffer: [256]u8 = undefined;
             const key = makeKey(&buffer, "{s}{s}", .{ self.prefix() orelse "", subkey });
@@ -244,6 +268,7 @@ pub const TensorStore = struct {
             return tensor;
         }
 
+        // Cree un Tensor a partir de plusieurs sources (tensor transforme) et l'enregistre dans le store.
         pub fn maybeCreateBinding(self: View, sources: []const []const u8, shape: Shape) ?Tensor {
             const arena = self.store.arena.allocator();
 
@@ -266,12 +291,14 @@ pub const TensorStore = struct {
             return tensor;
         }
 
+        // Renvoie la shape du tenseur de sous-cle prefixee, ou null.
         pub fn getShape(self: View, subkey: []const u8) ?Shape {
             var buffer: [256]u8 = undefined;
             const key = makeKey(&buffer, "{s}{s}", .{ self.prefix() orelse "", subkey });
             return self.store.getShape(key);
         }
 
+        // Comme getShape mais permet d'ignorer le prefixe via opts.no_prefix.
         pub fn getShapeOpts(self: View, subkey: []const u8, opts: struct { no_prefix: bool = false }) ?Shape {
             var buffer: [256]u8 = undefined;
             const key = if (opts.no_prefix)
@@ -282,12 +309,14 @@ pub const TensorStore = struct {
             return self.store.getShape(key);
         }
 
+        // Renvoie un lecteur de tenseur pour la sous-cle prefixee.
         pub fn getReader(self: View, subkey: []const u8, io: std.Io, buffer: []u8) !safetensors.TensorReader {
             var key_buffer: [256]u8 = undefined;
             const key = makeKey(&key_buffer, "{s}{s}", .{ self.prefix() orelse "", subkey });
             return self.store.getReader(key, io, buffer);
         }
 
+        // Compte les entrees du registre dont la cle commence par le prefixe de la View.
         pub fn count(self: View) usize {
             var count_: usize = 0;
             const prefix_ = self.prefix() orelse "";
@@ -301,6 +330,7 @@ pub const TensorStore = struct {
             return count_;
         }
 
+        // Formate une cle dans le buffer fourni, en paniquant si le buffer est trop petit.
         fn makeKey(buffer: []u8, comptime fmt: []const u8, args: anytype) []const u8 {
             const key = std.fmt.bufPrint(buffer, fmt, args) catch
                 std.debug.panic("Expected key to be less than {} characters", .{buffer.len});
@@ -330,6 +360,7 @@ pub const Loader = struct {
         dma_chunk_size: usize,
     };
 
+    // Initialise le Loader : un allocateur DMA et un pool de buffers par device, plus un groupe de taches limite.
     pub fn init(allocator: std.mem.Allocator, platform: *const Platform, opts: Opts) error{OutOfMemory}!Loader {
         const pool_count = platform.devices.len;
         const dma_allocators = try allocator.alloc(mem.DmaAllocator, pool_count);
@@ -357,6 +388,7 @@ pub const Loader = struct {
         };
     }
 
+    // Libere la table delivered, les pools de buffers et les allocateurs DMA.
     pub fn deinit(self: *Loader) void {
         self.delivered.deinit(self.allocator);
         for (self.pinned_buffer_pools, 0..) |*pool, i| pool.deinit(self.dma_allocators[i].allocator());
@@ -364,6 +396,7 @@ pub const Loader = struct {
         self.allocator.free(self.dma_allocators);
     }
 
+    // Attend la fin de toutes les taches de chargement en cours.
     pub fn await(self: *Loader, io: std.Io) std.Io.Cancelable!void {
         return self.group.await(io);
     }
@@ -374,6 +407,7 @@ pub const Loader = struct {
 
     pub const LoadError = error{TransformedTensorNotDelivered};
 
+    // Planifie le chargement de chaque Tensor du modele vers son Buffer, sauf s'il est transforme ou deja livre.
     pub fn load(self: *Loader, io: std.Io, comptime T: type, model: *const T, buffers: *Bufferized(T), store: *const TensorStore, opts: LoadOpts) LoadError!void {
         const tensor_count = meta.count(Tensor, model);
 
@@ -382,6 +416,7 @@ pub const Loader = struct {
 
         const flattened_buffers = arena.allocator().alloc(*Buffer, tensor_count) catch @panic("Errors can't be handled in `loadInner`");
         meta.forEachVisit(buffers, *Buffer, struct {
+            // Visiteur meta.forEachVisit : collecte les pointeurs de Buffer dans le tableau a plat.
             fn call(i: usize, buffer: *Buffer, flattened_buffers_: []*Buffer) void {
                 flattened_buffers_[i] = buffer;
             }
@@ -389,6 +424,7 @@ pub const Loader = struct {
 
         const flattened_tensors = arena.allocator().alloc(*const Tensor, tensor_count) catch @panic("Errors can't be handled in `loadInner`");
         meta.forEachVisit(model, *const Tensor, struct {
+            // Visiteur meta.forEachVisit : collecte les pointeurs de Tensor dans le tableau a plat.
             fn call(i: usize, tensor: *const Tensor, flattened_tensors_: []*const Tensor) void {
                 flattened_tensors_[i] = tensor;
             }
@@ -419,6 +455,7 @@ pub const Loader = struct {
         }
     }
 
+    // Journalise les tenseurs transformes non livres (noms des sources, tronques) avant d'echouer.
     fn logNotDelivered(arena: std.mem.Allocator, tensor: *const Tensor, sources: []const *safetensors.Tensor) void {
         const max_names = 8;
         var names: std.Io.Writer.Allocating = .init(arena);
@@ -433,10 +470,12 @@ pub const Loader = struct {
         log.err("Transformed tensor {} {f} was not delivered by loadExecute before load; sources: {s}", .{ tensor.id, tensor.shape(), names.written() });
     }
 
+    // Planifie de facon asynchrone le chargement d'un unique Buffer depuis son Tensor.
     pub fn loadBuffer(loader: *Loader, io: std.Io, buffer: *Buffer, tensor: *const Tensor, store: *const TensorStore, opts: LoadOpts) void {
         loader.group.async(io, defaultCallback, .{ loader, io, tensor, buffer, store, opts });
     }
 
+    // Callback de chargement standard : lit le tenseur simple-source vers le Buffer, en paniquant sur erreur.
     fn defaultCallback(self: *Loader, io: std.Io, tensor: *const Tensor, buffer: *Buffer, store: *const TensorStore, opts: LoadOpts) void {
         const sources = store.getSourcesById(tensor.id) orelse {
             std.log.debug("Failed to get sources for tensor with id: {}", .{tensor.id});
@@ -450,6 +489,7 @@ pub const Loader = struct {
         };
     }
 
+    // Charge un unique tenseur dans un Buffer et note le succes dans loaded.
     fn loadSingle(self: *Loader, io: std.Io, source: *safetensors.Tensor, shape: Shape, buffer: *Buffer, loaded: *bool, opts: LoadOpts) void {
         self.loadSingleInner(io, source, shape, buffer, .device, opts) catch |e| {
             log.err("Failed to load tensor {s}: {}", .{ source.name, e });
@@ -459,6 +499,7 @@ pub const Loader = struct {
         loaded.* = true;
     }
 
+    // Coeur du chargement : cree le reader et le writer memoire, puis streame tous les octets (avec barre de progression optionnelle).
     fn loadSingleInner(
         self: *Loader,
         io: std.Io,
@@ -502,6 +543,7 @@ pub const Loader = struct {
         }
     }
 
+    // Charge les sources d'un tenseur transforme, execute l'exe fourni dessus et range le resultat dans buffer.
     pub fn loadExecute(
         self: *Loader,
         arena: std.mem.Allocator,
@@ -552,6 +594,7 @@ pub const Loader = struct {
     }
 };
 
+// Teste que loadExecute nettoie correctement les entrees donnees (donated) et non donnees selon le flag.
 test "Loader.loadExecute cleans up donated and non-donated inputs" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -574,6 +617,7 @@ test "Loader.loadExecute cleans up donated and non-donated inputs" {
 
     inline for (.{ false, true }) |donate| {
         const Functions = struct {
+            // Fonction forward du test : additionne value et weight, en donnant eventuellement son buffer a la somme.
             fn forward(value: Tensor, weight: Tensor) Tensor {
                 const sum = value.add(weight);
                 return if (donate) sum.reuseBuffer(value) else sum;
@@ -605,6 +649,7 @@ pub const ProgressWriter = struct {
         scale: usize = 1,
     };
 
+    // Initialise un writer qui relaie vers inner_ en mettant a jour la barre de progression.
     pub fn init(inner_: *std.Io.Writer, progress_: *std.Progress.Node, opts: InitOpts) ProgressWriter {
         return .{
             .inner = inner_,
@@ -623,12 +668,14 @@ pub const ProgressWriter = struct {
         };
     }
 
+    // Synchronise l'etat interne avec le writer sous-jacent avant une ecriture et renvoie la position courante.
     pub fn pre(self: *ProgressWriter) usize {
         self.inner.buffer = self.interface.buffer;
         self.inner.end = self.interface.end;
         return self.inner.end;
     }
 
+    // Synchronise apres ecriture et met a jour l'avancement de la progression (octets mis a l'echelle).
     pub fn post(self: *ProgressWriter, len_pre: usize, total: usize) void {
         self.interface.buffer = self.inner.buffer;
         self.interface.end = self.inner.end;
@@ -637,6 +684,7 @@ pub const ProgressWriter = struct {
         self.progress.setCompletedItems(self.total / self.scale);
     }
 
+    // Relaie drain vers le writer interne en suivant les octets effectivement ecrits.
     pub fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
         const self: *ProgressWriter = @alignCast(@fieldParentPtr("interface", w));
         const len_pre = self.pre();
@@ -646,6 +694,7 @@ pub const ProgressWriter = struct {
         return total;
     }
 
+    // Relaie sendFile vers le writer interne en suivant les octets envoyes.
     pub fn sendFile(w: *std.Io.Writer, file_reader: *std.Io.File.Reader, limit: std.Io.Limit) std.Io.Writer.FileError!usize {
         const self: *ProgressWriter = @alignCast(@fieldParentPtr("interface", w));
         const len_pre = self.pre();
@@ -655,6 +704,7 @@ pub const ProgressWriter = struct {
         return total;
     }
 
+    // Vide le writer interne et met a jour la progression.
     pub fn flush(w: *std.Io.Writer) std.Io.Writer.Error!void {
         const self: *ProgressWriter = @alignCast(@fieldParentPtr("interface", w));
         const len_pre = self.pre();
@@ -662,6 +712,7 @@ pub const ProgressWriter = struct {
         try self.inner.vtable.flush(self.inner);
     }
 
+    // Relaie rebase vers le writer interne en suivant l'avancement.
     pub fn rebase(w: *std.Io.Writer, preserve: usize, capacity: usize) std.Io.Writer.Error!void {
         const self: *ProgressWriter = @alignCast(@fieldParentPtr("interface", w));
         const len_pre = self.pre();
@@ -674,6 +725,7 @@ pub const MemoryWriter = union(enum) {
     direct: DirectMemoryWriter,
     buffered: BufferedMemoryWriter,
 
+    // Choisit et construit le writer memoire adapte : direct (DMA) sur CUDA/ROCm/oneAPI, sinon buffered.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -696,6 +748,7 @@ pub const MemoryWriter = union(enum) {
         };
     }
 
+    // Renvoie l'interface std.Io.Writer du variant actif.
     pub fn interface(self: *MemoryWriter) *std.Io.Writer {
         return switch (self.*) {
             .direct => &self.direct.interface,
@@ -703,6 +756,7 @@ pub const MemoryWriter = union(enum) {
         };
     }
 
+    // Libere les ressources du variant actif du writer.
     pub fn deinit(self: *MemoryWriter, allocator: std.mem.Allocator) void {
         switch (self.*) {
             .direct => self.direct.deinit(),
@@ -710,6 +764,7 @@ pub const MemoryWriter = union(enum) {
         }
     }
 
+    // Propage le noeud de progression au variant direct (sans effet pour buffered).
     pub fn setProgress(self: *MemoryWriter, progress: ?*std.Progress.Node) void {
         switch (self.*) {
             .direct => self.direct.setProgress(progress),
@@ -725,6 +780,7 @@ pub const BufferedMemoryWriter = struct {
     buffer: *Buffer,
     interface: std.Io.Writer,
 
+    // Alloue un tampon en RAM de la taille du tenseur et prepare un writer a taille fixe.
     pub fn init(allocator: std.mem.Allocator, io: std.Io, platform: *const Platform, shape: Shape, buffer: *Buffer) !BufferedMemoryWriter {
         return .{
             .io = io,
@@ -742,12 +798,14 @@ pub const BufferedMemoryWriter = struct {
         };
     }
 
+    // Libere le tampon alloue s'il n'est pas vide.
     pub fn deinit(self: *BufferedMemoryWriter, allocator: std.mem.Allocator) void {
         if (self.interface.buffer.len > 0) {
             allocator.free(self.interface.buffer);
         }
     }
 
+    // Envoie le tampon complet vers le device via Buffer.from (copie hote->device).
     pub fn flush(w: *std.Io.Writer) std.Io.Writer.Error!void {
         const self: *BufferedMemoryWriter = @alignCast(@fieldParentPtr("interface", w));
 
@@ -784,6 +842,7 @@ const DirectShardWriter = struct {
     flip_flop: u1 = 0,
     events_contexts: [2]?EventContext = @splat(null),
 
+    // Cree le gestionnaire de transfert asynchrone PJRT, recupere le buffer device et un bloc du pool pour ecrire.
     pub fn init(allocator: std.mem.Allocator, io: std.Io, memory: *const Memory, pool: *mem.DynamicBufferPool, shape: Shape) !DirectShardWriter {
         const shape_spec: pjrt.ShapeSpec = .init(shape.dims(), pjrtx.bufferTypeFromDtype(shape.dtype()));
         const transfer_manager = try memory.platform.pjrt_client.createBuffersForAsyncHostToDevice(
@@ -819,10 +878,12 @@ const DirectShardWriter = struct {
         };
     }
 
+    // Libere le gestionnaire de transfert asynchrone PJRT.
     pub fn deinit(self: *DirectShardWriter) void {
         self.transfer_manager.deinit(self.memory.platform.pjrt_api);
     }
 
+    // Copie le chunk dans le buffer DMA courant, en vidant (flush) avant/apres quand il est plein.
     fn drain(w: *std.Io.Writer, data: []const []const u8, _: usize) std.Io.Writer.Error!usize {
         const self: *DirectShardWriter = @alignCast(@fieldParentPtr("interface", w));
 
@@ -846,11 +907,13 @@ const DirectShardWriter = struct {
         return chunk.len;
     }
 
+    // Vide le buffer DMA courant vers le device.
     fn flush(w: *std.Io.Writer) std.Io.Writer.Error!void {
         const self: *DirectShardWriter = @alignCast(@fieldParentPtr("interface", w));
         try self.flushBuffered();
     }
 
+    // Gere un rebase : vide le buffer si la capacite demandee n'est pas deja disponible.
     fn rebase(w: *std.Io.Writer, preserve: usize, capacity: usize) std.Io.Writer.Error!void {
         const self: *DirectShardWriter = @alignCast(@fieldParentPtr("interface", w));
         if (self.interface.buffer.len - self.interface.end >= capacity) return;
@@ -858,6 +921,7 @@ const DirectShardWriter = struct {
         try self.interface.flush();
     }
 
+    // Soumet le tampon rempli via le transfer manager, arme le callback de completion et gere le double-buffer (flip-flop).
     fn flushBuffered(self: *DirectShardWriter) std.Io.Writer.Error!void {
         if (self.offset >= self.total) return;
 
@@ -883,6 +947,7 @@ const DirectShardWriter = struct {
         };
 
         transfer_event.onReady(pjrt_api, EventContext, struct {
+            // Callback de fin de transfert : rend le bloc au pool, enregistre l'erreur et signale l'evenement.
             fn call(err: ?*pjrt.Error, ctx_: *EventContext) void {
                 ctx_.self.pool.put(ctx_.self.io, ctx_.buffer);
                 ctx_.err = err;
@@ -941,6 +1006,7 @@ const ShardProgress = struct {
     label: [32]u8 = undefined,
     completed: usize = 0,
 
+    // Met a jour l'avancement (octets convertis en items mis a l'echelle) de la progression d'un shard.
     fn set(self: *ShardProgress, completed: usize) void {
         self.completed = completed;
         self.node.setCompletedItems(std.math.divCeil(usize, self.completed, scale) catch unreachable);
@@ -979,6 +1045,7 @@ const DispatchSpans = struct {
     spans: []DispatchSpan,
     mirror_writers: []usize,
 
+    // Construit la table de routage : collecte les spans de placement par device puis deduplique par plage d'octets.
     fn init(allocator: std.mem.Allocator, shape: Shape) !DispatchSpans {
         const placement = try Sharding.Placement.init(shape);
         const ordered_devices = placement.mesh().?.devicesInCanonicalOrder();
@@ -1019,11 +1086,13 @@ const DispatchSpans = struct {
         };
     }
 
+    // Libere les tableaux de spans et de writers miroirs.
     fn deinit(self: DispatchSpans, allocator: std.mem.Allocator) void {
         allocator.free(self.spans);
         allocator.free(self.mirror_writers);
     }
 
+    // Trie les spans de placement, fusionne les plages identiques (repliques) et verifie la contiguite globale.
     fn deduplicateByRange(
         allocator: std.mem.Allocator,
         placement_spans: []PlacementSpan,
@@ -1032,6 +1101,7 @@ const DispatchSpans = struct {
         mirror_writers: *std.ArrayList(usize),
     ) !void {
         const SortContext = struct {
+            // Comparateur de tri des spans par (start, len, ordre d'apparition).
             fn lessThan(_: void, lhs: PlacementSpan, rhs: PlacementSpan) bool {
                 if (lhs.start != rhs.start) return lhs.start < rhs.start;
                 if (lhs.len != rhs.len) return lhs.len < rhs.len;
@@ -1069,6 +1139,7 @@ const DispatchSpans = struct {
         if (cursor != total_bytes) return error.NonContiguousShardPlacement;
     }
 
+    // Ajoute un span de placement (device, debut, longueur) au tableau.
     fn appendPlacementSpan(placement_spans: *std.ArrayList(PlacementSpan), writer_index: usize, start: usize, len: usize) void {
         placement_spans.appendAssumeCapacity(.{
             .writer_index = writer_index,
@@ -1078,6 +1149,7 @@ const DispatchSpans = struct {
         });
     }
 
+    // Emet les spans d'un shard : un seul span si rang 0, sinon descend l'axe contigu.
     fn appendShardPlacementSpans(
         placement_spans: *std.ArrayList(PlacementSpan),
         shape: Shape,
@@ -1093,6 +1165,7 @@ const DispatchSpans = struct {
         appendShardAxisPlacementSpans(placement_spans, slices, byte_strides, writer_index, 0, contiguousSliceAxis(shape, slices), 0);
     }
 
+    // Descend recursivement les axes pour decomposer le shard en spans contigus ; agrege sur l'axe contigu.
     fn appendShardAxisPlacementSpans(
         placement_spans: *std.ArrayList(PlacementSpan),
         slices: []const Placement.Slice1d,
@@ -1119,6 +1192,7 @@ const DispatchSpans = struct {
         }
     }
 
+    // Compte le nombre de spans qu'un shard produira (produit des tailles avant l'axe contigu).
     fn placementSpanCount(shape: Shape, slices: []const Placement.Slice1d) usize {
         if (shape.rank() == 0) return 1;
 
@@ -1130,6 +1204,7 @@ const DispatchSpans = struct {
         return count;
     }
 
+    // Trouve l'axe le plus a droite non tranche (donc contigu) de la tranche.
     fn contiguousSliceAxis(shape: Shape, slices: []const Placement.Slice1d) usize {
         var axis = shape.rank() - 1;
         while (axis > 0) {
@@ -1186,6 +1261,7 @@ pub const DirectMemoryWriter = struct {
     shard_progress: ?[]ShardProgress = null,
     interface: std.Io.Writer,
 
+    // Prepare un writer par device, cree les buffers PJRT, calcule les spans de dispatch et publie la premiere fenetre d'ecriture.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -1250,6 +1326,7 @@ pub const DirectMemoryWriter = struct {
         };
     }
 
+    // Termine la progression, libere les writers de shard, leur tableau et les spans de dispatch.
     pub fn deinit(self: *DirectMemoryWriter) void {
         self.setProgress(null);
         for (self.shard_writers) |*writer| {
@@ -1259,6 +1336,7 @@ pub const DirectMemoryWriter = struct {
         self.dispatch_spans.deinit(self.allocator);
     }
 
+    // Cree ou detruit les compteurs de progression par shard (enfants du noeud donne).
     pub fn setProgress(self: *DirectMemoryWriter, progress: ?*std.Progress.Node) void {
         const parent = progress orelse {
             const states = self.shard_progress orelse return;
@@ -1282,6 +1360,7 @@ pub const DirectMemoryWriter = struct {
         self.shard_progress = states;
     }
 
+    // Copie le chunk dans la fenetre publique, en commitant la fenetre avant et apres pour router les octets.
     fn drain(w: *std.Io.Writer, data: []const []const u8, _: usize) std.Io.Writer.Error!usize {
         const self: *DirectMemoryWriter = @alignCast(@fieldParentPtr("interface", w));
 
@@ -1299,6 +1378,7 @@ pub const DirectMemoryWriter = struct {
         return n;
     }
 
+    // Commit la derniere fenetre puis vide tous les writers de shard et marque l'interface comme defaillante.
     fn flush(w: *std.Io.Writer) std.Io.Writer.Error!void {
         const self: *DirectMemoryWriter = @alignCast(@fieldParentPtr("interface", w));
 
@@ -1317,6 +1397,7 @@ pub const DirectMemoryWriter = struct {
         self.interface = .failing;
     }
 
+    // Gere un rebase : commit la fenetre et verifie que la capacite demandee est disponible.
     fn rebase(w: *std.Io.Writer, preserve: usize, capacity: usize) std.Io.Writer.Error!void {
         const self: *DirectMemoryWriter = @alignCast(@fieldParentPtr("interface", w));
 
@@ -1335,6 +1416,7 @@ pub const DirectMemoryWriter = struct {
     // DMA buffer and is committed by advancing that shard writer. Later spans
     // use the same bytes as scratch and are copied before any full buffers are
     // submitted or the public alias is rotated.
+    // Route les octets nouvellement ecrits vers les shards primaires/miroirs via les spans, gere flush et rotation de la fenetre.
     fn commitWindow(self: *DirectMemoryWriter) std.Io.Writer.Error!void {
         // All dispatch spans are consumed; no shard DMA buffer remains valid to
         // expose as the public alias until flush marks the writer as failing.
@@ -1446,6 +1528,7 @@ pub const DirectMemoryWriter = struct {
     }
 };
 
+// Construit un maillage physique a 2 devices relies en torus sur l'axe x (usage test).
 fn buildMesh2(
     allocator: std.mem.Allocator,
     target: @import("platform.zig").Target,
@@ -1460,6 +1543,7 @@ fn buildMesh2(
     return Sharding.PhysicalMesh.fromTree(allocator, target, topology);
 }
 
+// Construit un maillage physique 2x2 (4 devices) en torus (usage test).
 fn buildMesh2x2(
     allocator: std.mem.Allocator,
     target: @import("platform.zig").Target,
@@ -1480,6 +1564,7 @@ fn buildMesh2x2(
     return Sharding.PhysicalMesh.fromTree(allocator, target, topology);
 }
 
+// Construit un maillage physique 2x2x2 (8 devices) en torus (usage test).
 fn buildMesh2x2x2(
     allocator: std.mem.Allocator,
     target: @import("platform.zig").Target,
@@ -1534,6 +1619,7 @@ const DirectMemoryWriterDeviceTest = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
 
+    // Construit une plateforme auto et un mesh selon le scenario, puis lance le test d'ecriture du DirectMemoryWriter.
     fn run(self: DirectMemoryWriterDeviceTest, scenario: Scenario, partitioning: anytype) !void {
         var platform = Platform.auto(self.allocator, self.io, scenario.create_options) catch return error.SkipZigTest;
         defer platform.deinit(self.allocator, self.io);
@@ -1550,6 +1636,7 @@ const DirectMemoryWriterDeviceTest = struct {
         );
     }
 
+    // Remplit une tranche, ecrit ses octets via le writer (deux modes), puis verifie que le buffer device restitue est identique.
     fn runDirectMemoryWriter(
         self: DirectMemoryWriterDeviceTest,
         platform: *const Platform,
@@ -1627,6 +1714,7 @@ const DirectMemoryWriterDeviceTest = struct {
     }
 };
 
+// Teste l'ecriture d'un tenseur replique sur un maillage auto a 4 devices.
 test "DirectMemoryWriter: replicated with auto topology" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1645,6 +1733,7 @@ test "DirectMemoryWriter: replicated with auto topology" {
     }, .{ .rows = .replicated, .cols = .replicated });
 }
 
+// Teste un partage modele 1D (colonne) sur un maillage physique 2x2.
 test "DirectMemoryWriter: 1D model split with 2x2 physical mesh" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1663,6 +1752,7 @@ test "DirectMemoryWriter: 1D model split with 2x2 physical mesh" {
     }, .{ .rows = .replicated, .cols = .model });
 }
 
+// Teste un partage 2D batch/modele sur un maillage physique 2x2.
 test "DirectMemoryWriter: 2D batch/model split with 2x2 physical mesh" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1684,6 +1774,7 @@ test "DirectMemoryWriter: 2D batch/model split with 2x2 physical mesh" {
     }, .{ .batch = .batch, .model = .model });
 }
 
+// Teste un maillage modele replie sur l'axe y sur un maillage physique 2x2.
 test "DirectMemoryWriter: folded model mesh with 2x2 physical mesh" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1706,6 +1797,7 @@ test "DirectMemoryWriter: folded model mesh with 2x2 physical mesh" {
     }, .{ .model = .model });
 }
 
+// Teste le mode d'ecriture writableSliceGreedy avec des shards dupliques (miroirs).
 test "DirectMemoryWriter: writableSliceGreedy with mirrored shards" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1727,6 +1819,7 @@ test "DirectMemoryWriter: writableSliceGreedy with mirrored shards" {
     }, .{ .rows = .replicated, .cols = .model });
 }
 
+// Teste une topologie 3D avec modele replie et batch replique sur 8 devices.
 test "DirectMemoryWriter: 3D topology folded model + replicated batch" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,
@@ -1752,6 +1845,7 @@ test "DirectMemoryWriter: 3D topology folded model + replicated batch" {
     }, .{ .batch = .replicated, .model = .model });
 }
 
+// Verifie que le MemoryWriter produit bien un buffer en memoire hote epinglee.
 test "MemoryWriter can produce a host pinned buffer" {
     const case: DirectMemoryWriterDeviceTest = .{
         .allocator = std.testing.allocator,

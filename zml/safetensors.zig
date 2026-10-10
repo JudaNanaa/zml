@@ -19,6 +19,7 @@ pub const FileType = enum {
     unknown,
 };
 
+// Charge un TensorRegistry depuis un fichier modele, en gerant soit un index .safetensors.index.json soit un .safetensors unique.
 pub fn fetchRegistry(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -79,6 +80,7 @@ pub const TensorReader = struct {
         alignment: ?std.mem.Alignment = null,
     };
 
+    // Ouvre le fichier du tenseur, calcule l'offset (eventuellement aligne) et prepare un Reader qui streame byteSize() octets.
     pub fn init(
         io: std.Io,
         tensor: Tensor,
@@ -125,6 +127,7 @@ pub const TensorReader = struct {
         };
     }
 
+    // Ferme le fichier sous-jacent du lecteur.
     pub fn deinit(self: *TensorReader) void {
         self.file.close(self.io);
     }
@@ -133,6 +136,7 @@ pub const TensorReader = struct {
     // INT_MAX when the requested size is larger than 2GB
     const max_single_read_bytes: u64 = 1 << 30;
 
+    // Implementation std.Io.Reader sans alignement : streame au plus remaining octets (limites a 1 Go) du fichier vers le writer.
     fn stream(r: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
         const self: *TensorReader = @fieldParentPtr("interface", r);
         if (self.remaining == 0) {
@@ -145,6 +149,7 @@ pub const TensorReader = struct {
         return n;
     }
 
+    // Implementation std.Io.Reader sans alignement : jette jusqu'a remaining octets du fichier.
     fn discard(r: *std.Io.Reader, limit: std.Io.Limit) std.Io.Reader.Error!usize {
         const self: *TensorReader = @fieldParentPtr("interface", r);
         if (self.remaining == 0) {
@@ -157,6 +162,7 @@ pub const TensorReader = struct {
         return n;
     }
 
+    // Variante alignee : gere le padding et effectue des lectures positionnelles alignees pour alimenter le writer.
     fn streamAligned(r: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
         const self: *TensorReader = @fieldParentPtr("interface", r);
         if (self.remaining == 0) {
@@ -208,6 +214,7 @@ pub const TensorReader = struct {
         return bytes_read;
     }
 
+    // Variante alignee de discard : consomme d'abord le padding puis jette les octets restants.
     fn discardAligned(r: *std.Io.Reader, limit: std.Io.Limit) std.Io.Reader.Error!usize {
         const self: *TensorReader = @fieldParentPtr("interface", r);
         if (self.remaining == 0) return 0;
@@ -230,14 +237,17 @@ pub const Tensor = struct {
     shape: Shape,
     offset: u64,
 
+    // Taille en octets du tenseur d'apres sa Shape.
     pub fn byteSize(self: Tensor) u64 {
         return self.shape.byteSize();
     }
 
+    // Cree un TensorReader pour lire ce tenseur avec le buffer de travail et les options donnes.
     pub fn reader(self: Tensor, io: std.Io, buffer: []u8, opts: TensorReader.InitOpts) !TensorReader {
         return TensorReader.init(io, self, buffer, opts);
     }
 
+    // Formate le tenseur (nom, shape, taille, offset, fichier) pour l'affichage.
     pub fn format(self: Tensor, writer: *std.Io.Writer) !void {
         try writer.print("Tensor(name={s} shape={f} size={d}, offset={d}, file_uri={s})", .{
             self.name,
@@ -257,6 +267,7 @@ pub const TensorRegistry = struct {
 
     mutex: std.Io.Mutex = .init,
 
+    // Initialise un registre de tenseurs vide, avec son arene d'allocation.
     pub fn init(allocator: std.mem.Allocator) TensorRegistry {
         return .{
             .arena = std.heap.ArenaAllocator.init(allocator),
@@ -265,6 +276,7 @@ pub const TensorRegistry = struct {
         };
     }
 
+    // Initialise un registre de tenseurs en y fusionnant les metadonnees fournies.
     pub fn initWithMetadata(
         allocator: std.mem.Allocator,
         metadata: Metadatas,
@@ -280,6 +292,7 @@ pub const TensorRegistry = struct {
         return self;
     }
 
+    // Construit un registre en resolvant le point d'entree du depot puis en chargeant le fichier.
     pub fn fromRepo(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -290,6 +303,7 @@ pub const TensorRegistry = struct {
         return try fetchRegistry(allocator, io, repo, entrypoint_file, entrypoint_path);
     }
 
+    // Construit un registre depuis un chemin de fichier ou de depot donne.
     pub fn fromPath(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -307,6 +321,7 @@ pub const TensorRegistry = struct {
         return try fetchRegistry(allocator, io, repo, entrypoint_file, entrypoint_path);
     }
 
+    // Libere les tables du registre et son arene.
     pub fn deinit(self: *TensorRegistry) void {
         const allocator = self.arena.allocator();
         self.tensors.deinit(allocator);
@@ -314,6 +329,7 @@ pub const TensorRegistry = struct {
         self.arena.deinit();
     }
 
+    // Copie et fusionne les metadonnees donnees dans le registre (les cles existantes sont ecrasees).
     pub fn mergeMetadata(
         self: *TensorRegistry,
         other: Metadatas,
@@ -340,6 +356,7 @@ pub const TensorRegistry = struct {
         }
     }
 
+    // Duplique et enregistre un descripteur de tenseur dans la table du registre.
     pub fn registerTensor(
         self: *TensorRegistry,
         tensor: Tensor,
@@ -357,6 +374,7 @@ pub const TensorRegistry = struct {
         try self.tensors.put(allocator, tensor_copy.name, tensor_copy);
     }
 
+    // Renvoie un lecteur pour le tenseur nomme, en erreur s'il est absent du registre.
     pub fn reader(
         self: *TensorRegistry,
         io: std.Io,
@@ -371,10 +389,12 @@ pub const TensorRegistry = struct {
         return try .init(io, tensor, buffer, .{});
     }
 
+    // Renvoie un iterateur sur les tenseurs enregistres.
     pub fn iterator(self: *TensorRegistry) Tensors.Iterator {
         return self.tensors.iterator();
     }
 
+    // Somme des tailles en octets de tous les tenseurs enregistres.
     pub fn totalBytes(self: *TensorRegistry) u64 {
         var total: u64 = 0;
 
@@ -387,6 +407,7 @@ pub const TensorRegistry = struct {
     }
 };
 
+// Lit un fichier .safetensors : parse l'en-tete JSON et enregistre chaque tenseur (shape, dtype, offset) dans le registre.
 pub fn parseSafetensors(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -470,6 +491,7 @@ const SafetensorsIndex = struct {
     map: Map,
     metadata: Metadatas,
 
+    // Initialise un index d'index safetensors vide (map fichier->noms de tenseurs, plus metadonnees).
     pub fn init(allocator: std.mem.Allocator) SafetensorsIndex {
         return .{
             .arena = std.heap.ArenaAllocator.init(allocator),
@@ -478,10 +500,12 @@ const SafetensorsIndex = struct {
         };
     }
 
+    // Renvoie un iterateur sur la map de l'index.
     pub fn iterator(self: *SafetensorsIndex) Map.Iterator {
         return self.map.iterator();
     }
 
+    // Libere la map, les metadonnees et l'arene de l'index.
     pub fn deinit(self: *SafetensorsIndex) void {
         const allocator = self.arena.allocator();
         self.map.deinit(allocator);
@@ -490,6 +514,7 @@ const SafetensorsIndex = struct {
     }
 };
 
+// Parse un fichier .safetensors.index.json en map nom de fichier->liste de noms de tenseurs, plus les metadonnees.
 fn parseSafetensorsIndex(
     allocator: std.mem.Allocator,
     reader: *std.Io.Reader,
@@ -535,6 +560,7 @@ fn parseSafetensorsIndex(
     return safetensors_index;
 }
 
+// Ouvre et parse chaque fichier .safetensors reference par l'index, en enregistrant ses tenseurs.
 fn parseSafetensorsIndexFiles(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -550,6 +576,7 @@ fn parseSafetensorsIndexFiles(
     }
 }
 
+// Determine le type de fichier modele d'apres son extension (.index.json, .safetensors ou inconnu).
 pub fn resolveFiletype(path: []const u8) FileType {
     if (std.mem.endsWith(u8, path, ".safetensors.index.json")) {
         return .index;
@@ -565,6 +592,7 @@ pub const ModelPathResolutionError = error{
     InvalidPath,
 } || std.mem.Allocator.Error;
 
+// Ouvre et renvoie le repertoire contenant le modele, que le chemin designe un fichier ou un dossier.
 pub fn resolveModelRepo(
     io: std.Io,
     path: []const u8,
@@ -594,6 +622,7 @@ pub fn resolveModelRepo(
     return dir;
 }
 
+// Cherche dans le depot model.safetensors.index.json puis model.safetensors, et renvoie le fichier ouvert et son chemin.
 pub fn resolveModelEntrypoint(io: std.Io, repo: std.Io.Dir) ModelPathResolutionError!struct { std.Io.File, []const u8 } {
     {
         const index_name = "model.safetensors.index.json";
@@ -630,6 +659,7 @@ const Metadata = union(enum) {
         bool,
         string,
 
+        // Renvoie le type Zig correspondant a ce type d'element de metadonnee.
         pub fn toZigType(comptime kind: ItemType) type {
             return switch (kind) {
                 .int => i64,
@@ -640,6 +670,7 @@ const Metadata = union(enum) {
         }
     };
 
+    // Convertit une valeur scalaire Zig en Metadata (entier, flottant, booleen ou chaine).
     pub fn wrap(x: anytype) Metadata {
         return switch (@TypeOf(x)) {
             inline u8, i8, u16, i16, u32, i32, u64, i64 => .{ .int = @intCast(x) },
@@ -650,6 +681,7 @@ const Metadata = union(enum) {
         };
     }
 
+    // Convertit une tranche Zig en Metadata de tableau, en copiant les elements dans l'allocateur.
     pub fn copySlice(allocator: std.mem.Allocator, any_slice: anytype) !Metadata {
         return switch (@TypeOf(any_slice[0])) {
             inline u8, i8, u16, i16, u32, i32, u64, i64 => {
@@ -668,6 +700,7 @@ const Metadata = union(enum) {
         };
     }
 
+    // Formate la metadonnee (valeur ou tableau) en syntaxe JSON-like pour l'affichage.
     pub fn format(
         self: Metadata,
         writer: *std.Io.Writer,
@@ -713,6 +746,7 @@ const Metadata = union(enum) {
         }
     }
 
+    // Libere les chaines et tableaux alloues detenus par cette metadonnee.
     pub fn deinit(self: Metadata, allocator: std.mem.Allocator) void {
         switch (self) {
             .string => |s| allocator.free(s),
@@ -727,6 +761,7 @@ const Metadata = union(enum) {
         }
     }
 
+    // Renvoie une copie profonde de la metadonnee allouee avec l'allocateur donne.
     pub fn clone(self: Metadata, allocator: std.mem.Allocator) !Metadata {
         return switch (self) {
             .null => .null,
@@ -749,6 +784,7 @@ const Metadata = union(enum) {
     }
 };
 
+// Convertit un nom de dtype safetensors (ex. "F32", "BF16") en DataType ZML.
 fn stringToDtype(safetensor_type: []const u8) !DataType {
     const map = std.StaticStringMap(DataType).initComptime(.{
         .{ "F64", .f64 },
@@ -775,6 +811,7 @@ fn stringToDtype(safetensor_type: []const u8) !DataType {
     };
 }
 
+// Parse un objet JSON de metadonnees en table Metadatas en aplatissant les cles imbriquees.
 fn parseMetadata(allocator: std.mem.Allocator, val: std.json.Value) !Metadatas {
     var metadatas: Metadatas = .{};
     var prefix_buf: [1024]u8 = undefined;
@@ -785,6 +822,7 @@ fn parseMetadata(allocator: std.mem.Allocator, val: std.json.Value) !Metadatas {
     return metadatas;
 }
 
+// Parcourt recursivement un objet/tableau JSON et enregistre chaque feuille dans Metadatas avec une cle pointee.
 fn populateMetadata(allocator: std.mem.Allocator, prefix: *StringBuilder, val: std.json.Value, metadatas: *Metadatas) !void {
     const key = prefix.items;
     return switch (val) {
@@ -849,6 +887,7 @@ fn populateMetadata(allocator: std.mem.Allocator, prefix: *StringBuilder, val: s
     };
 }
 
+// Renvoie le type d'element si tous les elements du tableau JSON partagent le meme type, sinon null.
 /// We can only create a Zig slice out of json array, if all values
 /// in the array have the same type.
 fn validSlice(v: std.json.Array) ?std.meta.Tag(std.json.Value) {

@@ -13,6 +13,7 @@ pub const Color = enum {
     shine_violet,
     shine_pink,
 
+    // Renvoie la sequence d'echappement ANSI de la couleur selon le support de couleurs.
     pub fn escape(self: Color, support: ColorSupport) []const u8 {
         return switch (support) {
             .true_color => self.trueColor(),
@@ -21,6 +22,7 @@ pub const Color = enum {
         };
     }
 
+    // Renvoie le code ANSI true-color (24 bits) de cette couleur.
     fn trueColor(self: Color) []const u8 {
         return switch (self) {
             .reset => "\x1b[0m",
@@ -37,6 +39,7 @@ pub const Color = enum {
         };
     }
 
+    // Renvoie le code ANSI xterm 256 couleurs de cette couleur.
     fn xterm256(self: Color) []const u8 {
         return switch (self) {
             .reset => "\x1b[0m",
@@ -109,6 +112,7 @@ pub const zml_art_blocks = [_]Block{
     } },
 };
 
+// Detecte le niveau de support des couleurs du terminal via NO_COLOR, COLORTERM et TERM.
 pub fn detectColorSupport(io: std.Io, file: std.Io.File, env: *const std.process.Environ.Map) ColorSupport {
     var no_color: bool = false;
     var clicolor_force: bool = false;
@@ -136,10 +140,12 @@ pub fn detectColorSupport(io: std.Io, file: std.Io.File, env: *const std.process
     return .ansi;
 }
 
+// Ecrit l'Art ZML par defaut dans le writer avec les options de rendu donnees.
 pub fn writeZmlArt(writer: *std.Io.Writer, options: Options) !void {
     try write(writer, zml_art_blocks[0..], options);
 }
 
+// Ecrit plusieurs blocs de logo ligne par ligne en alignant et colorisant chaque glyphe.
 pub fn write(writer: *std.Io.Writer, blocks: []const Block, options: Options) !void {
     if (blocks.len == 0) return;
 
@@ -163,6 +169,7 @@ pub fn write(writer: *std.Io.Writer, blocks: []const Block, options: Options) !v
     }
 }
 
+// Ecrit une ligne de logo en appliquant les couleurs et le style brillant sur certains glyphes.
 pub fn writeRow(writer: *std.Io.Writer, row: Row, options: Options, rtrim_whitespace: bool) !void {
     const text = if (rtrim_whitespace) trimRightWhitespace(row.text) else row.text;
     if (text.len == 0) return;
@@ -185,6 +192,7 @@ pub fn writeRow(writer: *std.Io.Writer, row: Row, options: Options, rtrim_whites
     }
 }
 
+// Renvoie l'index du dernier bloc dont la ligne donnee n'est pas vide, ou null si aucun.
 fn findLastVisibleBlockIndex(blocks: []const Block, row_index: usize) ?usize {
     var index = blocks.len;
     while (index > 0) {
@@ -194,10 +202,12 @@ fn findLastVisibleBlockIndex(blocks: []const Block, row_index: usize) ?usize {
     return null;
 }
 
+// Supprime les espaces et caracteres blancs en fin de chaine.
 fn trimRightWhitespace(text: []const u8) []const u8 {
     return std.mem.trimEnd(u8, text, " \t\r\n");
 }
 
+// Indique si le codepoint fait partie des glyphes a rendre en brillant (bordures, .ai).
 pub fn isShineGlyph(codepoint: []const u8) bool {
     return std.mem.eql(u8, codepoint, "╔") or
         std.mem.eql(u8, codepoint, "╗") or

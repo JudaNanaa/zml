@@ -8,10 +8,12 @@ const Shape = @import("shape.zig").Shape;
 const mlirx = @This();
 
 pub const Type = struct {
+    // Construit un type MLIR tenseur range a partir d'une Shape ZML (dims + dtype).
     pub fn rankedTensor(ctx: *mlir.Context, shape: Shape) *const mlir.Type {
         return .rankedTensor(shape.dims(), mlirx.Type.fromDType(ctx, shape.dtype()));
     }
 
+    // Associe chaque DataType de ZML a son type elementaire MLIR correspondant.
     pub fn fromDType(ctx: *mlir.Context, dt: dtype.DataType) *const mlir.Type {
         return switch (dt) {
             .bool => .int(ctx, .i1),

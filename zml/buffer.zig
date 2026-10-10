@@ -19,6 +19,7 @@ const testing = @import("testing.zig");
 
 const log = std.log.scoped(.zml);
 
+// Reference toutes les declarations de Buffer et Buffer.HostAccessible pour que leurs tests soient compiles.
 test {
     std.testing.refAllDecls(Buffer);
     std.testing.refAllDecls(Buffer.HostAccessible);
@@ -53,6 +54,7 @@ pub const Buffer = struct {
         _platform: *const Platform,
         _pjrt_buffer: *pjrt.Buffer,
 
+        // Renvoie le pointeur brut en memoire device du buffer PJRT de ce shard.
         pub fn devicePtr(self: *const Shard) *anyopaque {
             return self._pjrt_buffer.opaqueDeviceMemoryDataPointer(self._platform.pjrt_api) catch unreachable;
         }
@@ -63,10 +65,12 @@ pub const Buffer = struct {
         _shards: []const *pjrt.Buffer,
         _index: usize = 0,
 
+        // Nombre de shards restant a parcourir.
         pub fn remaining(self: *ShardIterator) usize {
             return self._shards.len -| self._index;
         }
 
+        // Renvoie le prochain shard et avance l'iterateur, ou null en fin de parcours.
         pub fn next(self: *ShardIterator) ?Shard {
             defer self._index += 1;
             if (self._index >= self._shards.len) return null;
@@ -80,6 +84,7 @@ pub const Buffer = struct {
 
     pub const FromOptions = struct { wait: bool = true, memory: Memory.Kind = .default };
 
+    // Libere la memoire accelerator de tous les shards et vide la liste.
     /// Frees the accelerator memory.
     /// Depending on the platform, the memory is typically not released to the OS
     /// but just marked as available in the memory pool.
@@ -90,35 +95,42 @@ pub const Buffer = struct {
         self._shards = .empty;
     }
 
+    // Appelle deinit sur chaque Buffer d'une struct plate (taille statique, sans tranches) bufferisee.
     /// Given a flat struct (static size, no slices) containing `zml.Buffer`, `deinit` each one of them.
     pub fn deinitAll(T: type, buffers: *mem.Bufferized(T)) void {
         meta.visitFlatStruct(struct {
+            // Fonction de visite passee a meta.visitFlatStruct : libere le Buffer rencontre.
             fn deinit(_: void, x: *Buffer) void {
                 x.deinit();
             }
         }.deinit, {}, buffers);
     }
 
+    // Libere la memoire device de tous les Buffer d'une struct arbitraire sans liberer la memoire des tranches de Buffer.
     /// Given an arbitrary struct `deinit` all `zml.Buffer` containing.
     /// If the struct contains slices of `zml.Buffer` the memory of the slices will NOT be freed,
     /// This only impacts device memory.
     pub fn freeDeviceMemoryButKeepHostMetadataMemory(T: type, buffers: *mem.Bufferized(T)) void {
         meta.visit(struct {
+            // Fonction de visite passee a meta.visit : libere le Buffer rencontre.
             fn deinit(_: void, x: *Buffer) void {
                 x.deinit();
             }
         }.deinit, {}, buffers);
     }
 
+    // Renvoie la Shape de ce Buffer.
     /// This Buffer shape.
     pub fn shape(self: Buffer) Shape {
         return self._shape;
     }
 
+    // Renvoie le nombre de shards (devices) de ce Buffer.
     pub fn numShards(self: Buffer) u32 {
         return @intCast(self._shards.len);
     }
 
+    // Renvoie un iterateur sur les shards de ce Buffer.
     pub fn shards(self: *const Buffer) ShardIterator {
         return .{
             ._platform = self._platform,
@@ -126,6 +138,7 @@ pub const Buffer = struct {
         };
     }
 
+    // Formate le Buffer (son placement de sharding) pour l'affichage via std.Io.Writer.
     pub fn format(self: Buffer, writer: *std.Io.Writer) !void {
         const pl = Sharding.Placement.init(self._shape) catch |err| {
             return try writer.print("Buffer({f}) with invalid sharding {} ({})", .{ self._shape, self._shape._sharding, err });
@@ -133,6 +146,7 @@ pub const Buffer = struct {
         try writer.print("{f}", .{pl});
     }
 
+    // Copie des octets hote vers la memoire accelerator, un shard par device, puis attend la fin du transfert si demande.
     /// Copies the content of the given buffer from host memory to the accelerator memory.
     pub fn from(
         io: std.Io,
@@ -177,32 +191,38 @@ pub const Buffer = struct {
         return buffer;
     }
 
+    // Cree un Buffer a partir d'octets Zig avec les dimensions donnees (options par defaut).
     /// Copies the given Zig bytes to the accelerator memory and
     /// return a Buffer with the given dimensions.
     pub fn fromBytes(io: std.Io, platform: *const Platform, sh: Shape, data: []const u8) !Buffer {
         return fromBytesOpts(io, platform, sh, data, .{});
     }
 
+    // Comme fromBytes mais avec des options (attente/memoire) explicites.
     pub fn fromBytesOpts(io: std.Io, platform: *const Platform, sh: Shape, data: []const u8, opts: FromOptions) !Buffer {
         return from(io, platform, sh, data, opts);
     }
 
+    // Cree un Buffer a partir d'un zml.Slice (options par defaut).
     /// Copies the given zml.Slice to the accelerator memory and
     /// return a Buffer.
     pub fn fromSlice(io: std.Io, platform: *const Platform, slice: Slice) !Buffer {
         return fromSliceOpts(io, platform, slice, .{});
     }
 
+    // Comme fromSlice mais avec des options explicites.
     pub fn fromSliceOpts(io: std.Io, platform: *const Platform, slice: Slice, opts: FromOptions) !Buffer {
         return from(io, platform, slice.shape, std.mem.sliceAsBytes(slice.constData()), opts);
     }
 
+    // Cree un Buffer contenant un unique element de type/dtype donne.
     /// Creates a Buffer with a single element.
     pub fn scalar(io: std.Io, platform: *const Platform, val: anytype, dtype_: DataType) !Buffer {
         const x = dtype_.constant(val);
         return fromBytes(io, platform, .scalar(dtype_), x.asBytes());
     }
 
+    // Attend que tous les transferts asynchrones des shards soient termines.
     pub fn await(self: Buffer, io: std.Io) !void {
         for (self._shards.constSlice()) |buffer| {
             const ev = buffer.readyEvent(self._platform.pjrt_api);
@@ -213,6 +233,7 @@ pub const Buffer = struct {
 
     pub const UnitializedOptions = struct { memory: Memory.Kind = .default };
 
+    // Cree un Buffer non initialise de la forme donnee sur chaque device.
     pub fn uninitialized(
         _: std.Io,
         platform: *const Platform,
@@ -245,6 +266,7 @@ pub const Buffer = struct {
         return buffer;
     }
 
+    // Enveloppe des shards pjrt.Buffer preexistants dans un unique zml.Buffer.
     /// Wraps pre-exisiting `pjrt.Buffer` shards into one `zml.Buffer`.
     pub fn fromPjrtBuffers(platform: *const Platform, sh: Shape, pjrt_buffers: []const *pjrt.Buffer) Buffer {
         stdx.debug.assert(pjrt_buffers.len <= MAX_NUM_SHARDS, "ZML doesn't support having more than {} shards. Received {} shards for one buffer.", .{ MAX_NUM_SHARDS, pjrt_buffers.len });
@@ -257,6 +279,7 @@ pub const Buffer = struct {
         };
     }
 
+    // Lit le contenu du Buffer dans une variable de type T de meme taille.
     /// Fetches the content of the given buffer into a stack variable of the given type.
     pub fn getValue(self: Buffer, T: type, io: std.Io) !T {
         stdx.debug.assert(self._shape.byteSize() == @sizeOf(T), "Buffer {f} has {d} bytes of data, can't load it to a {s} with {d} bytes", .{ self, self._shape.byteSize(), @typeName(T), @sizeOf(T) });
@@ -267,6 +290,7 @@ pub const Buffer = struct {
         return res;
     }
 
+    // Copie le contenu du Buffer vers la tranche destination fournie (shape identique).
     /// Copies the content of the Buffer to the provided slice.
     pub fn toSlice(self: Buffer, io: std.Io, slice: Slice) !void {
         stdx.debug.assert(self._shape.eql(slice.shape), "Buffer shape {f} doesn't match destination slice {f}", .{ self._shape, slice.shape });
@@ -288,6 +312,7 @@ pub const Buffer = struct {
         }
     }
 
+    // Copie le contenu du Buffer dans une nouvelle tranche allouee dont l'appelant devient proprietaire.
     /// Copies the content of the Buffer to the provided slice.
     /// The returned slice owns the memory.
     pub fn toSliceAlloc(self: Buffer, allocator: std.mem.Allocator, io: std.Io) !Slice {
@@ -315,6 +340,7 @@ pub const Buffer = struct {
         return slice;
     }
 
+    // Memoire totale occupee par le Buffer sur tous les devices (taille de shard x nombre de shards).
     /// The memory used by this Buffer across all devices
     /// ie: `num_devices * shard_byte_size`
     /// `shard_byte_size` can be up to `self.shape().byteSize()` when the buffer is fully replicated.
@@ -323,10 +349,12 @@ pub const Buffer = struct {
         return placement.shape.byteSize() * self._shards.len;
     }
 
+    // Renvoie le pointeur device opaque du shard du device donne.
     pub fn opaqueDevicePtr(self: Buffer, device_id: usize) *anyopaque {
         return self._shards.get(device_id).opaqueDeviceMemoryDataPointer(self._platform.pjrt_api) catch unreachable;
     }
 
+    // Cree une vue de ce Buffer partageant la meme memoire device mais avec de nouveaux handles PJRT.
     /// Creates a view of the given buffer
     pub fn createView(self: Buffer) !Buffer {
         const platform = self._platform;
@@ -352,6 +380,7 @@ pub const Buffer = struct {
     }
 };
 
+// Teste l'aller-retour hote->device->hote d'un tenseur 8x8 reparti, en comparant les valeurs.
 test "device round-trip" {
     const zml = @import("zml.zig");
     const io = std.testing.io;
@@ -405,6 +434,7 @@ const PjrtBufferMetadata = struct {
     layout: pjrt.MemoryLayout,
 };
 
+// Construit un Buffer vide (sans shards) plus les metadonnees PJRT (shape, type, placement, layout) necessaires au chargement.
 /// Inline because the layout may point to stack memory, as with
 /// `Platform.defaultMemoryLayout`. Outside `Buffer` so that
 /// `Buffer.HostAccessible` can use it without it being part of the API:
@@ -431,6 +461,7 @@ pub inline fn emptyShell(platform: *const Platform, shape_: Shape) struct { Buff
     };
 }
 
+// Calcule le placement de sharding de la shape en repli sur le maillage replique ; panique si incompatible avec le mesh.
 fn placementOrPanic(platform: *const Platform, shape: Shape) Sharding.Placement {
     var sh = shape;
     if (sh._sharding.mesh == null) sh._sharding.mesh = platform.replicated_mesh;

@@ -10,6 +10,7 @@ pub const MINOR_TO_MAJOR: [MAX_RANK]i64 = b: {
     break :b values;
 };
 
+// Renvoie les axes mineurs-vers-majeurs tronques au rang demande.
 pub fn minorToMajor(rank: u8) []const i64 {
     return MINOR_TO_MAJOR[MINOR_TO_MAJOR.len - rank ..];
 }

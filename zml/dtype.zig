@@ -36,6 +36,7 @@ pub const DataType = enum(u8) {
     c64,
     c128,
 
+    // Renvoie le nom textuel du DataType.
     pub fn str(self: DataType) [:0]const u8 {
         return switch (self) {
             inline else => |tag| @tagName(tag),
@@ -49,6 +50,7 @@ pub const DataType = enum(u8) {
         complex,
     };
 
+    // Renvoie la classe (bool, float, integer, complex) du DataType.
     pub fn class(self: DataType) Class {
         return switch (self) {
             .bool => .bool,
@@ -71,18 +73,22 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie vrai si le DataType est entier.
     pub fn isInteger(self: DataType) bool {
         return self.class() == .integer;
     }
 
+    // Renvoie vrai si le DataType est flottant.
     pub fn isFloat(self: DataType) bool {
         return self.class() == .float;
     }
 
+    // Renvoie vrai si le DataType est complexe.
     pub fn isComplex(self: DataType) bool {
         return self.class() == .complex;
     }
 
+    // Renvoie le DataType correspondant au type Zig T.
     pub fn fromZigType(comptime T: type) DataType {
         return switch (T) {
             floats.Float4E2M1 => .f4e2m1,
@@ -117,6 +123,7 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Deduit le DataType depuis le type d'element d'un slice ou pointeur.
     pub fn fromSliceElementType(slice: anytype) DataType {
         const type_info = @typeInfo(@TypeOf(slice));
         if (type_info != .pointer) {
@@ -132,10 +139,12 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie le type Zig correspondant au DataType.
     pub fn toZigType(comptime dtype: DataType) type {
         return @FieldType(Value, @tagName(dtype));
     }
 
+    // Renvoie le type Zig packe (vecteur/float4) stockant les valeurs de ce DataType.
     pub fn toPackedZigType(comptime dtype: DataType) type {
         return switch (dtype) {
             .bool => bool,
@@ -149,6 +158,7 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie vrai si le DataType est un entier signe.
     pub fn isSignedInt(dtype: DataType) bool {
         return switch (dtype) {
             .i2, .i4, .i8, .i16, .i32, .i64 => true,
@@ -156,12 +166,14 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie la taille en octets d'une valeur de ce DataType.
     pub fn sizeOf(self: DataType) u16 {
         return switch (self) {
             inline else => |tag| @sizeOf(tag.toZigType()),
         };
     }
 
+    // Renvoie la taille en bits (8 pour bool en stablehlo).
     pub fn bitSizeOf(self: DataType) u16 {
         return switch (self) {
             .bool => 8, // In PJRT/stablehlo bool always occupy a full byte
@@ -169,12 +181,14 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie l'alignement requis par ce DataType.
     pub fn alignOf(self: DataType) u29 {
         return switch (self) {
             inline else => |tag| @alignOf(tag.toZigType()),
         };
     }
 
+    // Choisit un DataType commun a deux types de meme classe, ou null.
     /// Try to find a type compatible with both dtype.
     pub fn resolvePeerType(a: DataType, b: DataType) ?DataType {
         if (a == b) {
@@ -189,6 +203,7 @@ pub const DataType = enum(u8) {
         return if (a.sizeOf() >= b.sizeOf()) a else b;
     }
 
+    // Verifie la resolution du type commun entre DataTypes compatibles et incompatibles.
     test resolvePeerType {
         try std.testing.expectEqual(DataType.f16.resolvePeerType(.f16), .f16);
         try std.testing.expectEqual(DataType.f32.resolvePeerType(.f32), .f32);
@@ -205,14 +220,17 @@ pub const DataType = enum(u8) {
         try std.testing.expectEqual(DataType.c64.resolvePeerType(.f32), null);
     }
 
+    // Cree la valeur zero de ce DataType.
     pub fn zero(dtype: DataType) Value {
         return .init(dtype, 0);
     }
 
+    // Cree la valeur un de ce DataType.
     pub fn one(dtype: DataType) Value {
         return .init(dtype, 1);
     }
 
+    // Renvoie la plus petite valeur representable par ce DataType.
     pub fn minValue(dtype: DataType) Value {
         return switch (dtype) {
             .bool => .{ .bool = false },
@@ -224,6 +242,7 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Renvoie la plus grande valeur representable par ce DataType.
     pub fn maxValue(dtype: DataType) Value {
         return switch (dtype) {
             .bool => .{ .bool = true },
@@ -235,6 +254,7 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Cree une Value de ce DataType depuis une valeur quelconque.
     pub fn constant(dtype: DataType, value: anytype) Value {
         return .init(dtype, value);
     }
@@ -269,6 +289,7 @@ pub const DataType = enum(u8) {
         c64: C64,
         c128: C128,
 
+        // Construit une Value depuis un dtype et une valeur, en paniquant si la conversion est invalide ou avec perte.
         /// Creates `Data` from a `value`.
         ///
         /// If the `dtype` and `@TypeOf(value)` are incompatible
@@ -319,6 +340,7 @@ pub const DataType = enum(u8) {
             };
         }
 
+        // Verifie la construction de Value depuis divers types et dtypes.
         test init {
             try std.testing.expectEqual(20.0, Value.init(.f16, 20).f16);
             try std.testing.expectEqual(20.5, Value.init(.f16, 20.5).f16);
@@ -342,16 +364,19 @@ pub const DataType = enum(u8) {
             try std.testing.expectEqual(C128.init(1, 2), Value.init(.c128, C64.init(1, 2)).c128);
         }
 
+        // Renvoie le DataType actif de cette Value.
         pub fn dtype(self: Value) DataType {
             return std.meta.activeTag(self);
         }
 
+        // Renvoie les octets bruts de cette Value.
         pub fn asBytes(data: *const Value) []const u8 {
             return switch (data.*) {
                 inline else => |*value| std.mem.asBytes(value),
             };
         }
 
+        // Convertit cette Value vers le type Zig T (ou panique si non supporte).
         pub fn as(self: Value, comptime T: type) T {
             // TODO allow more lossless conversions
             switch (@typeInfo(T)) {
@@ -372,6 +397,7 @@ pub const DataType = enum(u8) {
     };
 };
 
+// Renvoie le nombre de bits de mantisse pour un dtype flottant.
 pub fn mantissaSize(dtype: DataType) usize {
     return switch (dtype) {
         .f8e4m3b11fnuz, .f8e4m3fn, .f8e4m3fnuz => 3,

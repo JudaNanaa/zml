@@ -18,6 +18,7 @@ const platform_ = @import("platform.zig");
 const Shape = @import("shape.zig").Shape;
 const Tensor = @import("tensor.zig").Tensor;
 
+// Construit un type struct ayant un champ par nom fourni, tous de type FieldT.
 /// Build a struct type with one field per name, all of type `FieldT`.
 fn StructOf(comptime names: []const [:0]const u8, comptime FieldT: type) type {
     var name_slices: [names.len][]const u8 = undefined;
@@ -25,6 +26,7 @@ fn StructOf(comptime names: []const [:0]const u8, comptime FieldT: type) type {
     return @Struct(.auto, null, &name_slices, &@splat(FieldT), &@splat(.{}));
 }
 
+// Cree un contexte MLIR en enregistrant passes et dialectes demandes, puis charge tous les dialectes disponibles.
 fn makeKernelContext(comptime dialects_needed: []const []const u8) std.mem.Allocator.Error!*mlir.Context {
     mlir.registerPasses("Transforms");
 
@@ -43,6 +45,7 @@ fn makeKernelContext(comptime dialects_needed: []const []const u8) std.mem.Alloc
     return ctx;
 }
 
+// Convertit les alias optionnels sortie/operande en liste d'alias stablehlo, en decalant les index d'operandes.
 fn resolveOutputOperandAliases(
     aliases_opt: anytype,
     operand_offset: i64,
@@ -67,10 +70,12 @@ pub const triton = struct {
     pub const DType = triton_builder.DType;
     pub const FinishError = triton_builder.FinishError;
 
+    // Cree un contexte MLIR avec les dialectes necessaires au builder Triton.
     pub fn newContext() std.mem.Allocator.Error!*mlir.Context {
         return makeKernelContext(&triton_builder.dialects_needed);
     }
 
+    // Traduit un DataType ZML vers le type de donnees Triton, en paniquant si non supporte.
     pub fn from(dt: DataType) DType {
         return switch (dt) {
             .bool => .i1,
@@ -89,6 +94,7 @@ pub const triton = struct {
         };
     }
 
+    // Decrit un kernel Triton : nom, listes d'entrees/sorties et callback de generation.
     fn Spec(comptime Config: type) type {
         return struct {
             name: [:0]const u8,
@@ -98,6 +104,7 @@ pub const triton = struct {
         };
     }
 
+    // Genere un type de kernel Triton (Inputs/Outputs/Results) avec ses methodes emit et call.
     pub fn Kernel(
         comptime ConfigT: type,
         comptime spec: Spec(ConfigT),
@@ -120,6 +127,7 @@ pub const triton = struct {
                 global_scratch_memory_size: i32 = 0,
             };
 
+            // Emet le TTIR du kernel via le builder Triton et renvoie son texte MLIR.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT) ![:0]const u8 {
                 const ctx = try newContext();
                 defer ctx.deinit();
@@ -132,6 +140,7 @@ pub const triton = struct {
                 return b.finish(&.{});
             }
 
+            // Emet puis appelle le kernel Triton et renvoie les tenseurs de sortie.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
 
@@ -180,10 +189,12 @@ pub const mosaic_tpu = struct {
     const DType = mosaic_tpu_builder.DType;
     const FinishError = mosaic_tpu_builder.FinishError;
 
+    // Cree un contexte MLIR avec les dialectes necessaires au builder Mosaic-TPU.
     pub fn newContext() std.mem.Allocator.Error!*mlir.Context {
         return makeKernelContext(&mosaic_tpu_builder.dialects_needed);
     }
 
+    // Traduit un DataType ZML vers le type de donnees Mosaic-TPU.
     pub fn from(dt: DataType) DType {
         return switch (dt) {
             .bool => .i1,
@@ -201,6 +212,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Decrit un kernel Mosaic-TPU : nom, entrees/sorties et callback de generation.
     fn Spec(comptime Config: type) type {
         return struct {
             name: [:0]const u8,
@@ -210,6 +222,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Genere un type de kernel Mosaic-TPU avec ses methodes emit et call.
     pub fn Kernel(
         comptime ConfigT: type,
         comptime spec: Spec(ConfigT),
@@ -236,6 +249,7 @@ pub const mosaic_tpu = struct {
                 extras: CallExtras = .{},
             };
 
+            // Emet le Mosaic IR du kernel et le canonise via le builder.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT) ![:0]const u8 {
                 const ctx = try newContext();
                 defer ctx.deinit();
@@ -248,6 +262,7 @@ pub const mosaic_tpu = struct {
                 return b.finishOpts(&.{}, .{ .canonicalize = true });
             }
 
+            // Construit la backend config, emet l'IR puis le custom call TPU et renvoie les sorties.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
 
@@ -321,6 +336,7 @@ pub const mosaic_tpu = struct {
         has_communication: ?bool = null,
     };
 
+    // Serialise la backend config Mosaic-TPU (IR en base64 + options memoire) en JSON.
     fn buildBackendConfig(
         allocator: std.mem.Allocator,
         ir: [:0]const u8,
@@ -381,6 +397,7 @@ pub const mosaic_tpu = struct {
         additional_attributes: []const mlir.NamedAttribute,
     };
 
+    // Emet un custom call stablehlo `tpu_custom_call` avec entrees, types de sortie et attributs.
     fn callTpuCustomCall(args: TpuCustomCallArgs) *mlir.Operation {
         const cur = Compiler.current();
 
@@ -413,10 +430,12 @@ pub const cuda_tile = struct {
     pub const EntryHint = cuda_tile_builder.EntryHint;
     pub const Arch = cuda_tile_builder.Arch;
 
+    // Cree un contexte MLIR avec les dialectes necessaires au builder CUDA Tile.
     pub fn newContext() std.mem.Allocator.Error!*mlir.Context {
         return makeKernelContext(&cuda_tile_builder.dialects_needed);
     }
 
+    // Traduit un DataType ZML vers le type de donnees CUDA Tile IR.
     pub fn from(dt: DataType) DType {
         return switch (dt) {
             .bool => .i1,
@@ -437,6 +456,7 @@ pub const cuda_tile = struct {
         };
     }
 
+    // Decrit un kernel CUDA Tile : nom, entrees/sorties et callback de generation.
     fn Spec(comptime Config: type) type {
         return struct {
             name: [:0]const u8,
@@ -446,6 +466,7 @@ pub const cuda_tile = struct {
         };
     }
 
+    // Genere un type de kernel CUDA Tile avec ses methodes emit et call.
     pub fn Kernel(
         comptime ConfigT: type,
         comptime spec: Spec(ConfigT),
@@ -468,6 +489,7 @@ pub const cuda_tile = struct {
                 output_operand_aliases: ?ops.CustomCallOutputOperandAliases(Inputs, Outputs) = null,
             };
 
+            // Emet le module CUDA Tile du kernel via le builder.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT) ![:0]const u8 {
                 const ctx = try newContext();
                 defer ctx.deinit();
@@ -480,6 +502,7 @@ pub const cuda_tile = struct {
                 return b.finish(&.{});
             }
 
+            // Emet le module puis l'op custom call CUDA Tile et renvoie les sorties.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
 
@@ -526,10 +549,12 @@ pub const cute = struct {
     pub const TmaFormat = cute_builder.TmaFormat;
     pub const BlockScaledMmaConfig = cute_builder.BlockScaledMmaConfig;
 
+    // Cree un contexte MLIR avec les dialectes necessaires au builder CuTe.
     pub fn newContext() std.mem.Allocator.Error!*mlir.Context {
         return makeKernelContext(&cute_builder.dialects_needed);
     }
 
+    // Traduit un DataType ZML vers le type de donnees CuTe.
     pub fn from(dt: DataType) DType {
         return switch (dt) {
             .bool => .i1,
@@ -549,6 +574,7 @@ pub const cute = struct {
         };
     }
 
+    // Decrit un kernel CuTe : nom, entrees/sorties et callback de generation.
     fn Spec(comptime Config: type) type {
         return struct {
             name: [:0]const u8,
@@ -558,6 +584,7 @@ pub const cute = struct {
         };
     }
 
+    // Genere un type de kernel CuTe (grid/block) avec ses methodes emit et call.
     pub fn Kernel(
         comptime ConfigT: type,
         comptime spec: Spec(ConfigT),
@@ -579,6 +606,7 @@ pub const cute = struct {
                 output_operand_aliases: ?ops.CustomCallOutputOperandAliases(Inputs, Outputs) = null,
             };
 
+            // Emet le kernel CuTe en verifiant que les arguments declares couvrent entrees et sorties.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT, block: [3]i32) ![:0]const u8 {
                 const ctx = try newContext();
                 defer ctx.deinit();
@@ -598,6 +626,7 @@ pub const cute = struct {
                 return b.finish(block);
             }
 
+            // Emet le kernel puis l'op custom call CuTe et renvoie les tenseurs de sortie.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
 
@@ -629,6 +658,7 @@ pub const cute = struct {
         };
     }
 
+    // Decrit un programme CuTe complet (fonction hote + noyaux) pour le builder.
     fn ProgramSpec(comptime Config: type) type {
         return struct {
             /// Public host entry selected by XLA. The callback may give the
@@ -649,6 +679,7 @@ pub const cute = struct {
     /// `@cute.kernel`. XLA executes the generated host function on its CUDA
     /// stream, so the custom call deliberately carries no external grid or
     /// block dimensions.
+    // Genere un type de programme CuTe complet avec ses methodes emit et call.
     pub fn Program(
         comptime ConfigT: type,
         comptime spec: ProgramSpec(ConfigT),
@@ -667,6 +698,7 @@ pub const cute = struct {
                 output_operand_aliases: ?ops.CustomCallOutputOperandAliases(Inputs, Outputs) = null,
             };
 
+            // Emet un programme CuTe (gpu.module et fonction hote) via le builder.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT) ![:0]const u8 {
                 const ctx = try newContext();
                 defer ctx.deinit();
@@ -677,6 +709,7 @@ pub const cute = struct {
                 return b.finishProgram();
             }
 
+            // Emet le programme CuTe puis l'op custom call associe et renvoie les sorties.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
                 const ir = emit(cur.allocator, opts.cfg) catch |err|
@@ -707,6 +740,7 @@ pub const cute = struct {
 };
 
 pub const fly = struct {
+    // Renvoie la taille de wavefront de la plateforme : 64 sur CDNA, 32 sur RDNA.
     /// Threads per wavefront: 64 on CDNA, 32 on RDNA.
     pub fn waveSize(p: *const platform_.Platform) i32 {
         const cc = platform_.rocm.computeCapability(p) orelse return 64;
@@ -716,6 +750,7 @@ pub const fly = struct {
         };
     }
 
+    // Convertit un nombre de threads en nombre de wavefronts, en verifiant la divisibilite.
     /// The plugin sizes a block in wavefronts, so a thread count has to divide
     /// evenly: a kernel's layouts are built for an exact number of threads and
     /// spare ones would partition out of range.
@@ -737,6 +772,7 @@ pub const fly = struct {
     pub const MmaFlavor = fly_builder.MmaFlavor;
     pub const rocdl = fly_builder.rocdl;
 
+    // Renvoie l'atome matriciel fourni par l'appareil, ou null s'il n'en fournit aucun.
     /// The matrix atom this device provides, or null when it has none: WMMA
     /// arrived with RDNA3, so gfx1030 has no matrix instruction at all.
     pub fn mmaFlavor(p: *const platform_.Platform) ?MmaFlavor {
@@ -759,10 +795,12 @@ pub const fly = struct {
     pub const tile = fly_builder.tile;
     pub const it = fly_builder.it;
 
+    // Cree un contexte MLIR avec les dialectes necessaires au builder Fly.
     pub fn newContext() std.mem.Allocator.Error!*mlir.Context {
         return makeKernelContext(&fly_builder.dialects_needed);
     }
 
+    // Traduit un DataType ZML vers le type de donnees Fly.
     pub fn from(dt: DataType) DType {
         return switch (dt) {
             .bool => .i1,
@@ -782,6 +820,7 @@ pub const fly = struct {
         };
     }
 
+    // Decrit un kernel Fly : nom, entrees/sorties et callback de generation.
     fn Spec(comptime Config: type) type {
         return struct {
             name: [:0]const u8,
@@ -791,6 +830,7 @@ pub const fly = struct {
         };
     }
 
+    // Genere un type de kernel Fly (wavefronts AMD) avec utilitaires, emit et call.
     pub fn Kernel(
         comptime ConfigT: type,
         comptime spec: Spec(ConfigT),
@@ -823,6 +863,7 @@ pub const fly = struct {
                 output_operand_aliases: ?ops.CustomCallOutputOperandAliases(Inputs, Outputs) = null,
             };
 
+            // Recupere les arguments du kernel sous forme de vue typee des memrefs.
             /// The arguments `run` was declared with.
             pub fn args(b: *Builder) Args {
                 var out: Args = undefined;
@@ -830,11 +871,13 @@ pub const fly = struct {
                 return out;
             }
 
+            // Renvoie l'index de cet output dans le tableau `zeroed_args`.
             /// `zeroed_args` index of an output.
             pub fn zeroedOutput(comptime f: std.meta.FieldEnum(Outputs)) i32 {
                 return @intCast(spec.inputs.len + @intFromEnum(f));
             }
 
+            // Emet le module Fly apres avoir declare les arguments (formes) et execute le callback.
             /// `shapes` is inputs, then outputs.
             pub fn emit(allocator: std.mem.Allocator, cfg: ConfigT, shapes: []const Shape) ![:0]const u8 {
                 std.debug.assert(shapes.len == arg_names.len);
@@ -860,6 +903,7 @@ pub const fly = struct {
                 return b.finish();
             }
 
+            // Convertit les formes, emet le module Fly puis l'op custom call et renvoie les sorties.
             pub fn call(inputs: Inputs, outputs: Outputs, opts: CallOpts) Results {
                 const cur = Compiler.current();
 
@@ -913,12 +957,14 @@ const FlyVectorAdd = struct {
         .run = run,
     });
 
+    // Emet le corps du kernel `vector_add` (C = A + B) via le helper Fly.
     fn run(b: *fly.Builder, cfg: Cfg) fly.FinishError!void {
         const a = K.args(b);
         fly_builder.emitVectorAdd(b, cfg.thr, cfg.val, a.a, a.b, a.c);
     }
 };
 
+// Verifie que le kernel Fly genere un module GPU que XLA peut parser.
 test "fly kernel emits a module XLA can parse" {
     const shapes = [_]Shape{ .init(.{ 100, 1000 }, .f32), .init(.{ 100, 1000 }, .f32), .init(.{ 100, 1000 }, .f32) };
     const ir = try FlyVectorAdd.K.emit(std.testing.allocator, .{}, &shapes);
@@ -937,12 +983,14 @@ const FlyTiledMma = struct {
         .run = run,
     });
 
+    // Emet le corps du kernel `tiled_mma` (C = A @ B^T) via le helper Fly.
     fn run(b: *fly.Builder, cfg: Cfg) fly.FinishError!void {
         const a = K.args(b);
         fly_builder.emitTiledMma(b, cfg.flavor, a.a, a.b, a.c);
     }
 };
 
+// Execute les kernels Fly sur ROCm et compare les resultats au calcul CPU.
 test "fly kernels run on rocm" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -952,6 +1000,7 @@ test "fly kernels run on rocm" {
 
     // Compile `forward`, upload both inputs, run, and bring the result back.
     const call = struct {
+        // Compile `forward`, televerse les entrees, execute et renvoie la sortie ramenee sur l'hote.
         fn f(comptime forward: anytype, p: *const zml.Platform, ta: Tensor, ha: anytype, tb: Tensor, hb: anytype) !zml.Slice {
             var exe = try zml.module.compile(std.testing.allocator, std.testing.io, forward, .{ ta, tb }, p, .{});
             defer exe.deinit();
@@ -969,6 +1018,7 @@ test "fly kernels run on rocm" {
     {
         const M, const N = .{ 100, 1000 };
         const Mod = struct {
+            // Forward du test vector add : appelle le kernel FlyVectorAdd sur les entrees.
             pub fn forward(a: Tensor, b: Tensor) Tensor {
                 return FlyVectorAdd.K.call(.{ .a = a, .b = b }, .{ .c = a.shape() }, .{
                     .cfg = .{},
@@ -1012,6 +1062,7 @@ test "fly kernels run on rocm" {
             };
 
             const Mod = struct {
+                // Forward du test tiled MMA : appelle le kernel FlyTiledMma avec le flavour de l'appareil.
                 pub fn forward(a: Tensor, b: Tensor) Tensor {
                     return FlyTiledMma.K.call(.{ .a = a, .b = b }, .{ .c = Shape.init(.{ M, N }, .f32) }, .{
                         .cfg = .{ .flavor = f },
@@ -1042,6 +1093,7 @@ test "fly kernels run on rocm" {
     };
 }
 
+// Verifie que le kernel CuTe genere le module attendu par le compilateur CuTe.
 test "cute kernel emits the module the CuTe compiler takes" {
     const Cfg = struct { n: i64 };
     const AddOne = cute.Kernel(Cfg, .{
@@ -1049,6 +1101,7 @@ test "cute kernel emits the module the CuTe compiler takes" {
         .inputs = &.{"x"},
         .outputs = &.{"out"},
         .run = struct {
+            // Corps du kernel `add_one` : charge x[i], ajoute 1 et stocke dans out[i].
             fn run(b: *cute.Builder, cfg: Cfg) cute.FinishError!void {
                 const a = try b.declareArgs(.{
                     .x = .{ .tensor = .{ .dtype = .f32, .shape = &.{cfg.n} } },
@@ -1071,6 +1124,7 @@ test "cute kernel emits the module the CuTe compiler takes" {
     try std.testing.expect(std.mem.indexOf(u8, ir, "gpu.module") == null);
 }
 
+// Verifie que le kernel CUDA Tile genere un module que XLA peut parser.
 test "cuda_tile kernel emits a module XLA can parse" {
     const Cfg = struct { n: i64 };
     const AddOne = cuda_tile.Kernel(Cfg, .{
@@ -1078,6 +1132,7 @@ test "cuda_tile kernel emits a module XLA can parse" {
         .inputs = &.{"x"},
         .outputs = &.{"out"},
         .run = struct {
+            // Corps du kernel `add_one` CUDA Tile : charge x[bid], ajoute 1 et stocke.
             fn run(b: *cuda_tile.Builder, cfg: Cfg) cuda_tile.FinishError!void {
                 const a = try b.declareArgs(.{ .x = .{ .ptr = .f32 }, .out = .{ .ptr = .f32 } });
                 const vx = b.partitionView(b.tensorView(a.x, &.{cfg.n}, &.{1}), &.{128}, .{});

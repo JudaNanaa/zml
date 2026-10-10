@@ -52,6 +52,7 @@ threadlocal var _current: ?*Compiler = null;
 var mlir_global_init_mutex: std.Io.Mutex = .init;
 var mlir_global_registry: ?*mlir.DialectRegistry = null;
 
+// Renvoie le registre MLIR global, en l'initialisant une seule fois.
 fn mlirRegistry(io: std.Io) *mlir.DialectRegistry {
     mlir_global_init_mutex.lockUncancelable(io);
     defer mlir_global_init_mutex.unlock(io);
@@ -113,6 +114,7 @@ pub const Scope = struct {
     id_to_memory: std.AutoArrayHashMapUnmanaged(Tensor.Id, Memory.Kind),
     arena: std.heap.ArenaAllocator,
 
+    // Crée une Scope pour un bloc MLIR, avec son arène et ses tables vides.
     pub fn initFromBlock(compiler: *Compiler, block: *mlir.Block) Scope {
         const arena: std.heap.ArenaAllocator = .init(compiler.allocator);
         return .{
@@ -125,6 +127,7 @@ pub const Scope = struct {
         };
     }
 
+    // Dépile cette Scope et libère son arène.
     pub fn pop(self: *Scope) void {
         const compiler = self.compiler;
         std.debug.assert(self == compiler.currentScope());
@@ -133,11 +136,13 @@ pub const Scope = struct {
         arena.deinit();
     }
 
+    // Enregistre le tenseur `id` comme argument de bloc MLIR d'indice `arg_id`.
     pub fn registerTensorAsBlockArgument(scope: *Scope, id: Tensor.Id, arg_id: usize) void {
         scope.id_to_argument.put(scope.arena.allocator(), id, scope.block.argument(arg_id)) catch @panic("OOM");
     }
 };
 
+// Initialise le compilateur : contexte MLIR, passes, types connus et maillages.
 pub fn init(allocator: std.mem.Allocator, io: std.Io, platform: *const Platform, opts: Options) Compiler {
     var arena = std.heap.ArenaAllocator.init(allocator);
     const mlir_registry = mlirRegistry(io);
@@ -193,6 +198,7 @@ pub fn init(allocator: std.mem.Allocator, io: std.Io, platform: *const Platform,
     };
 }
 
+// Libère le pass manager, le module, le contexte MLIR et l'arène.
 pub fn deinit(self: *Compiler) void {
     if (_current == self) _current = null;
     std.debug.assert(self.scopes.len == 0);
@@ -202,34 +208,41 @@ pub fn deinit(self: *Compiler) void {
     self.arena.deinit();
 }
 
+// Définit ce compilateur comme courant pour le thread.
 pub fn activate(self: *Compiler) void {
     std.debug.assert(_current == null);
     _current = self;
 }
 
+// Efface le compilateur courant si c'est celui-ci.
 pub fn deactivate(self: *Compiler) void {
     _ = self;
     _current = null;
 }
 
+// Renvoie le compilateur courant du thread (panique s'il n'y en a pas).
 pub fn current() *Compiler {
     return currentOrNull().?;
 }
 
+// Renvoie le compilateur courant du thread, ou null.
 pub fn currentOrNull() ?*Compiler {
     return _current;
 }
 
+// Renvoie la Scope au sommet de la pile.
 pub fn currentScope(self: *Compiler) *Scope {
     return &self.scopes.slice()[self.scopes.len - 1];
 }
 
+// Empile une nouvelle Scope pour `block` et la renvoie.
 pub fn pushBlock(self: *Compiler, block: *mlir.Block) *Scope {
     const scope = Scope.initFromBlock(self, block);
     self.scopes.appendAssumeCapacity(scope);
     return self.currentScope();
 }
 
+// Empile un frame source nommé dans la pile de localisations MLIR.
 /// Change `Compiler.location` by appending a frame to the current stack of locations
 /// Must be followed by a `defer compiler.popLocation`
 pub fn pushLocation(self: *Compiler, location: std.builtin.SourceLocation, name: []const u8) void {
@@ -238,6 +251,7 @@ pub fn pushLocation(self: *Compiler, location: std.builtin.SourceLocation, name:
     self.location = if (self.location == self.unknown_location) callee else .callSite(callee, self.location);
 }
 
+// Comme `pushLocation`, avec un nom formaté depuis `fmt` et `args`.
 /// see `zml.Compiler.pushLocation`
 pub fn pushLocationFmt(self: *Compiler, location: std.builtin.SourceLocation, comptime fmt: []const u8, args: anytype) void {
     const name = std.fmt.allocPrint(self.allocator, fmt, args) catch {
@@ -248,6 +262,7 @@ pub fn pushLocationFmt(self: *Compiler, location: std.builtin.SourceLocation, co
     return self.pushLocation(location, name);
 }
 
+// Retire le dernier frame de localisation empilé par `pushLocation`.
 /// Remove last call frame pushed by `zml.Compiler.pushLocation`
 pub fn popLocation(self: *Compiler) void {
     switch (self.location.inspect()) {
@@ -264,6 +279,7 @@ pub fn popLocation(self: *Compiler) void {
     }
 }
 
+// Vérifie l'empilement et le dépilement des localisations.
 test pushLocation {
     const mlir_registry = mlirRegistry(std.testing.io);
     var mlir_ctx = mlir.Context.init(.{ .registry = mlir_registry, .threading = false }) catch unreachable;
@@ -299,20 +315,24 @@ test pushLocation {
     try std.testing.expectEqual(unknown_location, compiler.location);
 }
 
+// Incrémente et renvoie le prochain identifiant de canal.
 pub fn nextChannelId(self: *Compiler) i64 {
     self.channel_id += 1;
     return self.channel_id;
 }
 
+// Incrémente et renvoie le prochain identifiant composite.
 pub fn nextCompositeId(self: *Compiler) i64 {
     self.composite_id += 1;
     return self.composite_id;
 }
 
+// Renvoie le type MLIR précalculé pour un DataType.
 pub fn mlirType(self: *const Compiler, dt: DataType) *const mlir.Type {
     return self.mlir_known_types.get(dt);
 }
 
+// Renvoie le DataType correspondant à un type MLIR connu.
 pub fn dtype(self: *const Compiler, mlir_type: *const mlir.Type) DataType {
     @setRuntimeSafety(false);
     for (0.., &self.mlir_known_types.values) |i, known_type| {
@@ -321,19 +341,23 @@ pub fn dtype(self: *const Compiler, mlir_type: *const mlir.Type) DataType {
     std.debug.panic("Can't convert unknown mlir type to dtype: {f}", .{mlir_type});
 }
 
+// Panique sur une erreur d'allocation mémoire.
 pub fn abortOOM(self: *Compiler) noreturn {
     _ = self;
     @panic("OOM");
 }
 
+// Alloue `n` éléments de type `T` dans l'arène du compilateur.
 pub fn alloc(self: *Compiler, T: type, n: usize) []T {
     return self.arena.allocator().alloc(T, n) catch self.abortOOM();
 }
 
+// Formate une chaîne dans l'arène du compilateur.
 pub fn allocPrint(self: *Compiler, comptime fmt: []const u8, args: anytype) []u8 {
     return std.fmt.allocPrint(self.arena.allocator(), fmt, args) catch self.abortOOM();
 }
 
+// Renvoie le maillage porté par son nom, ou panique s'il est inconnu.
 /// Lookup a mesh by it's name
 pub fn mesh(compiler: *const Compiler, name: @EnumLiteral()) *const Sharding.Mesh {
     const name_slice = @tagName(name);
@@ -350,6 +374,7 @@ pub fn mesh(compiler: *const Compiler, name: @EnumLiteral()) *const Sharding.Mes
     , .{ name_slice, stdx.fmt.slice(compiler.meshes) });
 }
 
+// Renvoie le maillage couvrant exactement les axes logiques donnés.
 /// Find a mesh that covers all the given axes
 pub fn resolveMesh(compiler: *const Compiler, logical_axes: anytype) *const Sharding.Mesh {
     if (@TypeOf(logical_axes) != []const Shape.Tag) {
@@ -391,8 +416,10 @@ pub fn resolveMesh(compiler: *const Compiler, logical_axes: anytype) *const Shar
     , .{ logical_axes, stdx.fmt.slice(compiler.meshes) });
 }
 
+// Renvoie un type dont `compile` construit un Exe pour `func`.
 pub fn Typed(comptime func: anytype) type {
     return struct {
+        // Compile `func` avec ses arguments et options et renvoie l'Exe typé.
         pub fn compile(
             allocator: std.mem.Allocator,
             io: std.Io,
@@ -405,6 +432,7 @@ pub fn Typed(comptime func: anytype) type {
     };
 }
 
+// Compile `func` en sélectionnant l'implémentation selon `platform.io_impl`.
 pub fn compile(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -416,6 +444,7 @@ pub fn compile(
     return switch (platform.io_impl) {
         .threaded => compileInternal(allocator, io, platform, func, args, opts),
         .zio => try zio.blockInPlace(struct {
+            // Adaptateur bloquant utilisé quand la plateforme utilise zio.
             fn call(allocator_: std.mem.Allocator, io_: std.Io, platform_: *const Platform, args_: @TypeOf(args), opts_: Options) Error!Exe {
                 return try compileInternal(allocator_, io_, platform_, func, args_, opts_);
             }
@@ -423,6 +452,7 @@ pub fn compile(
     };
 }
 
+// Chaîne complète : génère le MLIR, optimise puis compile en exécutable PJRT.
 pub fn compileInternal(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -509,6 +539,7 @@ pub fn compileInternal(
     return exe;
 }
 
+// Émet les opérations de maillage propres au partitionneur (sdy.mesh).
 fn addPartitionerOperations(ctx: *Compiler) !void {
     const allocator = ctx.arena.allocator();
     const mlir_ctx = ctx.mlir_ctx;
@@ -553,6 +584,7 @@ pub const TensorInfo = struct {
     // Only used for input tensors, stores which output tensor ends up with their buffer
     aliasing_output: ?u32 = null,
 
+    // Construit les attributs MLIR de sharding, mémoire et alias d'un tenseur.
     pub fn attributes(info: TensorInfo, arena: std.mem.Allocator, compiler: *const Compiler, scope: *const Scope) error{OutOfMemory}!AttributeList {
         var attrs: AttributeList = .empty;
 
@@ -585,6 +617,7 @@ pub const TensorInfo = struct {
 
 const AttributeList = stdx.BoundedArray(mlir.NamedAttribute, 3);
 
+// Génère le MLIR de `func` : arguments de bloc, appel, sorties et finalisation.
 fn emitMlir(compiler: *Compiler, comptime func: anytype, args: std.meta.ArgsTuple(@TypeOf(func))) !EmitMlirResult {
     const module = mlir.Module.init(.unknown(compiler.mlir_ctx));
     errdefer module.deinit();
@@ -611,6 +644,7 @@ fn emitMlir(compiler: *Compiler, comptime func: anytype, args: std.meta.ArgsTupl
     return try finalizeMlirFunc(compiler, fn_scope, input_info, output_info);
 }
 
+// Crée les arguments de bloc MLIR des tenseurs d'entrée et collecte leurs infos.
 fn createBlockArguments(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOfMemory}!std.MultiArrayList(TensorInfo) {
     const CreateBlockArgumentsCb = struct {
         compiler: *Compiler,
@@ -619,6 +653,7 @@ fn createBlockArguments(compiler: *Compiler, scope: *Scope, v: anytype) error{Ou
         current_argument_id: u32 = 0,
         infos: std.MultiArrayList(TensorInfo) = .empty,
 
+        // Déclare l'argument (packed u8) et dépaquette les dtypes de moins de 8 bits.
         fn cb(ctx: *@This(), tensor: *const Tensor) error{OutOfMemory}!void {
             // Declare the program argument as a packed u8
             const og_shape = tensor._shape;
@@ -655,6 +690,7 @@ fn createBlockArguments(compiler: *Compiler, scope: *Scope, v: anytype) error{Ou
     return context.infos;
 }
 
+// Collecte les infos des tenseurs de sortie, en repackant les dtypes sub-byte.
 fn collectOutputInfo(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOfMemory}!std.MultiArrayList(TensorInfo) {
     const CollectOutputInfoCb = struct {
         compiler: *Compiler,
@@ -662,6 +698,7 @@ fn collectOutputInfo(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOf
 
         infos: std.MultiArrayList(TensorInfo) = .empty,
 
+        // Résout la valeur MLIR d'un tenseur de sortie et l'ajoute aux infos.
         fn cb(ctx: *@This(), tensor: *const Tensor) !void {
             const og_shape = tensor.shape();
             var value = ctx.scope.id_to_argument.get(tensor.id) orelse
@@ -689,6 +726,7 @@ fn collectOutputInfo(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOf
     return context.infos;
 }
 
+// Finalise la fonction MLIR : retour, donations et attributs entrées/sorties.
 fn finalizeMlirFunc(compiler: *Compiler, fn_scope: *Scope, input_info: std.MultiArrayList(TensorInfo), output_info: std.MultiArrayList(TensorInfo)) error{OutOfMemory}!EmitMlirResult {
     var arena_state = std.heap.ArenaAllocator.init(compiler.allocator);
     defer arena_state.deinit();
@@ -752,6 +790,7 @@ fn finalizeMlirFunc(compiler: *Compiler, fn_scope: *Scope, input_info: std.Multi
     };
 }
 
+// Dépaquette un tenseur sub-byte en bitcast et reshape vers sa forme logique.
 fn unpack(compiler: *Compiler, scope: *Scope, og_shape: Shape, tensor_value: *const mlir.Value) *const mlir.Value {
     const true_type = mlirx.Type.rankedTensor(compiler.mlir_ctx, og_shape);
     const elem_per_bytes = @divExact(8, og_shape.dtype().bitSizeOf());
@@ -774,6 +813,7 @@ fn unpack(compiler: *Compiler, scope: *Scope, og_shape: Shape, tensor_value: *co
     return reshape_op.result(0);
 }
 
+// Repaquette un tenseur logique vers sa forme compacte en bitcast et reshape.
 fn repack(compiler: *Compiler, scope: *Scope, og_shape: Shape, value: *const mlir.Value) *const mlir.Value {
     const packed_type = mlirx.Type.rankedTensor(compiler.mlir_ctx, og_shape.packedShape());
     const elem_per_bytes = @divExact(8, og_shape.dtype().bitSizeOf());
@@ -796,6 +836,7 @@ fn repack(compiler: *Compiler, scope: *Scope, og_shape: Shape, value: *const mli
     return bit_cast_op.result(0);
 }
 
+// Vérifie que tous les maillages ont le même nombre de partitions et réplicas.
 fn validateMeshes(meshes: []const *const Sharding.Mesh) !void {
     stdx.debug.assert(meshes.len >= 1, "Waiting at leat 1 mesh strategy to be implemented", .{});
 
@@ -811,6 +852,7 @@ fn validateMeshes(meshes: []const *const Sharding.Mesh) !void {
     }
 }
 
+// Renvoie l'attribut MLIR de sharding d'une forme selon le partitionneur.
 pub fn tensorShardingAttr(
     compiler: *const Compiler,
     allocator: std.mem.Allocator,
@@ -828,6 +870,7 @@ pub fn tensorShardingAttr(
     };
 }
 
+// Ajoute une surcharge d'option XLA typée dans la map protobuf.
 fn setXlaOverrideFlag(map: *c.upb_Map, flag: []const u8, value: anytype, upb_arena: *c.upb_Arena) !void {
     const result = c.upb_Map_Set(
         map,
@@ -850,6 +893,7 @@ fn setXlaOverrideFlag(map: *c.upb_Map, flag: []const u8, value: anytype, upb_are
     }
 }
 
+// Configure les options XLA/PJRT et compile le module MLIR en exécutable chargé.
 fn compileModuleToPjrtExecutable(compiler: *Compiler, opts: Options) !*pjrt.LoadedExecutable {
     const use_shardy_partitioner = switch (compiler.partitioner) {
         .shardy => true,
@@ -1018,6 +1062,7 @@ fn compileModuleToPjrtExecutable(compiler: *Compiler, opts: Options) !*pjrt.Load
     return loaded_executable;
 }
 
+// Journalise l'erreur de compilation et le MLIR, en le déversant sur disque si demandé.
 fn handleCompilationError(compiler: *Compiler, io: std.Io, allocator: std.mem.Allocator, opts: Options, err: anyerror, msg: []const u8) void {
     const module_op = compiler.module.operation().fmt(.{ .debug_info = true, .debug_info_pretty_form = true });
     const truncated_msg = "...<truncated>";

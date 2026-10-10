@@ -19,6 +19,7 @@ pub const DmaAllocator = union(enum) {
     uib: UninitializedBufferAllocator,
     dmam: DmaMapAllocator,
 
+    // Initialise l'allocateur DMA adapte a la plateforme cible du device (DMA map CUDA, buffers non initialises, ou passthrough).
     pub fn init(parent: std.mem.Allocator, device: *const Device) DmaAllocator {
         return switch (device.platform.target) {
             .cuda => .{ .dmam = .init(parent, device.platform) },
@@ -27,6 +28,7 @@ pub const DmaAllocator = union(enum) {
         };
     }
 
+    // Renvoie un std.mem.Allocator pointant sur cet allocateur DMA, quel que soit son variant actif.
     pub fn allocator(self: *const DmaAllocator) std.mem.Allocator {
         return switch (self.*) {
             .passthrough => |a| a,
@@ -42,12 +44,14 @@ pub const UninitializedBufferAllocator = struct {
         buffer: *pjrt.Buffer,
     };
 
+    // Construit l'allocateur a partir de la memoire hote epinglee dans laquelle il puisera les buffers.
     pub fn init(memory: *const Memory) UninitializedBufferAllocator {
         return .{
             .memory = memory,
         };
     }
 
+    // Expose cet allocateur via la vtable std.mem.Allocator (alloc/resize/remap/free).
     pub fn allocator(self: *const UninitializedBufferAllocator) std.mem.Allocator {
         return .{
             .ptr = @constCast(self),
@@ -60,6 +64,7 @@ pub const UninitializedBufferAllocator = struct {
         };
     }
 
+    // Alloue un buffer PJRT non initialise, y place un en-tete conservant le *pjrt.Buffer pour le liberer, et renvoie les octets alignes demandes.
     fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, _: usize) ?[*]u8 {
         const self: *UninitializedBufferAllocator = @ptrCast(@alignCast(ctx));
         const pjrt_api = self.memory.platform.pjrt_api;
@@ -91,6 +96,7 @@ pub const UninitializedBufferAllocator = struct {
         return @ptrCast(data_with_header[offset..]);
     }
 
+    // Libere le buffer PJRT associe en retrouvant l'en-tete place juste avant le pointeur rendu par alloc.
     fn free(ctx: *anyopaque, buf: []u8, alignment: Alignment, ret_addr: usize) void {
         _ = ret_addr;
         const self: *UninitializedBufferAllocator = @ptrCast(@alignCast(ctx));
@@ -99,6 +105,7 @@ pub const UninitializedBufferAllocator = struct {
         header.buffer.deinit(pjrt_api);
     }
 
+    // Redimensionnement non supporte : renvoie toujours false.
     fn resize(ctx: *anyopaque, buf: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) bool {
         _ = ctx;
         _ = buf;
@@ -108,6 +115,7 @@ pub const UninitializedBufferAllocator = struct {
         return false;
     }
 
+    // Remap non supporte : renvoie toujours null.
     fn remap(ctx: *anyopaque, buf: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
         _ = ctx;
         _ = buf;
@@ -122,6 +130,7 @@ pub const DmaMapAllocator = struct {
     parent: std.mem.Allocator,
     platform: *const Platform,
 
+    // Construit l'allocateur qui mappe/demappe la memoire hote pour les transferts DMA vers cette plateforme.
     pub fn init(parent: std.mem.Allocator, platform: *const Platform) DmaMapAllocator {
         return .{
             .parent = parent,
@@ -129,6 +138,7 @@ pub const DmaMapAllocator = struct {
         };
     }
 
+    // Expose cet allocateur DMA via la vtable std.mem.Allocator.
     pub fn allocator(self: *const DmaMapAllocator) Allocator {
         return .{
             .ptr = @constCast(self),
@@ -141,6 +151,7 @@ pub const DmaMapAllocator = struct {
         };
     }
 
+    // Alloue via l'allocateur parent puis enregistre (dmaMap) la zone aupres du client PJRT pour permettre les transferts DMA.
     fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, ret_addr: usize) ?[*]u8 {
         const self: *const DmaMapAllocator = @ptrCast(@alignCast(ctx));
         const allocation = self.parent.rawAlloc(len, alignment, ret_addr);
@@ -154,6 +165,7 @@ pub const DmaMapAllocator = struct {
         return allocation;
     }
 
+    // Redimensionnement non supporte : renvoie toujours false.
     fn resize(ctx: *anyopaque, buf: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) bool {
         _ = ctx;
         _ = buf;
@@ -163,6 +175,7 @@ pub const DmaMapAllocator = struct {
         return false;
     }
 
+    // Remap non supporte : renvoie toujours null.
     fn remap(ctx: *anyopaque, buf: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
         _ = ctx;
         _ = buf;
@@ -172,6 +185,7 @@ pub const DmaMapAllocator = struct {
         return null;
     }
 
+    // Demappe (dmaUnmap) la zone aupres de PJRT puis la rend a l'allocateur parent.
     fn free(ctx: *anyopaque, buf: []u8, alignment: std.mem.Alignment, ret_addr: usize) void {
         const self: *const DmaMapAllocator = @ptrCast(@alignCast(ctx));
         self.platform.pjrt_client.dmaUnmap(self.platform.pjrt_api, @ptrCast(buf[0..buf.len])) catch unreachable;
@@ -185,6 +199,7 @@ pub const FixedBufferPool = struct {
     q_buf: []const u16,
     q: std.Io.Queue(u16),
 
+    // Decoupe un buffer en blocks_ blocs de taille egale et remplit la file d'index libres (tous les blocs disponibles).
     pub fn init(allocator: std.mem.Allocator, buffer_: []u8, blocks_: u16) !FixedBufferPool {
         const block_size = @divExact(buffer_.len, blocks_);
         const q_buf = try allocator.alloc(u16, blocks_);
@@ -201,20 +216,24 @@ pub const FixedBufferPool = struct {
         };
     }
 
+    // Libere la memoire du tableau d'index de la file.
     pub fn deinit(self: *FixedBufferPool, allocator: std.mem.Allocator) void {
         allocator.free(self.q_buf);
     }
 
+    // Retire un index de bloc de la file et renvoie la tranche correspondante dans le buffer.
     pub fn get(self: *FixedBufferPool, io: std.Io) ![]u8 {
         const idx = try self.q.getOneUncancelable(io);
         return self.buffer[idx * self.block_size ..][0..self.block_size];
     }
 
+    // Verifie qu'un sous-buffer est bien contenu dans le buffer du pool (comparaison d'adresses).
     fn inRange(sub_buffer: []const u8, buffer: []const u8) bool {
         return @intFromPtr(sub_buffer.ptr) >= @intFromPtr(buffer.ptr) and
             @intFromPtr(sub_buffer[sub_buffer.len - 1 ..].ptr) <= @intFromPtr(buffer[buffer.len - 1 ..].ptr);
     }
 
+    // Verifie l'appartenance puis remet le bloc dans la file des indices libres.
     pub fn put(self: *FixedBufferPool, io: std.Io, buf: []u8) void {
         // is the pointer in range ?
         std.debug.assert(inRange(buf, self.buffer));
@@ -236,6 +255,7 @@ pub const DynamicBufferPool = struct {
     mutex: std.Io.Mutex = .init,
     condition: std.Io.Condition = .init,
 
+    // Initialise un pool de buffers croissant dynamiquement, borne a max_blocks blocs de block_size octets.
     pub fn init(max_blocks: usize, block_size: usize) DynamicBufferPool {
         return .{
             .block_size = block_size,
@@ -243,10 +263,12 @@ pub const DynamicBufferPool = struct {
         };
     }
 
+    // Libere l'arene sous-jacente qui stocke tous les blocs alloues.
     pub fn deinit(self: *DynamicBufferPool, allocator: std.mem.Allocator) void {
         self.arena_state.promote(allocator).deinit();
     }
 
+    // Renvoie un bloc : reutilise un bloc libre ou en alloue un nouveau tant que la limite n'est pas atteinte, sinon attend.
     pub fn get(self: *DynamicBufferPool, allocator: std.mem.Allocator, io: std.Io) ![]u8 {
         while (true) {
             var in_flight = self.in_flight.load(.acquire);
@@ -279,6 +301,7 @@ pub const DynamicBufferPool = struct {
         }
     }
 
+    // Remet un bloc en tete de la pile libre (CAS) et signale aux threads en attente qu'une place s'est liberee.
     pub fn put(self: *DynamicBufferPool, io: std.Io, buf: []u8) void {
         const node: *Node = @ptrCast(@alignCast(buf.ptr));
         var head = self.free_stack.load(.acquire);
@@ -297,6 +320,7 @@ pub const DynamicBufferPool = struct {
         self.condition.signal(io);
     }
 
+    // Retire et renvoie atomiquement le noeud de tete de la pile des blocs libres, ou null si vide.
     fn pop(self: *DynamicBufferPool) ?*Node {
         var head = self.free_stack.load(.acquire);
         while (true) {
@@ -309,12 +333,14 @@ pub const DynamicBufferPool = struct {
         }
     }
 
+    // Reinterprete un noeud libre comme la tranche de block_size octets qu'il occupe.
     fn nodeToSlice(self: DynamicBufferPool, node: *Node) []u8 {
         const ptr: [*]u8 = @ptrCast(node);
         return ptr[0..self.block_size];
     }
 };
 
+// Type comptime obtenu en remplacant recursivement les Tensor d'un type par des Buffer (metadonnees non-Tensor supprimees).
 /// Return a clone of a type with Tensors replaced by Buffer.
 /// Non-Tensor metadata is stripped out of the resulting struct.
 /// Recursively descends into the type.
@@ -323,6 +349,7 @@ pub fn Bufferized(comptime T: type) type {
     return meta.MapRestrict(Tensor, Buffer).map(T);
 }
 
+// Parcourt recursivement la valeur modele et remplit la structure bufferisee, allouant les tranches necessaires.
 fn bufferizeInner(allocator: std.mem.Allocator, model: anytype, bufferized_: *Bufferized(@TypeOf(model))) !void {
     @setEvalBranchQuota(10_000);
     const Model = @TypeOf(model);
@@ -377,6 +404,7 @@ fn bufferizeInner(allocator: std.mem.Allocator, model: anytype, bufferized_: *Bu
     }
 }
 
+// Point d'entree : convertit un modele en sa forme bufferisee en remplacant chaque Tensor par un Buffer.
 /// Convert a model to its bufferized form by replacing Tensor fields with Buffer
 /// and allocating any required slices using the provided allocator.
 pub inline fn bufferize(allocator: std.mem.Allocator, comptime ModelType: type, model: *const ModelType) !Bufferized(ModelType) {

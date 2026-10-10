@@ -30,6 +30,7 @@ pub const Quantization = struct {
 
         pub const Operation = enum { multiply, divide };
 
+        // Renvoie l'echelle globale sous forme de multiplicateur (inverse si l'operation est division).
         pub fn asMultiplier(self: GlobalScale) Tensor {
             const s = self.value.convert(.f32);
             const flat = if (s.shape().count() == 1) s.asScalar() else s; // essentially normalization
@@ -62,6 +63,7 @@ pub const Quantization = struct {
         /// scalar: XLA's composite rewriter requires the scale to have the operand's rank.
         fp8_per_tensor,
 
+        // Renvoie vrai si ce schema est compatible avec les formes du poids et de l'echelle.
         pub fn accepts(self: Scheme, weight: Shape, scale: Shape) bool {
             if (weight.rank() != 2) return false;
 
@@ -93,6 +95,7 @@ pub const Quantization = struct {
             };
         }
 
+        // Determine le premier schema de quantification compatible avec poids et echelle.
         pub fn classify(weight: Shape, scale: Shape) ?Scheme {
             for (std.enums.values(Scheme)) |scheme| {
                 if (scheme.accepts(weight, scale)) return scheme;
@@ -101,6 +104,7 @@ pub const Quantization = struct {
             return null;
         }
 
+        // Renvoie vrai si ce schema est un schema MX (mxfp8/mxfp4).
         pub fn isMx(self: Scheme) bool {
             return self == .mxfp8 or self == .mxfp4;
         }
@@ -112,6 +116,7 @@ pub const QuantizedInput = struct {
     scales: Tensor,
     global_scale: ?Tensor,
 
+    // Reutilise les buffers de `other` pour les valeurs/echelles de ce QuantizedInput.
     pub fn reuseBuffer(self: QuantizedInput, other: QuantizedInput) QuantizedInput {
         return .{
             .values = self.values.reuseBuffer(other.values),
@@ -121,6 +126,7 @@ pub const QuantizedInput = struct {
     }
 };
 
+// Quantifie une activation d'entree selon le schema et la plateforme, ou null si non supporte.
 pub fn quantizeInput(quantization: Quantization, input: Tensor, axis: Shape.Tag, platform: *const Platform) ?QuantizedInput {
     const global_scale: ?Tensor = if (quantization.input_scale) |scale| scale.asMultiplier() else null;
 
@@ -147,6 +153,7 @@ pub fn quantizeInput(quantization: Quantization, input: Tensor, axis: Shape.Tag,
     };
 }
 
+// Quantifie x en MXFP4 (blocs de 32, echelles e8m0 puissances de deux).
 pub fn quantizeMxfp4(x: Tensor, axis: anytype) QuantizedInput {
     stdx.debug.assert(@mod(x.dim(axis), mx_block_size) == 0, "MXFP4 activation width must be divisible by {}, got {f}", .{ mx_block_size, x.shape() });
 
@@ -164,6 +171,7 @@ pub fn quantizeMxfp4(x: Tensor, axis: anytype) QuantizedInput {
     };
 }
 
+// Quantifie x en MXFP8 avec echelles e8m0, selon le support de la plateforme.
 pub fn quantizeMxfp8(x: Tensor, axis: anytype) QuantizedInput {
     const platform = zml.Compiler.current().platform;
 
@@ -181,11 +189,13 @@ pub fn quantizeMxfp8(x: Tensor, axis: anytype) QuantizedInput {
     return quantizeBlockFp8(x, axis, mx_block_size, dtype.?, .f8e8m0);
 }
 
+// Arrondit une echelle f32 a la puissance de deux immediatement superieure.
 fn ceilPowerOfTwo(raw_scale: Tensor) Tensor {
     const bits = raw_scale.bitCast(.u32);
     return bits.addConstant(0x7fffff).logical(.AND, .scalar(0xff800000, .u32)).bitCast(.f32);
 }
 
+// Quantifie x en FP8 par blocs, en preservant les axes et en arrondissant les echelles e8m0 vers le haut.
 /// Quantize activation blocks, preserving the input's axes.
 /// E8M0 scales round upward to a power of two to avoid overflowing FP8 values.
 pub fn quantizeBlockFp8(x: Tensor, axis: anytype, block_size: i64, dtype: DataType, scale_dtype: DataType) QuantizedInput {
@@ -221,6 +231,7 @@ pub fn quantizeBlockFp8(x: Tensor, axis: anytype, block_size: i64, dtype: DataTy
     };
 }
 
+// Quantifie x en NVFP4 (blocs de 16, echelles e4m3, eventuelle echelle globale d'entree).
 pub fn quantizeNvfp4(x: Tensor, input_global_scale: ?Tensor, axis: anytype) QuantizedInput {
     const value_max = 6.0;
     const scale_min_normal = 0x1p-6;
@@ -258,20 +269,24 @@ pub fn quantizeNvfp4(x: Tensor, input_global_scale: ?Tensor, axis: anytype) Quan
     };
 }
 
+// Renvoie vrai si la plateforme CUDA supporte la quantification d'entree NVFP4 (sm100+).
 fn supportsNvfp4InputQuantization(platform: *const Platform) bool {
     return if (platform_mod.cuda.computeCapability(platform)) |cc| cc.atLeast(.{ .major = 10, .minor = 0 }) else false;
 }
 
+// Renvoie vrai si les poids FP4 sont stockes packes en u8/i8 pour ce schema.
 fn isPackedFp4(scheme: ?Quantization.Scheme, weight_dtype: DataType) bool {
     return (scheme == .nvfp4 or scheme == .mxfp4) and (weight_dtype == .u8 or weight_dtype == .i8);
 }
 
+// Renvoie vrai si l'echelle a la forme/dtype d'une echelle MX (e8m0 ou u8, rang 2).
 fn isMxScale(scale: Shape) bool {
     return scale.rank() == 2 and (scale.dtype() == .f8e8m0 or scale.dtype() == .u8);
 }
 
 // Note: this test will evolve as we support more (INT4/8 and FP8 block-128 as a
 // scaled-dot are still open; see the scaledDot doc comment).
+// Verifie la classification de nombreux formats de quantification reels.
 test "Quantization.Scheme.classify" {
     const expect = std.testing.expectEqual;
 
@@ -410,6 +425,7 @@ test "Quantization.Scheme.classify" {
     ));
 }
 
+// Verifie que la quantification FP8 par blocs preserve les axes et reconstruit les blocs constants.
 test "block FP8 quantization preserves axes and reconstructs constant blocks in FN and FNUZ" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -417,6 +433,7 @@ test "block FP8 quantization preserves axes and reconstructs constant blocks in 
     inline for (.{ DataType.f8e4m3fn, DataType.f8e4m3fnuz }) |dtype| {
         const Local = struct {
             const Outputs = struct { values: Tensor, scales: Tensor };
+            // Quantifie x en FP8 par blocs de 128 et renvoie valeurs et echelles.
             fn forward(x: Tensor) Outputs {
                 const input = quantizeBlockFp8(x, .k, 128, dtype, .f32);
                 return .{ .values = input.values.convert(.f32), .scales = input.scales };
@@ -455,6 +472,7 @@ test "block FP8 quantization preserves axes and reconstructs constant blocks in 
     }
 }
 
+// Verifie que les echelles e8m0 restent des puissances de deux et respectent les axes non mineurs.
 test "block FP8 E8M0 scales preserve power-of-two boundaries and nonminor axes" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -462,6 +480,7 @@ test "block FP8 E8M0 scales preserve power-of-two boundaries and nonminor axes" 
     inline for (.{ DataType.f8e4m3fn, DataType.f8e4m3fnuz }) |dtype| {
         const Local = struct {
             const Outputs = struct { values: Tensor, scales: Tensor };
+            // Quantifie x en FP8 par blocs de 32 avec echelles e8m0 et renvoie valeurs et echelles.
             fn forward(x: Tensor) Outputs {
                 const input = quantizeBlockFp8(x, .k, 32, dtype, .f8e8m0);
                 return .{ .values = input.values.convert(.f32), .scales = input.scales.convert(.f32) };

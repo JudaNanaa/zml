@@ -59,6 +59,7 @@ pub const module = struct {
     pub const CompileError = Compiler.Error;
     pub const CompilationOptions = Compiler.Options;
 
+    // Compile une fonction en Exe via Compiler.compile; API obsolete, preferer zml.Compiler.
     /// Deprecated, use `platform.compileFn` or `zml.Compiler.compile`
     pub fn compile(
         allocator: std.mem.Allocator,
@@ -72,6 +73,7 @@ pub const module = struct {
     }
 };
 
+// Verifie que toutes les declarations publiques du module se compilent.
 test "zml" {
     std.testing.refAllDecls(@This());
 }

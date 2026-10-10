@@ -18,6 +18,7 @@ const log = std.log.scoped(.zml);
 
 var api_map: std.enums.EnumArray(Target, ?*const pjrt.Api) = .initFill(null);
 
+// Force le niveau de log XLA/TensorFlow à ERROR s'il n'est pas déjà défini.
 fn disableXlaLogs() void {
     // https://deepreg.readthedocs.io/en/latest/docs/logging.html#tensorflow-logging
     const TF_CPP_LOG_LEVEL = struct {
@@ -33,6 +34,7 @@ fn disableXlaLogs() void {
     );
 }
 
+// Vérifie qu'il y a au moins un device et une puissance de deux quand requis.
 fn validateDeviceCount(target: Target, num_devices: usize) !void {
     if (num_devices == 0) {
         log.err("The selected platform requires at least 1 device, got {}", .{num_devices});
@@ -48,6 +50,7 @@ fn validateDeviceCount(target: Target, num_devices: usize) !void {
     }
 }
 
+// Charge l'API PJRT d'une plateforme une seule fois et la met en cache.
 fn loadOrGetApi(allocator: std.mem.Allocator, io: std.Io, target: Target) !*const pjrt.Api {
     return switch (target) {
         inline else => |tgt| api_map.get(tgt) orelse b: {
@@ -71,6 +74,7 @@ pub const Memory = struct {
     platform: *const Platform,
     addressable_by_devices: []*const Device,
 
+    // Initialise un wrapper Memory et prépare les devices adressables.
     fn init(allocator: std.mem.Allocator, pjrt_memory: *const pjrt.Memory, platform: *Platform) !Memory {
         const pjrt_addressable_by_devices = pjrt_memory.addressableByDevices(platform.pjrt_api);
         const addressable_by_devices = try allocator.alloc(*const Device, pjrt_addressable_by_devices.len);
@@ -82,10 +86,12 @@ pub const Memory = struct {
         };
     }
 
+    // Renvoie le nom de type de la mémoire PJRT.
     pub fn kind(self: Memory) []const u8 {
         return self.pjrt_memory.kind_(self.platform.pjrt_api);
     }
 
+    // Indique si la mémoire correspond au type demandé sur cette plateforme.
     pub fn isOfKind(self: Memory, kind_: Kind) bool {
         switch (self.platform.target) {
             .cuda, .rocm, .oneapi, .tpu, .furiosa => {
@@ -101,10 +107,12 @@ pub const Memory = struct {
         }
     }
 
+    // Libère le tableau des devices adressables.
     fn deinit(self: *Memory, allocator: std.mem.Allocator) void {
         allocator.free(self.addressable_devices);
     }
 
+    // Remplit les devices adressables de cette mémoire depuis PJRT.
     fn populateAddressableByDevices(self: *Memory) void {
         const pjrt_addressable_by_devices = self.pjrt_memory.addressableByDevices(self.platform.pjrt_api);
         for (pjrt_addressable_by_devices, self.addressable_by_devices) |pjrt_device, *addressable_by_device| {
@@ -120,6 +128,7 @@ pub const Device = struct {
     addressable_memories: []*const Memory,
     memory_by_kind: std.EnumArray(Memory.Kind, ?*const Memory),
 
+    // Initialise un wrapper Device, ses mémoires adressables et le cache par type.
     fn init(allocator: std.mem.Allocator, pjrt_device_: *const pjrt.Device, platform: *const Platform) !Device {
         const pjrt_addressable_memories = pjrt_device_.addressableMemories(platform.pjrt_api);
         const addressable_memories = try allocator.alloc(*const Memory, pjrt_addressable_memories.len);
@@ -145,10 +154,12 @@ pub const Device = struct {
         };
     }
 
+    // Libère le tableau des mémoires adressables.
     fn deinit(self: *Device, allocator: std.mem.Allocator) void {
         allocator.free(self.addressable_memories);
     }
 
+    // Renvoie la Memory ZML correspondant à la mémoire par défaut PJRT du device.
     fn resolveDefaultMemory(pjrt_device_: *const pjrt.Device, platform: *const Platform, addressable_memories: []*const Memory) *const Memory {
         const pjrt_memory = pjrt_device_.defaultMemory(platform.pjrt_api);
         for (addressable_memories) |mem| {
@@ -157,6 +168,7 @@ pub const Device = struct {
         return platform.memoryFromPjrt(pjrt_memory);
     }
 
+    // Cherche parmi les mémoires adressables celle du type donné, ou null.
     fn resolveMemory(addressable_memories: []*const Memory, memory_kind: Memory.Kind) ?*const Memory {
         std.debug.assert(memory_kind != .default);
 
@@ -168,34 +180,42 @@ pub const Device = struct {
         return null;
     }
 
+    // Renvoie l'identifiant global du device.
     pub fn id(self: Device) u32 {
         return @intCast(self.pjrt_desc.id(self.platform.pjrt_api));
     }
 
+    // Renvoie l'index du processus hôte du device.
     pub fn processIndex(self: Device) i32 {
         return self.pjrt_desc.processIndex(self.platform.pjrt_api);
     }
 
+    // Renvoie l'identifiant matériel local du device.
     pub fn localHardwareId(self: Device) i32 {
         return @intCast(self.pjrt_device.localHardwareId(self.platform.pjrt_api));
     }
 
+    // Renvoie le type de device (CPU, GPU, ...).
     pub fn kind(self: Device) []const u8 {
         return self.pjrt_desc.kind(self.platform.pjrt_api);
     }
 
+    // Renvoie la description textuelle de débogage du device.
     pub fn debugString(self: Device) []const u8 {
         return self.pjrt_desc.debugString(self.platform.pjrt_api);
     }
 
+    // Renvoie la chaîne de description du device.
     pub fn toString(self: Device) []const u8 {
         return self.pjrt_desc.toString(self.platform.pjrt_api);
     }
 
+    // Renvoie les statistiques mémoire du device, ou des zéros en cas d'échec.
     pub fn memoryStats(self: Device) pjrt.Device.MemoryStats {
         return self.pjrt_device.memoryStats(self.platform.pjrt_api) catch .zeroes;
     }
 
+    // Renvoie le nœud NUMA le plus proche du device, si le plugin le fournit.
     /// NUMA node closest to the device, when the plugin reports one.
     pub fn numaNode(self: Device) ?u32 {
         const attributes = self.pjrt_device.attributes(self.platform.pjrt_api) catch return null;
@@ -209,6 +229,7 @@ pub const Device = struct {
         };
     }
 
+    // Écrit `type (debug_string)` du device dans `writer`.
     pub fn format(self: Device, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print("{s} ({s})", .{
             self.pjrt_desc.kind(self.platform.pjrt_api),
@@ -216,11 +237,13 @@ pub const Device = struct {
         });
     }
 
+    // Renvoie la Memory du type demandé mise en cache pour ce device.
     pub fn memory(self: *const Device, memory_kind: Memory.Kind) ?*const Memory {
         return self.memory_by_kind.values[@intFromEnum(memory_kind)];
     }
 };
 
+// Renvoie la clé de tri d'un device selon la plateforme.
 fn platformDeviceSortId(target: Target, device: Device) usize {
     return switch (target) {
         .neuron => @intCast(device.localHardwareId()),
@@ -228,10 +251,12 @@ fn platformDeviceSortId(target: Target, device: Device) usize {
     };
 }
 
+// Trie les devices par identifiant et vérifie l'ordre en mode Debug.
 fn sortDevicesById(target: Target, devices: []Device) void {
     const Context = struct {
         target: Target,
 
+        // Comparateur de tri de deux devices par leur clé d'identification.
         fn lessThan(ctx: @This(), lhs: Device, rhs: Device) bool {
             return platformDeviceSortId(ctx.target, lhs) < platformDeviceSortId(ctx.target, rhs);
         }
@@ -260,6 +285,7 @@ pub const State = union(Target) {
     pub const CudaState = struct {
         fi_cutlass_moe_runners: ?*zml.moe.cutlass_flashinfer.Runners = null,
 
+        // Libère les runners CUTLASS FlashInfer CUDA s'ils existent.
         fn deinit(self: *CudaState) void {
             if (self.fi_cutlass_moe_runners) |runners| {
                 runners.deinit();
@@ -268,6 +294,7 @@ pub const State = union(Target) {
         }
     };
 
+    // Construit l'état spécifique à la plateforme cible.
     pub fn init(target: Target) State {
         return switch (target) {
             .cpu => .{ .cpu = {} },
@@ -281,6 +308,7 @@ pub const State = union(Target) {
         };
     }
 
+    // Libère les ressources de l'état selon la plateforme.
     pub fn deinit(self: *State) void {
         switch (self.*) {
             .cuda => |*cuda_state| cuda_state.deinit(),
@@ -309,6 +337,7 @@ pub const Platform = struct {
         zio,
     };
 
+    // Initialise la plateforme PJRT : client, devices, mémoires, maillages et FFI.
     pub fn init(allocator: std.mem.Allocator, io: std.Io, target: Target, options: CreateOptions) !*Platform {
         const api = try loadOrGetApi(allocator, io, target);
 
@@ -415,6 +444,7 @@ pub const Platform = struct {
         return platform;
     }
 
+    // Essaie les plateformes par ordre de préférence et initialise la première disponible.
     pub fn auto(allocator: std.mem.Allocator, io: std.Io, options: CreateOptions) !*Platform {
         const ordered_targets: []const Target = &.{
             .tpu,
@@ -431,6 +461,7 @@ pub const Platform = struct {
         } else error.Unavailable;
     }
 
+    // Écrit une description détaillée de la plateforme : version, extensions, devices et mémoires.
     pub fn formatWithAttributes(self: *const Platform, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         const tee = "├─ ";
         const line = "│  ";
@@ -543,10 +574,12 @@ pub const Platform = struct {
         }
     }
 
+    // Renvoie un formatage alternatif de `Platform` pour `{f}` verbeux.
     pub fn fmtVerbose(self: *const Platform) std.fmt.Alt(*const Platform, formatWithAttributes) {
         return .{ .data = self };
     }
 
+    // Libère l'état, le maillage physique, le client PJRT et l'arène de la plateforme.
     pub fn deinit(self: *Platform, allocator: std.mem.Allocator, io: std.Io) void {
         _ = io;
         _ = allocator;
@@ -558,6 +591,7 @@ pub const Platform = struct {
         self.arena.deinit();
     }
 
+    // Compile une méthode de modèle et renvoie l'Exe correspondant.
     pub fn compile(
         self: *const Platform,
         allocator: std.mem.Allocator,
@@ -578,6 +612,7 @@ pub const Platform = struct {
         );
     }
 
+    // Compile une fonction prenant un modèle en premier argument et renvoie l'Exe.
     pub fn compileModel(
         self: *const Platform,
         allocator: std.mem.Allocator,
@@ -590,6 +625,7 @@ pub const Platform = struct {
         return self.compileFn(allocator, io, func, .{model} ++ args, opts);
     }
 
+    // Compile une fonction en déléguant à `zml.Compiler.compile`.
     pub fn compileFn(
         self: *const Platform,
         allocator: std.mem.Allocator,
@@ -601,6 +637,7 @@ pub const Platform = struct {
         return zml.Compiler.compile(allocator, io, self, func, args, opts);
     }
 
+    // Écrit la cible et la liste des devices dans `writer`.
     pub fn format(self: *const Platform, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print("{s} {{ ", .{@tagName(self.target)});
         for (self.devices(), 0..) |device, i| {
@@ -610,6 +647,7 @@ pub const Platform = struct {
         try writer.writeAll(" }");
     }
 
+    // Renvoie le nom PJRT de la première mémoire du type demandé.
     pub fn memoryKind(self: *const Platform, kind: Memory.Kind) []const u8 {
         for (self.memories) |mem| {
             if (mem.isOfKind(kind)) {
@@ -626,6 +664,7 @@ pub const Platform = struct {
         platform_name: ?[]const u8 = null,
     };
 
+    // Enregistre un handler FFI PJRT pour cette plateforme.
     pub fn registerFfi(self: *const zml.Platform, registration: FfiRegistration) !void {
         const platform_name = registration.platform_name orelse self.pjrt_client.platformName(self.pjrt_api);
         if (self.pjrt_api.ffi()) |ffi| {
@@ -638,10 +677,12 @@ pub const Platform = struct {
     pub const Profiler = profiler_.Profiler;
     pub const ProfilerOptions = profiler_.ProfilerOptions;
 
+    // Construit un profiler PJRT pour cette plateforme.
     pub fn profiler(self: *const Platform, allocator: std.mem.Allocator, io: std.Io, options: ProfilerOptions) !Profiler {
         return try profiler_.profiler(self.pjrt_api, allocator, io, options);
     }
 
+    // Crée et enregistre un Mesh depuis un maillage logique et la stratégie par défaut.
     /// Create a Mesh based on the given logical mesh and the default strategy.
     /// Memory is owned by the platform, making it safe to copy around.
     pub fn registerMesh(platform: *Platform, name: []const u8, logical: Sharding.LogicalMesh) error{OutOfMemory}!*const Sharding.Mesh {
@@ -657,6 +698,7 @@ pub const Platform = struct {
         };
     }
 
+    // Crée et enregistre un Mesh nommé avec une stratégie donnée, possédé par la plateforme.
     /// Create a Mesh based on the given logical mesh and a strategy.
     /// Memory is owned by the platform, making it safe to copy around.
     pub fn registerMeshWithStrategy(platform: *Platform, name: []const u8, logical: Sharding.LogicalMesh, strategy: Sharding.Strategy) !*const Sharding.Mesh {
@@ -675,6 +717,7 @@ pub const Platform = struct {
         return owned_mesh;
     }
 
+    // Renvoie la Memory ZML correspondant à un objet mémoire PJRT.
     fn memoryFromPjrt(self: *const Platform, pjrt_memory: *const pjrt.Memory) *const Memory {
         for (self.memories) |*mem| {
             if (mem.pjrt_memory == pjrt_memory) return mem;
@@ -682,6 +725,7 @@ pub const Platform = struct {
         unreachable;
     }
 
+    // Renvoie le Device ZML correspondant à un device PJRT.
     fn deviceFromPjrt(self: *const Platform, pjrt_device: *const pjrt.Device) *const Device {
         for (self.devices) |*device| {
             if (device.pjrt_device == pjrt_device) return device;
@@ -689,6 +733,7 @@ pub const Platform = struct {
         unreachable;
     }
 
+    // Renvoie le layout mémoire par défaut de la plateforme pour des dims et un dtype.
     pub inline fn defaultMemoryLayout(platform: *const Platform, dims: []const i64, dtype: zml.DataType) pjrt.MemoryLayout {
         // inline cause `default` is a huge ass struct allocated on the stack,
         // and toMemoryLayout returns slices into it.
@@ -743,6 +788,7 @@ pub const CreateOptions = struct {
     pub const Furiosa = struct {
         pe_count: u8 = 8,
 
+        // Ajoute le nombre de PE aux NamedValues PJRT de Furiosa.
         fn writeNamedValues(self: Furiosa, values: *std.ArrayList(pjrt.NamedValue)) void {
             values.appendAssumeCapacity(.init(.int64, "pe_count", self.pe_count));
         }
@@ -751,6 +797,7 @@ pub const CreateOptions = struct {
     pub const Cpu = struct {
         device_count: u32,
 
+        // Ajoute le nombre de devices CPU aux NamedValues PJRT.
         fn writeNamedValues(self: Cpu, values: *std.ArrayList(pjrt.NamedValue)) void {
             values.appendAssumeCapacity(.init(.int64, "cpu_device_count", self.device_count));
         }
@@ -789,6 +836,7 @@ pub const CreateOptions = struct {
             };
         };
 
+        // Ajoute la configuration d'allocateur GPU aux NamedValues PJRT.
         fn writeNamedValues(self: XlaGpu, target: Target, values: *std.ArrayList(pjrt.NamedValue)) void {
             switch (self.allocator) {
                 .platform => {
@@ -822,6 +870,7 @@ pub const CreateOptions = struct {
         }
     };
 
+    // Remplit `out` avec les NamedValues PJRT propres à la plateforme.
     pub fn toNamedValues(self: CreateOptions, target: Target, out: []pjrt.NamedValue) []pjrt.NamedValue {
         var values = std.ArrayList(pjrt.NamedValue).fromOwnedSlice(out);
         values.shrinkRetainingCapacity(0);
@@ -848,6 +897,7 @@ pub const cuda = struct {
         major: u8,
         minor: u8,
 
+        // Analyse une capacité de calcul CUDA depuis une chaîne `majeur.mineur`.
         pub fn parse(text: []const u8) ?ComputeCapability {
             var parts = std.mem.splitScalar(u8, text, '.');
             return .{
@@ -856,19 +906,23 @@ pub const cuda = struct {
             };
         }
 
+        // Compare deux capacités de calcul CUDA.
         pub fn eql(self: ComputeCapability, other: ComputeCapability) bool {
             return self.major == other.major and self.minor == other.minor;
         }
 
+        // Indique si cette capacité est supérieure ou égale à `other`.
         pub fn atLeast(self: ComputeCapability, other: ComputeCapability) bool {
             return self.major > other.major or (self.major == other.major and self.minor >= other.minor);
         }
 
+        // Renvoie le numéro de streaming multiprocessor (majeur*10+mineur).
         pub fn sm(self: ComputeCapability) u16 {
             return @as(u16, self.major) * 10 + self.minor;
         }
     };
 
+    // Renvoie la capacité de calcul CUDA du premier device, ou null hors CUDA.
     pub fn computeCapability(platform: *const zml.Platform) ?ComputeCapability {
         if (platform.target != .cuda) return null;
         const devices = platform.pjrt_client.devices(platform.pjrt_api);
@@ -921,6 +975,7 @@ pub const rocm = struct {
             rdna4,
         };
 
+        // Renvoie l'architecture ROCm (CDNA/RDNA) associée à la capacité.
         pub fn architecture(self: ComputeCapability) Architecture {
             return switch (self) {
                 .gfx908 => .cdna1,
@@ -935,6 +990,7 @@ pub const rocm = struct {
         }
     };
 
+    // Renvoie la capacité de calcul ROCm du premier device, en supposant des devices homogènes.
     /// Assumes homogeneous devices.
     pub fn computeCapability(platform: *const zml.Platform) ?ComputeCapability {
         stdx.debug.assert(platform.target == .rocm, "computeCapability expects .rocm platform, got {}", .{platform.target});
@@ -950,6 +1006,7 @@ pub const rocm = struct {
     }
 };
 
+// Convertit un type de données FFI PJRT en DataType ZML.
 fn dataTypeFromFfiDataType(ffi_dt: pjrt.ffi.DataType) zml.DataType {
     return switch (ffi_dt) {
         .bool => .bool,
@@ -976,15 +1033,18 @@ fn dataTypeFromFfiDataType(ffi_dt: pjrt.ffi.DataType) zml.DataType {
     };
 }
 
+// Construit une Shape ZML depuis les dims et le dtype d'un buffer FFI.
 fn shapeFromFfiBuffer(buffer: *const pjrt.ffi.Buffer) zml.Shape {
     return .init(buffer.dims(), dataTypeFromFfiDataType(buffer.dtype));
 }
 
+// Lit un attribut scalaire de type `T` d'un CallFrame FFI, ou null.
 fn getScalarAttributeAs(comptime T: type, call_frame: *pjrt.ffi.CallFrame, attribute_name: []const u8) ?T {
     const attribute = call_frame.attrs.getByName(.scalar, attribute_name) orelse return null;
     return attribute.get(T);
 }
 
+// Callback FFI `zml$print` : gère les erreurs de `printCallbackInner`.
 fn printCallback(call_frame: *pjrt.ffi.CallFrame) callconv(.c) ?*pjrt.ffi.Error {
     return printCallbackInner(call_frame) catch |e| b: {
         log.err("Error in print callback: {}", .{e});
@@ -992,6 +1052,7 @@ fn printCallback(call_frame: *pjrt.ffi.CallFrame) callconv(.c) ?*pjrt.ffi.Error 
     };
 }
 
+// Copie le buffer vers une mémoire hôte visible et l'imprime sur la sortie standard.
 fn printCallbackInner(call_frame: *pjrt.ffi.CallFrame) !?*pjrt.ffi.Error {
     if (call_frame.registeringHook()) return null;
 
@@ -1038,6 +1099,7 @@ fn printCallbackInner(call_frame: *pjrt.ffi.CallFrame) !?*pjrt.ffi.Error {
     return null;
 }
 
+// Vérifie que le layout par défaut de la plateforme correspond à celui de PJRT.
 test "platform defaultMemoryLayout is boring" {
     const platform = zml.testing.env();
 

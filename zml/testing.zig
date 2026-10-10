@@ -11,6 +11,7 @@ const log = std.log.scoped(.@"zml/testing");
 
 var _platform: ?*const Platform = null;
 
+// Renvoie la plateforme de test (memoisee), en enregistrant le mesh requis par flash attention.
 pub fn env() *const Platform {
     if (!builtin.is_test) @compileError("Cannot use zml.testing.env outside of a test block");
     if (_platform == null) {
@@ -34,6 +35,7 @@ pub fn env() *const Platform {
     return _platform.?;
 }
 
+// Compare deux flottants en tolerant une proximite relative ou absolue.
 /// In neural network we generally care about the relative precision,
 /// but on a given dimension, if the output is close to 0, then the precision
 /// don't matter as much.
@@ -43,6 +45,7 @@ pub fn approxEq(comptime Float: type, l: Float, r: Float, tolerance: Float) bool
     return closeRel or closeAbs;
 }
 
+// Convertit un Buffer en Slice alloue, ou renvoie directement un Slice, avec un drapeau de liberation.
 fn toSlice(allocator: std.mem.Allocator, io: std.Io, slice_or_buffer: anytype) !struct { Slice, bool } {
     return if (@TypeOf(slice_or_buffer) == zml.Buffer) b: {
         const slice = try slice_or_buffer.toSliceAlloc(allocator, io);
@@ -50,6 +53,7 @@ fn toSlice(allocator: std.mem.Allocator, io: std.Io, slice_or_buffer: anytype) !
     } else .{ slice_or_buffer, false };
 }
 
+// Asserte que deux buffers/slices sont proches en forme, dtype et valeurs.
 /// Testing utility. Accepts both zml.Buffer and zml.HostBuffer but zml.Buffer will be copied to the
 /// host for comparison !
 pub fn expectClose(io: std.Io, left_: anytype, right_: anytype, opts: CompareOpts) !void {
@@ -152,10 +156,12 @@ pub const CompareOpts = struct {
         p99_absolute_error: f32,
         p999_absolute_error: f32,
 
+        // Renvoie vrai si le rapport ne contient ni NaN/inf et atteint la fraction de proximite requise.
         pub fn ok(report: Report, opts: CompareOpts) bool {
             return !report.nan_or_inf and report.close_fraction >= opts.minimum_close_fraction;
         }
 
+        // Compare deux slices bloc par bloc et accumule les statistiques d'erreur.
         fn compareSlices(comptime float_cmp: bool, allocator: std.mem.Allocator, comptime L: type, comptime R: type, left: Slice, right: Slice, opts: CompareOpts) !CompareOpts.Report {
             var left_iter = (&left).contiguousItemsIterator(L);
             var right_iter = (&right).contiguousItemsIterator(R);
@@ -189,6 +195,7 @@ pub const CompareOpts = struct {
             }
         }
 
+        // Formate le rapport de comparaison.
         pub fn format(
             self: Report,
             writer: *std.Io.Writer,
@@ -228,6 +235,7 @@ pub const CompareOpts = struct {
         sum_squared_error: f64 = 0,
         count_close: usize = 0,
 
+        // Initialise l'accumulateur avec les tableaux d'erreurs absolues et relatives.
         fn init(allocator: std.mem.Allocator, count: usize) !Accumulator {
             const absolute_errors = try allocator.alloc(f32, count);
             errdefer allocator.free(absolute_errors);
@@ -242,6 +250,7 @@ pub const CompareOpts = struct {
             };
         }
 
+        // Initialise l'accumulateur sans allocation (pas de quantiles).
         fn initNoQuantiles(count: usize) Accumulator {
             return .{
                 .expected_total_count = count,
@@ -250,11 +259,13 @@ pub const CompareOpts = struct {
             };
         }
 
+        // Libere les tableaux d'erreurs de l'accumulateur.
         fn deinit(self: *Accumulator, allocator: std.mem.Allocator) void {
             allocator.free(self.absolute_errors);
             allocator.free(self.relative_errors);
         }
 
+        // Compare deux blocs de flottants et met a jour les statistiques d'erreur.
         fn cmpFloatSlices(self: *Accumulator, comptime L: type, comptime R: type, left: []const L, right: []const R, opts: CompareOpts) void {
             std.debug.assert(left.len == right.len);
             std.debug.assert(self.processed_count + left.len <= self.absolute_errors.len);
@@ -285,6 +296,7 @@ pub const CompareOpts = struct {
             self.processed_count += left.len;
         }
 
+        // Compare deux blocs d'entiers et compte les elements egaux.
         fn cmpIntSlices(self: *Accumulator, comptime T: type, left: []const T, right: []const T) void {
             std.debug.assert(left.len == right.len);
 
@@ -298,6 +310,7 @@ pub const CompareOpts = struct {
             self.processed_count += left.len;
         }
 
+        // Calcule et renvoie le rapport final (max/moyenne/RMSE/quantiles/fraction).
         fn report(self: *Accumulator) CompareOpts.Report {
             std.debug.assert(self.processed_count == self.expected_total_count);
             if (self.processed_count == 0) {
@@ -318,6 +331,7 @@ pub const CompareOpts = struct {
             std.sort.heap(f32, self.relative_errors, {}, std.sort.asc(f32));
 
             const q = struct {
+                // Quantile d'un tableau trie a la fraction demandee (index arrondi).
                 fn q(values: []const f32, frac: f32) f32 {
                     if (values.len == 0) return 0;
                     const idx: usize = @intFromFloat(std.math.round(@as(f32, @floatFromInt(values.len - 1)) * frac));
@@ -344,6 +358,7 @@ pub const CompareOpts = struct {
     };
 };
 
+// Compare deux slices de flottants et renvoie le rapport associe.
 pub fn compareFloats(allocator: std.mem.Allocator, comptime L: type, comptime R: type, left: []const L, right: []const R, opts: CompareOpts) !CompareOpts.Report {
     var acc: CompareOpts.Accumulator = try .init(allocator, left.len);
     defer acc.deinit(allocator);
@@ -351,6 +366,7 @@ pub fn compareFloats(allocator: std.mem.Allocator, comptime L: type, comptime R:
     return acc.report();
 }
 
+// Asserte que deux Shapes sont egales (tags compris).
 pub fn expectEqualShapes(expected: zml.Shape, actual: zml.Shape) error{TestExpectedEqual}!void {
     if (expected.eqlWithTags(actual)) return;
 
@@ -358,10 +374,12 @@ pub fn expectEqualShapes(expected: zml.Shape, actual: zml.Shape) error{TestExpec
     return error.TestExpectedEqual;
 }
 
+// Retourne le type T avec ses Tensor remplaces par des Buffer.
 fn BufferizedWithArgs(comptime T: type) type {
     return zml.meta.MapType(zml.Tensor, zml.Buffer).map(T);
 }
 
+// Compte les entrees d'un TensorStore dont la cle commence par un prefixe.
 fn countWithPrefix(store: zml.io.TensorStore.View, prefix: []const u8) usize {
     var count: usize = 0;
     var it = store.store.registry.iterator();
@@ -374,6 +392,7 @@ fn countWithPrefix(store: zml.io.TensorStore.View, prefix: []const u8) usize {
     return count;
 }
 
+// Teste une couche contre des activations de reference stockees dans un TensorStore.
 /// Test a layer implementation against reference activations stored in a TensorStore.
 /// The layer is expected to have a method with the name given by `func`.
 /// The reference activations are expected to be stored under the keys:
@@ -420,6 +439,7 @@ pub fn testLayer(
     const store_input = activation_store.withPrefix(input_name);
     var ctx = LocalContext{ .activation_store = store_input };
     try zml.meta.visit(struct {
+        // Callback remplacant chaque Tensor par un tenseur replique lu depuis le store.
         fn cb(ctx_: *LocalContext, tensor: *zml.Tensor) !void {
             var buffer: [256]u8 = undefined;
             const subkey = std.fmt.bufPrint(&buffer, "{d}", .{ctx_.index}) catch unreachable;
@@ -448,6 +468,7 @@ pub fn testLayer(
 
     var args_buffers = try zml.io.load(ArgsT, &args, allocator, io, platform, activation_store.store, .auto);
     defer zml.meta.visit(struct {
+        // Callback liberant les buffers charges.
         fn cb(_: void, b: *zml.Buffer) void {
             b.deinit();
         }
@@ -501,6 +522,7 @@ pub fn testLayer(
     }
 }
 
+// Renvoie une fenetre centree d'au plus 2*c elements autour de l'index i.
 fn center(slice: anytype, i: usize) @TypeOf(slice) {
     const c = 20;
     const start = if (i < c) 0 else i - c;
@@ -508,6 +530,7 @@ fn center(slice: anytype, i: usize) @TypeOf(slice) {
     return slice[start..end];
 }
 
+// Alias de std.testing.expectEqual.
 pub inline fn expectEqual(expected: anytype, actual: @TypeOf(expected)) !void {
     return std.testing.expectEqual(expected, actual);
 }
