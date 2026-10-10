@@ -21,6 +21,8 @@ pub const scf = @import("scf.zig");
 pub const shardy = @import("shardy.zig");
 pub const vector = @import("vector.zig");
 
+// Verifie que tous les modules de dialectes declares ci-dessus se compilent
+// et exposent bien leurs declarations publiques (refAllDecls au niveau fichier).
 test {
     std.testing.refAllDecls(@This());
 }

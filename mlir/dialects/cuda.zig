@@ -13,18 +13,24 @@ pub const ops = cute.cuda;
 
 pub const dialect_namespace = ops.dialect_namespace;
 
+// Construit le type `!cuda.stream` du dialecte CUDA via l'API C.
 pub fn streamType(ctx: *mlir.Context) *const mlir.Type {
     return (ops.StreamType.get(ctx, .{}) catch unreachable).type_();
 }
 
+// Construit le type `!cuda.result` (type de resultat d'un lancement).
 pub fn resultType(ctx: *mlir.Context) *const mlir.Type {
     return (ops.ResultType.get(ctx, .{}) catch unreachable).type_();
 }
 
+// Construit le type `!cuda.launch_config<maxNumAttrs=N>` ; `max_attrs` borne
+// le nombre d'attributs de configuration.
 pub fn launchConfigType(ctx: *mlir.Context, max_attrs: u32) *const mlir.Type {
     return (ops.LaunchConfigType.get(ctx, .{ .maxNumAttrs = max_attrs }) catch unreachable).type_();
 }
 
+// Construit l'attribut `#cuda.assume_kernel_attr<value>` ; indique si
+// `cuda.launch_ex` peut supposer que son appele est un kernel.
 /// `#cuda.assume_kernel_attr<value>`, whether `cuda.launch_ex` may assume its
 /// callee is a kernel.
 pub fn assumeKernelAttr(ctx: *mlir.Context, value: bool) *const mlir.Attribute {
@@ -40,6 +46,9 @@ pub const KernelArgs = struct {
     location: *const mlir.Location,
 };
 
+// Construit l'op `cuda.kernel` a partir de `KernelArgs` (nom, type de fonction,
+// attributs d'arguments) puis y attache `extra_attributes`. Le corps `body`
+// est renseigne ensuite.
 /// `cuda.kernel`; `body` is filled afterwards.
 pub fn kernel(ctx: *mlir.Context, args: KernelArgs) *mlir.Operation {
     const op = ops.kernel(ctx, .string(ctx, args.name), .typeAttr(args.function_type), args.arg_attrs, null, null, .{args.body}, args.location);
@@ -47,10 +56,12 @@ pub fn kernel(ctx: *mlir.Context, args: KernelArgs) *mlir.Operation {
     return op;
 }
 
+// Construit l'op `cuda.return` : retourne `values` depuis un kernel.
 pub fn return_(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return ops.@"return"(ctx, values, location);
 }
 
+// Construit l'op `cuda.cast` : convertit `src` vers le type `dst`.
 pub fn cast(ctx: *mlir.Context, dst: *const mlir.Type, src: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return ops.cast(ctx, src, dst, location);
 }
@@ -64,6 +75,9 @@ pub const LaunchConfigCreateArgs = struct {
     location: *const mlir.Location,
 };
 
+// Construit l'op `cuda.launch_cfg_create` : assemble une config de lancement
+// (block/grille 3-D, smem dynamique, stream) et fixe le type
+// `launchConfigType(max_attrs)`.
 pub fn launch_cfg_create(ctx: *mlir.Context, args: LaunchConfigCreateArgs) *mlir.Operation {
     return ops.launch_cfg_create(
         ctx,
@@ -81,14 +95,20 @@ pub fn launch_cfg_create(ctx: *mlir.Context, args: LaunchConfigCreateArgs) *mlir
     );
 }
 
+// Construit l'op `cuda.launch_cfg_cluster_dim` : fixe les dimensions de cluster
+// (`dims` x/y/z) de la configuration `config`.
 pub fn launch_cfg_cluster_dim(ctx: *mlir.Context, config: *const mlir.Value, dims: [3]*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return ops.launch_cfg_cluster_dim(ctx, config, dims[0], dims[1], dims[2], location);
 }
 
+// Construit l'op `cuda.launch_cfg_cooperative` : active/desactive le lancement
+// cooperatif selon `enabled`.
 pub fn launch_cfg_cooperative(ctx: *mlir.Context, config: *const mlir.Value, enabled: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return ops.launch_cfg_cooperative(ctx, config, enabled, location);
 }
 
+// Construit l'op `cuda.launch_cfg_programmatic_stream_serialization_allowed` :
+// autorise la serialisation de stream programmatique selon `enabled`.
 pub fn launch_cfg_programmatic_stream_serialization_allowed(ctx: *mlir.Context, config: *const mlir.Value, enabled: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return ops.launch_cfg_programmatic_stream_serialization_allowed(ctx, config, enabled, location);
 }
@@ -101,10 +121,13 @@ pub const LaunchExArgs = struct {
     location: *const mlir.Location,
 };
 
+// Construit l'op `cuda.launch_ex` : lance le noyau `callee` avec la config
+// `config` et les entrees `inputs`, en produisant un `resultType`.
 pub fn launch_ex(ctx: *mlir.Context, args: LaunchExArgs) *mlir.Operation {
     return ops.launch_ex(ctx, args.config, args.inputs, resultType(ctx), args.callee, null, null, args.assume_kernel_attr, args.location);
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

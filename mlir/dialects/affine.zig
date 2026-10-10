@@ -8,6 +8,8 @@ const stdx = @import("stdx");
 // affine.apply / affine.min / affine.max
 // =============================================================================
 
+// Construit l'op `affine.apply` : applique la `map` affine (1 resultat) aux
+// `map_operands` ; renvoie un `index`.
 /// affine.apply — apply a 1-result affine map to a list of dim+symbol
 /// operands. Result is `index`.
 pub fn apply(
@@ -26,6 +28,8 @@ pub fn apply(
     });
 }
 
+// Construit l'op `affine.min` : minimum des resultats de `map` evaluee aux
+// `map_operands` ; renvoie un `index`.
 /// affine.min — minimum of all results of `map` evaluated at `map_operands`.
 pub fn min(
     ctx: *mlir.Context,
@@ -43,6 +47,8 @@ pub fn min(
     });
 }
 
+// Construit l'op `affine.max` : maximum des resultats de `map` ; renvoie un
+// `index`.
 /// affine.max — maximum of all results of `map`.
 pub fn max(
     ctx: *mlir.Context,
@@ -83,6 +89,9 @@ pub const ForArgs = struct {
     inits: []const *const mlir.Value = &.{},
 };
 
+// Construit l'op `affine.for` : boucle de bornes constantes ou par maps
+// (`ForArgs`), avec portage de valeurs `inits` ; le corps `body` se termine par
+// `affine.yield`.
 /// affine.for — `for %i = lower to upper step S iter_args(...)`. The body
 /// block takes `index, *init_arg_types` and must terminate with `affine.yield`.
 pub fn for_(
@@ -133,6 +142,8 @@ pub fn for_(
     });
 }
 
+// Construit l'op `affine.yield` : terminateur de `affine.for`/`affine.if`/
+// `affine.parallel`, produisant `values`.
 /// affine.yield — terminator for affine.for / affine.if / affine.parallel.
 pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "affine.yield", .{
@@ -146,6 +157,8 @@ pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *c
 // affine.if
 // =============================================================================
 
+// Construit l'op `affine.if` : si l'`IntegerSet` `condition` est vrai, execute
+// `then_block`, sinon `else_block` ; `result_types` issus des yields.
 /// affine.if — `if condition[ ... ] { then } else { else }`. `condition` is an
 /// IntegerSetAttribute (a conjunction of affine constraints). The result types
 /// are inferred from the yielded values; pass `&.{}` for the no-result form.
@@ -178,6 +191,8 @@ pub fn if_(
 // affine.load / affine.store / affine.vector_load / affine.vector_store
 // =============================================================================
 
+// Construit l'op `affine.load` : charge `result_type` depuis `memref` selon la
+// `map` affine et ses `map_operands`.
 /// affine.load — load with affine indexing.
 pub fn load(
     ctx: *mlir.Context,
@@ -201,6 +216,8 @@ pub fn load(
     });
 }
 
+// Construit l'op `affine.store` : ecrit `value` dans `memref` selon la `map`
+// affine et ses `map_operands`.
 pub fn store(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -222,6 +239,8 @@ pub fn store(
     });
 }
 
+// Construit l'op `affine.vector_load` : charge un vecteur `result_type` depuis
+// `memref` selon la `map` affine.
 pub fn vector_load(
     ctx: *mlir.Context,
     memref: *const mlir.Value,
@@ -244,6 +263,8 @@ pub fn vector_load(
     });
 }
 
+// Construit l'op `affine.vector_store` : ecrit le vecteur `value` dans `memref`
+// selon la `map` affine.
 pub fn vector_store(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -289,6 +310,9 @@ pub const ParallelArgs = struct {
     map_operands: []const *const mlir.Value = &.{},
 };
 
+// Construit l'op `affine.parallel` : bande parallele multi-dim avec bornes par
+// maps, pas, reductions et `map_operands` ; le corps se termine par
+// `affine.yield`.
 /// affine.parallel — multi-dim parallel band. `body_block` takes one `index`
 /// argument per loop dim and must terminate with `affine.yield`.
 pub fn parallel(
@@ -349,6 +373,8 @@ pub const DelinearizeArgs = struct {
     dynamic_basis: []const *const mlir.Value = &.{},
 };
 
+// Construit l'op `affine.delinearize_index` : decompose `linear_index` selon
+// `static_basis`/`dynamic_basis` ; `result_types` = indices de la multi-dimension.
 pub fn delinearize_index(
     ctx: *mlir.Context,
     linear_index: *const mlir.Value,
@@ -377,6 +403,8 @@ pub const LinearizeArgs = struct {
     disjoint: bool = false,
 };
 
+// Construit l'op `affine.linearize_index` : combine `multi_index` (et bases
+// dynamiques) en un indice lineaire unique ; `disjoint` emet l'attribut associe.
 pub fn linearize_index(
     ctx: *mlir.Context,
     args: LinearizeArgs,
@@ -409,6 +437,7 @@ pub fn linearize_index(
     });
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

@@ -22,6 +22,9 @@ const FuncOpArgs = struct {
     extra_attributes: []const mlir.NamedAttribute = &.{},
 };
 
+// Construit l'op `func.func` : assemble le symbole, sa visibilite, le type de
+// fonction (deduit des arguments du bloc et de son terminateur si non fourni),
+// les attributs arg/res et `no_inline`, puis le corps `block`.
 pub fn func(ctx: *mlir.Context, args: FuncOpArgs) *mlir.Operation {
     var args_buffer: stdx.BoundedArray(*const mlir.Type, 1024) = .empty;
     var results_buffer: stdx.BoundedArray(*const mlir.Type, 64) = .empty;
@@ -73,6 +76,8 @@ pub fn func(ctx: *mlir.Context, args: FuncOpArgs) *mlir.Operation {
     });
 }
 
+// Construit l'op `func.call` : appelle la fonction `name` avec `values`, en
+// produisant `results`, via la reference symbolique `callee`.
 pub fn call(ctx: *mlir.Context, name: []const u8, values: []const *const mlir.Value, results: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "func.call", .{
         .operands = .{ .variadic = &.{values} },
@@ -84,6 +89,8 @@ pub fn call(ctx: *mlir.Context, name: []const u8, values: []const *const mlir.Va
     });
 }
 
+// Construit l'op `func.return` retournant une seule `value`.
+// La verification est differee (verify=false).
 pub fn return_(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "func.return", .{
         .operands = .{ .flat = &.{value} },
@@ -92,6 +99,8 @@ pub fn return_(ctx: *mlir.Context, value: *const mlir.Value, location: *const ml
     });
 }
 
+// Construit l'op `func.return` retournant la liste `values`.
+// La verification est differee (verify=false).
 pub fn returns(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "func.return", .{
         .operands = .{ .flat = values },

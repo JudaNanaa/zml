@@ -11,6 +11,9 @@ pub const ForOpts = struct {
     num_stages: ?i32 = null,
 };
 
+// Construit l'op `scf.for` : boucle de `lower` a `upper` par `step` avec valeurs
+// portees `init_args` et corps `body`. `unsigned_cmp` et `tt.num_stages` via
+// les options.
 /// scf.for — operands are (lower, upper, step, init_args...) as a flat list.
 /// Result arity equals init_args arity; result types must match init_args types.
 ///
@@ -54,6 +57,8 @@ pub fn for_(
     });
 }
 
+// Construit l'op `scf.if` : si `cond` (i1) execute `then_block`, sinon
+// `else_block` ; les regions produisent `result_types`.
 /// scf.if — cond is i1; then/else blocks must be terminated with `scf.yield`
 /// (or implicitly for no-result forms).
 ///
@@ -80,6 +85,8 @@ pub fn if_(
     return mlir.Operation.init(&state) catch @panic("Failed to create scf.if");
 }
 
+// Construit l'op `scf.yield` : termine une region scf.for/scf.if en produisant
+// `values`.
 /// scf.yield — variadic result terminator for scf.for / scf.if regions.
 pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "scf.yield", .{
@@ -89,6 +96,9 @@ pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *c
     });
 }
 
+// Construit l'op `scf.while` a deux regions : `before_block` calcule la
+// condition, `after_block` le corps ; `inits` initialise les arguments et les
+// resultats `result_types`.
 /// scf.while — two regions. The `before` region computes the condition and
 /// terminates with `scf.condition`. The `after` region runs when the condition
 /// is true and terminates with `scf.yield`. The arguments of `before` have the
@@ -116,6 +126,9 @@ pub fn while_(
     return mlir.Operation.init(&state) catch @panic("Failed to create scf.while");
 }
 
+// Construit l'op `scf.condition` : terminateur de la region `before` ; `cond`
+// (i1) poursuit la boucle et `args` sont transmis a la region `after` ou aux
+// resultats.
 /// scf.condition — terminator of the `before` region of scf.while.
 /// First operand is i1 (the continuation condition). The remaining operands
 /// are forwarded to either the `after` region's arguments (if true) or the
@@ -140,6 +153,8 @@ pub const ExecuteRegionOpts = struct {
     no_inline: bool = false,
 };
 
+// Construit l'op `scf.execute_region` : execute `body` une fois et renvoie ses
+// `result_types` ; `no_inline` empeche l'inlining.
 /// scf.execute_region — runs `body` exactly once, returns the yielded values.
 /// `body` has no arguments but may span multiple blocks (unlike for/if).
 pub fn execute_region(
@@ -164,6 +179,9 @@ pub fn execute_region(
     });
 }
 
+// Construit l'op `scf.parallel` : boucle parallele multi-dim (lbs/ubs/steps/
+// inits) ; `body_block` prend un `index` par dimension et se termine par
+// `scf.reduce`.
 /// scf.parallel — multi-dim parallel for loop with optional reductions.
 /// Operands are (lbs, ubs, steps, inits). `body_block` takes one `index` arg
 /// per loop dim and must be terminated with `scf.reduce` (or no-op if inits is
@@ -205,6 +223,8 @@ pub fn parallel(
     });
 }
 
+// Construit l'op `scf.reduce` : terminateur d'`scf.parallel` ; un bloc de
+// reduction (deux args lhs/rhs) par operande a reduire.
 /// scf.reduce — terminator of `scf.parallel`. Each region is a reduction body
 /// taking two args (lhs, rhs) matching the corresponding operand's type,
 /// terminated with `scf.reduce.return`.
@@ -230,6 +250,8 @@ pub fn reduce(
     return mlir.Operation.init(&state) catch @panic("Failed to create scf.reduce");
 }
 
+// Construit l'op `scf.reduce.return` : renvoie `value` depuis un corps de
+// reduction.
 pub fn reduce_return(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "scf.reduce.return", .{
         .operands = .{ .flat = &.{value} },
@@ -238,6 +260,8 @@ pub fn reduce_return(ctx: *mlir.Context, value: *const mlir.Value, location: *co
     });
 }
 
+// Construit l'op `scf.forall` (forme entierement dynamique) : boucle parallele
+// avec `shared_outs` ; `body_block` se termine par `scf.forall.in_parallel`.
 /// scf.forall — multi-dim parallel region, similar to `scf.parallel` but using
 /// tensor-based `shared_outs` instead of init values. This wrapper builds the
 /// fully-dynamic form (all lb/ub/step are runtime values).
@@ -301,6 +325,8 @@ pub fn forall(
     });
 }
 
+// Construit l'op `scf.forall.in_parallel` : terminateur d'`scf.forall`, avec
+// `body_block` (typiquement des `tensor.parallel_insert_slice`).
 /// scf.forall.in_parallel — terminator for scf.forall. The inner region is
 /// a single block containing a flat list of ops (typically
 /// tensor.parallel_insert_slice). `body_block` must be built by the caller.
@@ -317,6 +343,8 @@ pub fn forall_in_parallel(
     return mlir.Operation.init(&state) catch @panic("Failed to create scf.forall.in_parallel");
 }
 
+// Construit l'op `scf.index_switch` : branche vers `case_blocks[i]` si
+// `arg == cases[i]`, sinon `default_block` ; regions terminees par `scf.yield`.
 /// scf.index_switch — branches to case_blocks[i] if arg == cases[i], else
 /// falls through to default_block. Blocks must be terminated with scf.yield.
 /// The op's results have the types yielded by each region.
@@ -354,6 +382,7 @@ pub fn index_switch(
     return mlir.Operation.init(&state) catch @panic("Failed to create scf.index_switch");
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

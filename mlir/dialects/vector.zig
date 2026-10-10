@@ -26,6 +26,8 @@ pub const CombiningKind = enum(u32) {
     minimumnumf = 13,
     maximumnumf = 14,
 
+    // Convertit cette valeur `CombiningKind` en attribut `#vector.kind<...>` via
+    // l'API C.
     pub fn attribute(self: CombiningKind, ctx: *mlir.Context) *const mlir.Attribute {
         return (CombiningKindAttr.get(ctx, .{ .value = self }) catch unreachable).attribute();
     }
@@ -36,6 +38,8 @@ pub const IteratorType = enum(u32) {
     parallel = 0,
     reduction = 1,
 
+    // Convertit cette valeur `IteratorType` en attribut `#vector.iterator_type<...>`
+    // via l'API C.
     pub fn attribute(self: IteratorType, ctx: *mlir.Context) *const mlir.Attribute {
         return (IteratorTypeAttr.get(ctx, .{ .value = self }) catch unreachable).attribute();
     }
@@ -50,19 +54,23 @@ pub const CombiningKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "kind";
+    // Formate l'attribut (delegue au formatage MLIR standard).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete le pointeur opaque en `mlir.Attribute`.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CombiningKind,
     };
+    // Cree l'attribut `#vector.kind<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirVectorCombiningKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit la valeur `CombiningKind` de l'attribut.
     pub fn getValue(self: *const Self) CombiningKind {
         return @enumFromInt(c.mlirVectorCombiningKindAttrGetValue(self.ptr()));
     }
@@ -77,19 +85,23 @@ pub const IteratorTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "iterator_type";
+    // Formate l'attribut (delegue au formatage MLIR standard).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete le pointeur opaque en `mlir.Attribute`.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: IteratorType,
     };
+    // Cree l'attribut `#vector.iterator_type<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirVectorIteratorTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit la valeur `IteratorType` de l'attribut.
     pub fn getValue(self: *const Self) IteratorType {
         return @enumFromInt(c.mlirVectorIteratorTypeAttrGetValue(self.ptr()));
     }
@@ -104,6 +116,9 @@ pub const IteratorTypeAttr = opaque {
 /// from `dynamic_position`. The result type is provided by the caller.
 pub const kPoison: i64 = std.math.minInt(i64);
 
+// Construit l'op `vector.extract` : extrait un element/sous-vecteur de `src` ;
+// `static_position` (kPoison pour le dynamique) et `dynamic_position`, resultat
+// `result_type`.
 pub fn extract(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -126,6 +141,8 @@ pub fn extract(
     });
 }
 
+// Construit l'op `vector.insert` : insere `value` dans `dest` a la position
+// donnee ; resultat du type de `dest`.
 /// vector.insert — write `value` into `dest` at the given position. The result
 /// has the same type as `dest`.
 pub fn insert(
@@ -150,6 +167,8 @@ pub fn insert(
     });
 }
 
+// Construit l'op `vector.from_elements` : assemble le vecteur `result_type` a
+// partir de la liste exacte de scalaires `elements`.
 /// vector.from_elements — build a vector from an exact-size list of scalars.
 pub fn from_elements(
     ctx: *mlir.Context,
@@ -164,6 +183,8 @@ pub fn from_elements(
     });
 }
 
+// Construit l'op `vector.to_elements` : eclate `src` en ses voies scalaires
+// `result_types`.
 /// vector.to_elements — destructure a vector into its scalar lanes.
 pub fn to_elements(
     ctx: *mlir.Context,
@@ -188,6 +209,8 @@ pub const StridedSliceArgs = struct {
     strides: []const i64,
 };
 
+// Construit l'op `vector.extract_strided_slice` : extrait une tranche stridee de
+// `src` (offsets/sizes/strides), resultat `result_type`.
 pub fn extract_strided_slice(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -207,6 +230,8 @@ pub fn extract_strided_slice(
     });
 }
 
+// Construit l'op `vector.insert_strided_slice` : ecrit `src` dans `dest` selon
+// offsets/strides ; resultat du type de `dest`.
 pub fn insert_strided_slice(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -230,6 +255,8 @@ pub fn insert_strided_slice(
 // Shape manipulation
 // =============================================================================
 
+// Construit l'op `vector.broadcast` : diffuse `src` (scalaire/vecteur de rang
+// inferieur) vers `result_type`.
 /// vector.broadcast — broadcast a scalar / lower-rank vector to a wider one.
 pub fn broadcast(
     ctx: *mlir.Context,
@@ -244,6 +271,8 @@ pub fn broadcast(
     });
 }
 
+// Construit l'op `vector.shape_cast` : remet en forme `src` vers `result_type`
+// en conservant le nombre total de voies.
 /// vector.shape_cast — reshape a vector preserving total number of lanes.
 pub fn shape_cast(
     ctx: *mlir.Context,
@@ -258,6 +287,8 @@ pub fn shape_cast(
     });
 }
 
+// Construit l'op `vector.bitcast` : reinterprete `src` vers `result_type` a
+// nombre de bits egal.
 /// vector.bitcast — same total bits, possibly different element type / shape.
 pub fn bitcast(
     ctx: *mlir.Context,
@@ -272,6 +303,8 @@ pub fn bitcast(
     });
 }
 
+// Construit l'op `vector.type_cast` : convertit `memref<vector<...>>` en
+// `memref<...>` (ou l'inverse) vers `result_type`.
 /// vector.type_cast — cast a `memref<vector<...>>` to `memref<...>` (and vice-
 /// versa). Used in vector lowering / unrolling.
 pub fn type_cast(
@@ -287,6 +320,8 @@ pub fn type_cast(
     });
 }
 
+// Construit l'op `vector.transpose` : permute les dimensions de `src` selon
+// `permutation` ; resultat `result_type`.
 /// vector.transpose — permute dims of a vector.
 pub fn transpose(
     ctx: *mlir.Context,
@@ -309,6 +344,8 @@ pub fn transpose(
 // Lane shuffle — shuffle / interleave / deinterleave
 // =============================================================================
 
+// Construit l'op `vector.shuffle` : concatene `lhs` et `rhs` et selectionne les
+// voies listees dans `mask` ; resultat `result_type`.
 /// vector.shuffle — concat lhs and rhs into a logical vector (rank 1) and
 /// pick `mask`-listed lanes to form the result.
 pub fn shuffle(
@@ -329,6 +366,8 @@ pub fn shuffle(
     });
 }
 
+// Construit l'op `vector.interleave` : entrelace `lhs` et `rhs` (voies
+// paires/impaires) ; resultat `result_type`.
 /// vector.interleave — interleave even/odd lanes from lhs/rhs.
 pub fn interleave(
     ctx: *mlir.Context,
@@ -344,6 +383,8 @@ pub fn interleave(
     });
 }
 
+// Construit l'op `vector.deinterleave` : separe `src` en (voies paires, voies
+// impaires), les deux de type `result_type`.
 /// vector.deinterleave — split a vector into (even-lanes, odd-lanes).
 pub fn deinterleave(
     ctx: *mlir.Context,
@@ -362,6 +403,7 @@ pub fn deinterleave(
 // Compute — fma / step / vscale
 // =============================================================================
 
+// Construit l'op `vector.fma` : produit `lhs * rhs + acc` element par element (type infere).
 /// vector.fma — element-wise fused multiply-add `lhs * rhs + acc`.
 pub fn fma(
     ctx: *mlir.Context,
@@ -377,6 +419,7 @@ pub fn fma(
     });
 }
 
+// Construit l'op `vector.step` : produit `<0, 1, ..., N-1>` de type `result_type`.
 /// vector.step — produce `<0, 1, ..., N-1>` of the result type.
 pub fn step(
     ctx: *mlir.Context,
@@ -389,6 +432,8 @@ pub fn step(
     });
 }
 
+// Construit l'op `vector.vscale` : facteur de taille des vecteurs scalables a
+// l'execution (type `index`).
 /// vector.vscale — runtime scalable-vector size factor (index-typed).
 pub fn vscale(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "vector.vscale", .{
@@ -397,6 +442,8 @@ pub fn vscale(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operatio
     });
 }
 
+// Construit l'op `vector.yield` : termine les regions `vector.mask`/`vector.warp`
+// en produisant `values`.
 /// vector.yield — terminator for vector.mask / vector.warp regions.
 pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "vector.yield", .{
@@ -416,6 +463,8 @@ pub const ReductionOpts = struct {
     acc: ?*const mlir.Value = null,
 };
 
+// Construit l'op `vector.reduction` : reduit le vecteur 1-D `src` en scalaire
+// `result_type` selon `kind` ; accumulateur d'entree optionnel.
 /// vector.reduction — reduce a 1-D vector to a scalar with `kind`.
 pub fn reduction(
     ctx: *mlir.Context,
@@ -439,6 +488,8 @@ pub fn reduction(
     });
 }
 
+// Construit l'op `vector.multi_reduction` : reduit `src` (multi-D) le long de
+// `reduction_dims` selon `kind`, initialisee par `acc`.
 /// vector.multi_reduction — reduce a multi-D vector along `reduction_dims`.
 pub fn multi_reduction(
     ctx: *mlir.Context,
@@ -464,6 +515,8 @@ pub const ContractOpts = struct {
     kind: CombiningKind = .add,
 };
 
+// Construit l'op `vector.contract` : contraction generalisee lhs x rhs + acc
+// avec `indexing_maps`, `iterator_types` et le type de resultat.
 /// vector.contract — generalized contraction (matmul, dot, batched matmul,
 /// reductions). `indexing_maps` is one AffineMapAttr per (lhs, rhs, acc).
 /// `iterator_types` is one IteratorType per dim of the iteration space.
@@ -502,6 +555,8 @@ pub const LoadStoreOpts = struct {
     alignment: ?i64 = null,
 };
 
+// Ajoute a `dst` les attributs `nontemporal` et/ou `alignment` selon `opts`
+// (utilise par les wrappers load/store vector).
 fn loadStoreAttrs(ctx: *mlir.Context, opts: LoadStoreOpts, dst: *stdx.BoundedArray(mlir.NamedAttribute, 2)) void {
     if (opts.nontemporal) {
         dst.appendAssumeCapacity(.named(ctx, "nontemporal", .boolean(ctx, true)));
@@ -511,6 +566,8 @@ fn loadStoreAttrs(ctx: *mlir.Context, opts: LoadStoreOpts, dst: *stdx.BoundedArr
     }
 }
 
+// Construit l'op `vector.load` : charge `result_type` depuis `base[indices...]` ;
+// attributs optionnels nontemporal/alignment.
 /// vector.load — strided contiguous load from `base[indices...]` into the
 /// result vector.
 pub fn load(
@@ -536,6 +593,8 @@ pub fn load(
     });
 }
 
+// Construit l'op `vector.store` : ecrit `value` dans `base[indices...]` ;
+// attributs optionnels nontemporal/alignment.
 /// vector.store — strided contiguous store of `value` to `base[indices...]`.
 pub fn store(
     ctx: *mlir.Context,
@@ -559,6 +618,8 @@ pub fn store(
     });
 }
 
+// Construit l'op `vector.maskedload` : comme load, mais les voies dont le bit
+// de `mask` vaut 0 proviennent de `passthru`.
 /// vector.maskedload — like load but lanes whose `mask` bit is 0 are read
 /// from `passthru` instead.
 pub fn masked_load(
@@ -582,6 +643,8 @@ pub fn masked_load(
     });
 }
 
+// Construit l'op `vector.maskedstore` : comme store, seules les voies de `mask`
+// a 1 sont ecrites.
 pub fn masked_store(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -601,6 +664,8 @@ pub fn masked_store(
     });
 }
 
+// Construit l'op `vector.gather` : rassemble des elements de `base[indices...]`
+// avec les decalages par voie `index_vec` ; `mask`/`passthru` optionnels.
 /// vector.gather — gather scalar elements from `base[indices...]` plus per-lane
 /// `index_vec` offsets.
 pub fn gather(
@@ -625,6 +690,8 @@ pub fn gather(
     });
 }
 
+// Construit l'op `vector.scatter` : repartit `value` dans `base[indices...]`
+// selon `index_vec` et `mask`.
 pub fn scatter(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -645,6 +712,8 @@ pub fn scatter(
     });
 }
 
+// Construit l'op `vector.expandload` : charge de facon contigue en memoire les
+// voies actives de `mask`, sinon `passthru`.
 pub fn expand_load(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -666,6 +735,8 @@ pub fn expand_load(
     });
 }
 
+// Construit l'op `vector.compressstore` : ecrit de facon compacte `value` dans
+// `base[indices...]` selon `mask`.
 pub fn compress_store(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -699,6 +770,8 @@ pub const TransferReadArgs = struct {
     mask: ?*const mlir.Value = null,
 };
 
+// Construit l'op `vector.transfer_read` : charge un supervecteur via
+// `permutation_map`, `in_bounds` et masque optionnel, avec `padding`.
 /// vector.transfer_read — supervector load with permutation map and optional
 /// mask. AttrSizedOperandSegments: (base, indices, padding, [mask]).
 pub fn transfer_read(
@@ -745,6 +818,8 @@ pub const TransferWriteArgs = struct {
     result_type: ?*const mlir.Type = null,
 };
 
+// Construit l'op `vector.transfer_write` : stocke `value` via `permutation_map`
+// et masque optionnel ; resultat optionnel si `base` est un tenseur.
 /// vector.transfer_write — supervector store with permutation map and optional
 /// mask. AttrSizedOperandSegments: (vector, base, indices, [mask]).
 pub fn transfer_write(
@@ -787,6 +862,8 @@ pub fn transfer_write(
 // Masks — constant_mask / create_mask
 // =============================================================================
 
+// Construit l'op `vector.constant_mask` : masque booleen constant ;
+// `mask_dim_sizes[i]` = nombre de voies vraies en tete sur la dim i.
 /// vector.constant_mask — constant boolean mask. Each entry of
 /// `mask_dim_sizes` is the number of leading true lanes along that dim.
 pub fn constant_mask(
@@ -804,6 +881,8 @@ pub fn constant_mask(
     });
 }
 
+// Construit l'op `vector.create_mask` : masque calcule a l'execution a partir
+// des comptes par dimension (`operands`).
 /// vector.create_mask — runtime mask from per-dim count operands. `operands`
 /// length must equal the rank of `result_type`.
 pub fn create_mask(
@@ -819,10 +898,12 @@ pub fn create_mask(
     });
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Helper de test : formate `value` et compare la sortie a `expected`.
 fn expectPrints(expected: []const u8, value: anytype) !void {
     var buf: [128]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
@@ -830,6 +911,8 @@ fn expectPrints(expected: []const u8, value: anytype) !void {
     try std.testing.expectEqualStrings(expected, w.buffered());
 }
 
+// Verifie que les attributs `#vector.kind` et `#vector.iterator_type` sont
+// crees et formates correctement via l'API C.
 test "vector enum attributes are built through the C API" {
     const ctx = try mlir.Context.init(.{});
     defer ctx.deinit();

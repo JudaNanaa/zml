@@ -6,8 +6,11 @@ const mlir = @import("mlir");
 // Float unary — SameOperandsAndResultType. Result type inferred from operand.
 // =============================================================================
 
+// Fabrique un wrapper d'op unaire flottante `op_name` (`math.*`) : un operande,
+// type de resultat infere de l'operande (SameOperandsAndResultType).
 fn floatUnaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` a partir de `src` ; le type de resultat est deduit de `src`.
         pub fn call(
             ctx: *mlir.Context,
             src: *const mlir.Value,
@@ -64,8 +67,11 @@ pub const trunc = floatUnaryOp("math.trunc").call;
 // Float binary — SameOperandsAndResultType.
 // =============================================================================
 
+// Fabrique un wrapper d'op binaire flottante `op_name` : deux operandes, type de
+// resultat infere.
 fn floatBinaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` a partir de `lhs` et `rhs` ; resultat de meme type.
         pub fn call(
             ctx: *mlir.Context,
             lhs: *const mlir.Value,
@@ -89,6 +95,8 @@ pub const copysign = floatBinaryOp("math.copysign").call;
 // Float ternary — SameOperandsAndResultType.
 // =============================================================================
 
+// Construit l'op `math.fma` : calcule a*b+c en fusionne, resultat de meme type
+// que les operandes.
 pub fn fma(
     ctx: *mlir.Context,
     a: *const mlir.Value,
@@ -103,6 +111,8 @@ pub fn fma(
     });
 }
 
+// Construit l'op `math.clampf` : borne `value` dans [min, max], meme type
+// partout.
 /// math.clampf value, min, max — clamp to [min, max], same type throughout.
 /// Distinct from `tt.clampf` (which has an explicit `propagateNan` attr); the
 /// math version uses fastmath for NaN behaviour.
@@ -124,6 +134,7 @@ pub fn clampf(
 // Sincos — operand → (sin, cos), both same type as operand.
 // =============================================================================
 
+// Construit l'op `math.sincos` : renvoie (sin, cos) de `operand`, de meme type.
 pub fn sincos(
     ctx: *mlir.Context,
     operand: *const mlir.Value,
@@ -140,6 +151,8 @@ pub fn sincos(
 // FPowI — float base, signless integer exponent → float (same type as base).
 // =============================================================================
 
+// Construit l'op `math.fpowi` : `base` flottant eleve a `power` entier ;
+// resultat de meme type que `base`.
 pub fn fpowi(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -157,8 +170,11 @@ pub fn fpowi(
 // Integer unary
 // =============================================================================
 
+// Fabrique un wrapper d'op unaire entiere `op_name` : type de resultat infere
+// de l'operande.
 fn intUnaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` a partir de `src` ; resultat de meme type.
         pub fn call(
             ctx: *mlir.Context,
             src: *const mlir.Value,
@@ -185,8 +201,11 @@ pub const ipowi = floatBinaryOp("math.ipowi").call;
 // Float classification — operand is float-like, result is i1-like.
 // =============================================================================
 
+// Fabrique un wrapper de classification flottante `op_name` (`math.is*`) :
+// operande flottant, resultat i1-like explicite.
 fn classifyOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` : teste `src` et renvoie `result_type`.
         pub fn call(
             ctx: *mlir.Context,
             src: *const mlir.Value,
@@ -207,6 +226,7 @@ pub const isinf = classifyOp("math.isinf").call;
 pub const isnan = classifyOp("math.isnan").call;
 pub const isnormal = classifyOp("math.isnormal").call;
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

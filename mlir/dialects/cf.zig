@@ -7,6 +7,8 @@ const stdx = @import("stdx");
 // cf.assert
 // =============================================================================
 
+// Construit l'op cf.assert : si `cond` (i1) est faux, l'execution avorte en
+// affichant `msg` (attribut "msg"). Retourne l'operation creee.
 /// cf.assert %cond, "message" — aborts execution with `msg` when `cond` is
 /// false. `cond` is i1.
 pub fn assert(
@@ -28,6 +30,8 @@ pub fn assert(
 // cf.br
 // =============================================================================
 
+// Construit l'op cf.br : branchement inconditionnel vers le bloc `dest`, en
+// transmettant `dest_operands` comme arguments du bloc. Terminateur de bloc.
 /// cf.br ^dest(operands...) — unconditional branch. Terminator of its block.
 /// The types of `dest_operands` must match the block arguments of `dest`.
 pub fn br(
@@ -48,6 +52,9 @@ pub fn br(
 // cf.cond_br
 // =============================================================================
 
+// Construit l'op cf.cond_br : branche sur `cond` (i1) vers `true_dest` ou
+// `false_dest` avec les operandes respectifs. Renseigne `operandSegmentSizes`
+// et, si fourni, `branch_weights` (poids vrai/faux).
 /// cf.cond_br %cond, ^trueDest(trueOps...), ^falseDest(falseOps...) — branch
 /// on an i1. Terminator of its block.
 ///
@@ -94,6 +101,9 @@ pub fn cond_br(
 // cf.switch
 // =============================================================================
 
+// Construit l'op cf.switch : compare `flag` aux `case_values`, saute au bloc
+// de cas correspondant en transmettant ses operandes, sinon vers `default_dest`.
+// Encode les segments d'operandes et `case_values`.
 /// cf.switch %flag : iN, [ default: ^def(defOps...), caseN: ^bbN(opsN...) ]
 ///
 /// `flag` is any integer type. `case_values` are matched signed; the matching
@@ -161,6 +171,7 @@ pub fn switch_(
     return mlir.Operation.init(&state) catch @panic("Failed to create cf.switch");
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

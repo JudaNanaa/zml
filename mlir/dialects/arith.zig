@@ -70,19 +70,23 @@ pub const FastMathAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "fastmath";
+    // Formate l'attribut fastmath (delegue au formatage MLIR standard).
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete le pointeur opaque en `mlir.Attribute`.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: FastMathFlags,
     };
+    // Cree `#arith.fastmath<...>` a partir des drapeaux `value` via l'API C.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirArithFastMathAttrGet(ctx.ptr(), @bitCast(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Lit les `FastMathFlags` de l'attribut.
     pub fn getValue(self: *const Self) FastMathFlags {
         return @bitCast(c.mlirArithFastMathAttrGetValue(self.ptr()));
     }
@@ -92,6 +96,8 @@ pub const FastMathAttr = opaque {
 // Constants
 // =============================================================================
 
+// Construit l'op `arith.constant` scalaire entiere : `value` reinterprete sur la
+// largeur de `int_type`.
 /// arith.constant for an integer scalar. `value` is reinterpreted to `int_type`'s bit width.
 pub fn constant_int(
     ctx: *mlir.Context,
@@ -106,6 +112,7 @@ pub fn constant_int(
     });
 }
 
+// Construit l'op `arith.constant` scalaire flottante du type `ft` avec `value`.
 /// arith.constant for a float scalar of the given FloatTypes kind.
 pub fn constant_float(
     ctx: *mlir.Context,
@@ -120,6 +127,7 @@ pub fn constant_float(
     });
 }
 
+// Construit l'op `arith.constant` de type `index` avec `value`.
 /// arith.constant for an `index`-typed integer.
 pub fn constant_index(ctx: *mlir.Context, value: i64, location: *const mlir.Location) *mlir.Operation {
     const idx_ty = mlir.Type.index(ctx);
@@ -135,8 +143,11 @@ pub fn constant_index(ctx: *mlir.Context, value: i64, location: *const mlir.Loca
 // Binary ops (generated from shared template)
 // =============================================================================
 
+// Fabrique un wrapper d'op binaire `op_name` (`arith.*`) : deux operandes, type
+// de resultat infere.
 fn binaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` a partir de `lhs` et `rhs` ; type de resultat infere.
         pub fn call(
             ctx: *mlir.Context,
             lhs: *const mlir.Value,
@@ -197,6 +208,7 @@ pub const minnumf = binaryOp("arith.minnumf").call;
 // Unary ops
 // =============================================================================
 
+// Construit l'op `arith.negf` : negation flottante de `src`.
 pub fn negf(ctx: *mlir.Context, src: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "arith.negf", .{
         .operands = .{ .flat = &.{src} },
@@ -205,6 +217,8 @@ pub fn negf(ctx: *mlir.Context, src: *const mlir.Value, location: *const mlir.Lo
     });
 }
 
+// Construit l'op `arith.flush_denormals` : ramene les sous-normaux a zero
+// (meme type entree/sortie).
 /// arith.flush_denormals — clamp subnormals to zero (SameOperandsAndResultType).
 pub fn flush_denormals(ctx: *mlir.Context, src: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "arith.flush_denormals", .{
@@ -214,6 +228,8 @@ pub fn flush_denormals(ctx: *mlir.Context, src: *const mlir.Value, location: *co
     });
 }
 
+// Construit l'op `arith.constant` d'un splat dense flottant `value` de type
+// tenseur `tensor_type`.
 /// arith.constant for a dense splat: builds `arith.constant dense<value> : T`
 /// where `T` is a ranked tensor type. Useful for tensor-typed zero/one constants.
 /// For float splats, use `constant_dense_splat_f`; for ints, `constant_dense_splat_i`.
@@ -234,6 +250,8 @@ pub fn constant_dense_splat_f(
     });
 }
 
+// Construit l'op `arith.constant` d'un splat dense entier `value` de type tenseur
+// `tensor_type`.
 pub fn constant_dense_splat_i(
     ctx: *mlir.Context,
     value: i64,
@@ -255,6 +273,8 @@ pub fn constant_dense_splat_i(
 // Extended-result binary ops — return two values
 // =============================================================================
 
+// Construit l'op `arith.addui_extended` : addition non signee ; renvoie (somme,
+// debordement i1 de type `overflow_type`).
 /// arith.addui_extended — unsigned add, returns (sum, overflow: i1 / i1-tensor).
 /// The overflow type is typically i1 (scalar) or tensor<...xi1> matching lhs shape.
 pub fn addui_extended(
@@ -271,6 +291,8 @@ pub fn addui_extended(
     });
 }
 
+// Construit l'op `arith.mulsi_extended` : multiplication signee ; renvoie (poids
+// faible, poids fort), du type de `lhs`.
 /// arith.mulsi_extended — signed multiply, returns (low, high) both same type as lhs.
 pub fn mulsi_extended(
     ctx: *mlir.Context,
@@ -285,6 +307,8 @@ pub fn mulsi_extended(
     });
 }
 
+// Construit l'op `arith.mului_extended` : multiplication non signee ; renvoie
+// (poids faible, poids fort), du type de `lhs`.
 /// arith.mului_extended — unsigned multiply, returns (low, high) both same type as lhs.
 pub fn mului_extended(
     ctx: *mlir.Context,
@@ -303,8 +327,11 @@ pub fn mului_extended(
 // Cast ops (1 operand, explicit result type)
 // =============================================================================
 
+// Fabrique un wrapper de conversion `op_name` : un operande et un type de
+// resultat explicite.
 fn castOp(comptime op_name: []const u8) type {
     return struct {
+        // Construit l'op `op_name` : convertit `value` vers `result_type`.
         pub fn call(
             ctx: *mlir.Context,
             value: *const mlir.Value,
@@ -351,6 +378,8 @@ pub const ConvertFOpts = struct {
     rounding: ?RoundingMode = null,
 };
 
+// Construit l'op `arith.convertf` : conversion flottante de meme largeur (ex.
+// f16<->bf16), avec mode d'arrondi optionnel.
 pub fn convertf(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -370,6 +399,8 @@ pub fn convertf(
     });
 }
 
+// Construit l'op `arith.scaling_truncf` : conversion OCP MXFP vers `result_type`
+// avec le facteur d'echelle `scale` ; mode d'arrondi optionnel.
 /// arith.scaling_truncf — OCP MXFP downcast with per-block scale factors.
 pub fn scaling_truncf(
     ctx: *mlir.Context,
@@ -395,6 +426,8 @@ pub fn scaling_truncf(
 // Compare
 // =============================================================================
 
+// Construit l'op `arith.cmpi` : compare `lhs` et `rhs` entiers selon `predicate` ;
+// resultat i1 infere.
 pub fn cmpi(
     ctx: *mlir.Context,
     predicate: CmpIPredicate,
@@ -412,6 +445,8 @@ pub fn cmpi(
     });
 }
 
+// Construit l'op `arith.cmpf` : compare `lhs` et `rhs` flottants selon
+// `predicate` ; resultat i1 infere.
 pub fn cmpf(
     ctx: *mlir.Context,
     predicate: CmpFPredicate,
@@ -433,6 +468,8 @@ pub fn cmpf(
 // Select
 // =============================================================================
 
+// Construit l'op `arith.select` : selectionne `t` si `cond` est vrai, sinon `f` ;
+// resultat du type de `t`.
 /// arith.select — result type matches the true/false operand type.
 pub fn select(
     ctx: *mlir.Context,
@@ -448,10 +485,12 @@ pub fn select(
     });
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Helper de test : formate `value` et compare la sortie a `expected`.
 fn expectPrints(expected: []const u8, value: anytype) !void {
     var buf: [128]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
@@ -459,6 +498,8 @@ fn expectPrints(expected: []const u8, value: anytype) !void {
     try std.testing.expectEqualStrings(expected, w.buffered());
 }
 
+// Verifie que l'attribut `#arith.fastmath<...>` est correctement construit,
+// relu et formate via l'API C, et que les bits de padding sont rejetes.
 test "arith fastmath attribute is built through the C API" {
     const ctx = try mlir.Context.init(.{});
     defer ctx.deinit();

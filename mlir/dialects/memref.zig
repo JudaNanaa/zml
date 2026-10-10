@@ -16,6 +16,9 @@ pub const AllocOpts = struct {
     alignment: ?i64 = null,
 };
 
+// Construit l'op `memref.alloc` : allocation sur le tas du type `result_type`,
+// tailles dynamiques `dynamic_sizes` et symboles de layout ; attribut optionnel
+// `alignment`.
 /// memref.alloc — heap allocation. `dynamic_sizes` provides one Index value per
 /// dynamic dim of `result_type` (left-to-right). `symbol_operands` binds to
 /// the symbols of the layout map (rare; pass &.{} when none).
@@ -46,6 +49,8 @@ pub fn alloc(
     });
 }
 
+// Construit l'op `memref.alloca` : allocation pile, meme disposition
+// d'operandes/attributs que alloc.
 /// memref.alloca — stack allocation; same operand/attribute layout as alloc.
 pub fn alloca(
     ctx: *mlir.Context,
@@ -74,6 +79,7 @@ pub fn alloca(
     });
 }
 
+// Construit l'op `memref.dealloc` : libere la memref `memref`.
 pub fn dealloc(
     ctx: *mlir.Context,
     memref: *const mlir.Value,
@@ -85,6 +91,8 @@ pub fn dealloc(
     });
 }
 
+// Construit l'op `memref.realloc` : redimensionne `src` vers `result_type` avec
+// `dynamic_size` optionnel ; attribut optionnel `alignment`.
 /// memref.realloc — grow/shrink an existing allocation. `dynamic_size` is
 /// optional; pass null to keep the size encoded in `result_type`.
 pub fn realloc(
@@ -121,6 +129,8 @@ pub const LoadOpts = struct {
     nontemporal: bool = false,
 };
 
+// Construit l'op `memref.load` : charge un element de `memref` aux `indices` ;
+// attribut optionnel `nontemporal`.
 /// memref.load — load a single element from a memref.
 pub fn load(
     ctx: *mlir.Context,
@@ -150,6 +160,8 @@ pub const StoreOpts = struct {
     nontemporal: bool = false,
 };
 
+// Construit l'op `memref.store` : ecrit `value` dans `memref` aux `indices` ;
+// attribut optionnel `nontemporal`.
 /// memref.store — store a single element into a memref.
 pub fn store(
     ctx: *mlir.Context,
@@ -199,6 +211,8 @@ pub const AtomicRMWKind = enum(i64) {
     minnumf = 14,
 };
 
+// Construit l'op `memref.atomic_rmw` : lit-modifie-ecrit `value` sur
+// `memref[indices]` selon `kind` ; renvoie l'ancienne valeur.
 /// memref.atomic_rmw — atomic read-modify-write.
 pub fn atomic_rmw(
     ctx: *mlir.Context,
@@ -226,6 +240,8 @@ pub fn atomic_rmw(
 // Casts / metadata-only ops
 // =============================================================================
 
+// Construit l'op `memref.cast` : change la forme/layout d'une memref vers
+// `result_type` (meme type d'element et meme taille).
 /// memref.cast — change layout/element-shape compatibility (e.g. unranked ↔
 /// ranked, dynamic ↔ static). Element type and total memory must match.
 pub fn cast(
@@ -241,6 +257,8 @@ pub fn cast(
     });
 }
 
+// Construit l'op `memref.memory_space_cast` : change l'espace memoire de `src`
+// vers `result_type`.
 /// memref.memory_space_cast — change the memory-space attribute on a memref.
 pub fn memory_space_cast(
     ctx: *mlir.Context,
@@ -255,6 +273,8 @@ pub fn memory_space_cast(
     });
 }
 
+// Construit l'op `memref.assume_alignment` : renvoie `src` (meme type) avec
+// l'indice d'alignement `alignment`.
 /// memref.assume_alignment — pure, returns the same memref with an alignment
 /// hint attached.
 pub fn assume_alignment(
@@ -277,6 +297,8 @@ pub fn assume_alignment(
 // Shape introspection
 // =============================================================================
 
+// Construit l'op `memref.dim` : renvoie en `index` la taille de la dimension
+// `index` de `memref`.
 /// memref.dim — returns the size of dim `index` of `memref` as `index`.
 pub fn dim(
     ctx: *mlir.Context,
@@ -291,6 +313,7 @@ pub fn dim(
     });
 }
 
+// Construit l'op `memref.rank` : renvoie en `index` le rang de `memref`.
 /// memref.rank — returns rank of `memref` as `index`.
 pub fn rank(
     ctx: *mlir.Context,
@@ -304,6 +327,8 @@ pub fn rank(
     });
 }
 
+// Construit l'op `memref.extract_aligned_pointer_as_index` : renvoie en `index`
+// le pointeur de base aligne de `src`.
 /// memref.extract_aligned_pointer_as_index — get the aligned base pointer of
 /// a memref as an `index`.
 pub fn extract_aligned_pointer_as_index(
@@ -322,6 +347,9 @@ pub fn extract_aligned_pointer_as_index(
 // View / SubView / Reinterpret
 // =============================================================================
 
+// Construit l'op `memref.view` : vue de type changeant de `source`
+// (memref<?xi8>) vers `result_type`, decalee de `byte_shift` octets, tailles
+// dynamiques fournies.
 /// memref.view — type-changing view of a flat 1-D `memref<?xi8>` as a higher-
 /// rank memref. `byte_shift` is an `index` byte offset; `dynamic_sizes`
 /// supplies one operand per dynamic dim of `result_type`.
@@ -355,6 +383,9 @@ pub const SubViewArgs = struct {
     dynamic_strides: []const *const mlir.Value = &.{},
 };
 
+// Construit l'op `memref.subview` : vue stridee de `source` selon
+// offsets/sizes/strides statiques (kDynamic pour les dynamiques) ; `result_type`
+// est fourni explicitement.
 /// memref.subview — strided view into a source memref. The result type must
 /// be precomputed by the caller (the dialect provides `inferResultType`,
 /// but we don't expose that yet — pass an explicit `result_type`).
@@ -400,6 +431,8 @@ pub const ReinterpretCastArgs = struct {
     dynamic_strides: []const *const mlir.Value = &.{},
 };
 
+// Construit l'op `memref.reinterpret_cast` : change offset/tailles/pas de
+// `source` sans toucher a la memoire sous-jacente.
 /// memref.reinterpret_cast — changes offset/sizes/strides of a memref without
 /// touching the underlying memory.
 pub fn reinterpret_cast(
@@ -439,6 +472,8 @@ pub fn reinterpret_cast(
 // Reshape — expand_shape / collapse_shape / reshape
 // =============================================================================
 
+// Construit l'op `memref.reshape` : remet en forme `source` selon la memref de
+// tailles `shape` (elements `index`).
 /// memref.reshape — reshape a memref using a separate `shape` memref of `index`
 /// elements. `result_type` carries the new shape.
 pub fn reshape(
@@ -469,6 +504,8 @@ pub const ReassociationArgs = struct {
     dynamic_output_shape: []const *const mlir.Value = &.{},
 };
 
+// Construit l'attribut `reassociation` : tableau externe d'ArrayAttr d'entiers,
+// un par groupe de dimensions.
 fn buildReassociationAttr(ctx: *mlir.Context, reassociation: []const []const i64) *const mlir.Attribute {
     var outer: stdx.BoundedArray(*const mlir.Attribute, 32) = .empty;
     var inner_buf: stdx.BoundedArray(*const mlir.Attribute, 32) = .empty;
@@ -482,6 +519,9 @@ fn buildReassociationAttr(ctx: *mlir.Context, reassociation: []const []const i64
     return .array(ctx, outer.constSlice());
 }
 
+// Construit l'op `memref.expand_shape` : decoupe des dimensions de `source` en
+// `result_type` ; `static_output_shape` + `dynamic_output_shape` decrivent la
+// forme cible.
 /// memref.expand_shape — split source dimensions into multiple result
 /// dimensions. `static_output_shape` must have one entry per result dim;
 /// dynamic entries are filled from `dynamic_output_shape` in order.
@@ -507,6 +547,8 @@ pub fn expand_shape(
     });
 }
 
+// Construit l'op `memref.collapse_shape` : fusionne des dimensions de `source`
+// en `result_type` selon la `reassociation`.
 /// memref.collapse_shape — merge consecutive source dimensions into single
 /// result dimensions. Reassociation map is canonical.
 pub fn collapse_shape(
@@ -530,6 +572,8 @@ pub fn collapse_shape(
 // Transpose — metadata-only permutation. Permutation is an AffineMapAttr.
 // =============================================================================
 
+// Construit l'op `memref.transpose` : permute les dimensions de `src` (attribut
+// `permutation`), sans toucher a la memoire.
 /// memref.transpose — permute the dimensions of `src` according to
 /// `permutation` (which must be a permutation of `(d0, ..., dN-1)`). Build
 /// the map with `mlir.AffineMap.get` or parse via
@@ -555,6 +599,8 @@ pub fn transpose(
 // Copy / Prefetch
 // =============================================================================
 
+// Construit l'op `memref.copy` : copie le contenu de `source` dans `target`
+// (meme type d'element et meme nombre d'elements).
 /// memref.copy — copy source memref into target memref (same element type,
 /// same total element count).
 pub fn copy(
@@ -578,6 +624,8 @@ pub const PrefetchOpts = struct {
     is_data_cache: bool = true,
 };
 
+// Construit l'op `memref.prefetch` : indice non contraignant pour charger
+// `memref[indices]` en cache, regle par `PrefetchOpts`.
 /// memref.prefetch — non-binding hint to bring `memref[indices]` into cache.
 pub fn prefetch(
     ctx: *mlir.Context,
@@ -617,6 +665,8 @@ pub const GlobalArgs = struct {
     alignment: ?i64 = null,
 };
 
+// Construit l'op `memref.global` : declare une memref globale de module (nom,
+// visibilite, type, valeur initiale/constante/alignement optionnels).
 /// memref.global — declare a module-scope memref global (matches the symbol
 /// referenced by `memref.get_global`).
 pub fn global(ctx: *mlir.Context, args: GlobalArgs, location: *const mlir.Location) *mlir.Operation {
@@ -643,6 +693,8 @@ pub fn global(ctx: *mlir.Context, args: GlobalArgs, location: *const mlir.Locati
     });
 }
 
+// Construit l'op `memref.get_global` : recupere la valeur d'une `memref.global`
+// via sa reference symbolique `name`.
 /// memref.get_global — fetch the value of a `memref.global` by symbol name.
 pub fn get_global(
     ctx: *mlir.Context,
@@ -659,6 +711,7 @@ pub fn get_global(
     });
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }

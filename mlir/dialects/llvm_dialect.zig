@@ -20,6 +20,8 @@ pub const NVPTXAddressSpace = enum(u32) {
     shared_cluster = 7,
 };
 
+// Charge le dialecte `llvm` puis construit le type pointeur opaque
+// `!llvm.ptr<space>` pour l'espace d'adressage donne.
 /// `!llvm.ptr<space>`, an opaque pointer. Loads the LLVM dialect into `ctx`.
 pub fn pointerType(ctx: *mlir.Context, space: anytype) *const mlir.Type {
     _ = c.mlirContextGetOrLoadDialect(ctx.ptr(), mlir.stringRef("llvm"));
@@ -30,6 +32,8 @@ pub fn pointerType(ctx: *mlir.Context, space: anytype) *const mlir.Type {
 // Casts and arithmetic
 // =============================================================================
 
+// Construit l'op `llvm.inttoptr` : convertit l'adresse entiere `address` en
+// pointeur de type `result_type`.
 /// llvm.inttoptr — an integer address as a pointer of type `result_type`.
 pub fn inttoptr(ctx: *mlir.Context, address: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "llvm.inttoptr", .{
@@ -39,6 +43,8 @@ pub fn inttoptr(ctx: *mlir.Context, address: *const mlir.Value, result_type: *co
     });
 }
 
+// Construit l'op `llvm.bitcast` : reinterprete `value` comme `result_type`
+// (meme largeur).
 /// llvm.bitcast — reinterpret `value` as `result_type` (same bit width).
 pub fn bitcast(ctx: *mlir.Context, value: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "llvm.bitcast", .{
@@ -48,6 +54,8 @@ pub fn bitcast(ctx: *mlir.Context, value: *const mlir.Value, result_type: *const
     });
 }
 
+// Construit l'op `llvm.fmul` : multiplie `lhs` par `rhs` en flottant, resultat
+// `result_type`.
 /// llvm.fmul — floating-point (or floating-point vector) product of type `result_type`.
 pub fn fmul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "llvm.fmul", .{
@@ -69,6 +77,8 @@ pub const LoadOptions = struct {
     invariant: bool = false,
 };
 
+// Construit l'op `llvm.load` : charge `result_type` via `pointer`, avec les
+// attributs optionnels `alignment` et `invariant`.
 /// llvm.load — a value of type `result_type` through `pointer`.
 pub fn load(ctx: *mlir.Context, pointer: *const mlir.Value, result_type: *const mlir.Type, opts: LoadOptions, location: *const mlir.Location) *mlir.Operation {
     var attrs: [2]mlir.NamedAttribute = undefined;
@@ -94,6 +104,8 @@ pub const StoreOptions = struct {
     alignment: ?u64 = null,
 };
 
+// Construit l'op `llvm.store` : ecrit `value` via `pointer`, avec l'attribut
+// optionnel `alignment`.
 /// llvm.store — `value` through `pointer`.
 pub fn store(ctx: *mlir.Context, value: *const mlir.Value, pointer: *const mlir.Value, opts: StoreOptions, location: *const mlir.Location) *mlir.Operation {
     var attrs: [1]mlir.NamedAttribute = undefined;
@@ -113,6 +125,9 @@ pub fn store(ctx: *mlir.Context, value: *const mlir.Value, pointer: *const mlir.
 // Intrinsics and inline assembly
 // =============================================================================
 
+// Construit l'op `llvm.call_intrinsic` : appelle l'intrinsic `name` avec
+// `operands`, resultat optionnel `result_type` ; renseigne `operandSegmentSizes`
+// et `op_bundle_sizes`.
 /// llvm.call_intrinsic — call the LLVM intrinsic `name` (e.g. `llvm.nvvm.*`), with an
 /// optional result of type `result_type`.
 pub fn call_intrinsic(
@@ -141,6 +156,9 @@ pub const InlineAsmOptions = struct {
     has_side_effects: bool = false,
 };
 
+// Construit l'op `llvm.inline_asm` : assemble le texte `asm_string` avec
+// `constraints` et les `operands` ; resultat optionnel ; `has_side_effects` si
+// demande.
 /// llvm.inline_asm — the PTX (or other target) assembly `asm_string`, with `$i`
 /// placeholders bound to the result then `operands`.
 pub fn inline_asm(
@@ -167,6 +185,7 @@ pub fn inline_asm(
     });
 }
 
+// Verifie la compilation du module (refAllDecls sur tout le fichier).
 test {
     std.testing.refAllDecls(@This());
 }
