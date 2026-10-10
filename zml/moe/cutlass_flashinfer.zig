@@ -100,7 +100,7 @@ pub const Runners = struct {
     runners: [std.meta.fields(Variant).len][max_num_devices]?DeviceRunner =
         @splat(@splat(null)),
 
-// Détruit tous les runners FlashInfer enregistrés.
+    // Détruit tous les runners FlashInfer enregistrés.
     pub fn deinit(self: *Runners) void {
         for (&self.runners) |*variant_runners| {
             for (variant_runners) |device_runner| {
@@ -111,7 +111,7 @@ pub const Runners = struct {
         }
     }
 
-// Récupère ou crée le runner pour un appareil et une variante donnés.
+    // Récupère ou crée le runner pour un appareil et une variante donnés.
     fn ensureRunner(self: *Runners, device: i32, variant: Variant) !DeviceRunner {
         if (device < 0 or device >= max_num_devices) return error.UnsupportedDevice;
 

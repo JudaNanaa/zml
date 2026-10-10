@@ -87,7 +87,7 @@ pub const Backend = enum {
     mosaic_tpu,
     metal,
 
-// Choisit automatiquement le backend selon la plateforme et le schéma de quantification.
+    // Choisit automatiquement le backend selon la plateforme et le schéma de quantification.
     pub fn auto(platform: *const zml.Platform, scheme: ?zml.Quantization.Scheme, dtype: zml.DataType) !Backend {
         // Keep the dtype as an argument because non scheme-specific backends may depend on it later
         _ = dtype;
@@ -135,7 +135,7 @@ pub const Backend = enum {
         };
     }
 
-// Indique si le backend est disponible sur la plateforme donnée.
+    // Indique si le backend est disponible sur la plateforme donnée.
     pub fn isAvailable(backend: Backend, platform: *const zml.Platform) bool {
         return switch (backend) {
             .stablehlo => true,
@@ -156,7 +156,7 @@ pub const Backend = enum {
     }
 
     /// The layout contract the expert weights must have for a given backend with scheme
-// Renvoie la disposition des poids attendue par le backend pour un schéma donné.
+    // Renvoie la disposition des poids attendue par le backend pour un schéma donné.
     pub fn expertsLayout(backend: Backend, scheme: ?zml.Quantization.Scheme) !ExpertsLayout {
         return switch (backend) {
             .stablehlo => .{ .gate_up = .concatenated, .packing = .plain },
@@ -171,7 +171,7 @@ pub const Backend = enum {
         };
     }
 
-// Enregistre auprès de la plateforme les noyaux requis par le backend.
+    // Enregistre auprès de la plateforme les noyaux requis par le backend.
     pub fn register(backend: Backend, platform: *zml.Platform) !void {
         return switch (backend) {
             .stablehlo => {},
