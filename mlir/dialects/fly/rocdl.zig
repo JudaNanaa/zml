@@ -11,13 +11,16 @@ pub const BufferDescAddressAttr = opaque {
     const M = mlir.Methods(Self, c.MlirAttribute);
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirAttributeEqual);
+    // Vue `*const mlir.Attribute` de cet objet opaque (reinterpretation du pointeur).
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Formate l'attribut `BufferDescAddressAttr` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
 
+    // Construit l'attribut `BufferDescAddressAttr` a partir des arguments ODS fournis (API C `mlirFlyROCDLBufferDescAddressAttrGet`).
     pub fn get(ctx: *mlir.Context) mlir.Error!*const Self {
         return @ptrCast(c.mlirFlyROCDLBufferDescAddressAttrGet(ctx.ptr()).ptr orelse return error.InvalidMlir);
     }
@@ -31,9 +34,11 @@ pub const CopyOpCDNA3BufferCopyType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Vue `*const mlir.Type` de ce type fly (reinterpretation du pointeur opaque).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Formate le type `CopyOpCDNA3BufferCopyType` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
@@ -44,6 +49,7 @@ pub const CopyOpCDNA3BufferCopyType = opaque {
         cacheModifier: i32 = 0,
     };
 
+    // Construit le type `CopyOpCDNA3BufferCopyType` a partir des arguments ODS fournis (API C `mlirFlyROCDLCopyOpCDNA3BufferCopyTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirFlyROCDLCopyOpCDNA3BufferCopyTypeGet(ctx.ptr(), args.bitSize, args.cacheModifier);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
@@ -58,9 +64,11 @@ pub const CopyOpCDNA3BufferCopyLDSType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Vue `*const mlir.Type` de ce type fly (reinterpretation du pointeur opaque).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Formate le type `CopyOpCDNA3BufferCopyLDSType` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
@@ -69,6 +77,7 @@ pub const CopyOpCDNA3BufferCopyLDSType = opaque {
         bitSize: i32,
     };
 
+    // Construit le type `CopyOpCDNA3BufferCopyLDSType` a partir des arguments ODS fournis (API C `mlirFlyROCDLCopyOpCDNA3BufferCopyLDSTypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirFlyROCDLCopyOpCDNA3BufferCopyLDSTypeGet(ctx.ptr(), args.bitSize);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
@@ -83,9 +92,11 @@ pub const MmaOpCDNA3MFMAType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Vue `*const mlir.Type` de ce type fly (reinterpretation du pointeur opaque).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Formate le type `MmaOpCDNA3MFMAType` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
@@ -99,6 +110,7 @@ pub const MmaOpCDNA3MFMAType = opaque {
         elemTyAcc: *const mlir.Type,
     };
 
+    // Construit le type `MmaOpCDNA3MFMAType` a partir des arguments ODS fournis (API C `mlirFlyROCDLMmaOpCDNA3MFMATypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirFlyROCDLMmaOpCDNA3MFMATypeGet(ctx.ptr(), args.m, args.n, args.k, args.elemTyA.ptr(), args.elemTyB.ptr(), args.elemTyAcc.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
@@ -113,15 +125,18 @@ pub const MmaOpGFX11WMMAType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Vue `*const mlir.Type` de ce type fly (reinterpretation du pointeur opaque).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Formate le type `MmaOpGFX11WMMAType` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
 
     pub const InitArgs = WmmaInitArgs;
 
+    // Construit le type `MmaOpGFX11WMMAType` a partir des arguments ODS fournis (API C `mlirFlyROCDLMmaOpGFX11WMMATypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirFlyROCDLMmaOpGFX11WMMATypeGet(ctx.ptr(), args.m, args.n, args.k, args.elemTyA.ptr(), args.elemTyB.ptr(), args.elemTyAcc.ptr(), args.signA, args.signB, args.clamp);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
@@ -136,15 +151,18 @@ pub const MmaOpGFX120XWMMAType = opaque {
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
+    // Vue `*const mlir.Type` de ce type fly (reinterpretation du pointeur opaque).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Formate le type `MmaOpGFX120XWMMAType` en notation textuelle MLIR.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
 
     pub const InitArgs = WmmaInitArgs;
 
+    // Construit le type `MmaOpGFX120XWMMAType` a partir des arguments ODS fournis (API C `mlirFlyROCDLMmaOpGFX120XWMMATypeGet`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirFlyROCDLMmaOpGFX120XWMMATypeGet(ctx.ptr(), args.m, args.n, args.k, args.elemTyA.ptr(), args.elemTyB.ptr(), args.elemTyAcc.ptr(), args.signA, args.signB, args.clamp);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);

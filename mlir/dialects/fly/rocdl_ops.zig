@@ -23,6 +23,8 @@ pub const names = [_][]const u8{
     "fly_rocdl.make_tiled_tdm_store_atom",
 };
 
+// Construit l'operation MLIR `fly_rocdl.get_buffer_rsrc` avec les operandes `ptr`.
+// Types de resultat deduits (result type inference).
 /// `fly_rocdl.get_buffer_rsrc`. Extract the raw ROCDL buffer resource from a buffer-descriptor pointer. Result types are inferred.
 pub fn get_buffer_rsrc(ctx: *mlir.Context, ptr: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly_rocdl.get_buffer_rsrc", .{
@@ -32,6 +34,8 @@ pub fn get_buffer_rsrc(ctx: *mlir.Context, ptr: *const mlir.Value, location: *co
     });
 }
 
+// Construit l'operation MLIR `fly_rocdl.make_tiled_tdm_load_atom` avec les operandes `tensor`, `smem_layout`, `tiler`.
+// Types de resultat deduits (result type inference). Attributs : `num_warps`, `init_boundary_check`, `cache_modifier`, `atomic_barrier`, `internal_type`.
 /// `fly_rocdl.make_tiled_tdm_load_atom`. Build a CDNA5 TDM load atom and the coordinate tensor that addresses it. Result types are inferred.
 pub fn make_tiled_tdm_load_atom(ctx: *mlir.Context, tensor: *const mlir.Value, smem_layout: *const mlir.Value, tiler: *const mlir.Value, num_warps: ?*const mlir.Attribute, init_boundary_check: ?*const mlir.Attribute, cache_modifier: ?*const mlir.Attribute, atomic_barrier: ?*const mlir.Attribute, internal_type: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -48,6 +52,8 @@ pub fn make_tiled_tdm_load_atom(ctx: *mlir.Context, tensor: *const mlir.Value, s
     });
 }
 
+// Construit l'operation MLIR `fly_rocdl.make_tiled_tdm_store_atom` avec les operandes `tensor`, `smem_layout`, `tiler`.
+// Types de resultat deduits (result type inference). Attributs : `num_warps`, `init_boundary_check`, `cache_modifier`, `atomic_barrier`, `internal_type`.
 /// `fly_rocdl.make_tiled_tdm_store_atom`. Build a CDNA5 TDM store atom and the coordinate tensor that addresses it. Result types are inferred.
 pub fn make_tiled_tdm_store_atom(ctx: *mlir.Context, tensor: *const mlir.Value, smem_layout: *const mlir.Value, tiler: *const mlir.Value, num_warps: ?*const mlir.Attribute, init_boundary_check: ?*const mlir.Attribute, cache_modifier: ?*const mlir.Attribute, atomic_barrier: ?*const mlir.Attribute, internal_type: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 5) = .empty;
@@ -64,6 +70,7 @@ pub fn make_tiled_tdm_store_atom(ctx: *mlir.Context, tensor: *const mlir.Value, 
     });
 }
 
+// Reforce la compilation de tous les builders fly_rocdl du module.
 test {
     std.testing.refAllDecls(@This());
 }

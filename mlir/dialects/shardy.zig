@@ -7,10 +7,12 @@ const std = @import("std");
 const c = @import("c");
 const mlir = @import("mlir");
 
+// Renvoie le handle du dialecte `sdy` (API C `mlirGetDialectHandle__sdy__`).
 pub fn dialectHandle() *const mlir.DialectHandle {
     return @ptrCast(c.mlirGetDialectHandle__sdy__().ptr);
 }
 
+// Enregistre le dialecte `sdy` dans le registre donne.
 pub fn registerDialect(registry: *mlir.DialectRegistry) void {
     dialectHandle().insertDialect(registry);
 }
@@ -24,18 +26,22 @@ pub const MeshAxisAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `MeshAxisAttribute` a partir des parametres fournis (API C `sdyMeshAxisAttrGet`).
     pub fn init(ctx: *mlir.Context, axis_name: []const u8, axis_size: i64) *const MeshAxisAttribute {
         return @ptrCast(c.sdyMeshAxisAttrGet(ctx.ptr(), mlir.stringRef(axis_name), axis_size).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const MeshAxisAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : nom de l'axe.
     pub fn name(self: *const MeshAxisAttribute) []const u8 {
         return mlir.string(c.sdyMeshAxisAttrGetName(self.ptr()));
     }
 
+    // Accesseur : taille de l'axe.
     pub fn size(self: *const MeshAxisAttribute) i64 {
         return c.sdyMeshAxisAttrGetSize(self.ptr());
     }
@@ -55,6 +61,7 @@ pub const MeshAttribute = opaque {
         device_ids: []const i64 = &.{},
     };
 
+    // Construit l'attribut `MeshAttribute` a partir des parametres fournis (API C `sdyMeshAttrGet`).
     pub fn init(ctx: *mlir.Context, mesh: Mesh) *const MeshAttribute {
         const axes: []const c.struct_MlirAttribute = @ptrCast(mesh.axes);
         return @ptrCast(c.sdyMeshAttrGet(
@@ -66,6 +73,7 @@ pub const MeshAttribute = opaque {
         ).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const MeshAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -80,18 +88,22 @@ pub const SubAxisInfoAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `SubAxisInfoAttribute` a partir des parametres fournis (API C `sdySubAxisInfoAttrGet`).
     pub fn init(ctx: *mlir.Context, pre_size: i64, sub_axis_size: i64) *const SubAxisInfoAttribute {
         return @ptrCast(c.sdySubAxisInfoAttrGet(ctx.ptr(), pre_size, sub_axis_size).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const SubAxisInfoAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : taille du prefixe de sous-axe.
     pub fn preSize(self: *const SubAxisInfoAttribute) i64 {
         return c.sdySubAxisInfoAttrGetPreSize(self.ptr());
     }
 
+    // Accesseur : taille de l'axe.
     pub fn size(self: *const SubAxisInfoAttribute) i64 {
         return c.sdySubAxisInfoAttrGetSize(self.ptr());
     }
@@ -106,23 +118,28 @@ pub const AxisRefAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit une reference d'axe nomme `axis_name` (API C `sdyAxisRefAttrGet`).
     pub fn named(ctx: *mlir.Context, axis_name: []const u8) *const AxisRefAttribute {
         return @ptrCast(c.sdyAxisRefAttrGet(ctx.ptr(), mlir.stringRef(axis_name), .{ .ptr = null }).ptr);
     }
 
+    // Construit une reference de sous-axe (`axis_name`, prefixe `pre_size`, taille `size`).
     pub fn subAxis(ctx: *mlir.Context, axis_name: []const u8, pre_size: i64, size: i64) *const AxisRefAttribute {
         const sub_axis: *const SubAxisInfoAttribute = .init(ctx, pre_size, size);
         return @ptrCast(c.sdyAxisRefAttrGet(ctx.ptr(), mlir.stringRef(axis_name), sub_axis).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const AxisRefAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : nom de l'axe.
     pub fn name(self: *const AxisRefAttribute) []const u8 {
         return mlir.string(c.sdyAxisRefAttrGetName(self.ptr()));
     }
 
+    // Accesseur : info de sous-axe, ou null si la reference designe l'axe entier.
     pub fn subAxisInfo(self: *const AxisRefAttribute) ?*const SubAxisInfoAttribute {
         const attr = c.sdyAxisRefAttrGetSubAxisInfo(self.ptr());
         return if (attr.ptr == null) null else @ptrCast(attr.ptr);
@@ -138,6 +155,7 @@ pub const DimensionShardingAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `DimensionShardingAttribute` a partir des parametres fournis (API C `sdyDimensionShardingAttrGet`).
     pub fn init(
         ctx: *mlir.Context,
         axes: []const *const AxisRefAttribute,
@@ -148,34 +166,42 @@ pub const DimensionShardingAttribute = opaque {
         return @ptrCast(c.sdyDimensionShardingAttrGet(ctx.ptr(), @intCast(attrs.len), attrs.ptr, is_closed, priority_ orelse -1).ptr);
     }
 
+    // Construit un sharding de dimension ferme sur `axes`.
     pub fn closed(ctx: *mlir.Context, axes: []const *const AxisRefAttribute) *const DimensionShardingAttribute {
         return init(ctx, axes, true, null);
     }
 
+    // Construit un sharding de dimension ouvert sur `axes`.
     pub fn open(ctx: *mlir.Context, axes: []const *const AxisRefAttribute) *const DimensionShardingAttribute {
         return init(ctx, axes, false, null);
     }
 
+    // Construit un sharding de dimension replique (aucun axe).
     pub fn replicated(ctx: *mlir.Context) *const DimensionShardingAttribute {
         return closed(ctx, &.{});
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const DimensionShardingAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : nombre d'axes.
     pub fn numAxes(self: *const DimensionShardingAttribute) usize {
         return @intCast(c.sdyDimensionShardingAttrGetAxesSize(self.ptr()));
     }
 
+    // Accesseur : axe a l'index `index`.
     pub fn axis(self: *const DimensionShardingAttribute, index: usize) *const AxisRefAttribute {
         return @ptrCast(c.sdyDimensionShardingAttrGetAxesElem(self.ptr(), @intCast(index)).ptr);
     }
 
+    // Test booleen : indique si le sharding de dimension est ferme.
     pub fn isClosed(self: *const DimensionShardingAttribute) bool {
         return c.sdyDimensionShardingAttrGetIsClosed(self.ptr());
     }
 
+    // Accesseur : priorite du sharding (-1 => null).
     pub fn priority(self: *const DimensionShardingAttribute) ?i64 {
         const value = c.sdyDimensionShardingAttrGetPriority(self.ptr());
         return if (value == -1) null else value;
@@ -198,6 +224,7 @@ pub const TensorShardingAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `TensorShardingAttribute` a partir des parametres fournis (API C `sdyTensorShardingAttrGet`).
     pub fn init(ctx: *mlir.Context, args: Sharding) *const TensorShardingAttribute {
         comptime std.debug.assert(@sizeOf(c.struct_MlirAttribute) == @sizeOf(*const mlir.Attribute));
         const dimensions: []const c.struct_MlirAttribute = @ptrCast(args.dimensions);
@@ -216,39 +243,48 @@ pub const TensorShardingAttribute = opaque {
         ).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const TensorShardingAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : symbole de mesh (ou reference) du sharding.
     pub fn meshOrRef(self: *const TensorShardingAttribute) *const mlir.Attribute {
         return @ptrCast(c.sdyTensorShardingAttrGetMeshOrRef(self.ptr()).ptr);
     }
 
+    // Accesseur : nombre de shardings de dimension.
     pub fn numDimensions(self: *const TensorShardingAttribute) usize {
         return @intCast(c.sdyTensorShardingAttrGetDimShardingsSize(self.ptr()));
     }
 
+    // Accesseur : sharding de dimension a l'index `index`.
     pub fn dimension(self: *const TensorShardingAttribute, index: usize) *const DimensionShardingAttribute {
         return @ptrCast(c.sdyTensorShardingAttrGetDimShardingsElem(self.ptr(), @intCast(index)).ptr);
     }
 
+    // Accesseur : nombre d'axes repliques.
     pub fn numReplicatedAxes(self: *const TensorShardingAttribute) usize {
         return @intCast(c.sdyTensorShardingAttrGetReplicatedAxesSize(self.ptr()));
     }
 
+    // Accesseur : axe replique a l'index `index`.
     pub fn replicatedAxis(self: *const TensorShardingAttribute, index: usize) *const AxisRefAttribute {
         return @ptrCast(c.sdyTensorShardingAttrGetReplicatedAxesElem(self.ptr(), @intCast(index)).ptr);
     }
 
+    // Accesseur : nombre d'axes non reduits.
     pub fn numUnreducedAxes(self: *const TensorShardingAttribute) usize {
         return @intCast(c.sdyTensorShardingAttrGetUnreducedAxesSize(self.ptr()));
     }
 
+    // Accesseur : axe non reduit a l'index `index`.
     pub fn unreducedAxis(self: *const TensorShardingAttribute, index: usize) *const AxisRefAttribute {
         return @ptrCast(c.sdyTensorShardingAttrGetUnreducedAxesElem(self.ptr(), @intCast(index)).ptr);
     }
 };
 
+// Teste la construction et l'impression de `#sdy.sharding` (axes, replique, sous-axes).
 test TensorShardingAttribute {
     const registry: *mlir.DialectRegistry = try .init();
     defer registry.deinit();
@@ -347,16 +383,19 @@ pub const TensorShardingPerValueAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `TensorShardingPerValueAttribute` a partir des parametres fournis (API C `sdyTensorShardingPerValueAttrGet`).
     pub fn init(ctx: *mlir.Context, shardings: []const *const TensorShardingAttribute) *const TensorShardingPerValueAttribute {
         const attrs: []const c.struct_MlirAttribute = @ptrCast(shardings);
         return @ptrCast(c.sdyTensorShardingPerValueAttrGet(ctx.ptr(), @intCast(attrs.len), attrs.ptr).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const TensorShardingPerValueAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 };
 
+// Teste `#sdy.sharding_per_value` sur plusieurs valeurs.
 test TensorShardingPerValueAttribute {
     const registry: *mlir.DialectRegistry = try .init();
     defer registry.deinit();
@@ -401,25 +440,30 @@ pub const ManualAxesAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Construit l'attribut `ManualAxesAttribute` a partir des parametres fournis (API C `sdyManualAxesAttrGet`).
     pub fn init(ctx: *mlir.Context, axes: []const *const mlir.StringAttribute) *const ManualAxesAttribute {
         comptime std.debug.assert(@sizeOf(c.struct_MlirAttribute) == @sizeOf(*const mlir.StringAttribute));
         const attrs: []const c.struct_MlirAttribute = @ptrCast(axes);
         return @ptrCast(c.sdyManualAxesAttrGet(ctx.ptr(), @intCast(attrs.len), attrs.ptr).ptr);
     }
 
+    // Vue `*const mlir.Attribute` de cet objet opaque.
     pub fn asAttr(self: *const ManualAxesAttribute) *const mlir.Attribute {
         return @ptrCast(self);
     }
 
+    // Accesseur : nombre d'axes.
     pub fn numAxes(self: *const ManualAxesAttribute) usize {
         return @intCast(c.sdyManualAxesAttrGetAxesSize(self.ptr()));
     }
 
+    // Accesseur : axe a l'index `index`.
     pub fn axis(self: *const ManualAxesAttribute, index: usize) []const u8 {
         return mlir.string(c.sdyManualAxesAttrGetAxesElem(self.ptr(), @intCast(index)));
     }
 };
 
+// Teste `#sdy<manual_axes{...}>` et ses accesseurs.
 test ManualAxesAttribute {
     const registry: *mlir.DialectRegistry = try .init();
     defer registry.deinit();

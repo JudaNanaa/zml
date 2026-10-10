@@ -125,6 +125,8 @@ pub const names = [_][]const u8{
     "fly.zipped_product",
 };
 
+// Construit l'operation MLIR `fly.add_offset` avec les operandes `ptr`, `offset`.
+// Types de resultat deduits (result type inference).
 /// `fly.add_offset`. Result types are inferred.
 pub fn add_offset(ctx: *mlir.Context, ptr: *const mlir.Value, offset: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.add_offset", .{
@@ -134,6 +136,8 @@ pub fn add_offset(ctx: *mlir.Context, ptr: *const mlir.Value, offset: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.append` avec les operandes `tuple`, `elem`.
+// Types de resultat deduits (result type inference). Attributs : `n`.
 /// `fly.append`. Result types are inferred.
 pub fn append(ctx: *mlir.Context, tuple: *const mlir.Value, elem: *const mlir.Value, n: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -146,6 +150,8 @@ pub fn append(ctx: *mlir.Context, tuple: *const mlir.Value, elem: *const mlir.Va
     });
 }
 
+// Construit l'operation MLIR `fly.apply_swizzle` avec les operandes `ptr`, `swizzle`.
+// Types de resultat deduits (result type inference).
 /// `fly.apply_swizzle`. Result types are inferred.
 pub fn apply_swizzle(ctx: *mlir.Context, ptr: *const mlir.Value, swizzle: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.apply_swizzle", .{
@@ -155,6 +161,8 @@ pub fn apply_swizzle(ctx: *mlir.Context, ptr: *const mlir.Value, swizzle: *const
     });
 }
 
+// Construit l'operation MLIR `fly.assume` avec les operandes `dst`, `src`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.assume`. Result types are explicit.
 pub fn assume(ctx: *mlir.Context, dst: *const mlir.Value, src: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.assume", .{
@@ -164,6 +172,8 @@ pub fn assume(ctx: *mlir.Context, dst: *const mlir.Value, src: *const mlir.Value
     });
 }
 
+// Construit l'operation MLIR `fly.atom.set_value` avec les operandes `atom`, `value`.
+// Types de resultat deduits (result type inference). Attributs : `field`.
 /// `fly.atom.set_value`. Result types are inferred.
 pub fn atom_set_value(ctx: *mlir.Context, atom: *const mlir.Value, value: *const mlir.Value, field: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.atom.set_value", .{
@@ -176,6 +186,8 @@ pub fn atom_set_value(ctx: *mlir.Context, atom: *const mlir.Value, value: *const
     });
 }
 
+// Construit l'operation MLIR `fly.blocked_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.blocked_product`. Result types are inferred.
 pub fn blocked_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.blocked_product", .{
@@ -185,6 +197,8 @@ pub fn blocked_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *con
     });
 }
 
+// Construit l'operation MLIR `fly.ceil_div` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.ceil_div`. Result types are inferred.
 pub fn ceil_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.ceil_div", .{
@@ -194,6 +208,8 @@ pub fn ceil_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Val
     });
 }
 
+// Construit l'operation MLIR `fly.coalesce` avec les operandes `layout`, `pattern`.
+// Types de resultat deduits (result type inference).
 /// `fly.coalesce`. Result types are inferred.
 pub fn coalesce(ctx: *mlir.Context, layout: *const mlir.Value, pattern: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.coalesce", .{
@@ -203,6 +219,8 @@ pub fn coalesce(ctx: *mlir.Context, layout: *const mlir.Value, pattern: ?*const 
     });
 }
 
+// Construit l'operation MLIR `fly.complement` avec les operandes `layout`, `codomain_size`.
+// Types de resultat deduits (result type inference).
 /// `fly.complement`. Result types are inferred.
 pub fn complement(ctx: *mlir.Context, layout: *const mlir.Value, codomain_size: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.complement", .{
@@ -212,6 +230,8 @@ pub fn complement(ctx: *mlir.Context, layout: *const mlir.Value, codomain_size: 
     });
 }
 
+// Construit l'operation MLIR `fly.composed_get_inner` avec les operandes `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.composed_get_inner`. Result types are inferred.
 pub fn composed_get_inner(ctx: *mlir.Context, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.composed_get_inner", .{
@@ -221,6 +241,8 @@ pub fn composed_get_inner(ctx: *mlir.Context, input: *const mlir.Value, location
     });
 }
 
+// Construit l'operation MLIR `fly.composed_get_offset` avec les operandes `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.composed_get_offset`. Result types are inferred.
 pub fn composed_get_offset(ctx: *mlir.Context, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.composed_get_offset", .{
@@ -230,6 +252,8 @@ pub fn composed_get_offset(ctx: *mlir.Context, input: *const mlir.Value, locatio
     });
 }
 
+// Construit l'operation MLIR `fly.composed_get_outer` avec les operandes `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.composed_get_outer`. Result types are inferred.
 pub fn composed_get_outer(ctx: *mlir.Context, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.composed_get_outer", .{
@@ -239,6 +263,8 @@ pub fn composed_get_outer(ctx: *mlir.Context, input: *const mlir.Value, location
     });
 }
 
+// Construit l'operation MLIR `fly.composition` avec les operandes `outer`, `inner`.
+// Types de resultat deduits (result type inference).
 /// `fly.composition`. Result types are inferred.
 pub fn composition(ctx: *mlir.Context, outer: *const mlir.Value, inner: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.composition", .{
@@ -248,6 +274,8 @@ pub fn composition(ctx: *mlir.Context, outer: *const mlir.Value, inner: *const m
     });
 }
 
+// Construit l'operation MLIR `fly.coprofile` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.coprofile`. Result types are inferred.
 pub fn coprofile(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.coprofile", .{
@@ -257,6 +285,8 @@ pub fn coprofile(ctx: *mlir.Context, layout: *const mlir.Value, location: *const
     });
 }
 
+// Construit l'operation MLIR `fly.copy` avec les operandes `copy_atom`, `src`, `dst`, `pred`.
+// Aucun resultat.
 /// `fly.copy`. No results.
 pub fn copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: *const mlir.Value, dst: *const mlir.Value, pred: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.copy", .{
@@ -265,6 +295,8 @@ pub fn copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: *const mlir.V
     });
 }
 
+// Construit l'operation MLIR `fly.copy_atom_call` avec les operandes `copy_atom`, `src`, `dst`, `pred`.
+// Aucun resultat.
 /// `fly.copy_atom_call`. No results.
 pub fn copy_atom_call(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: *const mlir.Value, dst: *const mlir.Value, pred: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.copy_atom_call", .{
@@ -273,6 +305,8 @@ pub fn copy_atom_call(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: *co
     });
 }
 
+// Construit l'operation MLIR `fly.copy_atom_call_ssa` avec les operandes `copy_atom`, `src`, `dst`, `pred`.
+// Resultat(s) explicite(s) : `results_types`.
 /// `fly.copy_atom_call_ssa`. Result types are explicit.
 pub fn copy_atom_call_ssa(ctx: *mlir.Context, copy_atom: *const mlir.Value, src: *const mlir.Value, dst: ?*const mlir.Value, pred: ?*const mlir.Value, results_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.copy_atom_call_ssa", .{
@@ -287,6 +321,8 @@ pub fn copy_atom_call_ssa(ctx: *mlir.Context, copy_atom: *const mlir.Value, src:
     });
 }
 
+// Construit l'operation MLIR `fly.coshape` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.coshape`. Result types are inferred.
 pub fn coshape(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.coshape", .{
@@ -296,6 +332,8 @@ pub fn coshape(ctx: *mlir.Context, layout: *const mlir.Value, location: *const m
     });
 }
 
+// Construit l'operation MLIR `fly.cosize` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.cosize`. Result types are inferred.
 pub fn cosize(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.cosize", .{
@@ -305,6 +343,8 @@ pub fn cosize(ctx: *mlir.Context, layout: *const mlir.Value, location: *const ml
     });
 }
 
+// Construit l'operation MLIR `fly.crd2idx` avec les operandes `coord`, `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.crd2idx`. Result types are inferred.
 pub fn crd2idx(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.crd2idx", .{
@@ -314,6 +354,8 @@ pub fn crd2idx(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir
     });
 }
 
+// Construit l'operation MLIR `fly.decomposition` avec les operandes `tensor`.
+// Types de resultat deduits (result type inference).
 /// `fly.decomposition`. Result types are inferred.
 pub fn decomposition(ctx: *mlir.Context, tensor: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.decomposition", .{
@@ -323,6 +365,8 @@ pub fn decomposition(ctx: *mlir.Context, tensor: *const mlir.Value, location: *c
     });
 }
 
+// Construit l'operation MLIR `fly.dice` avec les operandes `src`, `coord`.
+// Types de resultat deduits (result type inference).
 /// `fly.dice`. Result types are inferred.
 pub fn dice(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.dice", .{
@@ -332,6 +376,8 @@ pub fn dice(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mlir.Value
     });
 }
 
+// Construit l'operation MLIR `fly.elem_less` avec les operandes `lhs`, `rhs`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.elem_less`. Result types are explicit.
 pub fn elem_less(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.elem_less", .{
@@ -341,6 +387,8 @@ pub fn elem_less(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit l'operation MLIR `fly.equal` avec les operandes `lhs`, `rhs`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.equal`. Result types are explicit.
 pub fn equal(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.equal", .{
@@ -350,6 +398,8 @@ pub fn equal(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value,
     });
 }
 
+// Construit l'operation MLIR `fly.extract_aligned_pointer_as_index` avec les operandes `source`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.extract_aligned_pointer_as_index`. Extract the raw pointer from a fly.memref. Result types are explicit.
 pub fn extract_aligned_pointer_as_index(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.extract_aligned_pointer_as_index", .{
@@ -359,6 +409,8 @@ pub fn extract_aligned_pointer_as_index(ctx: *mlir.Context, source: *const mlir.
     });
 }
 
+// Construit l'operation MLIR `fly.flat_divide` avec les operandes `layout`, `divisor`.
+// Types de resultat deduits (result type inference).
 /// `fly.flat_divide`. Result types are inferred.
 pub fn flat_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.flat_divide", .{
@@ -368,6 +420,8 @@ pub fn flat_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *cons
     });
 }
 
+// Construit l'operation MLIR `fly.flat_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.flat_product`. Result types are inferred.
 pub fn flat_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.flat_product", .{
@@ -377,6 +431,8 @@ pub fn flat_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.gemm` avec les operandes `mma_atom`, `d`, `a`, `b`, `c`, `traversal_layout`.
+// Aucun resultat. Attributs : `traversal_order`.
 /// `fly.gemm`. Fully expand tiled GEMM with variadic A and B operand groups. No results.
 pub fn gemm(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const mlir.Value, a: []const *const mlir.Value, b: []const *const mlir.Value, c: *const mlir.Value, traversal_layout: ?*const mlir.Value, traversal_order: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -395,6 +451,8 @@ pub fn gemm(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const mlir.Valu
     });
 }
 
+// Construit l'operation MLIR `fly.get` avec les operandes `input`.
+// Types de resultat deduits (result type inference). Attributs : `mode`.
 /// `fly.get`. Result types are inferred.
 pub fn get(ctx: *mlir.Context, input: *const mlir.Value, mode: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get", .{
@@ -407,6 +465,8 @@ pub fn get(ctx: *mlir.Context, input: *const mlir.Value, mode: *const mlir.Attri
     });
 }
 
+// Construit l'operation MLIR `fly.get_1d_coord` avec les operandes `index`, `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_1d_coord`. Result types are inferred.
 pub fn get_1d_coord(ctx: *mlir.Context, index: *const mlir.Value, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_1d_coord", .{
@@ -416,6 +476,8 @@ pub fn get_1d_coord(ctx: *mlir.Context, index: *const mlir.Value, layout: *const
     });
 }
 
+// Construit l'operation MLIR `fly.get_copy_atom` avec les operandes `tiled_copy`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_copy_atom`. Extract the copy atom and its runtime state from a tiled copy. Result types are inferred.
 pub fn get_copy_atom(ctx: *mlir.Context, tiled_copy: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_copy_atom", .{
@@ -425,6 +487,8 @@ pub fn get_copy_atom(ctx: *mlir.Context, tiled_copy: *const mlir.Value, location
     });
 }
 
+// Construit l'operation MLIR `fly.get_dyn_shared` sans operande.
+// Types de resultat deduits (result type inference).
 /// `fly.get_dyn_shared`. Result types are inferred.
 pub fn get_dyn_shared(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_dyn_shared", .{
@@ -433,6 +497,8 @@ pub fn get_dyn_shared(ctx: *mlir.Context, location: *const mlir.Location) *mlir.
     });
 }
 
+// Construit l'operation MLIR `fly.get_flat_coord` avec les operandes `index`, `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_flat_coord`. Result types are inferred.
 pub fn get_flat_coord(ctx: *mlir.Context, index: *const mlir.Value, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_flat_coord", .{
@@ -442,6 +508,8 @@ pub fn get_flat_coord(ctx: *mlir.Context, index: *const mlir.Value, layout: *con
     });
 }
 
+// Construit l'operation MLIR `fly.get_iter` avec les operandes `memref`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_iter`. Result types are inferred.
 pub fn get_iter(ctx: *mlir.Context, memref: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_iter", .{
@@ -451,6 +519,8 @@ pub fn get_iter(ctx: *mlir.Context, memref: *const mlir.Value, location: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.get_layout` avec les operandes `memref`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_layout`. Result types are inferred.
 pub fn get_layout(ctx: *mlir.Context, memref: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_layout", .{
@@ -460,6 +530,8 @@ pub fn get_layout(ctx: *mlir.Context, memref: *const mlir.Value, location: *cons
     });
 }
 
+// Construit l'operation MLIR `fly.get_leaves` avec les operandes `input`.
+// Types de resultat deduits (result type inference). Attributs : `dynamic_only`.
 /// `fly.get_leaves`. Result types are inferred.
 pub fn get_leaves(ctx: *mlir.Context, input: *const mlir.Value, dynamic_only: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -472,6 +544,8 @@ pub fn get_leaves(ctx: *mlir.Context, input: *const mlir.Value, dynamic_only: ?*
     });
 }
 
+// Construit l'operation MLIR `fly.get_mma_atom` avec les operandes `tiled_mma`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_mma_atom`. Extract the MMA atom and its runtime state from a tiled MMA. Result types are inferred.
 pub fn get_mma_atom(ctx: *mlir.Context, tiled_mma: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_mma_atom", .{
@@ -481,6 +555,8 @@ pub fn get_mma_atom(ctx: *mlir.Context, tiled_mma: *const mlir.Value, location: 
     });
 }
 
+// Construit l'operation MLIR `fly.get_scalar` avec les operandes `int_tuple`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_scalar`. Result types are inferred.
 pub fn get_scalar(ctx: *mlir.Context, int_tuple: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_scalar", .{
@@ -490,6 +566,8 @@ pub fn get_scalar(ctx: *mlir.Context, int_tuple: *const mlir.Value, location: *c
     });
 }
 
+// Construit l'operation MLIR `fly.get_shape` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_shape`. Result types are inferred.
 pub fn get_shape(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_shape", .{
@@ -499,6 +577,8 @@ pub fn get_shape(ctx: *mlir.Context, layout: *const mlir.Value, location: *const
     });
 }
 
+// Construit l'operation MLIR `fly.get_stride` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.get_stride`. Result types are inferred.
 pub fn get_stride(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.get_stride", .{
@@ -508,6 +588,8 @@ pub fn get_stride(ctx: *mlir.Context, layout: *const mlir.Value, location: *cons
     });
 }
 
+// Construit l'operation MLIR `fly.group` avec les operandes `tuple`.
+// Types de resultat deduits (result type inference). Attributs : `begin`, `end`.
 /// `fly.group`. Result types are inferred.
 pub fn group(ctx: *mlir.Context, tuple: *const mlir.Value, begin: *const mlir.Attribute, end: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.group", .{
@@ -521,6 +603,8 @@ pub fn group(ctx: *mlir.Context, tuple: *const mlir.Value, begin: *const mlir.At
     });
 }
 
+// Construit l'operation MLIR `fly.idx2crd` avec les operandes `coord`, `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.idx2crd`. Result types are inferred.
 pub fn idx2crd(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.idx2crd", .{
@@ -530,6 +614,8 @@ pub fn idx2crd(ctx: *mlir.Context, coord: *const mlir.Value, layout: *const mlir
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_add` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_add`. Result types are inferred.
 pub fn int_tuple_add(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_add", .{
@@ -539,6 +625,8 @@ pub fn int_tuple_add(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_div` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_div`. Result types are inferred.
 pub fn int_tuple_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_div", .{
@@ -548,6 +636,8 @@ pub fn int_tuple_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_mod` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_mod`. Result types are inferred.
 pub fn int_tuple_mod(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_mod", .{
@@ -557,6 +647,8 @@ pub fn int_tuple_mod(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_mul` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_mul`. Result types are inferred.
 pub fn int_tuple_mul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_mul", .{
@@ -566,6 +658,8 @@ pub fn int_tuple_mul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_product` avec les operandes `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_product`. Result types are inferred.
 pub fn int_tuple_product(ctx: *mlir.Context, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_product", .{
@@ -575,6 +669,8 @@ pub fn int_tuple_product(ctx: *mlir.Context, input: *const mlir.Value, location:
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_product_each` avec les operandes `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_product_each`. Result types are inferred.
 pub fn int_tuple_product_each(ctx: *mlir.Context, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_product_each", .{
@@ -584,6 +680,8 @@ pub fn int_tuple_product_each(ctx: *mlir.Context, input: *const mlir.Value, loca
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_product_like` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_product_like`. Result types are inferred.
 pub fn int_tuple_product_like(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_product_like", .{
@@ -593,6 +691,8 @@ pub fn int_tuple_product_like(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *
     });
 }
 
+// Construit l'operation MLIR `fly.int_tuple_sub` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.int_tuple_sub`. Result types are inferred.
 pub fn int_tuple_sub(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.int_tuple_sub", .{
@@ -602,6 +702,8 @@ pub fn int_tuple_sub(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.inttoptr` avec les operandes `src`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.inttoptr`. Result types are explicit.
 pub fn inttoptr(ctx: *mlir.Context, src: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.inttoptr", .{
@@ -611,6 +713,8 @@ pub fn inttoptr(ctx: *mlir.Context, src: *const mlir.Value, result_type: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.left_inverse` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.left_inverse`. Result types are inferred.
 pub fn left_inverse(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.left_inverse", .{
@@ -620,6 +724,8 @@ pub fn left_inverse(ctx: *mlir.Context, layout: *const mlir.Value, location: *co
     });
 }
 
+// Construit l'operation MLIR `fly.logical_divide` avec les operandes `layout`, `divisor`.
+// Types de resultat deduits (result type inference).
 /// `fly.logical_divide`. Result types are inferred.
 pub fn logical_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.logical_divide", .{
@@ -629,6 +735,8 @@ pub fn logical_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *c
     });
 }
 
+// Construit l'operation MLIR `fly.logical_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.logical_product`. Result types are inferred.
 pub fn logical_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.logical_product", .{
@@ -638,6 +746,8 @@ pub fn logical_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *con
     });
 }
 
+// Construit l'operation MLIR `fly.make_composed_layout` avec les operandes `inner`, `offset`, `outer`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_composed_layout`. Result types are inferred.
 pub fn make_composed_layout(ctx: *mlir.Context, inner: *const mlir.Value, offset: *const mlir.Value, outer: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_composed_layout", .{
@@ -647,6 +757,8 @@ pub fn make_composed_layout(ctx: *mlir.Context, inner: *const mlir.Value, offset
     });
 }
 
+// Construit l'operation MLIR `fly.make_coord` avec les operandes `dync_elems`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.make_coord`. Result types are explicit.
 pub fn make_coord(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_coord", .{
@@ -656,6 +768,8 @@ pub fn make_coord(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, res
     });
 }
 
+// Construit l'operation MLIR `fly.make_copy_atom` avec les operandes `args`.
+// Resultat(s) explicite(s) : `result_type`. Attributs : `val_bits`.
 /// `fly.make_copy_atom`. Result types are explicit.
 pub fn make_copy_atom(ctx: *mlir.Context, args: []const *const mlir.Value, result_type: *const mlir.Type, val_bits: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_copy_atom", .{
@@ -668,6 +782,8 @@ pub fn make_copy_atom(ctx: *mlir.Context, args: []const *const mlir.Value, resul
     });
 }
 
+// Construit l'operation MLIR `fly.make_fragment_layout_like` avec les operandes `src`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_fragment_layout_like`. Result types are inferred.
 pub fn make_fragment_layout_like(ctx: *mlir.Context, src: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_fragment_layout_like", .{
@@ -677,6 +793,8 @@ pub fn make_fragment_layout_like(ctx: *mlir.Context, src: *const mlir.Value, loc
     });
 }
 
+// Construit l'operation MLIR `fly.make_fragment_like` avec les operandes `src`.
+// Types de resultat deduits (result type inference). Attributs : `dtype`.
 /// `fly.make_fragment_like`. Result types are inferred.
 pub fn make_fragment_like(ctx: *mlir.Context, src: *const mlir.Value, dtype: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -689,6 +807,8 @@ pub fn make_fragment_like(ctx: *mlir.Context, src: *const mlir.Value, dtype: ?*c
     });
 }
 
+// Construit l'operation MLIR `fly.make_identity_layout` avec les operandes `shape`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_identity_layout`. Result types are inferred.
 pub fn make_identity_layout(ctx: *mlir.Context, shape: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_identity_layout", .{
@@ -698,6 +818,8 @@ pub fn make_identity_layout(ctx: *mlir.Context, shape: *const mlir.Value, locati
     });
 }
 
+// Construit l'operation MLIR `fly.make_int_tuple` avec les operandes `dync_elems`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.make_int_tuple`. Result types are explicit.
 pub fn make_int_tuple(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_int_tuple", .{
@@ -707,6 +829,8 @@ pub fn make_int_tuple(ctx: *mlir.Context, dync_elems: []const *const mlir.Value,
     });
 }
 
+// Construit l'operation MLIR `fly.make_layout` avec les operandes `shape`, `stride`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_layout`. Result types are inferred.
 pub fn make_layout(ctx: *mlir.Context, shape: *const mlir.Value, stride: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_layout", .{
@@ -716,6 +840,8 @@ pub fn make_layout(ctx: *mlir.Context, shape: *const mlir.Value, stride: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.make_layout_like` avec les operandes `ref`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_layout_like`. Result types are inferred.
 pub fn make_layout_like(ctx: *mlir.Context, ref: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_layout_like", .{
@@ -725,6 +851,8 @@ pub fn make_layout_like(ctx: *mlir.Context, ref: *const mlir.Value, location: *c
     });
 }
 
+// Construit l'operation MLIR `fly.make_mma_atom` sans operande.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.make_mma_atom`. Result types are explicit.
 pub fn make_mma_atom(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_mma_atom", .{
@@ -733,6 +861,8 @@ pub fn make_mma_atom(ctx: *mlir.Context, result_type: *const mlir.Type, location
     });
 }
 
+// Construit l'operation MLIR `fly.make_ordered_layout` avec les operandes `shape`, `order`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_ordered_layout`. Result types are inferred.
 pub fn make_ordered_layout(ctx: *mlir.Context, shape: *const mlir.Value, order: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_ordered_layout", .{
@@ -742,6 +872,8 @@ pub fn make_ordered_layout(ctx: *mlir.Context, shape: *const mlir.Value, order: 
     });
 }
 
+// Construit l'operation MLIR `fly.make_ptr` avec les operandes `args`.
+// Resultat(s) explicite(s) : `result_type`. Attributs : `dict_attrs`.
 /// `fly.make_ptr`. Result types are explicit.
 pub fn make_ptr(ctx: *mlir.Context, args: []const *const mlir.Value, result_type: *const mlir.Type, dict_attrs: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -754,6 +886,8 @@ pub fn make_ptr(ctx: *mlir.Context, args: []const *const mlir.Value, result_type
     });
 }
 
+// Construit l'operation MLIR `fly.make_shape` avec les operandes `dync_elems`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.make_shape`. Result types are explicit.
 pub fn make_shape(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_shape", .{
@@ -763,6 +897,8 @@ pub fn make_shape(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, res
     });
 }
 
+// Construit l'operation MLIR `fly.make_stride` avec les operandes `dync_elems`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.make_stride`. Result types are explicit.
 pub fn make_stride(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_stride", .{
@@ -772,6 +908,8 @@ pub fn make_stride(ctx: *mlir.Context, dync_elems: []const *const mlir.Value, re
     });
 }
 
+// Construit l'operation MLIR `fly.make_tiled_copy` avec les operandes `copy_atom`, `layout_thr_val`, `tile_mn`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_tiled_copy`. Result types are inferred.
 pub fn make_tiled_copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, layout_thr_val: *const mlir.Value, tile_mn: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_tiled_copy", .{
@@ -781,6 +919,8 @@ pub fn make_tiled_copy(ctx: *mlir.Context, copy_atom: *const mlir.Value, layout_
     });
 }
 
+// Construit l'operation MLIR `fly.make_tiled_mma` avec les operandes `mma_atom`, `atom_layout`, `permutation`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_tiled_mma`. Result types are inferred.
 pub fn make_tiled_mma(ctx: *mlir.Context, mma_atom: *const mlir.Value, atom_layout: *const mlir.Value, permutation: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_tiled_mma", .{
@@ -790,6 +930,8 @@ pub fn make_tiled_mma(ctx: *mlir.Context, mma_atom: *const mlir.Value, atom_layo
     });
 }
 
+// Construit l'operation MLIR `fly.make_view` avec les operandes `iter`, `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.make_view`. Result types are inferred.
 pub fn make_view(ctx: *mlir.Context, iter: *const mlir.Value, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.make_view", .{
@@ -799,6 +941,8 @@ pub fn make_view(ctx: *mlir.Context, iter: *const mlir.Value, layout: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.memref.alloca` avec les operandes `layout`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.memref.alloca`. Result types are explicit.
 pub fn memref_alloca(ctx: *mlir.Context, layout: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.memref.alloca", .{
@@ -808,6 +952,8 @@ pub fn memref_alloca(ctx: *mlir.Context, layout: *const mlir.Value, result_type:
     });
 }
 
+// Construit l'operation MLIR `fly.memref.load` avec les operandes `memref`, `indices`.
+// Types de resultat deduits (result type inference).
 /// `fly.memref.load`. Result types are inferred.
 pub fn memref_load(ctx: *mlir.Context, memref: *const mlir.Value, indices: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.memref.load", .{
@@ -817,6 +963,8 @@ pub fn memref_load(ctx: *mlir.Context, memref: *const mlir.Value, indices: *cons
     });
 }
 
+// Construit l'operation MLIR `fly.memref.load_vec` avec les operandes `memref`.
+// Types de resultat deduits (result type inference).
 /// `fly.memref.load_vec`. Result types are inferred.
 pub fn memref_load_vec(ctx: *mlir.Context, memref: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.memref.load_vec", .{
@@ -826,6 +974,8 @@ pub fn memref_load_vec(ctx: *mlir.Context, memref: *const mlir.Value, location: 
     });
 }
 
+// Construit l'operation MLIR `fly.memref.store` avec les operandes `value`, `memref`, `indices`.
+// Aucun resultat.
 /// `fly.memref.store`. No results.
 pub fn memref_store(ctx: *mlir.Context, value: *const mlir.Value, memref: *const mlir.Value, indices: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.memref.store", .{
@@ -834,6 +984,8 @@ pub fn memref_store(ctx: *mlir.Context, value: *const mlir.Value, memref: *const
     });
 }
 
+// Construit l'operation MLIR `fly.memref.store_vec` avec les operandes `vector`, `memref`.
+// Aucun resultat.
 /// `fly.memref.store_vec`. No results.
 pub fn memref_store_vec(ctx: *mlir.Context, vector: *const mlir.Value, memref: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.memref.store_vec", .{
@@ -842,6 +994,8 @@ pub fn memref_store_vec(ctx: *mlir.Context, vector: *const mlir.Value, memref: *
     });
 }
 
+// Construit l'operation MLIR `fly.mma.make_fragment` avec les operandes `tiled_mma`, `input`.
+// Types de resultat deduits (result type inference). Attributs : `operand_id`, `stages`.
 /// `fly.mma.make_fragment`. Result types are inferred.
 pub fn mma_make_fragment(ctx: *mlir.Context, tiled_mma: *const mlir.Value, input: *const mlir.Value, operand_id: *const mlir.Attribute, stages: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 2) = .empty;
@@ -855,6 +1009,8 @@ pub fn mma_make_fragment(ctx: *mlir.Context, tiled_mma: *const mlir.Value, input
     });
 }
 
+// Construit l'operation MLIR `fly.mma_atom_call` avec les operandes `mma_atom`, `d`, `a`, `b`, `c`.
+// Aucun resultat.
 /// `fly.mma_atom_call`. No results.
 pub fn mma_atom_call(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const mlir.Value, a: []const *const mlir.Value, b: []const *const mlir.Value, c: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.mma_atom_call", .{
@@ -869,6 +1025,8 @@ pub fn mma_atom_call(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.mma_atom_call_ssa` avec les operandes `mma_atom`, `d`, `a`, `b`, `c`.
+// Resultat(s) explicite(s) : `results_types`.
 /// `fly.mma_atom_call_ssa`. Result types are explicit.
 pub fn mma_atom_call_ssa(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: ?*const mlir.Value, a: []const *const mlir.Value, b: []const *const mlir.Value, c: *const mlir.Value, results_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.mma_atom_call_ssa", .{
@@ -884,6 +1042,8 @@ pub fn mma_atom_call_ssa(ctx: *mlir.Context, mma_atom: *const mlir.Value, d: ?*c
     });
 }
 
+// Construit l'operation MLIR `fly.prepend` avec les operandes `tuple`, `elem`.
+// Types de resultat deduits (result type inference). Attributs : `n`.
 /// `fly.prepend`. Result types are inferred.
 pub fn prepend(ctx: *mlir.Context, tuple: *const mlir.Value, elem: *const mlir.Value, n: ?*const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     var attributes: stdx.BoundedArray(mlir.NamedAttribute, 1) = .empty;
@@ -896,6 +1056,8 @@ pub fn prepend(ctx: *mlir.Context, tuple: *const mlir.Value, elem: *const mlir.V
     });
 }
 
+// Construit l'operation MLIR `fly.print` avec les operandes `values`.
+// Aucun resultat. Attributs : `format`.
 /// `fly.print`. No results.
 pub fn print(ctx: *mlir.Context, values: []const *const mlir.Value, format: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.print", .{
@@ -907,6 +1069,8 @@ pub fn print(ctx: *mlir.Context, values: []const *const mlir.Value, format: *con
     });
 }
 
+// Construit l'operation MLIR `fly.ptr.load` avec les operandes `ptr`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.ptr.load`. Result types are explicit.
 pub fn ptr_load(ctx: *mlir.Context, ptr: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.ptr.load", .{
@@ -916,6 +1080,8 @@ pub fn ptr_load(ctx: *mlir.Context, ptr: *const mlir.Value, result_type: *const 
     });
 }
 
+// Construit l'operation MLIR `fly.ptr.store` avec les operandes `value`, `ptr`.
+// Aucun resultat.
 /// `fly.ptr.store`. No results.
 pub fn ptr_store(ctx: *mlir.Context, value: *const mlir.Value, ptr: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.ptr.store", .{
@@ -924,6 +1090,8 @@ pub fn ptr_store(ctx: *mlir.Context, value: *const mlir.Value, ptr: *const mlir.
     });
 }
 
+// Construit l'operation MLIR `fly.ptrtoint` avec les operandes `ptr`.
+// Types de resultat deduits (result type inference).
 /// `fly.ptrtoint`. Result types are inferred.
 pub fn ptrtoint(ctx: *mlir.Context, ptr: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.ptrtoint", .{
@@ -933,6 +1101,8 @@ pub fn ptrtoint(ctx: *mlir.Context, ptr: *const mlir.Value, location: *const mli
     });
 }
 
+// Construit l'operation MLIR `fly.raked_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.raked_product`. Result types are inferred.
 pub fn raked_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.raked_product", .{
@@ -942,6 +1112,8 @@ pub fn raked_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const
     });
 }
 
+// Construit l'operation MLIR `fly.recast_iter` avec les operandes `src`.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.recast_iter`. Result types are explicit.
 pub fn recast_iter(ctx: *mlir.Context, src: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.recast_iter", .{
@@ -951,6 +1123,8 @@ pub fn recast_iter(ctx: *mlir.Context, src: *const mlir.Value, result_type: *con
     });
 }
 
+// Construit l'operation MLIR `fly.recast_layout` avec les operandes `src`.
+// Types de resultat deduits (result type inference). Attributs : `new_type_bits`, `old_type_bits`.
 /// `fly.recast_layout`. Result types are inferred.
 pub fn recast_layout(ctx: *mlir.Context, src: *const mlir.Value, new_type_bits: *const mlir.Attribute, old_type_bits: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.recast_layout", .{
@@ -964,6 +1138,8 @@ pub fn recast_layout(ctx: *mlir.Context, src: *const mlir.Value, new_type_bits: 
     });
 }
 
+// Construit l'operation MLIR `fly.right_inverse` avec les operandes `layout`.
+// Types de resultat deduits (result type inference).
 /// `fly.right_inverse`. Result types are inferred.
 pub fn right_inverse(ctx: *mlir.Context, layout: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.right_inverse", .{
@@ -973,6 +1149,8 @@ pub fn right_inverse(ctx: *mlir.Context, layout: *const mlir.Value, location: *c
     });
 }
 
+// Construit l'operation MLIR `fly.select` avec les operandes `tuple`.
+// Types de resultat deduits (result type inference). Attributs : `indices`.
 /// `fly.select`. Result types are inferred.
 pub fn select(ctx: *mlir.Context, tuple: *const mlir.Value, indices: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.select", .{
@@ -985,6 +1163,8 @@ pub fn select(ctx: *mlir.Context, tuple: *const mlir.Value, indices: *const mlir
     });
 }
 
+// Construit l'operation MLIR `fly.shape_div` avec les operandes `lhs`, `rhs`.
+// Types de resultat deduits (result type inference).
 /// `fly.shape_div`. Result types are inferred.
 pub fn shape_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.shape_div", .{
@@ -994,6 +1174,8 @@ pub fn shape_div(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Va
     });
 }
 
+// Construit l'operation MLIR `fly.size` avec les operandes `int_tuple`.
+// Types de resultat deduits (result type inference).
 /// `fly.size`. Result types are inferred.
 pub fn size(ctx: *mlir.Context, int_tuple: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.size", .{
@@ -1003,6 +1185,8 @@ pub fn size(ctx: *mlir.Context, int_tuple: *const mlir.Value, location: *const m
     });
 }
 
+// Construit l'operation MLIR `fly.slice` avec les operandes `src`, `coord`.
+// Types de resultat deduits (result type inference).
 /// `fly.slice`. Result types are inferred.
 pub fn slice(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.slice", .{
@@ -1012,6 +1196,8 @@ pub fn slice(ctx: *mlir.Context, src: *const mlir.Value, coord: *const mlir.Valu
     });
 }
 
+// Construit l'operation MLIR `fly.static` sans operande.
+// Resultat(s) explicite(s) : `result_type`.
 /// `fly.static`. Result types are explicit.
 pub fn static(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.static", .{
@@ -1020,6 +1206,8 @@ pub fn static(ctx: *mlir.Context, result_type: *const mlir.Type, location: *cons
     });
 }
 
+// Construit l'operation MLIR `fly.take` avec les operandes `tuple`.
+// Types de resultat deduits (result type inference). Attributs : `begin`, `end`.
 /// `fly.take`. Result types are inferred.
 pub fn take(ctx: *mlir.Context, tuple: *const mlir.Value, begin: *const mlir.Attribute, end: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.take", .{
@@ -1033,6 +1221,8 @@ pub fn take(ctx: *mlir.Context, tuple: *const mlir.Value, begin: *const mlir.Att
     });
 }
 
+// Construit l'operation MLIR `fly.tile_to_shape` avec les operandes `block`, `trg_shape`, `ord_shape`.
+// Types de resultat deduits (result type inference).
 /// `fly.tile_to_shape`. Result types are inferred.
 pub fn tile_to_shape(ctx: *mlir.Context, block: *const mlir.Value, trg_shape: *const mlir.Value, ord_shape: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tile_to_shape", .{
@@ -1042,6 +1232,8 @@ pub fn tile_to_shape(ctx: *mlir.Context, block: *const mlir.Value, trg_shape: *c
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_copy.partition_dst` avec les operandes `tiled_copy`, `dst`, `coord`.
+// Types de resultat deduits (result type inference).
 /// `fly.tiled_copy.partition_dst`. Result types are inferred.
 pub fn tiled_copy_partition_dst(ctx: *mlir.Context, tiled_copy: *const mlir.Value, dst: *const mlir.Value, coord: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_copy.partition_dst", .{
@@ -1051,6 +1243,8 @@ pub fn tiled_copy_partition_dst(ctx: *mlir.Context, tiled_copy: *const mlir.Valu
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_copy.partition_src` avec les operandes `tiled_copy`, `src`, `coord`.
+// Types de resultat deduits (result type inference).
 /// `fly.tiled_copy.partition_src`. Result types are inferred.
 pub fn tiled_copy_partition_src(ctx: *mlir.Context, tiled_copy: *const mlir.Value, src: *const mlir.Value, coord: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_copy.partition_src", .{
@@ -1060,6 +1254,8 @@ pub fn tiled_copy_partition_src(ctx: *mlir.Context, tiled_copy: *const mlir.Valu
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_copy.retile` avec les operandes `tiled_copy`, `input`.
+// Types de resultat deduits (result type inference).
 /// `fly.tiled_copy.retile`. Result types are inferred.
 pub fn tiled_copy_retile(ctx: *mlir.Context, tiled_copy: *const mlir.Value, input: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_copy.retile", .{
@@ -1069,6 +1265,8 @@ pub fn tiled_copy_retile(ctx: *mlir.Context, tiled_copy: *const mlir.Value, inpu
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_divide` avec les operandes `layout`, `divisor`.
+// Types de resultat deduits (result type inference).
 /// `fly.tiled_divide`. Result types are inferred.
 pub fn tiled_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_divide", .{
@@ -1078,6 +1276,8 @@ pub fn tiled_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *con
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_mma.partition` avec les operandes `tiled_mma`, `input`, `coord`.
+// Types de resultat deduits (result type inference). Attributs : `operand_id`.
 /// `fly.tiled_mma.partition`. Result types are inferred.
 pub fn tiled_mma_partition(ctx: *mlir.Context, tiled_mma: *const mlir.Value, input: *const mlir.Value, coord: *const mlir.Value, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_mma.partition", .{
@@ -1090,6 +1290,8 @@ pub fn tiled_mma_partition(ctx: *mlir.Context, tiled_mma: *const mlir.Value, inp
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_mma.partition_shape` avec les operandes `tiled_mma`, `shape`.
+// Types de resultat deduits (result type inference). Attributs : `operand_id`.
 /// `fly.tiled_mma.partition_shape`. Result types are inferred.
 pub fn tiled_mma_partition_shape(ctx: *mlir.Context, tiled_mma: *const mlir.Value, shape: *const mlir.Value, operand_id: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_mma.partition_shape", .{
@@ -1102,6 +1304,8 @@ pub fn tiled_mma_partition_shape(ctx: *mlir.Context, tiled_mma: *const mlir.Valu
     });
 }
 
+// Construit l'operation MLIR `fly.tiled_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.tiled_product`. Result types are inferred.
 pub fn tiled_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.tiled_product", .{
@@ -1111,6 +1315,8 @@ pub fn tiled_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const
     });
 }
 
+// Construit l'operation MLIR `fly.to_llvm_ptr` avec les operandes `ptr`.
+// Types de resultat deduits (result type inference). Attributs : `llvm_address_space`.
 /// `fly.to_llvm_ptr`. Result types are inferred.
 pub fn to_llvm_ptr(ctx: *mlir.Context, ptr: *const mlir.Value, llvm_address_space: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.to_llvm_ptr", .{
@@ -1123,6 +1329,8 @@ pub fn to_llvm_ptr(ctx: *mlir.Context, ptr: *const mlir.Value, llvm_address_spac
     });
 }
 
+// Construit l'operation MLIR `fly.zipped_divide` avec les operandes `layout`, `divisor`.
+// Types de resultat deduits (result type inference).
 /// `fly.zipped_divide`. Result types are inferred.
 pub fn zipped_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.zipped_divide", .{
@@ -1132,6 +1340,8 @@ pub fn zipped_divide(ctx: *mlir.Context, layout: *const mlir.Value, divisor: *co
     });
 }
 
+// Construit l'operation MLIR `fly.zipped_product` avec les operandes `layout`, `tile`.
+// Types de resultat deduits (result type inference).
 /// `fly.zipped_product`. Result types are inferred.
 pub fn zipped_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return make(ctx, "fly.zipped_product", .{
@@ -1141,6 +1351,7 @@ pub fn zipped_product(ctx: *mlir.Context, layout: *const mlir.Value, tile: *cons
     });
 }
 
+// Reforce la compilation de tous les builders d'operations du module.
 test {
     std.testing.refAllDecls(@This());
 }

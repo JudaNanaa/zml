@@ -17,12 +17,15 @@ pub const MmaOperand = attributes.MmaOperand;
 /// because fly ops may fold to `ub.poison`.
 pub const dialects_needed = [_][]const u8{ "func", "arith", "scf", "math", "vector", "memref", "llvm", "gpu", "rocdl", "ub", "fly", "fly_rocdl" };
 
+// Enregistre dans `registry` tous les dialectes listes dans `dialects_needed`.
 pub fn insertDialects(registry: *mlir.DialectRegistry) void {
     inline for (dialects_needed) |d| {
         mlir.DialectHandle.fromString(d).insertDialect(registry);
     }
 }
 
+// Cree une operation MLIR nommee `name` via `Operation.try_make` ;
+// en cas d'echec, affiche les types d'operandes/resultats puis panique.
 /// `Operation.make` that names the op and its operand types on failure: a
 /// rejected `inferReturnTypes` otherwise panics with nothing to go on.
 pub fn make(ctx: *mlir.Context, name: []const u8, args: mlir.Operation.MakeArgs) *mlir.Operation {
@@ -63,6 +66,7 @@ pub const TypeKind = enum {
     other,
 };
 
+// Comptime : associe un `TypeKind` a son type fly concret (`types.*`).
 pub fn KindType(comptime kind: TypeKind) type {
     return switch (kind) {
         .memref => types.MemRefType,
@@ -81,6 +85,7 @@ pub fn KindType(comptime kind: TypeKind) type {
     };
 }
 
+// Detecte le `TypeKind` d'un type MLIR (`.other` si ce n'est pas un type fly).
 pub fn typeKind(ty: *const mlir.Type) TypeKind {
     inline for (comptime std.meta.tags(TypeKind)) |kind| {
         if (kind != .other and ty.isA(KindType(kind)) != null) return kind;
@@ -88,12 +93,14 @@ pub fn typeKind(ty: *const mlir.Type) TypeKind {
     return .other;
 }
 
+// Verifie que `ty` est bien un `!fly.<kind>` et le renvoie caste ; panique sinon.
 /// Panics if `ty` is not a `!fly.<kind>`.
 pub fn expect(ty: *const mlir.Type, comptime kind: TypeKind) *const KindType(kind) {
     return ty.isA(KindType(kind)) orelse
         std.debug.panic("fly: `{f}` is not a !fly.{s}", .{ ty, @tagName(kind) });
 }
 
+// Renvoie la forme du layout externe d'un type porteur de layout (layout/memref/coord_tensor).
 /// The shape of the outermost plain layout of any layout-carrying type.
 pub fn layoutLikeShape(ty: *const mlir.Type) *const types.IntTupleType {
     if (ty.isA(types.LayoutType) == null and ty.isA(types.ComposedLayoutType) == null and
@@ -104,18 +111,22 @@ pub fn layoutLikeShape(ty: *const mlir.Type) *const types.IntTupleType {
     return @ptrCast(c.mlirFlyLayoutLikeTypeGetShape(ty.ptr()).ptr.?);
 }
 
+// Renvoie le type de l'element d'un `!fly.memref` ou `!fly.ptr`.
 pub fn elemType(ty: *const mlir.Type) *const mlir.Type {
     if (ty.isA(types.MemRefType)) |m| return m.getElemTy();
     if (ty.isA(types.PointerType)) |p| return p.getElemTy();
     std.debug.panic("fly: `{f}` has no element type", .{ty});
 }
 
+// Renvoie l'attribut d'espace d'adressage d'un `!fly.memref` ou `!fly.ptr`.
 pub fn addressSpace(ty: *const mlir.Type) *const mlir.Attribute {
     if (ty.isA(types.MemRefType)) |m| return m.getAddressSpace();
     if (ty.isA(types.PointerType)) |p| return p.getAddressSpace();
     std.debug.panic("fly: `{f}` has no address space", .{ty});
 }
 
+// Reconstruit un `!fly.ptr` avec un nouvel element en conservant espace d'adressage,
+// alignement et swizzle.
 /// Keeps the address space, alignment and swizzle.
 pub fn ptrWithElem(ctx: *mlir.Context, ptr: *const mlir.Type, elem: *const mlir.Type) mlir.Error!*const types.PointerType {
     const p = expect(ptr, .ptr);
@@ -127,6 +138,7 @@ pub fn ptrWithElem(ctx: *mlir.Context, ptr: *const mlir.Type, elem: *const mlir.
     });
 }
 
+// Reforce la compilation de toutes les declarations publiques du module fly et de ses sous-modules.
 test {
     std.testing.refAllDecls(@This());
     inline for (.{ types, attributes, ops, rocdl, rocdl.ops }) |module| {
@@ -138,6 +150,7 @@ test {
     }
 }
 
+// Cree un contexte MLIR avec tous les dialectes fly enregistres (utilitaire de test).
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -147,6 +160,7 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Verifie que `value` s'imprime exactement comme la chaine `expected`.
 fn expectPrints(expected: []const u8, value: anytype) !void {
     var buf: [512]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
@@ -154,6 +168,7 @@ fn expectPrints(expected: []const u8, value: anytype) !void {
     try std.testing.expectEqualStrings(expected, w.buffered());
 }
 
+// Verifie que les operations fly/gpu/rocdl/ub sont bien enregistrees dans le contexte.
 test "fly dialects register" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -167,6 +182,7 @@ test "fly dialects register" {
     try std.testing.expect(ctx.isRegisteredOperation("ub.poison"));
 }
 
+// Verifie que chaque nom d'operation des builders generes est bien enregistre.
 test "every generated operation builder names a registered operation" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -179,6 +195,7 @@ test "every generated operation builder names a registered operation" {
     }
 }
 
+// Verifie le parse/print aller-retour des types fly.
 test "fly types parse and print round-trip" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -213,6 +230,7 @@ test "fly types parse and print round-trip" {
     }
 }
 
+// Verifie la construction des types et attributs fly via l'API C.
 test "types and attributes are built through the C API" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -265,6 +283,7 @@ test "types and attributes are built through the C API" {
     }));
 }
 
+// Verifie la creation des attributs enum (operande MMA, ordre de parcours GEMM).
 test "fly enum attributes" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -272,6 +291,7 @@ test "fly enum attributes" {
     _ = try attributes.gemmTraversalOrderAttr(ctx, .kmn);
 }
 
+// Verifie l'inference d'algebre de layouts par les operations fly.
 test "inferred fly ops compute layout algebra" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -291,6 +311,7 @@ test "inferred fly ops compute layout algebra" {
     try std.testing.expect(module.operation().verify());
 }
 
+// Verifie les traits des atomes MMA/copy (tailles, layouts de threads).
 test "atom traits" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -327,6 +348,7 @@ test "atom traits" {
     _ = ca.getThrValLayoutSrc();
 }
 
+// Verifie la detection du `TypeKind` de differents types fly.
 test "type kinds" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -345,6 +367,7 @@ test "type kinds" {
     try std.testing.expectEqual(TypeKind.other, typeKind(.float(ctx, .f32)));
 }
 
+// Verifie les lecteurs structurels (int_tuple, memref, element).
 test "structural readers" {
     const ctx = try testContext();
     defer ctx.deinit();
