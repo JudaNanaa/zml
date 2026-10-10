@@ -9,6 +9,8 @@ const stdx = @import("stdx");
 /// the custom-call JSON `serialization_format`, which remains 1.
 pub const SERDE_VERSION: i32 = 18;
 
+// Enregistre la passe `mosaic-serde` aupres de MLIR (idempotent) ; requise avant
+// la pipeline qui produit le bytecode TPU.
 /// Register the `mosaic-serde` pass so `PassManager.parse` can pick it up by
 /// name. Idempotent — safe to call repeatedly. Required before running the
 /// `mosaic-serde{serialize=true}` pipeline that produces the bytecode embedded
@@ -30,13 +32,16 @@ pub const SemaphoreType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "semaphore";
+    // Formate le type `!tpu.semaphore` en deleguant au type MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Convertit `self` en `*const mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Cree le type `!tpu.semaphore` via l'API C (`InvalidMlir` si null).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirTpuSemaphoreTypeGet(ctx.ptr());
@@ -44,6 +49,7 @@ pub const SemaphoreType = opaque {
     }
 };
 
+// Enveloppe `SemaphoreType.get` en `*const mlir.Type`.
 /// `!tpu.semaphore` element type.
 pub fn semaphoreType(ctx: *mlir.Context) *const mlir.Type {
     const ty = SemaphoreType.get(ctx, .{}) catch unreachable;
@@ -59,13 +65,16 @@ pub const DMASemaphoreType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "dma_semaphore";
+    // Formate le type `!tpu.dma_semaphore` en deleguant au type MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Convertit `self` en `*const mlir.Type` generique.
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {};
+    // Cree le type `!tpu.dma_semaphore` via l'API C (`InvalidMlir` si null).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         _ = args;
         const result = c.mlirTpuDMASemaphoreTypeGet(ctx.ptr());
@@ -73,6 +82,7 @@ pub const DMASemaphoreType = opaque {
     }
 };
 
+// Enveloppe `DMASemaphoreType.get` en `*const mlir.Type`.
 /// Build `!tpu.dma_semaphore`.
 pub fn dmaSemaphoreType(ctx: *mlir.Context) *const mlir.Type {
     const ty = DMASemaphoreType.get(ctx, .{}) catch unreachable;
@@ -89,15 +99,18 @@ pub const Float8EXMYType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Cree le type `!tpu.float8_exmy<Underlying>` via l'API C.
     pub fn get(ctx: *mlir.Context, underlying: *const mlir.Type) *const Float8EXMYType {
         return @ptrCast(c.mlirTpuFloat8EXMYTypeGet(ctx.ptr(), underlying.ptr()).ptr);
     }
 
+    // Renvoie le type sous-jacent d'un `!tpu.float8_exmy`.
     pub fn underlyingType(self: *const Float8EXMYType) *const mlir.Type {
         return @ptrCast(c.mlirTpuFloat8EXMYTypeGetUnderlyingType(self.ptr()).ptr);
     }
 };
 
+// Enveloppe `Float8EXMYType.get` en `*const mlir.Type`.
 pub fn float8ExmyType(ctx: *mlir.Context, underlying: *const mlir.Type) *const mlir.Type {
     return @ptrCast(Float8EXMYType.get(ctx, underlying));
 }
@@ -121,11 +134,14 @@ pub const ReductionKind = enum(u32) {
     maxui = 10,
     minui = 11,
 
+    // Convertit la valeur de reduction en attribut `#tpu.reduction_kind<...>`.
     pub fn attribute(self: ReductionKind, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = ReductionKindAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
     }
 
+    // Choisit la variante precise (flottante ou entiere signee/non signee) de `max`/
+    // `min` selon le type d'element de `input` et le contexte d'usage.
     fn forInput(self: ReductionKind, input: *const mlir.Value, unsigned_integer: bool) ReductionKind {
         if (self != .max and self != .min) return self;
         const element_type = input.type_().isA(mlir.ShapedType).?.elementType();
@@ -148,19 +164,23 @@ pub const ReductionKindAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "reduction_kind";
+    // Formate l'attribut `#tpu.reduction_kind<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ReductionKind,
     };
+    // Cree l'attribut `#tpu.reduction_kind<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuReductionKindAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `ReductionKind` depuis l'attribut.
     pub fn getValue(self: *const Self) ReductionKind {
         return @enumFromInt(c.mlirTpuReductionKindAttrGetValue(self.ptr()));
     }
@@ -172,6 +192,7 @@ pub const ContractPrecision = enum(u32) {
     fp32 = 1,
     bf16x3 = 2,
 
+    // Convertit la precision de matmul en attribut `#tpu.contract_precision<...>`.
     pub fn attribute(self: ContractPrecision, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = ContractPrecisionAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -187,19 +208,23 @@ pub const ContractPrecisionAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "contract_precision";
+    // Formate l'attribut `#tpu.contract_precision<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: ContractPrecision,
     };
+    // Cree l'attribut `#tpu.contract_precision<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuContractPrecisionAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `ContractPrecision` depuis l'attribut.
     pub fn getValue(self: *const Self) ContractPrecision {
         return @enumFromInt(c.mlirTpuContractPrecisionAttrGetValue(self.ptr()));
     }
@@ -210,6 +235,7 @@ pub const RoundingMode = enum(u32) {
     towards_zero = 0,
     to_nearest_even = 1,
 
+    // Convertit le mode d'arrondi en attribut `#tpu.rounding_mode<...>`.
     pub fn attribute(self: RoundingMode, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = RoundingModeAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -225,19 +251,23 @@ pub const RoundingModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "rounding_mode";
+    // Formate l'attribut `#tpu.rounding_mode<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: RoundingMode,
     };
+    // Cree l'attribut `#tpu.rounding_mode<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuRoundingModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `RoundingMode` depuis l'attribut.
     pub fn getValue(self: *const Self) RoundingMode {
         return @enumFromInt(c.mlirTpuRoundingModeAttrGetValue(self.ptr()));
     }
@@ -249,6 +279,7 @@ pub const CoreType = enum(u32) {
     sc_scalar_subcore = 1,
     sc_vector_subcore = 2,
 
+    // Convertit le type de core en attribut `#tpu.core_type<...>`.
     pub fn attribute(self: CoreType, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = CoreTypeAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -264,19 +295,23 @@ pub const CoreTypeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "core_type";
+    // Formate l'attribut `#tpu.core_type<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: CoreType,
     };
+    // Cree l'attribut `#tpu.core_type<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuCoreTypeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `CoreType` depuis l'attribut.
     pub fn getValue(self: *const Self) CoreType {
         return @enumFromInt(c.mlirTpuCoreTypeAttrGetValue(self.ptr()));
     }
@@ -289,6 +324,7 @@ pub const DimensionSemantics = enum(u32) {
     core_parallel = 2,
     subcore_parallel = 3,
 
+    // Convertit la semantique de dimension en attribut `#tpu.dimension_semantics<...>`.
     pub fn attribute(self: DimensionSemantics, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = DimensionSemanticsAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -304,19 +340,23 @@ pub const DimensionSemanticsAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "dimension_semantics";
+    // Formate l'attribut `#tpu.dimension_semantics<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: DimensionSemantics,
     };
+    // Cree l'attribut `#tpu.dimension_semantics<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuDimensionSemanticsAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `DimensionSemantics` depuis l'attribut.
     pub fn getValue(self: *const Self) DimensionSemantics {
         return @enumFromInt(c.mlirTpuDimensionSemanticsAttrGetValue(self.ptr()));
     }
@@ -327,6 +367,7 @@ pub const PipelineMode = enum(u32) {
     synchronous = 1,
     double_buffered = 2,
 
+    // Convertit le mode de buffering en attribut `#tpu.pipeline_mode<...>`.
     pub fn attribute(self: PipelineMode, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = PipelineModeAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -342,19 +383,23 @@ pub const PipelineModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "pipeline_mode";
+    // Formate l'attribut `#tpu.pipeline_mode<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: PipelineMode,
     };
+    // Cree l'attribut `#tpu.pipeline_mode<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuPipelineModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `PipelineMode` depuis l'attribut.
     pub fn getValue(self: *const Self) PipelineMode {
         return @enumFromInt(c.mlirTpuPipelineModeAttrGetValue(self.ptr()));
     }
@@ -365,6 +410,7 @@ pub const RevisitMode = enum(u32) {
     immediate = 0,
     any = 1,
 
+    // Convertit le mode de revisite en attribut `#tpu.revisit_mode<...>`.
     pub fn attribute(self: RevisitMode, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = RevisitModeAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -380,19 +426,23 @@ pub const RevisitModeAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "revisit_mode";
+    // Formate l'attribut `#tpu.revisit_mode<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: RevisitMode,
     };
+    // Cree l'attribut `#tpu.revisit_mode<...>` depuis `args.value`.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuRevisitModeAttrGet(ctx.ptr(), @intFromEnum(args.value));
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit la valeur `RevisitMode` depuis l'attribut.
     pub fn getValue(self: *const Self) RevisitMode {
         return @enumFromInt(c.mlirTpuRevisitModeAttrGetValue(self.ptr()));
     }
@@ -409,6 +459,7 @@ pub const MemorySpace = enum(u32) {
     vmem_shared = 5,
     host = 6,
 
+    // Convertit l'espace memoire en attribut `#tpu.memory_space<...>`.
     pub fn attribute(self: MemorySpace, ctx: *mlir.Context) *const mlir.Attribute {
         const attr = MemorySpaceAttr.get(ctx, .{ .value = self }) catch unreachable;
         return attr.attribute();
@@ -424,9 +475,11 @@ pub const MemorySpaceAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "memory_space";
+    // Formate l'attribut `#tpu.memory_space<value[, core_type]>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -434,14 +487,18 @@ pub const MemorySpaceAttr = opaque {
         value: MemorySpace,
         coreType: ?CoreType = null,
     };
+    // Cree l'attribut `#tpu.memory_space<...>` avec espace memoire et core type optionnel
+    // (core_type = -1 si absent, via `getChecked`).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const core_type: i64 = if (args.coreType) |ct| @intFromEnum(ct) else -1;
         const result = c.mlirTpuMemorySpaceAttrGet(ctx.ptr(), @intFromEnum(args.value), core_type);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Relit l'espace memoire `MemorySpace` depuis l'attribut.
     pub fn getValue(self: *const Self) MemorySpace {
         return @enumFromInt(c.mlirTpuMemorySpaceAttrGetValue(self.ptr()));
     }
+    // Renvoie le core type optionnel (null quand l'attribut n'en porte pas).
     pub fn getCoreType(self: *const Self) ?CoreType {
         const core_type = c.mlirTpuMemorySpaceAttrGetCoreType(self.ptr());
         return if (core_type < 0) null else @enumFromInt(core_type);
@@ -457,9 +514,11 @@ pub const ElementWindowAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "element_window";
+    // Formate l'attribut `#tpu.element_window<[pad_low], [pad_high]>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -467,6 +526,7 @@ pub const ElementWindowAttr = opaque {
         padLow: []const i64,
         padHigh: []const i64,
     };
+    // Cree l'attribut `#tpu.element_window<...>` avec les listes de padding bas/haut.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuElementWindowAttrGet(
             ctx.ptr(),
@@ -477,20 +537,25 @@ pub const ElementWindowAttr = opaque {
         );
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Renvoie le nombre de valeurs de padding bas.
     pub fn getNumPadLow(self: *const Self) usize {
         return @intCast(c.mlirTpuElementWindowAttrGetNumPadLow(self.ptr()));
     }
+    // Renvoie la `pos`-ieme valeur de padding bas.
     pub fn getPadLow(self: *const Self, pos: usize) i64 {
         return c.mlirTpuElementWindowAttrGetPadLow(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de valeurs de padding haut.
     pub fn getNumPadHigh(self: *const Self) usize {
         return @intCast(c.mlirTpuElementWindowAttrGetNumPadHigh(self.ptr()));
     }
+    // Renvoie la `pos`-ieme valeur de padding haut.
     pub fn getPadHigh(self: *const Self, pos: usize) i64 {
         return c.mlirTpuElementWindowAttrGetPadHigh(self.ptr(), @intCast(pos));
     }
 };
 
+// Enveloppe `ElementWindowAttr.get` en `*const mlir.Attribute`.
 /// `#tpu.element_window<[pad_low], [pad_high]>` — per-arg window padding.
 pub fn elementWindowAttribute(
     ctx: *mlir.Context,
@@ -510,9 +575,11 @@ pub const DotDimensionNumbersAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "dot_dimension_numbers";
+    // Formate l'attribut `#tpu.dot_dimension_numbers<...>`.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete `self` en `*const mlir.Attribute` generique.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -527,6 +594,8 @@ pub const DotDimensionNumbersAttr = opaque {
         lhsBatchDims: []const i64 = &.{},
         rhsBatchDims: []const i64 = &.{},
     };
+    // Cree l'attribut `#tpu.dot_dimension_numbers<...>` depuis toutes les listes de
+    // dimensions (contracting/non-contracting, ordre de sortie, batch).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirTpuDotDimensionNumbersAttrGet(
             ctx.ptr(),
@@ -547,45 +616,59 @@ pub const DotDimensionNumbersAttr = opaque {
         );
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Renvoie le nombre de dimensions contractees du LHS.
     pub fn getNumLhsContractingDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumLhsContractingDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension contractee du LHS.
     pub fn getLhsContractingDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetLhsContractingDims(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de dimensions contractees du RHS.
     pub fn getNumRhsContractingDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumRhsContractingDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension contractee du RHS.
     pub fn getRhsContractingDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetRhsContractingDims(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de dimensions non contractees du LHS.
     pub fn getNumLhsNonContractingDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumLhsNonContractingDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension non contractee du LHS.
     pub fn getLhsNonContractingDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetLhsNonContractingDims(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de dimensions non contractees du RHS.
     pub fn getNumRhsNonContractingDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumRhsNonContractingDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension non contractee du RHS.
     pub fn getRhsNonContractingDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetRhsNonContractingDims(self.ptr(), @intCast(pos));
     }
+    // Renvoie la taille de l'ordre des dimensions de sortie.
     pub fn getNumOutputDimOrder(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumOutputDimOrder(self.ptr()));
     }
+    // Renvoie la `pos`-ieme entree de l'ordre des dimensions de sortie.
     pub fn getOutputDimOrder(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetOutputDimOrder(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de dimensions de batch du LHS.
     pub fn getNumLhsBatchDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumLhsBatchDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension de batch du LHS.
     pub fn getLhsBatchDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetLhsBatchDims(self.ptr(), @intCast(pos));
     }
+    // Renvoie le nombre de dimensions de batch du RHS.
     pub fn getNumRhsBatchDims(self: *const Self) usize {
         return @intCast(c.mlirTpuDotDimensionNumbersAttrGetNumRhsBatchDims(self.ptr()));
     }
+    // Renvoie la `pos`-ieme dimension de batch du RHS.
     pub fn getRhsBatchDims(self: *const Self, pos: usize) i64 {
         return c.mlirTpuDotDimensionNumbersAttrGetRhsBatchDims(self.ptr(), @intCast(pos));
     }
@@ -595,6 +678,8 @@ pub const DotDimensionNumbersAttr = opaque {
 // Reductions / scan / sort
 // =============================================================================
 
+// Construit `tpu.all_reduce` : reduction de `input` le long de `dim` selon `kind`
+// (variante precise choisie par forInput), resultat `result_type`.
 pub fn all_reduce(
     ctx: *mlir.Context,
     input: *const mlir.Value,
@@ -614,6 +699,7 @@ pub fn all_reduce(
     });
 }
 
+// Construit `tpu.reduce_index` : argmax/argmin le long de `axis` selon `kind`.
 pub fn reduce_index(
     ctx: *mlir.Context,
     input: *const mlir.Value,
@@ -633,6 +719,8 @@ pub fn reduce_index(
     });
 }
 
+// Construit `tpu.scan` : scan de la derniere dimension selon `kind`, masque rank-1
+// optionnel ; attribut dimension = rank-1.
 /// Scan the last dimension; an optional rank-one mask spans that dimension.
 pub fn scan(
     ctx: *mlir.Context,
@@ -661,6 +749,8 @@ pub const SortOpts = struct {
     descending: bool = false,
 };
 
+// Construit `tpu.sort` : trie `keys`/`values` (masque optionnel) et renvoie
+// (mask, keys, values) tries, attribut `descending`.
 pub fn sort(
     ctx: *mlir.Context,
     keys: *const mlir.Value,
@@ -695,6 +785,8 @@ pub const LoadOpts = struct {
     sublane_stride: i32 = 1,
 };
 
+// Construit `tpu.load` : charge depuis `base` + `indices` vers `result_type`, avec
+// `sublane_mask` et `sublane_stride`.
 /// tpu.load — sublane-aware load into a vreg.
 pub fn load(
     ctx: *mlir.Context,
@@ -725,6 +817,8 @@ pub const StoreOpts = struct {
     add: bool = false,
 };
 
+// Construit `tpu.store` : ecrit `value` en `base`+`indices`, masque optionnel ;
+// segments (value, base, indices, [mask]) et sublane_mask/stride/add.
 /// tpu.store — sublane-aware store from a vreg. Optional elementwise mask.
 pub fn store(
     ctx: *mlir.Context,
@@ -761,6 +855,8 @@ pub const VectorLoadOpts = struct {
     strides: []const i32 = &.{},
 };
 
+// Construit `tpu.vector_load` : charge strided multi-dim depuis `base`+`indices`,
+// masque optionnel et attribut `strides`.
 /// tpu.vector_load — multi-dim strided load with optional elementwise mask.
 pub fn vector_load(
     ctx: *mlir.Context,
@@ -796,6 +892,8 @@ pub const VectorStoreOpts = struct {
     add: bool = false,
 };
 
+// Construit `tpu.vector_store` : ecrit strided multi-dim, masque optionnel, attributs
+// `strides` et `add`.
 pub fn vector_store(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -825,6 +923,7 @@ pub fn vector_store(
     });
 }
 
+// Construit `tpu.strided_load` : charge avec les pas `strides` depuis `base`+`indices`.
 pub fn strided_load(
     ctx: *mlir.Context,
     base: *const mlir.Value,
@@ -847,6 +946,7 @@ pub fn strided_load(
     });
 }
 
+// Construit `tpu.strided_store` : ecrit avec les pas `strides` depuis `base`+`indices`.
 pub fn strided_store(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -885,6 +985,8 @@ pub const MatmulOpts = struct {
     dimension_numbers: ?*const mlir.Attribute = null,
 };
 
+// Construit `tpu.matmul` : `lhs x rhs + acc` vers `result_type`, attributs
+// transpose_lhs/rhs(_hint), precision et dimension_numbers optionnels.
 pub fn matmul(
     ctx: *mlir.Context,
     lhs: *const mlir.Value,
@@ -915,6 +1017,7 @@ pub fn matmul(
     });
 }
 
+// Construit `tpu.iota` : indices le long de `dimensions` (attribut optionnel).
 pub fn iota(
     ctx: *mlir.Context,
     dimensions: ?[]const i32,
@@ -937,6 +1040,7 @@ pub const ReciprocalOpts = struct {
     full_range: bool = false,
 };
 
+// Construit `tpu.reciprocal` : inverse de `input`, attributs `approx` et `full_range`.
 pub fn reciprocal(
     ctx: *mlir.Context,
     input: *const mlir.Value,
@@ -954,9 +1058,11 @@ pub fn reciprocal(
     });
 }
 
+// Genere des builders d'ops de cast TPU de forme un operande vers un resultat.
 /// Generic 1-operand → 1-result builder for the various TPU casts.
 fn castOp(comptime op_name: []const u8) type {
     return struct {
+        // Cree l'op `tpu.<op_name>` : `src` en operande, `result_type` en resultat explicite.
         pub fn call(
             ctx: *mlir.Context,
             src: *const mlir.Value,
@@ -986,6 +1092,7 @@ pub const mask_cast = castOp("tpu.mask_cast").call;
 // Shape — reshape / repeat / concatenate / transpose / broadcast_in_sublanes
 // =============================================================================
 
+// Construit `tpu.reshape` : change la forme de `src` vers `result_type`.
 pub fn reshape(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -999,6 +1106,7 @@ pub fn reshape(
     });
 }
 
+// Construit `tpu.repeat` : repete `src` `times` fois le long de `dimension`.
 pub fn repeat(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -1018,6 +1126,7 @@ pub fn repeat(
     });
 }
 
+// Construit `tpu.concatenate` : concatene `sources` le long de `dimension`.
 pub fn concatenate(
     ctx: *mlir.Context,
     sources: []const *const mlir.Value,
@@ -1035,6 +1144,7 @@ pub fn concatenate(
     });
 }
 
+// Construit `tpu.transpose` : permute `src` selon `permutation`.
 pub fn transpose(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -1052,6 +1162,7 @@ pub fn transpose(
     });
 }
 
+// Construit `tpu.broadcast_in_sublanes` : diffuse `src` vers `result_type` sur `lane`.
 pub fn broadcast_in_sublanes(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -1075,6 +1186,8 @@ pub const DynamicRotateOpts = struct {
     stride_dimension: ?i32 = null,
 };
 
+// Construit `tpu.dynamic_rotate` : rotation dynamique de `value` de `amount`, attributs
+// dimension, stride et stride_dimension optionnels.
 pub fn dynamic_rotate(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -1108,6 +1221,8 @@ pub const MemRefSliceArgs = struct {
     dynamic_sizes: []const *const mlir.Value = &.{},
 };
 
+// Construit `tpu.memref_slice` : tranche `mem_ref` avec `base_idx` et tailles dynamiques
+// optionnelles ; segments (memref, base_idx, dynamic_sizes).
 pub fn memref_slice(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1131,6 +1246,7 @@ pub fn memref_slice(
     });
 }
 
+// Construit `tpu.memref_squeeze` : retire les dimensions unitaires de `mem_ref`.
 pub fn memref_squeeze(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1144,6 +1260,7 @@ pub fn memref_squeeze(
     });
 }
 
+// Construit `tpu.memref_reshape` : change la forme du memref `mem_ref`.
 pub fn memref_reshape(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1157,6 +1274,7 @@ pub fn memref_reshape(
     });
 }
 
+// Construit `tpu.memref_bitcast` : reinterpret le memref `mem_ref`.
 pub fn memref_bitcast(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1170,6 +1288,7 @@ pub fn memref_bitcast(
     });
 }
 
+// Construit `tpu.reinterpret_cast` : reinterpret le memref (segment [1,0,0,0]).
 pub fn reinterpret_cast(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1184,6 +1303,7 @@ pub fn reinterpret_cast(
     });
 }
 
+// Construit `tpu.assume_layout` : affirme le layout de `src` vers `result_type`.
 pub fn assume_layout(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -1197,6 +1317,7 @@ pub fn assume_layout(
     });
 }
 
+// Construit `tpu.erase_memref_layout` : efface le layout de `mem_ref`.
 pub fn erase_memref_layout(
     ctx: *mlir.Context,
     mem_ref: *const mlir.Value,
@@ -1214,6 +1335,8 @@ pub fn erase_memref_layout(
 // Mask building — create_mask / create_subelement_mask / mask_cast
 // =============================================================================
 
+// Construit `tpu.create_mask` : masque a partir des bornes basses et hautes par
+// dimension (listes de meme longueur).
 /// `tpu.create_mask` — two equal-length operand groups (low, high) per dim.
 pub fn create_mask(
     ctx: *mlir.Context,
@@ -1238,6 +1361,7 @@ pub fn create_mask(
 // Semaphores / DMA / barriers
 // =============================================================================
 
+// Construit `tpu.sem_alloc` : alloue un semaphore de type `result_type`.
 pub fn sem_alloc(
     ctx: *mlir.Context,
     result_type: *const mlir.Type,
@@ -1249,6 +1373,7 @@ pub fn sem_alloc(
     });
 }
 
+// Construit `tpu.sem_barrier` : barriere de semaphore.
 pub fn sem_barrier(
     ctx: *mlir.Context,
     result_type: *const mlir.Type,
@@ -1260,6 +1385,7 @@ pub fn sem_barrier(
     });
 }
 
+// Construit `tpu.sem_read` : lit la valeur i32 du semaphore.
 pub fn sem_read(
     ctx: *mlir.Context,
     semaphore: *const mlir.Value,
@@ -1272,6 +1398,7 @@ pub fn sem_read(
     });
 }
 
+// Construit `tpu.sem_wait` : attend `amount` sur le semaphore.
 pub fn sem_wait(
     ctx: *mlir.Context,
     semaphore: *const mlir.Value,
@@ -1290,6 +1417,8 @@ pub const SemSignalOpts = struct {
     subcore_id: ?*const mlir.Value = null,
 };
 
+// Construit `tpu.sem_signal` : signale `amount` sur le semaphore, avec device_id/
+// core_id/subcore_id optionnels ; segments correspondants.
 pub fn sem_signal(
     ctx: *mlir.Context,
     semaphore: *const mlir.Value,
@@ -1323,6 +1452,7 @@ pub fn sem_signal(
     });
 }
 
+// Construit `tpu.barrier` : barriere identifiee par `barrier_id`.
 pub fn barrier(
     ctx: *mlir.Context,
     barrier_id: *const mlir.Value,
@@ -1343,6 +1473,8 @@ pub const EnqueueDmaOpts = struct {
     strict_ordering: bool = false,
 };
 
+// Construit `tpu.enqueue_dma` : DMA de `source` vers `target` (semaphore cible), avec
+// source_semaphore, device/core/subcore ids optionnels et priority/strict_ordering.
 pub fn enqueue_dma(
     ctx: *mlir.Context,
     source: *const mlir.Value,
@@ -1392,6 +1524,8 @@ pub const WaitDma2Opts = struct {
     strict_ordering: bool = false,
 };
 
+// Construit `tpu.wait_dma2` : attend le semaphore puis DMA `src` vers `dst`, avec device/
+// core ids optionnels et strict_ordering.
 pub fn wait_dma2(
     ctx: *mlir.Context,
     semaphore: *const mlir.Value,
@@ -1426,6 +1560,8 @@ pub fn wait_dma2(
 // Region-bearing — region / trace / yield
 // =============================================================================
 
+// Construit `tpu.region` : region a un bloc `body` (terminee par `tpu.yield`), resultats
+// `result_types`, sans verification.
 /// tpu.region — single-block region with an implicit `tpu.yield` terminator.
 pub fn region(
     ctx: *mlir.Context,
@@ -1441,6 +1577,7 @@ pub fn region(
     });
 }
 
+// Construit `tpu.trace` : region `body` tracee, resultats `result_types`.
 pub fn trace(
     ctx: *mlir.Context,
     body: *mlir.Block,
@@ -1455,6 +1592,7 @@ pub fn trace(
     });
 }
 
+// Construit le terminateur `tpu.yield` avec `values`.
 pub fn yield(
     ctx: *mlir.Context,
     values: []const *const mlir.Value,
@@ -1467,6 +1605,7 @@ pub fn yield(
     });
 }
 
+// Construit `tpu.trace_start` : debut de trace avec niveau `level` et `message`.
 pub fn trace_start(
     ctx: *mlir.Context,
     level: i32,
@@ -1483,6 +1622,7 @@ pub fn trace_start(
     });
 }
 
+// Construit `tpu.trace_stop` : fin de trace.
 pub fn trace_stop(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "tpu.trace_stop", .{
         .verify = false,
@@ -1490,6 +1630,7 @@ pub fn trace_stop(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Oper
     });
 }
 
+// Enveloppe `DotDimensionNumbersAttr.get` en `*const mlir.Attribute`.
 /// Build a `#tpu.dot_dimension_numbers<...>` attribute. Mirrors
 /// `tpu_ops.td:TPU_DotDimensionNumbersAttr`. Pass empty slices for the
 /// fields you don't use (most dot operations leave batch dims empty).
@@ -1519,6 +1660,7 @@ pub fn dotDimensionNumbers(
 // Misc — device_id / delay / assume_multiple
 // =============================================================================
 
+// Construit `tpu.device_id` : identifiant de device (i32).
 pub fn device_id(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "tpu.device_id", .{
         .results = .{ .flat = &.{.int(ctx, .i32)} },
@@ -1526,6 +1668,7 @@ pub fn device_id(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Opera
     });
 }
 
+// Construit `tpu.delay` : attente de `cycles`.
 pub fn delay(
     ctx: *mlir.Context,
     cycles: *const mlir.Value,
@@ -1537,6 +1680,7 @@ pub fn delay(
     });
 }
 
+// Construit `tpu.assume_multiple` : affirme que `src` est multiple de `multiple`.
 pub fn assume_multiple(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -1557,6 +1701,7 @@ pub fn assume_multiple(
 // Internal helpers
 // =============================================================================
 
+// Construit un `#tpu.DenseBoolArrayAttr` en encodant chaque booleen en i32.
 /// `tpu.DenseBoolArrayAttr` stores one C `int` (i32) per bool, see `mlirDenseBoolArrayGet`
 fn denseBoolArrayAttribute(ctx: *mlir.Context, values: []const bool) *const mlir.Attribute {
     var ints: stdx.BoundedArray(i32, 64) = .empty;
@@ -1564,10 +1709,12 @@ fn denseBoolArrayAttribute(ctx: *mlir.Context, values: []const bool) *const mlir
     return .denseArray(ctx, .bool, ints.constSlice());
 }
 
+// Verifie que toutes les declarations publiques du module compilent (refAllDecls).
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Cree un `mlir.Context` avec le dialecte `tpu` enregistre (utilise par les tests).
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -1577,12 +1724,15 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Verifie que l'attribut `operandSegmentSizes` de `op` correspond a `expected`.
 fn expectSegments(op: *const mlir.Operation, expected: []const i32) !void {
     const segments = op.attributeByName("operandSegmentSizes").?.isA(mlir.DenseArrayAttribute(.i32)).?;
     try std.testing.expectEqual(expected.len, segments.numElements());
     for (expected, 0..) |size, i| try std.testing.expectEqual(size, segments.element(i));
 }
 
+// Test : enqueue_dma et sem_signal produisent les bons groupes d'operandes
+// (operandSegmentSizes) et passent la verification, y compris en mode distant.
 test "DMA and semaphore wrappers satisfy current operand groups" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1622,6 +1772,8 @@ test "DMA and semaphore wrappers satisfy current operand groups" {
     try std.testing.expect(remote_dma.operand(5).eql(subcore));
 }
 
+// Test : tpu.matmul et reinterpret_cast satisfont les proprietes requises
+// (segments et transpose_lhs_hint a false).
 test "matmul and reinterpret cast satisfy current required properties" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1645,6 +1797,8 @@ test "matmul and reinterpret cast satisfy current required properties" {
     try std.testing.expect(cast.verify());
 }
 
+// Test : les extrema de reduction historiques et l'axe de scan conservent leur
+// semantique (minf/maxsi/maxui selon le type et l'usage).
 test "legacy reduction extrema and scan axis preserve their semantics" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1673,6 +1827,7 @@ test "legacy reduction extrema and scan axis preserve their semantics" {
     try std.testing.expect(float_scan.attributeByName("kind").?.eql(try mlir.Attribute.parse(ctx, "#tpu.reduction_kind<minf>")));
 }
 
+// Verifie que le formatage de `value` produit exactement `expected`.
 fn expectPrints(expected: []const u8, value: anytype) !void {
     var buf: [256]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
@@ -1680,6 +1835,8 @@ fn expectPrints(expected: []const u8, value: anytype) !void {
     try std.testing.expectEqualStrings(expected, w.buffered());
 }
 
+// Verifie, pour chaque variante de l'enum, la coherence de `Attr.get`/`getValue`/
+// `attribute` et que l'impression donne `#tpu.<mnemonic><variante>`.
 fn expectEnumAttr(comptime Attr: type, ctx: *mlir.Context) !void {
     const Enum = @FieldType(Attr.InitArgs, "value");
     inline for (std.meta.fields(Enum)) |field| {
@@ -1692,6 +1849,7 @@ fn expectEnumAttr(comptime Attr: type, ctx: *mlir.Context) !void {
     }
 }
 
+// Test : les types semaphore/dma_semaphore se construisent via l'API C.
 test "tpu types are built through the C API" {
     const ctx = try mlir.Context.init(.{});
     defer ctx.deinit();
@@ -1706,6 +1864,7 @@ test "tpu types are built through the C API" {
     try expectPrints("!tpu.dma_semaphore", dma_semaphore);
 }
 
+// Test : tous les attributs enum TPU se construisent via l'API C.
 test "tpu enum attributes are built through the C API" {
     const ctx = try mlir.Context.init(.{});
     defer ctx.deinit();
@@ -1729,6 +1888,7 @@ test "tpu enum attributes are built through the C API" {
     try std.testing.expectError(error.InvalidMlir, MemorySpaceAttr.get(ctx, .{ .value = .vmem, .coreType = .sc_scalar_subcore }));
 }
 
+// Test : element_window et dot_dimension_numbers se construisent via l'API C.
 test "tpu array attributes are built through the C API" {
     const ctx = try mlir.Context.init(.{});
     defer ctx.deinit();

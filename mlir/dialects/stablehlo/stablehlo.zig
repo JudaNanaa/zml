@@ -52,8 +52,12 @@ pub const bitcast_convert = castOp("stablehlo.bitcast_convert").call;
 pub const convert = castOp("stablehlo.convert").call;
 pub const reshape = castOp("stablehlo.reshape").call;
 
+// Construit un generateur d'ops de cast stablehlo (bitcast_convert, convert, reshape) :
+// chaque `call` cree l'op avec un unique operande et le type de resultat explicite.
 fn castOp(comptime op_name: []const u8) type {
     return struct {
+        // Cree l'op `stablehlo.<op_name>` avec `value` en operande et `result_type` en
+        // resultat explicite ; renvoie l'operation MLIR (non inseree).
         pub fn call(ctx: *mlir.Context, value: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
             return mlir.Operation.make(ctx, op_name, .{
                 .operands = .{ .flat = &.{value} },
@@ -64,8 +68,12 @@ fn castOp(comptime op_name: []const u8) type {
     };
 }
 
+// Construit un generateur d'ops unaires stablehlo (abs, sqrt, tanh, ...) : la forme
+// du resultat est inferee par MLIR (`result_type_inference = true`).
 fn unaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Cree l'op unaire `stablehlo.<op_name>` a partir de `value`, avec inference de
+        // type ; renvoie l'operation MLIR.
         pub fn call(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
             return mlir.Operation.make(ctx, op_name, .{
                 .operands = .{ .flat = &.{value} },
@@ -76,8 +84,11 @@ fn unaryOp(comptime op_name: []const u8) type {
     };
 }
 
+// Construit un generateur d'ops binaires stablehlo (add, multiply, maximum, ...).
 pub fn binaryOp(comptime op_name: []const u8) type {
     return struct {
+        // Cree l'op binaire `stablehlo.<op_name>` avec `lhs` et `rhs` en operandes et
+        // inference de type ; renvoie l'operation MLIR.
         pub fn call(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
             return mlir.Operation.make(ctx, op_name, .{
                 .operands = .{ .flat = &.{ lhs, rhs } },
@@ -88,6 +99,8 @@ pub fn binaryOp(comptime op_name: []const u8) type {
     };
 }
 
+// Construit `stablehlo.cholesky` : decomposition de Cholesky de `value` avec
+// l'attribut booleen `lower` ; infere le type du resultat.
 pub fn cholesky(ctx: *mlir.Context, value: *const mlir.Value, lower: bool, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.cholesky", .{
         .operands = .{ .flat = &.{value} },
@@ -99,6 +112,8 @@ pub fn cholesky(ctx: *mlir.Context, value: *const mlir.Value, lower: bool, locat
     });
 }
 
+// Construit `stablehlo.clamp` : borne `value` entre `min` et `max`
+// (operandes min, value, max) avec inference de type.
 pub fn clamp(ctx: *mlir.Context, min: *const mlir.Value, value: *const mlir.Value, max: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.clamp", .{
         .operands = .{ .flat = &.{ min, value, max } },
@@ -114,6 +129,8 @@ pub const CompositeOpts = struct {
     version: i32 = 0,
 };
 
+// Construit `stablehlo.composite` : op fusionnee decrite par `opts` (nom, symbole
+// de decomposition, attributs, version) sur `inputs`, resultats `result_types`.
 pub fn composite(
     ctx: *mlir.Context,
     inputs: []const *const mlir.Value,
@@ -141,6 +158,8 @@ pub const DotPrecision = union(enum) {
     highest,
     algorithm: DotAlgorithm,
 
+    // Convertit la precision du dot en `PrecisionAttribute.Precision` ; pour
+    // `.algorithm` renvoie DEFAULT car l'algo est porte par un attribut separe.
     pub fn precision(self: DotPrecision) PrecisionAttribute.Precision {
         return switch (self) {
             .fast => .DEFAULT,
@@ -151,6 +170,8 @@ pub const DotPrecision = union(enum) {
         };
     }
 
+    // Renvoie l'attribut d'algorithme stablehlo si la precision est `.algorithm`
+    // (via le type de l'operande), sinon `null`.
     pub fn algorithmAttr(self: DotPrecision, ctx: *mlir.Context, operand_type: mlir.RankedTensorType) ?mlir.Attribute {
         return switch (self) {
             .algorithm => |algo| algo.asAttr(ctx, operand_type),
@@ -177,6 +198,8 @@ pub const DotAlgorithm = struct {
     };
 };
 
+// Construit l'attribut `#stablehlo.dot_algorithm` (via l'API C) : accumulation,
+// nombre de composants/ops primitives, accumulation imprecise autorisee.
 pub fn dotAlgorithmAttribute(ctx: *mlir.Context, dot_algorithm: DotAlgorithm, element_type: *const mlir.Type) *const mlir.Attribute {
     return @ptrCast(c.stablehloDotAlgorithmGet(
         ctx.ptr(),
@@ -190,6 +213,8 @@ pub fn dotAlgorithmAttribute(ctx: *mlir.Context, dot_algorithm: DotAlgorithm, el
     ).ptr);
 }
 
+// Construit `stablehlo.dot_general` (produit matriciel generalise facon Einstein) :
+// operandes lhs/rhs, dimensions de contraction/batch, precision et algo optionnels.
 /// General matrix multiplication "a la Einstein sum"
 /// Note: stablehlo doesn't do type inference for dot_general
 pub fn dot_general(
@@ -234,6 +259,8 @@ pub fn dot_general(
     });
 }
 
+// Construit `stablehlo.constant` : tensor de dimensions `dims`, type `elem_type`,
+// contenu brut `raw_bytes` encode comme attribut dense.
 pub fn constant(
     ctx: *mlir.Context,
     dims: []const i64,
@@ -251,6 +278,8 @@ pub fn constant(
     });
 }
 
+// Construit `stablehlo.broadcast_in_dim` : diffuse `operand` vers `result_type`
+// selon `dims` (attribut `broadcast_dimensions`).
 pub fn broadcast_in_dim(
     ctx: *mlir.Context,
     operand: *const mlir.Value,
@@ -268,6 +297,8 @@ pub fn broadcast_in_dim(
     });
 }
 
+// Construit `stablehlo.transpose` : permute `value` selon `opts.permutation`
+// vers le type `result_type`.
 pub fn transpose(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -285,6 +316,8 @@ pub fn transpose(
     });
 }
 
+// Construit `stablehlo.slice` : decoupe `operand` entre `start_indices` et
+// `limit_indices` avec `strides`, resultat `result_type`.
 pub fn slice(
     ctx: *mlir.Context,
     operand: *const mlir.Value,
@@ -306,6 +339,8 @@ pub fn slice(
     });
 }
 
+// Construit `stablehlo.concatenate` : concatene `inputs` le long de `dimension`,
+// avec inference de type.
 pub fn concatenate(ctx: *mlir.Context, inputs: []const *const mlir.Value, dimension: i64, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.concatenate", .{
         .operands = .{ .flat = inputs },
@@ -317,6 +352,8 @@ pub fn concatenate(ctx: *mlir.Context, inputs: []const *const mlir.Value, dimens
     });
 }
 
+// Construit `stablehlo.select` : choisit `then` ou `else_` selon `condition`
+// (resultat de type `then.type_()`).
 pub fn select(
     ctx: *mlir.Context,
     condition: *const mlir.Value,
@@ -331,6 +368,8 @@ pub fn select(
     });
 }
 
+// Construit `stablehlo.gather` : rassemble des tranches de `value` via `indices`
+// selon `args` (offset/collapsed/batching dims, slice_sizes), inference de type.
 pub fn gather(
     ctx: *mlir.Context,
     value: *const mlir.Value,
@@ -381,6 +420,8 @@ pub const ScatterArgs = struct {
     indices_are_sorted: bool = false,
     unique_indices: bool = false,
 
+    // Construit l'attribut `#stablehlo.scatter_dimension_numbers` (via l'API C) a partir
+    // des listes de dimensions de `self`.
     pub fn getScatterDimensionNumbers(self: ScatterArgs, ctx: *mlir.Context) *const mlir.Attribute {
         return @ptrCast(c.stablehloScatterDimensionNumbersGet(
             ctx.ptr(),
@@ -399,6 +440,8 @@ pub const ScatterArgs = struct {
     }
 };
 
+// Construit `stablehlo.scatter` : applique `update_block` sur `inputs` aux positions
+// `scatter_indices` avec `updates`, attributs dimension_numbers et booleens.
 pub fn scatter(
     ctx: *mlir.Context,
     inputs: []const *const mlir.Value,
@@ -425,6 +468,8 @@ pub fn scatter(
     );
 }
 
+// Construit `stablehlo.iota` : tensor `result_type` dont les valeurs augmentent
+// le long de `dimension` (attribut `iota_dimension`).
 pub fn iota(ctx: *mlir.Context, dimension: i64, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.iota", .{
         .operands = .{ .flat = &.{} },
@@ -436,6 +481,8 @@ pub fn iota(ctx: *mlir.Context, dimension: i64, result_type: *const mlir.Type, l
     });
 }
 
+// Construit `stablehlo.reverse` : inverse `operand` selon `dimensions`
+// (resultat de meme type que l'operande).
 pub fn reverse(ctx: *mlir.Context, operand: *const mlir.Value, dimensions: []const i64, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.reverse", .{
         .operands = .{ .flat = &.{operand} },
@@ -447,6 +494,8 @@ pub fn reverse(ctx: *mlir.Context, operand: *const mlir.Value, dimensions: []con
     });
 }
 
+// Construit `stablehlo.compare` : compare `lhs` et `rhs` selon la direction
+// `comparison_direction` et le `compare_type` donnes.
 pub fn compare(
     ctx: *mlir.Context,
     lhs: *const mlir.Value,
@@ -466,6 +515,8 @@ pub fn compare(
     });
 }
 
+// Construit `stablehlo.dynamic_slice` : decoupe `operand` de tailles `new_dims`
+// aux `start_indices` dynamiques (operandes variadiques).
 pub fn dynamic_slice(
     ctx: *mlir.Context,
     operand: *const mlir.Value,
@@ -489,6 +540,8 @@ pub const PadOpts = struct {
     interior: []const i64,
 };
 
+// Construit `stablehlo.pad` : remplit `value` avec `padding_value` selon les marges
+// basse/haute/interne de `opts`.
 pub fn pad(ctx: *mlir.Context, value: *const mlir.Value, padding_value: *const mlir.Value, location: *const mlir.Location, opts: PadOpts) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.pad", .{
         .operands = .{ .flat = &.{ value, padding_value } },
@@ -509,6 +562,8 @@ pub const TriangularSolveOpts = struct {
     transpose_a: TransposeAttribute.Type,
 };
 
+// Construit `stablehlo.triangular_solve` : resout un systeme triangulaire avec
+// `value`/`other` et les options (cote, lower, diagonale unite, transposee).
 pub fn triangular_solve(ctx: *mlir.Context, value: *const mlir.Value, other: *const mlir.Value, opts: TriangularSolveOpts, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.triangular_solve", .{
         .operands = .{ .flat = &.{ value, other } },
@@ -528,6 +583,8 @@ pub const FftOpts = struct {
     length: []const i64,
 };
 
+// Construit `stablehlo.fft` : transformee de Fourier de `value` selon `opts`
+// (type FFT et longueurs).
 pub fn fft(ctx: *mlir.Context, value: *const mlir.Value, opts: FftOpts, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.fft", .{
         .operands = .{ .flat = &.{value} },
@@ -553,10 +610,12 @@ pub const RngDistribution = opaque {
         NORMAL,
     };
 
+    // Cree l'attribut `#stablehlo.rng_distribution` (UNIFORM ou NORMAL) via l'API C.
     pub fn get(ctx: *mlir.Context, value_: Type) *const RngDistribution {
         return @ptrCast(c.stablehloRngDistributionAttrGet(ctx.ptr(), stringRef(@tagName(value_))).ptr);
     }
 
+    // Relit la valeur texte de l'attribut pour renvoyer le `Type` correspondant.
     pub fn value(self: *const RngDistribution) Type {
         return std.meta.stringToEnum(
             Type,
@@ -565,6 +624,7 @@ pub const RngDistribution = opaque {
     }
 };
 
+// Convertit `RngDistribution.Type` en `mlir.Attribute` generique.
 pub fn rngDistribution(ctx: *mlir.Context, value: RngDistribution.Type) *const mlir.Attribute {
     return @ptrCast(RngDistribution.get(ctx, value));
 }
@@ -583,10 +643,12 @@ pub const RngAlgorithm = opaque {
         PHILOX,
     };
 
+    // Cree l'attribut `#stablehlo.rng_algorithm` (DEFAULT, THREE_FRY, PHILOX) via l'API C.
     pub fn get(ctx: *mlir.Context, value_: Type) *const RngAlgorithm {
         return @ptrCast(c.stablehloRngAlgorithmAttrGet(ctx.ptr(), stringRef(@tagName(value_))).ptr);
     }
 
+    // Relit la valeur texte de l'attribut pour renvoyer le `Type` correspondant.
     pub fn value(self: *const RngAlgorithm) Type {
         return std.meta.stringToEnum(
             Type,
@@ -595,10 +657,13 @@ pub const RngAlgorithm = opaque {
     }
 };
 
+// Convertit `RngAlgorithm.Type` en `mlir.Attribute` generique.
 pub fn rngAlgorithm(ctx: *mlir.Context, value: RngAlgorithm.Type) *const mlir.Attribute {
     return @ptrCast(RngAlgorithm.get(ctx, value));
 }
 
+// Construit `stablehlo.rng` : valeurs aleatoires bornees par `a`/`b` de forme
+// `shape`, selon `rng_distribution` ; inference de type.
 pub fn rng(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, shape: *const mlir.Value, rng_distribution: RngDistribution.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.rng", .{
         .operands = .{ .flat = &.{ a, b, shape } },
@@ -610,6 +675,8 @@ pub fn rng(ctx: *mlir.Context, a: *const mlir.Value, b: *const mlir.Value, shape
     });
 }
 
+// Construit `stablehlo.rng_bit_generator` : produit un nouvel etat et des bits
+// depuis `initial_state` selon `rng_algorithm`, avec deux types de resultat.
 pub fn rng_bit_generator(
     ctx: *mlir.Context,
     rng_algorithm: RngAlgorithm.Type,
@@ -628,6 +695,8 @@ pub fn rng_bit_generator(
     });
 }
 
+// Construit `stablehlo.reduce_precision` : reduit la precision de `value` a
+// `exponent_bits`/`mantissa_bits`.
 pub fn reduce_precision(ctx: *mlir.Context, value: *const mlir.Value, exponent_bits: i32, mantissa_bits: i32, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.reduce_precision", .{
         .operands = .{ .flat = &.{value} },
@@ -640,6 +709,8 @@ pub fn reduce_precision(ctx: *mlir.Context, value: *const mlir.Value, exponent_b
     });
 }
 
+// Construit `stablehlo.dynamic_update_slice` : ecrit `update` dans `operand` aux
+// `start_indices` dynamiques (operandes variadiques).
 pub fn dynamic_update_slice(ctx: *mlir.Context, operand: *const mlir.Value, update: *const mlir.Value, start_indices: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.dynamic_update_slice", .{
         .operands = .{ .variadic = &.{ &.{operand}, &.{update}, start_indices } },
@@ -648,6 +719,8 @@ pub fn dynamic_update_slice(ctx: *mlir.Context, operand: *const mlir.Value, upda
     });
 }
 
+// Construit `stablehlo.while` : boucle a deux regions (blocs condition et corps)
+// avec operandes et types de resultat, via un `OperationState`.
 pub fn while_(
     ctx: *mlir.Context,
     operands: []const *const mlir.Value,
@@ -670,6 +743,8 @@ pub fn while_(
     return mlir.Operation.init(&state) catch @panic("Failed to create stablehlo.while operation");
 }
 
+// Construit `stablehlo.get_tuple_element` : extrait l'element `index` du tuple
+// `tuple_value` ; inference de type.
 pub fn get_tuple_element(ctx: *mlir.Context, tuple_value: *const mlir.Value, index: i64, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.get_tuple_element", .{
         .operands = .{ .flat = &.{tuple_value} },
@@ -702,6 +777,8 @@ pub const ConvolutionOpts = struct {
     precision_config: []const PrecisionAttribute.Precision = &.{},
 };
 
+// Construit `stablehlo.convolution` : convolution de `lhs` et `rhs` vers `res_type`
+// avec `opts` (strides, padding, dilations, dimension_numbers, precisions).
 pub fn convolution(
     ctx: *mlir.Context,
     lhs: *const mlir.Value,
@@ -779,6 +856,8 @@ pub const CustomCallOpts = struct {
     additional_attributes: []const mlir.NamedAttribute = &.{},
 };
 
+// Construit `stablehlo.custom_call` : appelle `call_target_name` sur `inputs` vers
+// `result_types`, avec api_version, backend_config, layouts et alias optionnels.
 pub fn custom_call(ctx: *mlir.Context, inputs: []const *const mlir.Value, result_types: []const *const mlir.Type, opts: CustomCallOpts, location: *const mlir.Location) *mlir.Operation {
     const MAX_OPERANDS = CustomCallOpts.MAX_OPERANDS;
     const MAX_RESULTS = CustomCallOpts.MAX_RESULTS;
@@ -890,6 +969,8 @@ pub fn custom_call(ctx: *mlir.Context, inputs: []const *const mlir.Value, result
     });
 }
 
+// Construit `stablehlo.optimization_barrier` : barriere empechant le
+// reordonnancement autour de `inputs` (memes types en sortie).
 pub fn optimizationBarrier(ctx: *mlir.Context, inputs: []const *const mlir.Value, result_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.optimization_barrier", .{
         .operands = .{ .flat = inputs },
@@ -898,6 +979,7 @@ pub fn optimizationBarrier(ctx: *mlir.Context, inputs: []const *const mlir.Value
     });
 }
 
+// Cree un custom_call type « CreateBuffer » produisant une valeur du type `value`.
 pub fn createBuffer(ctx: *mlir.Context, value: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return custom_call(ctx, &.{}, &.{value}, .{
         .call_target_name = "CreateBuffer",
@@ -905,6 +987,7 @@ pub fn createBuffer(ctx: *mlir.Context, value: *const mlir.Type, location: *cons
     }, location);
 }
 
+// Cree un custom_call type « Pin » : epingle `value` et renvoie un memref de meme forme.
 pub fn pin(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return custom_call(
         ctx,
@@ -918,6 +1001,7 @@ pub fn pin(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.L
     );
 }
 
+// Cree un custom_call type « Unpin » : depingle `value` et renvoie un tenseur ranke.
 pub fn unpin(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return custom_call(
         ctx,
@@ -931,6 +1015,7 @@ pub fn unpin(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir
     );
 }
 
+// Construit `stablehlo.partition_id` : identifiant de partition (tensor<u32> vide).
 pub fn partition_id(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.partition_id", .{
         .results = .{ .flat = &.{.rankedTensor(&.{}, .int(ctx, .u32))} },
@@ -953,6 +1038,8 @@ pub const DotDimensionNumbersAttribute = opaque {
         rhs_contracting_dimensions: []const i64,
     };
 
+    // Construit l'attribut `#stablehlo.dot_dimension_numbers` a partir des listes de
+    // dimensions de batching et de contraction LHS/RHS.
     pub fn init(ctx: *mlir.Context, args: InitArgs) *const DotDimensionNumbersAttribute {
         return @ptrCast(c.stablehloDotDimensionNumbersGet(
             ctx.ptr(),
@@ -967,39 +1054,48 @@ pub const DotDimensionNumbersAttribute = opaque {
         ).ptr);
     }
 
+    // Renvoie le nombre de dimensions de batching du LHS.
     pub fn getLhsBatchingDimensionsSize(self: *const DotDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloDotDimensionNumbersGetLhsBatchingDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension de batching du LHS.
     pub fn getLhsBatchingDimensionsElem(self: *const DotDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloDotDimensionNumbersGetLhsBatchingDimensionsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre de dimensions de batching du RHS.
     pub fn getRhsBatchingDimensionsSize(self: *const DotDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloDotDimensionNumbersGetRhsBatchingDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension de batching du RHS.
     pub fn getRhsBatchingDimensionsElem(self: *const DotDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloDotDimensionNumbersGetRhsBatchingDimensionsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre de dimensions contractees du LHS.
     pub fn getLhsContractingDimensionsSize(self: *const DotDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloDotDimensionNumbersGetLhsContractingDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension contractee du LHS.
     pub fn getLhsContractingDimensionsElem(self: *const DotDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloDotDimensionNumbersGetLhsContractingDimensionsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre de dimensions contractees du RHS.
     pub fn getRhsContractingDimensionsSize(self: *const DotDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloDotDimensionNumbersGetRhsContractingDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension contractee du RHS.
     pub fn getRhsContractingDimensionsElem(self: *const DotDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloDotDimensionNumbersGetRhsContractingDimensionsElem(self.ptr(), @intCast(pos));
     }
 };
 
+// Enveloppe `DotDimensionNumbersAttribute.init` en `mlir.Attribute` generique.
 pub fn dotDimensionNumbersAttribute(ctx: *mlir.Context, args: DotDimensionNumbersAttribute.InitArgs) *const mlir.Attribute {
     return @ptrCast(DotDimensionNumbersAttribute.init(ctx, args));
 }
@@ -1012,6 +1108,8 @@ pub const GatherDimensionNumbersAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.eql(c.mlirAttributePrint);
 
+    // Construit l'attribut `#stablehlo.gather_dimension_numbers` (offset/collapsed/
+    // batching dims, start_index_map, index_vector_dim).
     pub fn init(
         ctx: *mlir.Context,
         offset_dims: []const i64,
@@ -1037,51 +1135,63 @@ pub const GatherDimensionNumbersAttribute = opaque {
         ).ptr);
     }
 
+    // Renvoie le nombre de dimensions d'offset (offset_dims).
     pub fn getOffsetDimsSize(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetOffsetDimsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension d'offset.
     pub fn getOffsetDimsElem(self: *const GatherDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloGatherDimensionNumbersGetOffsetDimsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre de dimensions de tranche repliees (collapsed_slice_dims).
     pub fn getCollapsedSliceDimsSize(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetCollapsedSliceDimsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension de tranche repliee.
     pub fn getCollapsedSliceDimsElem(self: *const GatherDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloGatherDimensionNumbersGetCollapsedSliceDimsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre d'entrees de la carte d'indices de depart.
     pub fn getStartIndexMapSize(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetStartIndexMapSize(self.ptr()));
     }
 
+    // Renvoie le nombre de dimensions de batching de l'operande.
     pub fn getOperandBatchingDimsSize(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetOperandBatchingDimsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension de batching de l'operande.
     pub fn getOperandBatchingDimsElem(self: *const GatherDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloGatherDimensionNumbersGetOperandBatchingDimsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie le nombre de dimensions de batching des indices de depart.
     pub fn getStartIndicesBatchingDimsSize(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension de batching des indices de depart.
     pub fn getStartIndicesBatchingDimsElem(self: *const GatherDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloGatherDimensionNumbersGetStartIndicesBatchingDimsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie la `pos`-ieme entree de la carte d'indices de depart.
     pub fn getStartIndexMapElem(self: *const GatherDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloGatherDimensionNumbersGetStartIndexMapElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie la dimension du vecteur d'indices.
     pub fn getIndexVectorDim(self: *const GatherDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloGatherDimensionNumbersGetIndexVectorDim(self.ptr()));
     }
 };
 
+// Enveloppe `GatherDimensionNumbersAttribute.init` en `mlir.Attribute` generique.
 pub fn gatherDimensionNumbersAttribute(
     ctx: *mlir.Context,
     offset_dims: []const i64,
@@ -1122,6 +1232,8 @@ pub const ConvDimensionNumbersAttribute = opaque {
         output_spatial_dimensions: []const i64,
     };
 
+    // Construit l'attribut `#stablehlo.conv_dimension_numbers` (dimensions batch/
+    // feature/spatiales pour entree, noyau et sortie).
     pub fn init(ctx: *mlir.Context, args: InitArgs) *const ConvDimensionNumbersAttribute {
         return @ptrCast(c.stablehloConvDimensionNumbersGet(
             ctx.ptr(),
@@ -1140,55 +1252,68 @@ pub const ConvDimensionNumbersAttribute = opaque {
         ).ptr);
     }
 
+    // Renvoie la dimension de batch de l'entree.
     pub fn getInputBatchDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetInputBatchDimension(self.ptr());
     }
 
+    // Renvoie la dimension de feature de l'entree.
     pub fn getInputFeatureDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetInputFeatureDimension(self.ptr());
     }
 
+    // Renvoie le nombre de dimensions spatiales de l'entree.
     pub fn getInputSpatialDimensionsSize(self: *const ConvDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloConvDimensionNumbersGetInputSpatialDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension spatiale de l'entree.
     pub fn getInputSpatialDimensionsElem(self: *const ConvDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloConvDimensionNumbersGetInputSpatialDimensionsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie la dimension de feature d'entree du noyau.
     pub fn getKernelInputFeatureDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetKernelInputFeatureDimension(self.ptr());
     }
 
+    // Renvoie la dimension de feature de sortie du noyau.
     pub fn getKernelOutputFeatureDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetKernelOutputFeatureDimension(self.ptr());
     }
 
+    // Renvoie le nombre de dimensions spatiales du noyau.
     pub fn getKernelSpatialDimensionsSize(self: *const ConvDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloConvDimensionNumbersGetKernelSpatialDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension spatiale du noyau.
     pub fn getKernelSpatialDimensionsElem(self: *const ConvDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloConvDimensionNumbersGetKernelSpatialDimensionsElem(self.ptr(), @intCast(pos));
     }
 
+    // Renvoie la dimension de batch de la sortie.
     pub fn getOutputBatchDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetOutputBatchDimension(self.ptr());
     }
 
+    // Renvoie la dimension de feature de la sortie.
     pub fn getOutputFeatureDimension(self: *const ConvDimensionNumbersAttribute) i64 {
         return c.stablehloConvDimensionNumbersGetOutputFeatureDimension(self.ptr());
     }
 
+    // Renvoie le nombre de dimensions spatiales de la sortie.
     pub fn getOutputSpatialDimensionsSize(self: *const ConvDimensionNumbersAttribute) usize {
         return @intCast(c.stablehloConvDimensionNumbersGetOutputSpatialDimensionsSize(self.ptr()));
     }
 
+    // Renvoie la `pos`-ieme dimension spatiale de la sortie.
     pub fn getOutputSpatialDimensionsElem(self: *const ConvDimensionNumbersAttribute, pos: usize) i64 {
         return c.stablehloConvDimensionNumbersGetOutputSpatialDimensionsElem(self.ptr(), @intCast(pos));
     }
 };
 
+// Enveloppe `ConvDimensionNumbersAttribute.init` en `mlir.Attribute` generique.
 pub fn convDimensionNumbersAttribute(ctx: *mlir.Context, args: ConvDimensionNumbersAttribute.InitArgs) *const mlir.Attribute {
     return @ptrCast(ConvDimensionNumbersAttribute.init(ctx, args));
 }
@@ -1207,6 +1332,8 @@ pub const OutputOperandAliasAttribute = opaque {
         operand_tuple_indices: []const i64 = &.{},
     };
 
+    // Construit l'attribut `#stablehlo.output_operand_alias` depuis les indices de
+    // tuple de sortie/operande.
     pub fn get(ctx: *mlir.Context, args: InitArgs) *const OutputOperandAliasAttribute {
         return @ptrCast(c.stablehloOutputOperandAliasGet(
             ctx.ptr(),
@@ -1219,6 +1346,7 @@ pub const OutputOperandAliasAttribute = opaque {
     }
 };
 
+// Enveloppe `OutputOperandAliasAttribute.get` en `mlir.Attribute` generique.
 pub fn outputOperandAliasAttribute(ctx: *mlir.Context, args: OutputOperandAliasAttribute.InitArgs) *const mlir.Attribute {
     return @ptrCast(OutputOperandAliasAttribute.get(ctx, args));
 }
@@ -1237,16 +1365,19 @@ pub const PrecisionAttribute = opaque {
         HIGHEST,
     };
 
+    // Cree l'attribut `#stablehlo.precision` (DEFAULT, HIGH, HIGHEST) via l'API C.
     pub fn init(ctx: *mlir.Context, value: Precision) *const PrecisionAttribute {
         return @ptrCast(c.stablehloPrecisionAttrGet(ctx.ptr(), stringRef(@tagName(value))).ptr);
     }
 
+    // Relit la valeur texte pour renvoyer le `Precision` correspondant.
     pub fn getValue(self: *const PrecisionAttribute) Precision {
         const value = mlir.string(c.stablehloPrecisionAttrGetValue(self.ptr()));
         return std.meta.stringToEnum(Precision, value) orelse unreachable;
     }
 };
 
+// Convertit `PrecisionAttribute.Precision` en `mlir.Attribute`.
 pub fn precisionAttribute(ctx: *mlir.Context, precision: PrecisionAttribute.Precision) *const mlir.Attribute {
     return @ptrCast(PrecisionAttribute.init(ctx, precision));
 }
@@ -1268,16 +1399,19 @@ pub const ComparisonDirection = opaque {
         LT,
     };
 
+    // Cree l'attribut `#stablehlo.comparison_direction` (EQ, NE, GE, GT, LE, LT).
     pub fn init(ctx: *mlir.Context, value: Direction) *const ComparisonDirection {
         return @ptrCast(c.stablehloComparisonDirectionAttrGet(ctx.ptr(), mlir.stringRef(@tagName(value))).ptr);
     }
 
+    // Relit la direction depuis l'attribut texte.
     pub fn getValue(self: *const ComparisonDirection) Direction {
         const value = mlir.string(c.stablehloComparisonDirectionAttrGetValue(self.ptr()));
         return std.meta.stringToEnum(Direction, value) orelse unreachable;
     }
 };
 
+// Convertit `ComparisonDirection.Direction` en `mlir.Attribute`.
 pub fn comparisonDirection(ctx: *mlir.Context, value: ComparisonDirection.Direction) *const mlir.Attribute {
     return @ptrCast(ComparisonDirection.init(ctx, value));
 }
@@ -1297,16 +1431,19 @@ pub const CompareType = opaque {
         TOTALORDER,
     };
 
+    // Cree l'attribut `#stablehlo.comparison_type` (SIGNED, UNSIGNED, FLOAT, TOTALORDER).
     pub fn init(ctx: *mlir.Context, value: Type) *const CompareType {
         return @ptrCast(c.stablehloComparisonTypeAttrGet(ctx.ptr(), stringRef(@tagName(value))).ptr);
     }
 
+    // Relit le type de comparaison depuis l'attribut.
     pub fn getValue(self: *const CompareType) Type {
         const value = mlir.string(c.stablehloComparisonTypeAttrGetValue(self.ptr()));
         return std.meta.stringToEnum(Type, value) orelse unreachable;
     }
 };
 
+// Convertit `CompareType.Type` en `mlir.Attribute`.
 pub fn compareType(ctx: *mlir.Context, value: CompareType.Type) *const mlir.Attribute {
     return @ptrCast(CompareType.init(ctx, value));
 }
@@ -1325,16 +1462,19 @@ pub const TransposeAttribute = opaque {
         ADJOINT,
     };
 
+    // Cree l'attribut `#stablehlo.transpose` (NO_TRANSPOSE, TRANSPOSE, ADJOINT).
     pub fn init(ctx: *mlir.Context, value: Type) *const TransposeAttribute {
         return @ptrCast(c.stablehloTransposeAttrGet(ctx.ptr(), mlir.stringRef(@tagName(value))).ptr);
     }
 
+    // Relit le mode de transposition depuis l'attribut.
     pub fn getValue(self: *const TransposeAttribute) Type {
         const value = mlir.string(c.stablehloTransposeAttrGetValue(self.ptr()));
         return std.meta.stringToEnum(Type, value) orelse unreachable;
     }
 };
 
+// Convertit `TransposeAttribute.Type` en `mlir.Attribute`.
 pub fn transposeAttribute(ctx: *mlir.Context, value: TransposeAttribute.Type) *const mlir.Attribute {
     return @ptrCast(TransposeAttribute.init(ctx, value));
 }
@@ -1354,20 +1494,25 @@ pub const FftType = opaque {
         IRFFT,
     };
 
+    // Cree l'attribut `#stablehlo.fft_type` (FFT, IFFT, RFFT, IRFFT).
     pub fn init(ctx: *mlir.Context, value: Type) *const FftType {
         return @ptrCast(c.stablehloFftTypeAttrGet(ctx.ptr(), mlir.stringRef(@tagName(value))).ptr);
     }
 
+    // Relit le type de FFT depuis l'attribut.
     pub fn getValue(self: *const FftType) Type {
         const value = mlir.string(c.stablehloFftTypeAttrGetValue(self.ptr()));
         return std.meta.stringToEnum(Type, value) orelse unreachable;
     }
 };
 
+// Convertit `FftType.Type` en `mlir.Attribute`.
 pub fn fftType(ctx: *mlir.Context, value: FftType.Type) *const mlir.Attribute {
     return @ptrCast(FftType.init(ctx, value));
 }
 
+// Utilitaire : ecrit dans le buffer fixe `buf` via un callback de flux MLIR et
+// renvoie la portion remplie.
 fn stringFromStream(buf: []u8, streamFn: anytype, args: anytype) []const u8 {
     var writer = std.Io.Writer.fixed(buf);
     var sctx: mlir.StringCallbackCtx = .{ .writer = &writer };
@@ -1375,16 +1520,20 @@ fn stringFromStream(buf: []u8, streamFn: anytype, args: anytype) []const u8 {
     return writer.buffered();
 }
 
+// Renvoie la version StableHLO satisfaisant l'exigence de compatibilite
+// `requirement`, ecrite dans `buffer`.
 pub fn versionFromCompatibilityRequirement(buffer: []u8, requirement: c.MlirStablehloCompatibilityRequirement) []const u8 {
     return stringFromStream(buffer, c.stablehloVersionFromCompatibilityRequirement, .{requirement});
 }
 
+// Renvoie la plus petite des deux versions StableHLO (comparaison cote C).
 pub fn smallerVersion(version1: []const u8, version2: []const u8) []const u8 {
     var buf: [32]u8 = undefined;
     const result = stringFromStream(&buf, c.stablehloGetSmallerVersion, .{ stringRef(version1), stringRef(version2) });
     return if (std.mem.eql(u8, result, version1)) version1 else version2;
 }
 
+// Renvoie la version courante du dialecte StableHLO.
 pub fn currentVersion() []const u8 {
     const state = struct {
         var buf: [32]u8 = undefined;
@@ -1392,6 +1541,7 @@ pub fn currentVersion() []const u8 {
     return stringFromStream(&state.buf, c.stablehloGetCurrentVersion, .{});
 }
 
+// Renvoie la version minimale supportee du dialecte StableHLO.
 pub fn minimumVersion() []const u8 {
     const state = struct {
         var buf: [32]u8 = undefined;
@@ -1399,6 +1549,8 @@ pub fn minimumVersion() []const u8 {
     return stringFromStream(&state.buf, c.stablehloGetMinimumVersion, .{});
 }
 
+// Serialise l'artefact portable StableHLO (bytecode) pour `target_version` dans
+// `writer` ; erreurs de flux ou `InvalidMlirBytecodeVersion`.
 pub fn serializePortableArtifact(bytecode: []const u8, target_version: []const u8, writer: *std.Io.Writer) !void {
     var sctx: mlir.StringCallbackCtx = .{ .writer = writer };
     const result = c.stablehloSerializePortableArtifactFromStringRef(
@@ -1415,6 +1567,7 @@ pub fn serializePortableArtifact(bytecode: []const u8, target_version: []const u
     }
 }
 
+// Serialise un `mlir.Module` en artefact portable StableHLO vers `target_version`.
 pub fn serializePortableArtifact2(module: *mlir.Module, target_version: []const u8, writer: *std.Io.Writer) !void {
     var sctx: mlir.StringCallbackCtx = .{ .writer = writer };
     const result = c.stablehloSerializePortableArtifactFromModule(
@@ -1434,6 +1587,7 @@ pub fn serializePortableArtifact2(module: *mlir.Module, target_version: []const 
     }
 }
 
+// Construit `stablehlo.return` avec un unique operande `value` (sans verification).
 pub fn return_(ctx: *mlir.Context, value: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.return", .{
         .operands = .{ .flat = &.{value} },
@@ -1442,6 +1596,7 @@ pub fn return_(ctx: *mlir.Context, value: *const mlir.Value, location: *const ml
     });
 }
 
+// Construit `stablehlo.return` variadique avec `values`.
 pub fn returns(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, "stablehlo.return", .{
         .operands = .{ .variadic = &.{values} },
@@ -1455,6 +1610,7 @@ pub const ChannelType = enum(i64) {
     send_recv = 1,
 };
 
+// Construit l'attribut `#stablehlo.channel_handle` (poignee et type de canal).
 pub fn channelHandle(
     ctx: *mlir.Context,
     handle: i64,
@@ -1467,6 +1623,8 @@ pub fn channelHandle(
     ).ptr);
 }
 
+// Construit `stablehlo.all_reduce` : reduction collective sur `inputs` via
+// `reducer_block`, groupes de repliques et poignee de canal.
 pub fn allReduce(
     ctx: *mlir.Context,
     inputs: []const *const mlir.Value,

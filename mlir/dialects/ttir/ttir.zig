@@ -17,19 +17,23 @@ pub const PointerType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Cree le type `!tt.ptr<T, addr_space>` via l'API C.
     pub fn get(pointee_type: *const mlir.Type, address_space: i32) *const PointerType {
         return @ptrCast(c.mlirTritonPointerTypeGet(pointee_type.ptr(), address_space).ptr);
     }
 
+    // Renvoie le type pointe `T` d'un `!tt.ptr<T, addr_space>`.
     pub fn pointee(self: *const PointerType) *const mlir.Type {
         return @ptrCast(c.mlirTritonPointerTypeGetPointee(self.ptr()).ptr);
     }
 
+    // Renvoie l'espace d'adressage i32 du type pointeur.
     pub fn addressSpace(self: *const PointerType) i32 {
         return c.mlirTritonPointerTypeGetAddressSpace(self.ptr());
     }
 };
 
+// Enveloppe `PointerType.get` en `*const mlir.Type` generique.
 /// Convenience alias: `!tt.ptr<T, addr_space>` as a plain *const mlir.Type.
 pub fn pointerType(pointee_type: *const mlir.Type, address_space: i32) *const mlir.Type {
     return @ptrCast(PointerType.get(pointee_type, address_space));
@@ -48,6 +52,8 @@ pub const TensorDescType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Cree le type `!tt.tensordesc<tensor<SHAPExELEM>>` pour TMA ; `shared_layout`
+    // peut etre null pour un descripteur sans layout.
     /// `shared_layout` may be null for an unlayout'd descriptor.
     pub fn get(
         shape: []const i64,
@@ -64,6 +70,7 @@ pub const TensorDescType = opaque {
     }
 };
 
+// Enveloppe `TensorDescType.get` en `*const mlir.Type` generique.
 pub fn tensorDescType(
     shape: []const i64,
     element_type: *const mlir.Type,
@@ -141,50 +148,62 @@ pub const DescriptorReduceKind = enum(i32) {
     xor_ = 8,
 };
 
+// Cree l'attribut enum `#tt.program_dim<...>` (x/y/z) via l'API C.
 pub fn programDim(ctx: *mlir.Context, v: ProgramIDDim) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonProgramDimGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.cache_modifier<...>`.
 pub fn cacheModifier(ctx: *mlir.Context, v: CacheModifier) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonCacheModifierGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.eviction_policy<...>`.
 pub fn evictionPolicy(ctx: *mlir.Context, v: EvictionPolicy) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonEvictionPolicyGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.padding_option<...>`.
 pub fn paddingOption(ctx: *mlir.Context, v: PaddingOption) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonPaddingOptionGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.rounding_mode<...>`.
 pub fn roundingMode(ctx: *mlir.Context, v: RoundingMode) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonRoundingModeGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.input_precision<...>`.
 pub fn inputPrecision(ctx: *mlir.Context, v: InputPrecision) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonInputPrecisionGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.rmw_op<...>` (operations atomiques).
 pub fn rmwOp(ctx: *mlir.Context, v: RMWOp) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonRMWOpGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.mem_semantic<...>` (ordre memoire).
 pub fn memSemantic(ctx: *mlir.Context, v: MemSemantic) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonMemSemanticGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.mem_sync_scope<...>`.
 pub fn memSyncScope(ctx: *mlir.Context, v: MemSyncScope) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonMemSyncScopeGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.propagate_nan<...>`.
 pub fn propagateNan(ctx: *mlir.Context, v: PropagateNan) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonPropagateNanGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.scale_dot_elem_type<...>`.
 pub fn scaleDotElemType(ctx: *mlir.Context, v: ScaleDotElemType) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonScaleDotElemTypeGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
 
+// Cree l'attribut enum `#tt.descriptor_reduce_kind<...>`.
 pub fn descriptorReduceKind(ctx: *mlir.Context, v: DescriptorReduceKind) *const mlir.Attribute {
     return @ptrCast(c.mlirTritonDescriptorReduceKindGet(ctx.ptr(), @intFromEnum(v)).ptr);
 }
@@ -211,6 +230,8 @@ pub const FuncOpArgs = struct {
     verify: bool = false,
 };
 
+// Construit l'op `tt.func` : nom, type de fonction (deduit des args/resultats du
+// bloc si absents), attributs arg/res et `noinline` ; le bloc devient le corps.
 pub fn func(ctx: *mlir.Context, args: FuncOpArgs) *mlir.Operation {
     var args_buffer: stdx.BoundedArray(*const mlir.Type, 1024) = .empty;
     var results_buffer: stdx.BoundedArray(*const mlir.Type, 32) = .empty;
@@ -256,6 +277,7 @@ pub fn func(ctx: *mlir.Context, args: FuncOpArgs) *mlir.Operation {
     });
 }
 
+// Construit `tt.return` avec la liste d'operandes `values` (sans verification).
 pub fn return_(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return .make(ctx, "tt.return", .{
         .operands = .{ .flat = values },
@@ -268,6 +290,7 @@ pub fn return_(ctx: *mlir.Context, values: []const *const mlir.Value, location: 
 // SPMD ops
 // =============================================================================
 
+// Construit `tt.get_program_id` : id du programme le long de `axis` (resultat i32).
 pub fn get_program_id(ctx: *mlir.Context, axis: ProgramIDDim, location: *const mlir.Location) *mlir.Operation {
     return .make(ctx, "tt.get_program_id", .{
         .results = .{ .flat = &.{.int(ctx, .i32)} },
@@ -278,6 +301,7 @@ pub fn get_program_id(ctx: *mlir.Context, axis: ProgramIDDim, location: *const m
     });
 }
 
+// Construit `tt.get_num_programs` : nombre de programmes le long de `axis` (i32).
 pub fn get_num_programs(ctx: *mlir.Context, axis: ProgramIDDim, location: *const mlir.Location) *mlir.Operation {
     return .make(ctx, "tt.get_num_programs", .{
         .results = .{ .flat = &.{.int(ctx, .i32)} },
@@ -292,6 +316,7 @@ pub fn get_num_programs(ctx: *mlir.Context, axis: ProgramIDDim, location: *const
 // Range
 // =============================================================================
 
+// Construit `tt.make_range` : intervalle [start, end) de type `result_type`.
 pub fn make_range(
     ctx: *mlir.Context,
     start: i32,
@@ -313,6 +338,7 @@ pub fn make_range(
 // Shape manipulation
 // =============================================================================
 
+// Construit `tt.splat` : diffuse le scalaire `src` vers `result_type`.
 pub fn splat(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -326,6 +352,7 @@ pub fn splat(
     });
 }
 
+// Construit `tt.expand_dims` : insere une dimension en position `axis`.
 pub fn expand_dims(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -343,6 +370,7 @@ pub fn expand_dims(
     });
 }
 
+// Construit `tt.broadcast` : etend `src` vers la forme `result_type`.
 pub fn broadcast(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -356,6 +384,8 @@ pub fn broadcast(
     });
 }
 
+// Construit `tt.reshape` : change la forme de `src` vers `result_type`, avec les
+// attributs unitaires optionnels `allow_reorder` et `efficient_layout`.
 pub fn reshape(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -379,6 +409,7 @@ pub fn reshape(
     });
 }
 
+// Construit `tt.trans` : transpose `src` selon l'ordre `order`.
 pub fn trans(
     ctx: *mlir.Context,
     src: *const mlir.Value,
@@ -400,6 +431,7 @@ pub fn trans(
 // Pointer arithmetic & memory
 // =============================================================================
 
+// Construit `tt.addptr` : ajoute `offset` au pointeur `ptr_val` (meme type de resultat).
 /// tt.addptr — result type matches ptr type (TypesMatchWith in TritonOps.td).
 pub fn addptr(
     ctx: *mlir.Context,
@@ -414,6 +446,8 @@ pub fn addptr(
     });
 }
 
+// Construit `tt.load` : charge depuis `ptr_val` vers `result_type`, masque et valeur
+// `other` optionnels ; segments (ptr, [mask], [other]) et attributs cache/evict/volatile.
 /// tt.load — AttrSizedOperandSegments: (ptr, [mask], [other]). Uses flat operand list +
 /// explicit operandSegmentSizes because Operation.make variadic coercion zeros mixed-length segments.
 pub fn load(
@@ -452,6 +486,8 @@ pub fn load(
     });
 }
 
+// Construit `tt.store` : ecrit `value` a `ptr_val`, masque optionnel en operande
+// variadique final, attributs cache/evict.
 /// tt.store — operands: (ptr, value, [mask]). Flat operand list; mask is trailing variadic.
 pub fn store(
     ctx: *mlir.Context,
@@ -479,6 +515,8 @@ pub fn store(
 // Compute
 // =============================================================================
 
+// Construit `tt.dot` : produit matriciel `a x b + c_acc` vers `result_type`,
+// attributs inputPrecision et maxNumImpreciseAcc.
 pub fn dot(
     ctx: *mlir.Context,
     a: *const mlir.Value,
@@ -500,6 +538,8 @@ pub fn dot(
     });
 }
 
+// Construit `tt.reduce` : reduit `srcs` le long de `axis` via `combine_block`
+// (termine par `tt.reduce.return`), resultats `result_types`.
 /// tt.reduce — combine_block must have args [elem, elem] matching srcs' element types,
 /// terminated with tt.reduce.return.
 pub fn reduce(
@@ -522,6 +562,7 @@ pub fn reduce(
     });
 }
 
+// Construit le terminateur `tt.reduce.return` avec `values` (sans verification).
 pub fn reduce_return(
     ctx: *mlir.Context,
     values: []const *const mlir.Value,
@@ -538,6 +579,7 @@ pub fn reduce_return(
 // Elementwise casts specific to Triton (arith.bitcast doesn't support ptrs)
 // =============================================================================
 
+// Construit `tt.int_to_ptr` : convertit un entier en pointeur (meme forme).
 /// tt.int_to_ptr — cast int-like to ptr-like (element-wise, same shape).
 pub fn int_to_ptr(
     ctx: *mlir.Context,
@@ -552,6 +594,7 @@ pub fn int_to_ptr(
     });
 }
 
+// Construit `tt.ptr_to_int` : convertit un pointeur en entier (meme forme).
 /// tt.ptr_to_int — cast ptr-like to int-like (element-wise, same shape).
 pub fn ptr_to_int(
     ctx: *mlir.Context,
@@ -566,6 +609,8 @@ pub fn ptr_to_int(
     });
 }
 
+// Construit `tt.bitcast` : reinterpret `src` vers `result_type` (meme largeur,
+// fonctionne aussi sur les pointeurs contrairement a arith.bitcast).
 /// tt.bitcast — cast between types of the same bit-width (also works on ptrs,
 /// unlike arith.bitcast).
 pub fn bitcast(
@@ -581,6 +626,8 @@ pub fn bitcast(
     });
 }
 
+// Construit `tt.fp_to_fp` : conversion flottant vers flottant avec attribut
+// `rounding` facultatif (`null` pour l'omettre).
 /// tt.fp_to_fp — float to float cast, optionally with a rounding mode.
 /// Pass `rounding = null` to omit the rounding attribute.
 pub fn fp_to_fp(
@@ -606,6 +653,8 @@ pub fn fp_to_fp(
 // Math ops
 // =============================================================================
 
+// Construit `tt.clampf` : borne `x` dans [min, max] element par element, attribut
+// `propagateNan`.
 /// tt.clampf — clamp float tensor to [min, max] element-wise.
 pub fn clampf(
     ctx: *mlir.Context,
@@ -625,6 +674,7 @@ pub fn clampf(
     });
 }
 
+// Construit `tt.precise_sqrt` : racine carree precise (meme type entree/sortie).
 /// tt.precise_sqrt — precise sqrt (SameOperandsAndResultType).
 pub fn precise_sqrt(
     ctx: *mlir.Context,
@@ -638,6 +688,7 @@ pub fn precise_sqrt(
     });
 }
 
+// Construit `tt.precise_divf` : division flottante precise (meme type entree/sortie).
 /// tt.precise_divf — precise float div (SameOperandsAndResultType).
 pub fn precise_divf(
     ctx: *mlir.Context,
@@ -652,6 +703,7 @@ pub fn precise_divf(
     });
 }
 
+// Construit `tt.mulhiui` : N bits de poids fort du produit non signe 2N bits.
 /// tt.mulhiui — most significant N bits of 2N-bit unsigned product.
 pub fn mulhiui(
     ctx: *mlir.Context,
@@ -670,6 +722,7 @@ pub fn mulhiui(
 // Shape manipulation — more
 // =============================================================================
 
+// Construit `tt.unsplat` : tensor a un seul element vers scalaire `result_type`.
 /// tt.unsplat — tensor-of-1-element → scalar.
 pub fn unsplat(
     ctx: *mlir.Context,
@@ -684,6 +737,7 @@ pub fn unsplat(
     });
 }
 
+// Construit `tt.cat` : concatene `lhs` et `rhs` (peut reordonner les elements).
 /// tt.cat — concatenate two tensors; may reorder elements.
 pub fn cat(
     ctx: *mlir.Context,
@@ -699,6 +753,7 @@ pub fn cat(
     });
 }
 
+// Construit `tt.join` : joint `lhs` et `rhs` sur une nouvelle dimension mineure de taille 2.
 /// tt.join — join two tensors along a new minor dimension (shape gains +1 dim of size 2).
 pub fn join(
     ctx: *mlir.Context,
@@ -714,6 +769,7 @@ pub fn join(
     });
 }
 
+// Construit `tt.split` : scinde `src` sur sa derniere dimension (taille 2) en deux resultats.
 /// tt.split — split a tensor along its last dimension (size must be 2). Returns (lhs, rhs).
 pub fn split(
     ctx: *mlir.Context,
@@ -732,6 +788,8 @@ pub fn split(
 // Gather / Histogram
 // =============================================================================
 
+// Construit `tt.gather` : rassemble des elements de `src` via `indices` le long de
+// `axis`, avec `efficient_layout` optionnel ; forme du resultat = celle des indices.
 /// tt.gather — gather elements from `src` using `indices` along `axis`.
 /// Result shape matches `indices` shape.
 pub fn gather(
@@ -756,6 +814,7 @@ pub fn gather(
     });
 }
 
+// Construit `tt.histogram` : histogramme de `src` (masque optionnel), taille = nb de bins.
 /// tt.histogram — build a histogram of `src`. Output size = number of bins.
 pub fn histogram(
     ctx: *mlir.Context,
@@ -778,6 +837,8 @@ pub fn histogram(
 // Scan — parallel scan with combine region (like reduce)
 // =============================================================================
 
+// Construit `tt.scan` : scan parallele de `srcs` le long de `axis` via `combine_block`
+// (termine par `tt.scan.return`), avec option `reverse`.
 /// tt.scan — combine_block must already contain the tt.scan.return terminator
 /// and have arguments with element types matching `srcs`.
 pub fn scan(
@@ -801,6 +862,7 @@ pub fn scan(
     });
 }
 
+// Construit le terminateur `tt.scan.return` avec `values` (sans verification).
 pub fn scan_return(
     ctx: *mlir.Context,
     values: []const *const mlir.Value,
@@ -817,6 +879,8 @@ pub fn scan_return(
 // Atomics
 // =============================================================================
 
+// Construit `tt.atomic_rmw` : lecture-modification-ecriture atomique `rmw` sur
+// `ptr_val` avec `val`, masque optionnel, semantique `sem` et portee `scope`.
 /// tt.atomic_rmw — (ptr, val, [mask]). Result type matches val's type.
 pub fn atomic_rmw(
     ctx: *mlir.Context,
@@ -844,6 +908,8 @@ pub fn atomic_rmw(
     });
 }
 
+// Construit `tt.atomic_cas` : compare-and-swap atomique de `val` si `cmp` correspond,
+// attributs `sem` et `scope`.
 /// tt.atomic_cas — compare-and-swap. Result type matches val's type.
 pub fn atomic_cas(
     ctx: *mlir.Context,
@@ -869,6 +935,8 @@ pub fn atomic_cas(
 // Debug
 // =============================================================================
 
+// Construit `tt.assert` : assertion cote device sur `condition` (i1 ou tensor<i1>)
+// avec un message.
 /// tt.assert — device-side assert. `condition` must be i1 or tensor<...xi1>.
 pub fn assert_(
     ctx: *mlir.Context,
@@ -889,6 +957,8 @@ pub fn assert_(
 // Call
 // =============================================================================
 
+// Construit `tt.call` : appel direct de `callee` avec `operands`/`result_types` et
+// attributs arg/res optionnels (hints type divisibility).
 /// tt.call — direct call to another tt.func in the same module.
 /// arg_attrs / res_attrs propagate hints like tt.divisibility; pass null to omit.
 pub fn call(
@@ -920,6 +990,8 @@ pub fn call(
 // Scaled dot (microscaling spec).
 // =============================================================================
 
+// Construit `tt.dot_scaled` : dot avec facteurs d'echelle par blocs optionnels
+// (a_scale/b_scale) ; segments (a, b, c, [a_scale], [b_scale]) et types d'elements.
 /// tt.dot_scaled — dot with optional per-block scale factors.
 /// a_scale/b_scale may be null. AttrSizedOperandSegments: (a, b, c, [a_scale], [b_scale]).
 pub fn dot_scaled(
@@ -968,6 +1040,8 @@ pub fn dot_scaled(
 // Extern elementwise (call library function pointwise)
 // =============================================================================
 
+// Construit `tt.extern_elementwise` : appel pointwise d'une fonction de bibliotheque
+// (libname/libpath/symbol/pure) sur `srcs`.
 pub fn extern_elementwise(
     ctx: *mlir.Context,
     srcs: []const *const mlir.Value,
@@ -995,6 +1069,8 @@ pub fn extern_elementwise(
 // Device-side print
 // =============================================================================
 
+// Construit `tt.print` : printf cote device des `args` avec prefixe, option hex et
+// indicateurs de signe `is_signed` par argument.
 /// tt.print — device-side print. `is_signed` must be `args.len` long and
 /// indicates signedness per arg (1 = signed, 0 = unsigned) for printf-style
 /// integer formatting.
@@ -1022,6 +1098,8 @@ pub fn print(
 // Tensor descriptors (TMA)
 // =============================================================================
 
+// Construit `tt.make_tensor_descriptor` : descripteur TMA depuis un pointeur de base,
+// formes/pas dynamiques et la forme de bloc encodee dans `result_type`.
 /// tt.make_tensor_descriptor — build a TMA descriptor from a base ptr, runtime
 /// shape/strides, and the compile-time block shape baked into `result_type`.
 pub fn make_tensor_descriptor(
@@ -1048,6 +1126,8 @@ pub fn make_tensor_descriptor(
     });
 }
 
+// Construit `tt.descriptor_load` : charge via le descripteur `desc` aux `indices`,
+// attributs cache/evict.
 pub fn descriptor_load(
     ctx: *mlir.Context,
     desc: *const mlir.Value,
@@ -1071,6 +1151,7 @@ pub fn descriptor_load(
     });
 }
 
+// Construit `tt.descriptor_store` : ecrit `src` via `desc` aux `indices`.
 pub fn descriptor_store(
     ctx: *mlir.Context,
     desc: *const mlir.Value,
@@ -1087,6 +1168,7 @@ pub fn descriptor_store(
     });
 }
 
+// Construit `tt.descriptor_reduce` : reduction `kind` de `src` dans `desc` aux `indices`.
 pub fn descriptor_reduce(
     ctx: *mlir.Context,
     kind: DescriptorReduceKind,
@@ -1107,6 +1189,7 @@ pub fn descriptor_reduce(
     });
 }
 
+// Construit `tt.descriptor_gather` : collecte via `desc` selon `x_offsets` et `y_offset`.
 pub fn descriptor_gather(
     ctx: *mlir.Context,
     desc: *const mlir.Value,
@@ -1122,6 +1205,7 @@ pub fn descriptor_gather(
     });
 }
 
+// Construit `tt.descriptor_scatter` : disperse `src` via `desc` selon les offsets x/y.
 pub fn descriptor_scatter(
     ctx: *mlir.Context,
     desc: *const mlir.Value,
@@ -1140,6 +1224,8 @@ pub fn descriptor_scatter(
 // Map elementwise — like a pointwise `map` with a user-defined scalar region.
 // =============================================================================
 
+// Construit `tt.map_elementwise` : applique la region `scalar_block` sur `srcs` par
+// groupes de `pack` elements (terminee par `tt.map_elementwise.return`).
 /// tt.map_elementwise — `scalar_block` receives `pack * srcs.len` scalar args
 /// (packed groups of `pack` elements per src tensor) and must be terminated
 /// with `tt.map_elementwise.return`.
@@ -1162,6 +1248,7 @@ pub fn map_elementwise(
     });
 }
 
+// Construit le terminateur `tt.map_elementwise.return` avec `values` (sans verification).
 pub fn map_elementwise_return(
     ctx: *mlir.Context,
     values: []const *const mlir.Value,
@@ -1178,6 +1265,8 @@ pub fn map_elementwise_return(
 // Inline assembly
 // =============================================================================
 
+// Construit `tt.elementwise_inline_asm` : assembleur inline pointwise (asm_string,
+// constraints, pure, packed_element) sur `args` vers `result_types`.
 /// tt.elementwise_inline_asm — pointwise inline asm returning one or more
 /// tensors.
 pub fn elementwise_inline_asm(
@@ -1203,10 +1292,13 @@ pub fn elementwise_inline_asm(
     });
 }
 
+// Verifie que toutes les declarations publiques du module compilent (refAllDecls).
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Test d'integration : construit un module `tt.func` avec les wrappers, verifie
+// les ops enregistrees, l'imprime puis le re-analyse.
 test "tt.func round-trip" {
     // Build: module { tt.func public @id(%arg0: !tt.ptr<f32>) { tt.return } }
     // by constructing it with the Zig wrappers, printing to string, and re-parsing.
