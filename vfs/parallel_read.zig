@@ -15,6 +15,7 @@ pub const Status = union(enum) {
     success,
     retry_after: ?std.Io.Duration,
 
+    // Construit un statut de nouvelle tentative sans délai imposé.
     pub fn retry() Status {
         return .{ .retry_after = null };
     }
@@ -24,25 +25,30 @@ pub const BatchState = struct {
     pending: std.atomic.Value(u32),
     err: std.atomic.Value(u16) = .init(0),
 
+    // Indique si le lot a déjà enregistré une erreur.
     pub fn failed(batch: *BatchState) bool {
         return batch.err.load(.acquire) != 0;
     }
 
+    // Enregistre la première erreur rencontrée pour le lot (sans écraser).
     pub fn fail(batch: *BatchState, err: anyerror) void {
         _ = batch.err.cmpxchgStrong(0, @intFromError(err), .release, .monotonic);
     }
 
+    // Retourne l'erreur du lot, ou null si aucune.
     pub fn anyError(batch: *BatchState) ?anyerror {
         const err = batch.err.load(.acquire);
         return if (err == 0) null else @errorFromInt(err);
     }
 
+    // Décrémente le compteur de jobs en attente et réveille les dormeurs au dernier job.
     pub fn completeOne(batch: *BatchState, io: std.Io) void {
         const previous = batch.pending.fetchSub(1, .release);
         std.debug.assert(previous > 0);
         if (previous == 1) io.futexWake(u32, &batch.pending.raw, 1);
     }
 
+    // Attend sans annulation que tous les jobs du lot soient terminés.
     pub fn waitUncancelable(batch: *BatchState, io: std.Io) void {
         while (true) {
             const pending = batch.pending.load(.acquire);
@@ -52,6 +58,7 @@ pub const BatchState = struct {
     }
 };
 
+// Génère un pool de workers typé pour un type de Job donné.
 pub fn Pool(comptime Job: type) type {
     return struct {
         const Self = @This();
@@ -66,6 +73,7 @@ pub fn Pool(comptime Job: type) type {
         retry_initial_delay: std.Io.Duration,
         retry_max_delay: std.Io.Duration,
 
+        // Initialise le pool: buffers, PRNG, file d'attente et lance num_workers tâches concurrentes.
         pub fn init(self: *Self, allocator: std.mem.Allocator, io: std.Io, client: *std.http.Client, opts: InitOpts) !void {
             stdx.debug.assert(opts.num_workers > 0, "Pool must have at least one worker", .{});
             stdx.debug.assert(opts.chunk_size > 0, "Pool must have a positive download chunk size", .{});
@@ -98,6 +106,7 @@ pub fn Pool(comptime Job: type) type {
             }
         }
 
+        // Ferme la file, annule le groupe de workers et libère le buffer de file.
         pub fn deinit(self: *Self, allocator: std.mem.Allocator, io: std.Io) void {
             self.job_queue.close(io);
             self.group.cancel(io);
@@ -105,6 +114,7 @@ pub fn Pool(comptime Job: type) type {
             allocator.free(self.queue_buf);
         }
 
+        // Boucle de travail: retire un job, applique les tentatives/backoff puis marque le job terminé.
         fn worker(pool: *Self, io: std.Io) std.Io.Cancelable!void {
             while (true) {
                 const job = pool.job_queue.getOne(io) catch break;
@@ -140,6 +150,7 @@ pub fn Pool(comptime Job: type) type {
             }
         }
 
+        // Calcule un délai de backoff exponentiel avec gigue complète (FullJitter).
         fn backoffDuration(pool: *Self, attempt: usize) std.Io.Duration {
             // FullJitter algorithm
             const max_delay_ns: i96 = @min(
@@ -158,6 +169,7 @@ pub const ContentRange = struct {
     total: u64,
 };
 
+// Analyse un en-tête Content-Range «bytes début-fin/total» en composants numériques.
 pub fn parseContentRange(value: []const u8) ?ContentRange {
     const space = std.mem.indexOfScalar(u8, value, ' ') orelse return null;
     const dash = std.mem.indexOfScalar(u8, value, '-') orelse return null;
@@ -170,6 +182,7 @@ pub fn parseContentRange(value: []const u8) ?ContentRange {
     };
 }
 
+// Calcule le nombre d'octets réellement lisibles à partir d'un offset, borné par la taille demandée.
 pub fn readSize(file_size: u64, offset: u64, data: []const []u8) usize {
     if (offset >= file_size) return 0;
 
@@ -178,6 +191,7 @@ pub fn readSize(file_size: u64, offset: u64, data: []const []u8) usize {
     return @intCast(@min(file_size - offset, requested));
 }
 
+// Lit chunk_len octets dans les buffers data en sautant les offsets déjà couverts, en tenant compte du Content-Range.
 pub fn readChunk(
     reader: *std.Io.Reader,
     content_range: ?ContentRange,

@@ -16,6 +16,7 @@ pub const AwsSigV4 = struct {
     const ALGORITHM = "AWS4-HMAC-SHA256";
     pub const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
 
+    // Construit l'en-tête d'autorisation AWS Signature V4 (requête canonique, signature HMAC); null sans clés.
     pub fn generateAuthHeader(
         self: AwsSigV4,
         output_buffer: []u8,
@@ -59,6 +60,7 @@ pub const AwsSigV4 = struct {
         const active_headers = header_buf[0..header_count];
 
         std.mem.sort(std.http.Header, active_headers, {}, struct {
+            // Comparateur d'en-têtes insensible à la casse pour le tri canonique AWS.
             fn less(_: void, a: std.http.Header, b: std.http.Header) bool {
                 return std.ascii.lessThanIgnoreCase(a.name, b.name);
             }
@@ -121,6 +123,7 @@ pub const AwsSigV4 = struct {
         });
     }
 
+    // Dérive la clé de signature AWS4 (date → région → service → aws4_request).
     fn deriveSigningKey(self: AwsSigV4, date: []const u8) ![32]u8 {
         var key_buf: [128]u8 = undefined;
         const k_init = try std.fmt.bufPrint(&key_buf, "AWS4{s}", .{self.secret_key.?});
@@ -131,6 +134,7 @@ pub const AwsSigV4 = struct {
         return hmacStatic(&k_service, "aws4_request");
     }
 
+    // Calcule un HMAC-SHA256 et retourne le résultat sur 32 octets.
     fn hmacStatic(key: []const u8, data: []const u8) [32]u8 {
         var out: [32]u8 = undefined;
         std.crypto.auth.hmac.sha2.HmacSha256.create(&out, data, key);
@@ -158,6 +162,7 @@ pub const S3 = struct {
             chunk_len: usize,
             batch: *Batch,
 
+            // Récupère un chunk via une requête HTTP Range signée V4 et l'écrit dans les buffers; gère les erreurs transitoires.
             pub fn perform(job: Job, client: *std.http.Client) anyerror!parallel_read.Status {
                 var range_buf: [64]u8 = undefined;
                 const range_header = std.fmt.bufPrint(
@@ -328,6 +333,7 @@ pub const S3 = struct {
         pos: u64,
         size: u64,
 
+        // Alloue un Handle et duplique le chemin/URI; initialise position et taille.
         pub fn init(allocator: std.mem.Allocator, type_: Type, path: []const u8, size: u64) !Handle {
             return .{
                 .type = type_,
@@ -337,6 +343,7 @@ pub const S3 = struct {
             };
         }
 
+        // Libère l'URI dupliquée du Handle.
         pub fn deinit(self: *Handle, allocator: std.mem.Allocator) void {
             allocator.free(self.uri);
         }
@@ -352,6 +359,7 @@ pub const S3 = struct {
     dir_read_states: std.AutoHashMapUnmanaged(*std.Io.Dir.Reader, ReadState) = .{},
     base: VFSBase,
 
+    // Initialise le backend S3: pool de lectures et copie des clés/endpoint/région/service.
     pub fn init(
         allocator: std.mem.Allocator,
         inner: std.Io,
@@ -380,6 +388,7 @@ pub const S3 = struct {
         };
     }
 
+    // Crée un S3 à partir des variables d'environnement AWS, avec avertissements si incomplètes.
     pub fn auto(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, environ_map: *std.process.Environ.Map) !S3 {
         const access_key = environ_map.get("AWS_ACCESS_KEY_ID");
         const secret_key = environ_map.get("AWS_SECRET_ACCESS_KEY");
@@ -425,6 +434,7 @@ pub const S3 = struct {
         }, .{});
     }
 
+    // Libère pool, handles, états de lecture et chaînes de configuration allouées.
     pub fn deinit(self: *S3) void {
         self.read_pool.deinit(self.allocator, self.base.inner);
         self.allocator.destroy(self.read_pool);
@@ -458,6 +468,7 @@ pub const S3 = struct {
         self.allocator.free(self.config.auth_service);
     }
 
+    // Construit l'IO S3 en branchant les opérations fichier/répertoire sur la vtable.
     pub fn io(self: *S3) std.Io {
         return .{
             .userdata = &self.base,
@@ -483,6 +494,7 @@ pub const S3 = struct {
         };
     }
 
+    // Réserve un emplacement de handle (réutilise un index libéré sinon en ajoute un).
     fn openHandle(self: *S3) !struct { u32, *Handle } {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -492,6 +504,7 @@ pub const S3 = struct {
         return .{ @intCast(self.handles.len), try self.handles.addOne(self.allocator) };
     }
 
+    // Libère le Handle et marque l'index comme réutilisable.
     fn closeHandle(self: *S3, idx: u32) !void {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -499,18 +512,21 @@ pub const S3 = struct {
         try self.closed_handles.append(self.allocator, idx);
     }
 
+    // Retourne le Handle correspondant à un fichier via son index.
     fn getFileHandle(self: *S3, file: std.Io.File) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(file.handle));
     }
 
+    // Retourne le Handle correspondant à un répertoire via son index.
     fn getDirHandle(self: *S3, dir: std.Io.Dir) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(dir.handle));
     }
 
+    // Concatène l'URI du répertoire et le sous-chemin pour former un chemin complet.
     fn resolvePath(self: *S3, dir: std.Io.Dir, sub_path: []const u8, out_buffer: []u8) ![]u8 {
         if (std.meta.eql(dir, std.Io.Dir.cwd())) {
             return try std.fmt.bufPrint(out_buffer, "{s}", .{sub_path});
@@ -527,6 +543,7 @@ pub const S3 = struct {
         return try std.fmt.bufPrint(out_buffer, "{s}/{s}", .{ trimmed_uri, trimmed_sub_path });
     }
 
+    // Intercepte file_read_streaming pour lire à la position courante et l'avancer; délègue les autres.
     fn operate(userdata: ?*anyopaque, operation: std.Io.Operation) std.Io.Cancelable!std.Io.Operation.Result {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         switch (operation) {
@@ -550,6 +567,7 @@ pub const S3 = struct {
         }
     }
 
+    // Ouvre un répertoire S3 en résolvant son chemin et enregistre un Handle.
     fn dirOpenDir(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.OpenOptions) std.Io.Dir.OpenError!std.Io.Dir {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         var path_buffer: [8 * 1024]u8 = undefined;
@@ -561,6 +579,7 @@ pub const S3 = struct {
         return .{ .handle = @intCast(idx) };
     }
 
+    // Retourne les métadonnées synthétiques d'un répertoire S3.
     fn dirStat(userdata: ?*anyopaque, dir: std.Io.Dir) std.Io.Dir.StatError!std.Io.Dir.Stat {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -578,6 +597,7 @@ pub const S3 = struct {
         };
     }
 
+    // Retourne les métadonnées d'un objet S3 via HEAD; mappe FileNotFound/BadPathName.
     fn dirStatFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.StatFileOptions) std.Io.Dir.StatFileError!std.Io.File.Stat {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const size = self.fetchSize(dir, sub_path) catch |err| switch (err) {
@@ -599,8 +619,10 @@ pub const S3 = struct {
         };
     }
 
+    // Vérification d'accès: no-op.
     fn dirAccess(_: ?*anyopaque, _: std.Io.Dir, _: []const u8, _: std.Io.Dir.AccessOptions) std.Io.Dir.AccessError!void {}
 
+    // Ouvre un objet S3 en lecture après HEAD pour connaître sa taille et enregistre un Handle.
     fn dirOpenFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.File.OpenFlags) std.Io.File.OpenError!std.Io.File {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const size = self.fetchSize(dir, sub_path) catch |err| switch (err) {
@@ -617,6 +639,7 @@ pub const S3 = struct {
         return .{ .handle = @intCast(idx), .flags = .{ .nonblocking = false } };
     }
 
+    // Ferme les répertoires en libérant leurs handles.
     fn dirClose(userdata: ?*anyopaque, dirs: []const std.Io.Dir) void {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         for (dirs) |dir| {
@@ -624,6 +647,7 @@ pub const S3 = struct {
         }
     }
 
+    // Liste les objets du bucket au premier appel puis distribue les entrées.
     fn dirRead(userdata: ?*anyopaque, reader: *std.Io.Dir.Reader, entries: []std.Io.Dir.Entry) std.Io.Dir.Reader.Error!usize {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -676,6 +700,7 @@ pub const S3 = struct {
         return count;
     }
 
+    // Écrit l'URI du répertoire dans le buffer et retourne sa longueur.
     fn dirRealPath(userdata: ?*anyopaque, dir: std.Io.Dir, out_buffer: []u8) std.Io.Dir.RealPathError!usize {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -683,12 +708,14 @@ pub const S3 = struct {
         return path.len;
     }
 
+    // Résout et écrit le chemin complet d'un fichier du répertoire.
     fn dirRealPathFile(userdata: ?*anyopaque, dir: std.Io.Dir, path_name: []const u8, out_buffer: []u8) std.Io.Dir.RealPathFileError!usize {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const real_path = self.resolvePath(dir, path_name, out_buffer) catch return std.Io.Dir.RealPathFileError.NameTooLong;
         return real_path.len;
     }
 
+    // Retourne les métadonnées synthétiques d'un objet S3 ouvert.
     fn fileStat(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.StatError!std.Io.File.Stat {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -706,11 +733,13 @@ pub const S3 = struct {
         };
     }
 
+    // Retourne la taille mémorisée du handle de fichier.
     fn fileLength(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.LengthError!u64 {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         return self.getFileHandle(file).size;
     }
 
+    // Ferme les fichiers en libérant leurs handles.
     fn fileClose(userdata: ?*anyopaque, files: []const std.Io.File) void {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         for (files) |file| {
@@ -718,6 +747,7 @@ pub const S3 = struct {
         }
     }
 
+    // Lit des données à l'offset demandé via le pool de lectures parallèles.
     fn fileReadPositional(userdata: ?*anyopaque, file: std.Io.File, data: []const []u8, offset: u64) std.Io.File.ReadPositionalError!usize {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -727,6 +757,7 @@ pub const S3 = struct {
         };
     }
 
+    // Décale la position courante du handle (borné à 0 si dépassement négatif).
     fn fileSeekBy(userdata: ?*anyopaque, file: std.Io.File, relative_offset: i64) std.Io.File.SeekError!void {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -743,12 +774,14 @@ pub const S3 = struct {
         }
     }
 
+    // Fixe la position courante du handle à un offset absolu.
     fn fileSeekTo(userdata: ?*anyopaque, file: std.Io.File, absolute_offset: u64) std.Io.File.SeekError!void {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
         handle.pos = absolute_offset;
     }
 
+    // Écrit l'URI de l'objet dans le buffer et retourne sa longueur.
     fn fileRealPath(userdata: ?*anyopaque, file: std.Io.File, out_buffer: []u8) std.Io.File.RealPathError!usize {
         const self: *S3 = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -756,6 +789,7 @@ pub const S3 = struct {
         return path.len;
     }
 
+    // Formate l'instant courant en horodatage ISO 8601 compact (AAAAMMJJTHHMMSSZ) pour AWS SigV4.
     fn getTimestamp(self: *S3, buf: []u8) ![]const u8 {
         const now_ts = std.Io.Clock.now(.real, self.base.inner);
 
@@ -775,6 +809,7 @@ pub const S3 = struct {
         });
     }
 
+    // Sépare un chemin en endpoint, bucket et clé d'objet.
     fn pathComponents(self: *S3, path_: []const u8) struct { []const u8, []const u8, []const u8 } {
         const endpoint = std.mem.trimEnd(u8, self.config.endpoint_url, "/");
         const path = std.mem.trim(u8, path_, "/");
@@ -786,11 +821,13 @@ pub const S3 = struct {
         }
     }
 
+    // Construit l'URL complète «endpoint/bucket/clé» d'un objet S3.
     fn s3Url(self: *S3, path: []const u8, buf: []u8) ![]const u8 {
         const endpoint, const bucket, const key = self.pathComponents(path);
         return try std.fmt.bufPrint(buf, "{s}/{s}/{s}", .{ endpoint, bucket, key });
     }
 
+    // Émet la requête de listing S3 signée et retourne le corps XML de la réponse.
     fn listObjectsBody(self: *S3, endpoint: []const u8, bucket: []const u8, key_prefix: []const u8) ![]u8 {
         var query_buf: [4096]u8 = undefined;
         var query_writer = std.Io.Writer.fixed(&query_buf);
@@ -864,6 +901,7 @@ pub const S3 = struct {
             try res.reader(&.{}).allocRemaining(self.allocator, .limited(1024 * 1024));
     }
 
+    // Liste les objets sous un préfixe et retourne leurs clés parsées.
     fn listObjects(self: *S3, prefix: []const u8) ![][]const u8 {
         const endpoint, const bucket, const key_prefix = self.pathComponents(prefix);
         const body = try self.listObjectsBody(endpoint, bucket, key_prefix);
@@ -872,6 +910,7 @@ pub const S3 = struct {
         return try self.parseListObjectsResponse(body, key_prefix);
     }
 
+    // Prédicat d'encodage URL: caractères non réservés autorisés tels quels.
     fn s3EncodeIsValid(c: u8) bool {
         return switch (c) {
             'A'...'Z', 'a'...'z', '0'...'9', '-', '.', '_', '~' => true,
@@ -879,6 +918,7 @@ pub const S3 = struct {
         };
     }
 
+    // Extrait les balises <Key> et <Prefix> du XML de listing en filtrant le préfixe lui-même.
     fn parseListObjectsResponse(self: *S3, xml: []const u8, prefix: []const u8) ![][]const u8 {
         var results: std.ArrayListUnmanaged([]const u8) = .empty;
         errdefer {
@@ -905,6 +945,7 @@ pub const S3 = struct {
         return try results.toOwnedSlice(self.allocator);
     }
 
+    // Requête HEAD signée pour obtenir la taille d'un objet; mappe NotFound en FileNotFound.
     fn fetchSize(self: *S3, dir: std.Io.Dir, sub_path: []const u8) !u64 {
         var path_buffer: [8 * 1024]u8 = undefined;
         var url_buf: [8 * 1024]u8 = undefined;
@@ -957,6 +998,7 @@ pub const S3 = struct {
         };
     }
 
+    // Découpe la lecture en chunks, les soumet au pool parallèle et attend la fin.
     fn performRead(self: *S3, handle: *Handle, data: []const []u8, offset: u64) !usize {
         const read_size = parallel_read.readSize(handle.size, offset, data);
         if (read_size == 0) return 0;

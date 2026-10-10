@@ -18,6 +18,7 @@ pub const HTTP = struct {
         pos: u64,
         size: u64,
 
+        // Alloue un Handle et duplique l'URI; initialise position et taille.
         pub fn init(allocator: std.mem.Allocator, type_: Type, path: []const u8, size: u64) !Handle {
             const uri = try allocator.dupe(u8, path);
             errdefer allocator.free(uri);
@@ -30,6 +31,7 @@ pub const HTTP = struct {
             };
         }
 
+        // Libère l'URI dupliquée du Handle.
         pub fn deinit(self: *Handle, allocator: std.mem.Allocator) void {
             allocator.free(self.uri);
         }
@@ -45,6 +47,7 @@ pub const HTTP = struct {
     closed_handles: std.ArrayList(u32) = .empty,
     base: VFSBase,
 
+    // Initialise le backend HTTP avec le client et le protocole (http ou https).
     pub fn init(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, protocol: Protocol) !HTTP {
         return .{
             .allocator = allocator,
@@ -54,6 +57,7 @@ pub const HTTP = struct {
         };
     }
 
+    // Libère les handles de fichiers et d'indices fermés.
     pub fn deinit(self: *HTTP) void {
         var idx: usize = 0;
         while (idx < self.handles.len) : (idx += 1) {
@@ -69,6 +73,7 @@ pub const HTTP = struct {
         self.closed_handles.deinit(self.allocator);
     }
 
+    // Construit l'IO HTTP en branchant les opérations fichier/répertoire sur la vtable.
     pub fn io(self: *HTTP) std.Io {
         return .{
             .userdata = &self.base,
@@ -94,6 +99,7 @@ pub const HTTP = struct {
         };
     }
 
+    // Réserve un emplacement de handle (réutilise un index libéré sinon en ajoute un).
     fn openHandle(self: *HTTP) !struct { u32, *Handle } {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -104,6 +110,7 @@ pub const HTTP = struct {
         return .{ @intCast(self.handles.len), try self.handles.addOne(self.allocator) };
     }
 
+    // Libère le Handle et marque l'index comme réutilisable.
     fn closeHandle(self: *HTTP, idx: u32) !void {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -112,18 +119,21 @@ pub const HTTP = struct {
         try self.closed_handles.append(self.allocator, idx);
     }
 
+    // Retourne le Handle correspondant à un fichier via son index.
     fn getFileHandle(self: *HTTP, file: std.Io.File) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(file.handle));
     }
 
+    // Retourne le Handle correspondant à un répertoire via son index.
     fn getDirHandle(self: *HTTP, dir: std.Io.Dir) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(dir.handle));
     }
 
+    // Concatène l'URI du répertoire et le sous-chemin pour former un chemin complet.
     fn resolvePath(self: *HTTP, dir: std.Io.Dir, sub_path: []const u8, out_buffer: []u8) ![]u8 {
         if (std.meta.eql(dir, std.Io.Dir.cwd())) {
             return try std.fmt.bufPrint(out_buffer, "{s}", .{sub_path});
@@ -139,6 +149,7 @@ pub const HTTP = struct {
         return try std.fmt.bufPrint(out_buffer, "{s}/{s}", .{ trimmed_uri, trimmed_sub_path });
     }
 
+    // Intercepte file_read_streaming pour lire à la position courante et l'avancer; délègue les autres.
     fn operate(userdata: ?*anyopaque, operation: std.Io.Operation) std.Io.Cancelable!std.Io.Operation.Result {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         switch (operation) {
@@ -162,6 +173,7 @@ pub const HTTP = struct {
         }
     }
 
+    // Ouvre un répertoire HTTP (virtuel) et enregistre un Handle.
     fn dirOpenDir(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.OpenOptions) std.Io.Dir.OpenError!std.Io.Dir {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -174,6 +186,7 @@ pub const HTTP = struct {
         return .{ .handle = @intCast(idx) };
     }
 
+    // Retourne les métadonnées synthétiques d'un répertoire HTTP.
     fn dirStat(userdata: ?*anyopaque, dir: std.Io.Dir) std.Io.Dir.StatError!std.Io.Dir.Stat {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -191,6 +204,7 @@ pub const HTTP = struct {
         };
     }
 
+    // Retourne les métadonnées d'une ressource HTTP via une requête HEAD.
     fn dirStatFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.StatFileOptions) std.Io.Dir.StatFileError!std.Io.File.Stat {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const size = self.fetchSize(dir, sub_path) catch return std.Io.Dir.StatFileError.Unexpected;
@@ -208,8 +222,10 @@ pub const HTTP = struct {
         };
     }
 
+    // Vérification d'accès: no-op.
     fn dirAccess(_: ?*anyopaque, _: std.Io.Dir, _: []const u8, _: std.Io.Dir.AccessOptions) std.Io.Dir.AccessError!void {}
 
+    // Ouvre une ressource HTTP après HEAD pour connaître sa taille.
     fn dirOpenFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.File.OpenFlags) std.Io.File.OpenError!std.Io.File {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -224,6 +240,7 @@ pub const HTTP = struct {
         return .{ .handle = @intCast(idx), .flags = .{ .nonblocking = false } };
     }
 
+    // Ferme les répertoires en libérant leurs handles.
     fn dirClose(userdata: ?*anyopaque, dirs: []const std.Io.Dir) void {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         for (dirs) |dir| {
@@ -231,11 +248,13 @@ pub const HTTP = struct {
         }
     }
 
+    // Listing non supporté pour HTTP: renvoie une erreur.
     fn dirRead(_: ?*anyopaque, _: *std.Io.Dir.Reader, _: []std.Io.Dir.Entry) std.Io.Dir.Reader.Error!usize {
         log.err("dirRead unsupported", .{});
         return std.Io.Dir.Reader.Error.Unexpected;
     }
 
+    // Écrit l'URI du répertoire dans le buffer et retourne sa longueur.
     fn dirRealPath(userdata: ?*anyopaque, dir: std.Io.Dir, out_buffer: []u8) std.Io.Dir.RealPathError!usize {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -243,12 +262,14 @@ pub const HTTP = struct {
         return path.len;
     }
 
+    // Résout le chemin complet d'un fichier du répertoire.
     fn dirRealPathFile(userdata: ?*anyopaque, dir: std.Io.Dir, path_name: []const u8, out_buffer: []u8) std.Io.Dir.RealPathFileError!usize {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const real_path = self.resolvePath(dir, path_name, out_buffer) catch return std.Io.Dir.RealPathFileError.NameTooLong;
         return real_path.len;
     }
 
+    // Retourne les métadonnées synthétiques d'une ressource HTTP ouverte.
     fn fileStat(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.StatError!std.Io.File.Stat {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -267,11 +288,13 @@ pub const HTTP = struct {
         };
     }
 
+    // Retourne la taille mémorisée du handle de fichier.
     fn fileLength(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.LengthError!u64 {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         return self.getFileHandle(file).size;
     }
 
+    // Ferme les fichiers en libérant leurs handles.
     fn fileClose(userdata: ?*anyopaque, files: []const std.Io.File) void {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         for (files) |file| {
@@ -279,6 +302,7 @@ pub const HTTP = struct {
         }
     }
 
+    // Lit des données à l'offset demandé via une requête Range.
     fn fileReadPositional(userdata: ?*anyopaque, file: std.Io.File, data: []const []u8, offset: u64) std.Io.File.ReadPositionalError!usize {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -288,6 +312,7 @@ pub const HTTP = struct {
         };
     }
 
+    // Décale la position du handle d'un offset relatif.
     fn fileSeekBy(userdata: ?*anyopaque, file: std.Io.File, relative_offset: i64) std.Io.File.SeekError!void {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -298,12 +323,14 @@ pub const HTTP = struct {
             handle.pos - @as(u64, @intCast(-relative_offset));
     }
 
+    // Fixe la position du handle à un offset absolu.
     fn fileSeekTo(userdata: ?*anyopaque, file: std.Io.File, absolute_offset: u64) std.Io.File.SeekError!void {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
         handle.pos = absolute_offset;
     }
 
+    // Écrit l'URI du fichier dans le buffer et retourne sa longueur.
     fn fileRealPath(userdata: ?*anyopaque, file: std.Io.File, out_buffer: []u8) std.Io.File.RealPathError!usize {
         const self: *HTTP = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -311,6 +338,7 @@ pub const HTTP = struct {
         return path.len;
     }
 
+    // Requête HEAD (en suivant les redirections) pour obtenir la taille d'une ressource HTTP.
     fn fetchSize(self: *HTTP, dir: std.Io.Dir, sub_path: []const u8) !u64 {
         var path_buffer: [8 * 1024]u8 = undefined;
         var redirect_buffer: [8 * 1024]u8 = undefined;
@@ -350,6 +378,7 @@ pub const HTTP = struct {
         }
     }
 
+    // Émet une requête GET avec en-tête Range et lit la réponse dans le premier buffer.
     fn performRead(self: *HTTP, handle: *Handle, data: []const []u8, offset: u64) !usize {
         if (offset >= handle.size) return 0;
 
@@ -413,6 +442,7 @@ pub const HTTP = struct {
         total: u64,
     };
 
+    // Analyse un en-tête Content-Range «bytes début-fin/total» en composants numériques.
     fn parseContentRange(value: []const u8) ?ContentRange {
         const space = std.mem.indexOfScalar(u8, value, ' ') orelse return null;
         const dash = std.mem.indexOfScalar(u8, value, '-') orelse return null;

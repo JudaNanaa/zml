@@ -24,6 +24,7 @@ const ParallelRead = struct {
         chunk_len: usize,
         batch: *Batch,
 
+        // Récupère un chunk via une requête HTTP Range, gère les limitations de débit HF et écrit dans les buffers.
         pub fn perform(job: Job, client: *std.http.Client) anyerror!parallel_read.Status {
             var range_buf: [64]u8 = undefined;
             const range_header = std.fmt.bufPrint(
@@ -176,6 +177,7 @@ pub const TreeNode = struct {
     size: u64,
     children: ?std.ArrayList(TreeNode),
 
+    // Libère récursivement le nom et les enfants d'un nœud d'arbre.
     fn deinit(self: *TreeNode, allocator: std.mem.Allocator) void {
         allocator.free(self.name);
         if (self.children) |*children| {
@@ -190,10 +192,12 @@ const RepoKey = struct {
     model: []const u8,
     rev: []const u8,
 
+    // Formate la clé «repo/model@rev» dans le buffer fourni.
     fn format(self: RepoKey, buffer: []u8) ![]u8 {
         return std.fmt.bufPrint(buffer, "{s}/{s}@{s}", .{ self.repo, self.model, self.rev });
     }
 
+    // Alloue et retourne la clé «repo/model@rev».
     fn allocFormat(self: RepoKey, allocator: std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(allocator, "{s}/{s}@{s}", .{ self.repo, self.model, self.rev });
     }
@@ -218,6 +222,7 @@ pub const HF = struct {
         rev: []const u8,
         path: []const u8,
 
+        // Analyse une URI HF «repo/model@rev/chemin» en composants; rev par défaut «main».
         pub fn parse(uri: []const u8) !Repo {
             var parts = std.mem.splitScalar(u8, uri, '/');
             var repo: Repo = .{
@@ -233,6 +238,7 @@ pub const HF = struct {
             return repo;
         }
 
+        // Convertit un Repo en clé de cache (sans le chemin).
         fn toKey(self: Repo) RepoKey {
             return .{ .repo = self.repo, .model = self.model, .rev = self.rev };
         }
@@ -246,6 +252,7 @@ pub const HF = struct {
         pos: u64,
         size: u64,
 
+        // Alloue un Handle et duplique l'URI; initialise position et taille.
         pub fn init(allocator: std.mem.Allocator, handle_type: Type, uri: []const u8, size: u64) !Handle {
             return .{
                 .type = handle_type,
@@ -255,6 +262,7 @@ pub const HF = struct {
             };
         }
 
+        // Libère l'URI dupliquée du Handle.
         pub fn deinit(self: *Handle, allocator: std.mem.Allocator) void {
             allocator.free(self.uri);
         }
@@ -271,6 +279,7 @@ pub const HF = struct {
     trees: std.StringHashMapUnmanaged(std.ArrayList(TreeNode)) = .{},
     dir_read_states: std.AutoHashMapUnmanaged(*std.Io.Dir.Reader, ReadState) = .{},
 
+    // Initialise le backend HF: pool de lectures, client HTTP et en-tête d'authentification Bearer si token.
     pub fn init(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, hf_token: ?[]const u8, opts: InitOpts) !HF {
         const read_pool = try allocator.create(ParallelRead.Pool);
         errdefer allocator.destroy(read_pool);
@@ -299,6 +308,7 @@ pub const HF = struct {
         return self;
     }
 
+    // Crée un HF en cherchant le token (HF_TOKEN puis ~/.cache/huggingface/token).
     pub fn auto(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, environ_map: *std.process.Environ.Map) !HF {
         const hf_token = if (environ_map.get("HF_TOKEN")) |token| blk: {
             break :blk try allocator.dupe(u8, token);
@@ -324,6 +334,7 @@ pub const HF = struct {
         return init(allocator, inner, http_client, hf_token, .{});
     }
 
+    // Libère pool, handles, arbre de fichiers en cache, états de lecture et token.
     pub fn deinit(self: *HF) void {
         self.read_pool.deinit(self.allocator, self.base.inner);
         self.allocator.destroy(self.read_pool);
@@ -358,6 +369,7 @@ pub const HF = struct {
         }
     }
 
+    // Construit l'IO HF en branchant les opérations fichier/répertoire sur la vtable.
     pub fn io(self: *HF) std.Io {
         return .{
             .userdata = &self.base,
@@ -383,6 +395,7 @@ pub const HF = struct {
         };
     }
 
+    // Réserve un emplacement de handle (réutilise un index libéré sinon en ajoute un).
     fn openHandle(self: *HF) !struct { u32, *Handle } {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -394,6 +407,7 @@ pub const HF = struct {
         return .{ len, try self.handles.addOne(self.allocator) };
     }
 
+    // Libère le Handle et marque l'index comme réutilisable.
     fn closeHandle(self: *HF, idx: u32) !void {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -402,18 +416,21 @@ pub const HF = struct {
         try self.closed_handles.append(self.allocator, idx);
     }
 
+    // Retourne le Handle correspondant à un fichier via son index.
     fn getFileHandle(self: *HF, file: std.Io.File) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(file.handle));
     }
 
+    // Retourne le Handle correspondant à un répertoire via son index.
     fn getDirHandle(self: *HF, dir: std.Io.Dir) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(dir.handle));
     }
 
+    // Concatène l'URI du répertoire et le sous-chemin pour former un chemin complet.
     fn resolvePath(self: *HF, dir: std.Io.Dir, sub_path: []const u8, out_buffer: []u8) ![]u8 {
         if (std.meta.eql(dir, std.Io.Dir.cwd())) {
             return try std.fmt.bufPrint(out_buffer, "{s}", .{sub_path});
@@ -429,6 +446,7 @@ pub const HF = struct {
         return try std.fmt.bufPrint(out_buffer, "{s}/{s}", .{ trimmed_uri, trimmed_sub_path });
     }
 
+    // Retourne l'arbre en cache pour un dépôt, ou le récupère via l'API HF puis le met en cache.
     fn getOrFetchTree(self: *HF, repo: Repo) !*std.ArrayList(TreeNode) {
         const key = repo.toKey();
 
@@ -458,6 +476,7 @@ pub const HF = struct {
         return gop.value_ptr;
     }
 
+    // Interroge l'API HF listant récursivement les fichiers d'un dépôt et construit l'arbre de nœuds.
     fn fetchTreeFromAPI(self: *HF, repo: Repo) !std.ArrayList(TreeNode) {
         var url_buffer: [8 * 1024]u8 = undefined;
         var redirect_buffer: [8 * 1024]u8 = undefined;
@@ -507,6 +526,7 @@ pub const HF = struct {
         return tree_root;
     }
 
+    // Retourne la liste des enfants du répertoire identifié par dir_path dans l'arbre.
     fn findDirChildren(tree_items: []const TreeNode, dir_path: []const u8) ?[]const TreeNode {
         if (dir_path.len == 0) {
             return tree_items;
@@ -538,6 +558,7 @@ pub const HF = struct {
         return current;
     }
 
+    // Retourne le nœud de l'arbre correspondant au chemin, ou null.
     fn findNode(tree_items: []const TreeNode, path: []const u8) ?*const TreeNode {
         if (path.len == 0) return null;
 
@@ -570,6 +591,7 @@ pub const HF = struct {
         return null;
     }
 
+    // Calcule la taille d'un nœud (somme des fichiers si répertoire/racine), ou null si absent.
     fn getSizeFromTree(tree: *std.ArrayList(TreeNode), path: []const u8) ?u64 {
         if (path.len == 0) {
             var total: u64 = 0;
@@ -583,6 +605,7 @@ pub const HF = struct {
         return node.size;
     }
 
+    // Insère (ou complète) un fichier décrit par l'API dans l'arbre, en créant les répertoires intermédiaires et en cumulant les tailles.
     fn insertTreeNode(allocator: std.mem.Allocator, root: *std.ArrayList(TreeNode), item: API.Tree) !void {
         var parts = std.mem.tokenizeScalar(u8, item.path, '/');
         var current_list = root;
@@ -635,6 +658,7 @@ pub const HF = struct {
         }
     }
 
+    // Intercepte file_read_streaming pour lire à la position courante et l'avancer; délègue les autres.
     fn operate(userdata: ?*anyopaque, operation: std.Io.Operation) std.Io.Cancelable!std.Io.Operation.Result {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         switch (operation) {
@@ -658,6 +682,7 @@ pub const HF = struct {
         }
     }
 
+    // Ouvre un répertoire HF en vérifiant son existence dans l'arbre et enregistre un Handle.
     fn dirOpenDir(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.OpenOptions) std.Io.Dir.OpenError!std.Io.Dir {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -674,6 +699,7 @@ pub const HF = struct {
         return .{ .handle = @intCast(idx) };
     }
 
+    // Retourne les métadonnées synthétiques d'un répertoire HF.
     fn dirStat(userdata: ?*anyopaque, dir: std.Io.Dir) std.Io.Dir.StatError!std.Io.Dir.Stat {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -691,6 +717,7 @@ pub const HF = struct {
         };
     }
 
+    // Retourne les métadonnées d'un fichier HF (erreur IsDir si c'est un répertoire).
     fn dirStatFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.StatFileOptions) std.Io.Dir.StatFileError!std.Io.File.Stat {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -717,6 +744,7 @@ pub const HF = struct {
         };
     }
 
+    // Vérifie l'existence d'un chemin dans l'arbre du dépôt.
     fn dirAccess(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.AccessOptions) std.Io.Dir.AccessError!void {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -732,6 +760,7 @@ pub const HF = struct {
         if (node == null) return std.Io.Dir.AccessError.FileNotFound;
     }
 
+    // Ouvre un fichier HF après avoir vérifié sa présence et récupéré sa taille.
     fn dirOpenFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.File.OpenFlags) std.Io.File.OpenError!std.Io.File {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -748,6 +777,7 @@ pub const HF = struct {
         return .{ .handle = @intCast(idx), .flags = .{ .nonblocking = false } };
     }
 
+    // Ferme les répertoires en libérant leurs handles.
     fn dirClose(userdata: ?*anyopaque, dirs: []const std.Io.Dir) void {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         for (dirs) |d| {
@@ -755,6 +785,7 @@ pub const HF = struct {
         }
     }
 
+    // Récupère les enfants du répertoire au premier appel puis distribue les entrées.
     fn dirRead(userdata: ?*anyopaque, reader: *std.Io.Dir.Reader, entries: []std.Io.Dir.Entry) std.Io.Dir.Reader.Error!usize {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
 
@@ -800,6 +831,7 @@ pub const HF = struct {
         return count;
     }
 
+    // Écrit l'URI du répertoire dans le buffer et retourne sa longueur.
     fn dirRealPath(userdata: ?*anyopaque, dir: std.Io.Dir, out_buffer: []u8) std.Io.Dir.RealPathError!usize {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getDirHandle(dir);
@@ -807,12 +839,14 @@ pub const HF = struct {
         return path.len;
     }
 
+    // Résout le chemin complet d'un fichier du répertoire.
     fn dirRealPathFile(userdata: ?*anyopaque, dir: std.Io.Dir, path_name: []const u8, out_buffer: []u8) std.Io.Dir.RealPathFileError!usize {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const real_path = self.resolvePath(dir, path_name, out_buffer) catch return std.Io.Dir.RealPathFileError.NameTooLong;
         return real_path.len;
     }
 
+    // Retourne les métadonnées synthétiques d'un fichier HF ouvert.
     fn fileStat(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.StatError!std.Io.File.Stat {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -830,11 +864,13 @@ pub const HF = struct {
         };
     }
 
+    // Retourne la taille mémorisée du handle de fichier.
     fn fileLength(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.LengthError!u64 {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         return self.getFileHandle(file).size;
     }
 
+    // Ferme les fichiers en libérant leurs handles.
     fn fileClose(userdata: ?*anyopaque, files: []const std.Io.File) void {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         for (files) |file| {
@@ -842,6 +878,7 @@ pub const HF = struct {
         }
     }
 
+    // Lit des données à l'offset demandé via le pool de lectures parallèles.
     fn fileReadPositional(userdata: ?*anyopaque, file: std.Io.File, data: []const []u8, offset: u64) std.Io.File.ReadPositionalError!usize {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -851,6 +888,7 @@ pub const HF = struct {
         };
     }
 
+    // Décale la position du handle d'un offset relatif.
     fn fileSeekBy(userdata: ?*anyopaque, file: std.Io.File, relative_offset: i64) std.Io.File.SeekError!void {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -861,12 +899,14 @@ pub const HF = struct {
             handle.pos - @as(u64, @intCast(-relative_offset));
     }
 
+    // Fixe la position du handle à un offset absolu.
     fn fileSeekTo(userdata: ?*anyopaque, file: std.Io.File, absolute_offset: u64) std.Io.File.SeekError!void {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
         handle.pos = absolute_offset;
     }
 
+    // Écrit l'URI du fichier dans le buffer et retourne sa longueur.
     fn fileRealPath(userdata: ?*anyopaque, file: std.Io.File, out_buffer: []u8) std.Io.File.RealPathError!usize {
         const self: *HF = @fieldParentPtr("base", VFSBase.as(userdata));
         const handle = self.getFileHandle(file);
@@ -874,6 +914,7 @@ pub const HF = struct {
         return path.len;
     }
 
+    // Découpe la lecture en chunks, les soumet au pool parallèle et attend la fin.
     fn performRead(self: *HF, handle: *Handle, data: []const []u8, offset: u64) !usize {
         if (offset >= handle.size) return 0;
 

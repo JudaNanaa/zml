@@ -11,6 +11,7 @@ const log = std.log.scoped(.@"zml/vfs/gcs");
 const EndpointUrl = "https://storage.googleapis.com";
 const MetadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 
+// Détecte si l'on tourne sur l'infra Google Cloud (produit DMI == Google Compute Engine), pour ne sonder le serveur de métadonnées que sur GCP.
 /// Check if running on Google Compute Engine / Cloud Run host infrastructure,
 /// because metadata server probing should only happen on GCP.
 /// Mirrors the TPU platform detection approach.
@@ -66,6 +67,7 @@ const Credentials = union(enum) {
         token_uri: []const u8,
         quota_project_id: ?[]const u8 = null,
 
+        // Construit l'assertion JWT (émetteur, iat, exp à +1h) pour échanger un jeton de compte de service.
         pub fn makeAssertion(self: *const ServiceAccount, io_: std.Io) JwtAssertion {
             const now: std.Io.Timestamp = .now(io_, .real);
             return .{
@@ -80,6 +82,7 @@ const Credentials = union(enum) {
     service_account: ServiceAccount,
     metadata_server: void,
 
+    // Point d'entrée de parsing std.json: lit une valeur JSON puis la convertit en Credentials.
     pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!Credentials {
         return jsonParseFromValue(
             allocator,
@@ -88,6 +91,7 @@ const Credentials = union(enum) {
         );
     }
 
+    // Convertit une valeur JSON en Credentials selon le champ «type» (authorized_user ou service_account).
     pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) std.json.ParseFromValueError!Credentials {
         return switch (source) {
             .object => |obj| blk: {
@@ -140,6 +144,7 @@ pub const GCS = struct {
             chunk_len: usize,
             batch: *Batch,
 
+            // Exécute une requête HTTP Range pour un chunk et l'écrit dans les buffers cibles; gère les erreurs transitoires via .retry().
             pub fn perform(job: Job, client: *std.http.Client) anyerror!parallel_read.Status {
                 var range_buf: [64]u8 = undefined;
                 const range_header = std.fmt.bufPrint(
@@ -265,6 +270,7 @@ pub const GCS = struct {
         header: []u8,
         expires_at: std.Io.Timestamp,
 
+        // Indique si le jeton OAuth a expiré à l'instant courant.
         fn expired(self: *const Token, io_: std.Io) bool {
             const now: std.Io.Timestamp = .now(io_, .real);
             return now.toSeconds() >= self.expires_at.toSeconds();
@@ -285,6 +291,7 @@ pub const GCS = struct {
         pos: u64,
         size: u64,
 
+        // Alloue un Handle et duplique le chemin/URI; initialise position et taille.
         pub fn init(allocator: std.mem.Allocator, type_: Type, path: []const u8, size: u64) !Handle {
             return .{
                 .type = type_,
@@ -294,6 +301,7 @@ pub const GCS = struct {
             };
         }
 
+        // Libère l'URI dupliquée du Handle.
         pub fn deinit(self: *Handle, allocator: std.mem.Allocator) void {
             allocator.free(self.uri);
         }
@@ -333,6 +341,7 @@ pub const GCS = struct {
         Unexpected,
     } || std.mem.Allocator.Error || std.Io.ConcurrentError;
 
+    // Initialise le backend GCS: pool de lectures parallèles, credentials et URI d'endpoint.
     pub fn init(allocator: std.mem.Allocator, inner: std.Io, http_client: *std.http.Client, opts: InitOpts) InitError!GCS {
         var arena: std.heap.ArenaAllocator = .init(allocator);
         errdefer arena.deinit();
@@ -378,6 +387,7 @@ pub const GCS = struct {
         };
     }
 
+    // Crée un GCS en découvrant automatiquement les credentials (env, ADC, serveur de métadonnées GCP).
     pub fn auto(allocator: std.mem.Allocator, inner_io: std.Io, http_client: *std.http.Client, environ_map: *std.process.Environ.Map) !GCS {
         var jsonBuffer: [1024]u8 = undefined;
 
@@ -410,6 +420,7 @@ pub const GCS = struct {
         return .init(allocator, inner_io, http_client, .{});
     }
 
+    // Ouvre le fichier ADC gcloud (APPDATA sous Windows, ~/.config/gcloud sinon); null si absent.
     fn applicationDefaultCredentials(io_: std.Io, environ_map: *std.process.Environ.Map) ?std.Io.File {
         var buffer: [1024]u8 = undefined;
         const path = stdx.Io.Dir.path.bufJoin(&buffer, switch (builtin.os.tag) {
@@ -419,6 +430,7 @@ pub const GCS = struct {
         return std.Io.Dir.openFile(.cwd(), io_, path, .{}) catch null;
     }
 
+    // Interroge le serveur de métadonnées GCP pour obtenir un access token; null si échec.
     fn refreshMetadataServerToken(client: *std.http.Client, buffer: []u8) !?[]const u8 {
         var response_writer: std.Io.Writer = .fixed(buffer);
         const result = try client.fetch(.{
@@ -440,6 +452,7 @@ pub const GCS = struct {
         return response_writer.buffered();
     }
 
+    // Échange un refresh_token utilisateur autorisé contre un access token OAuth2.
     fn refreshAuthorizedUserToken(client: *std.http.Client, authorized_user: Credentials.AuthorizedUser, buffer: []u8) ![]const u8 {
         var response_writer: std.Io.Writer = .fixed(buffer);
         const result = try client.fetch(.{
@@ -463,6 +476,7 @@ pub const GCS = struct {
         return response_writer.buffered();
     }
 
+    // Rafraîchit un jeton de compte de service (non implémenté pour l'instant).
     fn refreshServiceAccountToken(io_: std.Io, client: *std.http.Client, service_account: Credentials.ServiceAccount, buffer: []u8) ![]const u8 {
         _ = io_;
         _ = client;
@@ -509,6 +523,7 @@ pub const GCS = struct {
         // }
     }
 
+    // Sélectionne la méthode de rafraîchissement selon le type de credentials et met à jour le jeton.
     fn refreshToken(self: *GCS) !void {
         var buffer: [4 * 1024]u8 = undefined;
         const payload = switch (self.config.credentials.?) {
@@ -527,6 +542,7 @@ pub const GCS = struct {
         };
     }
 
+    // Retourne l'en-tête Authorization Bearer, en rafraîchissant le jeton s'il a expiré (ou .omit sans credentials).
     fn getOrRefreshToken(self: *GCS) !std.http.Client.Request.Headers.Value {
         if (self.config.credentials == null) {
             return .omit;
@@ -538,6 +554,7 @@ pub const GCS = struct {
         return .{ .override = self.token.header };
     }
 
+    // Libère le pool, les handles ouverts, les états de lecture de répertoire et l'arène.
     pub fn deinit(self: *GCS) void {
         self.read_pool.deinit(self.allocator, self.base.inner);
         self.allocator.destroy(self.read_pool);
@@ -566,6 +583,7 @@ pub const GCS = struct {
         self.arena.deinit();
     }
 
+    // Construit l'IO GCS en branchant les opérations fichier/répertoire sur la vtable.
     pub fn io(self: *GCS) std.Io {
         return .{
             .userdata = &self.base,
@@ -591,6 +609,7 @@ pub const GCS = struct {
         };
     }
 
+    // Réserve un emplacement de handle (réutilise un index libéré sinon en ajoute un).
     fn openHandle(self: *GCS) !struct { u32, *Handle } {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -600,6 +619,7 @@ pub const GCS = struct {
         return .{ @intCast(self.handles.len), try self.handles.addOne(self.allocator) };
     }
 
+    // Libère le Handle à l'index donné et marque l'index comme réutilisable.
     fn closeHandle(self: *GCS, idx: u32) !void {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
@@ -607,18 +627,21 @@ pub const GCS = struct {
         try self.closed_handles.append(self.allocator, idx);
     }
 
+    // Retourne le Handle correspondant à un fichier via son index.
     fn getFileHandle(self: *GCS, file: std.Io.File) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(file.handle));
     }
 
+    // Retourne le Handle correspondant à un répertoire via son index.
     fn getDirHandle(self: *GCS, dir: std.Io.Dir) *Handle {
         self.mutex.lockUncancelable(self.base.inner);
         defer self.mutex.unlock(self.base.inner);
         return self.handles.at(@intCast(dir.handle));
     }
 
+    // Construit le chemin complet (URI d'objet GCS) en concaténant l'URI du répertoire et le sous-chemin.
     fn resolvePath(self: *GCS, dir: std.Io.Dir, sub_path: []const u8, out_buffer: []u8) ![]u8 {
         if (std.meta.eql(dir, std.Io.Dir.cwd())) {
             return try std.fmt.bufPrint(out_buffer, "{s}", .{sub_path});
@@ -635,6 +658,7 @@ pub const GCS = struct {
         return try std.fmt.bufPrint(out_buffer, "{s}/{s}", .{ trimmed_uri, trimmed_sub_path });
     }
 
+    // Intercepte file_read_streaming pour lire à la position courante et avancer celle-ci; délègue les autres opérations.
     fn operate(userdata: ?*anyopaque, operation: std.Io.Operation) std.Io.Cancelable!std.Io.Operation.Result {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         switch (operation) {
@@ -658,6 +682,7 @@ pub const GCS = struct {
         }
     }
 
+    // Ouvre un répertoire GCS en résolvant son chemin et en enregistrant un Handle de type directory.
     fn dirOpenDir(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.OpenOptions) std.Io.Dir.OpenError!std.Io.Dir {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         var path_buffer: [8 * 1024]u8 = undefined;
@@ -669,6 +694,7 @@ pub const GCS = struct {
         return .{ .handle = @intCast(idx) };
     }
 
+    // Retourne les métadonnées synthétiques d'un répertoire GCS (lecture seule).
     fn dirStat(userdata: ?*anyopaque, dir: std.Io.Dir) std.Io.Dir.StatError!std.Io.Dir.Stat {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getDirHandle(dir);
@@ -686,6 +712,7 @@ pub const GCS = struct {
         };
     }
 
+    // Retourne les métadonnées d'un objet GCS après HEAD; mappe FileNotFound/PermissionDenied.
     fn dirStatFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.Dir.StatFileOptions) std.Io.Dir.StatFileError!std.Io.File.Stat {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const size = self.fetchSize(dir, sub_path) catch |err| switch (err) {
@@ -707,8 +734,10 @@ pub const GCS = struct {
         };
     }
 
+    // Vérification d'accès: no-op (les objets GCS sont réputés accessibles).
     fn dirAccess(_: ?*anyopaque, _: std.Io.Dir, _: []const u8, _: std.Io.Dir.AccessOptions) std.Io.Dir.AccessError!void {}
 
+    // Ouvre un objet GCS en lecture après HEAD pour connaître sa taille, et enregistre un Handle.
     fn dirOpenFile(userdata: ?*anyopaque, dir: std.Io.Dir, sub_path: []const u8, _: std.Io.File.OpenFlags) std.Io.File.OpenError!std.Io.File {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const size = self.fetchSize(dir, sub_path) catch |err| switch (err) {
@@ -725,6 +754,7 @@ pub const GCS = struct {
         return .{ .handle = @intCast(idx), .flags = .{ .nonblocking = false } };
     }
 
+    // Ferme les répertoires en libérant leurs handles.
     fn dirClose(userdata: ?*anyopaque, dirs: []const std.Io.Dir) void {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         for (dirs) |dir| {
@@ -732,6 +762,7 @@ pub const GCS = struct {
         }
     }
 
+    // Liste les objets du répertoire (via listObjects) au premier appel puis distribue les entrées par lots.
     fn dirRead(userdata: ?*anyopaque, reader: *std.Io.Dir.Reader, entries: []std.Io.Dir.Entry) std.Io.Dir.Reader.Error!usize {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
 
@@ -784,6 +815,7 @@ pub const GCS = struct {
         return count;
     }
 
+    // Écrit l'URI du répertoire dans le buffer et retourne sa longueur.
     fn dirRealPath(userdata: ?*anyopaque, dir: std.Io.Dir, out_buffer: []u8) std.Io.Dir.RealPathError!usize {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getDirHandle(dir);
@@ -791,12 +823,14 @@ pub const GCS = struct {
         return path.len;
     }
 
+    // Résout et écrit le chemin complet d'un fichier du répertoire.
     fn dirRealPathFile(userdata: ?*anyopaque, dir: std.Io.Dir, path_name: []const u8, out_buffer: []u8) std.Io.Dir.RealPathFileError!usize {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const real_path = self.resolvePath(dir, path_name, out_buffer) catch return std.Io.Dir.RealPathFileError.NameTooLong;
         return real_path.len;
     }
 
+    // Retourne les métadonnées synthétiques d'un objet GCS ouvert.
     fn fileStat(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.StatError!std.Io.File.Stat {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getFileHandle(file);
@@ -814,11 +848,13 @@ pub const GCS = struct {
         };
     }
 
+    // Retourne la taille mémorisée du handle de fichier.
     fn fileLength(userdata: ?*anyopaque, file: std.Io.File) std.Io.File.LengthError!u64 {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         return self.getFileHandle(file).size;
     }
 
+    // Ferme les fichiers en libérant leurs handles.
     fn fileClose(userdata: ?*anyopaque, files: []const std.Io.File) void {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         for (files) |file| {
@@ -826,6 +862,7 @@ pub const GCS = struct {
         }
     }
 
+    // Lit les données à l'offset demandé via le pool de lectures parallèles.
     fn fileReadPositional(userdata: ?*anyopaque, file: std.Io.File, data: []const []u8, offset: u64) std.Io.File.ReadPositionalError!usize {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getFileHandle(file);
@@ -835,6 +872,7 @@ pub const GCS = struct {
         };
     }
 
+    // Décale la position courante du handle (décalage relatif positif ou négatif, borné à 0).
     fn fileSeekBy(userdata: ?*anyopaque, file: std.Io.File, relative_offset: i64) std.Io.File.SeekError!void {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getFileHandle(file);
@@ -851,12 +889,14 @@ pub const GCS = struct {
         }
     }
 
+    // Fixe la position courante du handle à un offset absolu.
     fn fileSeekTo(userdata: ?*anyopaque, file: std.Io.File, absolute_offset: u64) std.Io.File.SeekError!void {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getFileHandle(file);
         handle.pos = absolute_offset;
     }
 
+    // Écrit l'URI de l'objet dans le buffer et retourne sa longueur.
     fn fileRealPath(userdata: ?*anyopaque, file: std.Io.File, out_buffer: []u8) std.Io.File.RealPathError!usize {
         const self: *GCS = @alignCast(@fieldParentPtr("base", VFSBase.as(userdata)));
         const handle = self.getFileHandle(file);
@@ -864,6 +904,7 @@ pub const GCS = struct {
         return path.len;
     }
 
+    // Formate l'instant courant en horodatage ISO 8601 compact (AAAAMMJJTHHMMSSZ) pour le listing GCS.
     fn getTimestamp(self: *GCS, buf: []u8) ![]const u8 {
         const now_ts = std.Io.Clock.now(.real, self.base.inner);
 
@@ -883,6 +924,7 @@ pub const GCS = struct {
         });
     }
 
+    // Sépare un chemin en bucket et préfixe d'objet (au premier «/»).
     fn pathComponents(_: *GCS, path_: []const u8) struct { []const u8, []const u8 } {
         const path = std.mem.trim(u8, path_, "/");
 
@@ -893,6 +935,7 @@ pub const GCS = struct {
         }
     }
 
+    // Construit l'URI de l'objet GCS (endpoint + chemin + alt=media).
     fn gcsUri(self: *GCS, path: []const u8) std.Uri {
         var uri = self.config.endpoint_uri;
         uri.path = .{ .raw = path };
@@ -930,6 +973,7 @@ pub const GCS = struct {
     //     };
     // }
 
+    // Effectue la requête de listing d'objets GCS et retourne le corps XML de la réponse.
     fn listObjectsBody(self: *GCS, bucket: []const u8, key_prefix: []const u8) ![]u8 {
         var query_buf: [4096]u8 = undefined;
         var query_writer = std.Io.Writer.fixed(&query_buf);
@@ -981,6 +1025,7 @@ pub const GCS = struct {
             try res.reader(&.{}).allocRemaining(self.allocator, .limited(1024 * 1024));
     }
 
+    // Liste les objets sous un préfixe et retourne leurs clés parsées.
     fn listObjects(self: *GCS, prefix: []const u8) ![][]const u8 {
         const bucket, const key_prefix = self.pathComponents(prefix);
         const body = try self.listObjectsBody(bucket, key_prefix);
@@ -989,6 +1034,7 @@ pub const GCS = struct {
         return try self.parseListObjectsResponse(body, key_prefix);
     }
 
+    // Prédicat d'encodage URL: caractères non réservés autorisés tels quels.
     fn gcsEncodeIsValid(c: u8) bool {
         return switch (c) {
             'A'...'Z', 'a'...'z', '0'...'9', '-', '.', '_', '~' => true,
@@ -996,6 +1042,7 @@ pub const GCS = struct {
         };
     }
 
+    // Retourne le quota project d'un authorized_user ou service_account, sinon null.
     fn quotaProjectId(self: *const GCS) ?[]const u8 {
         const credentials = self.config.credentials orelse return null;
         return switch (credentials) {
@@ -1005,6 +1052,7 @@ pub const GCS = struct {
         };
     }
 
+    // Extrait les balises <Key> et <Prefix> du XML de listing en filtrant le préfixe lui-même.
     fn parseListObjectsResponse(self: *GCS, xml: []const u8, prefix: []const u8) ![][]const u8 {
         var results: std.ArrayListUnmanaged([]const u8) = .empty;
         errdefer {
@@ -1030,6 +1078,7 @@ pub const GCS = struct {
         return try results.toOwnedSlice(self.allocator);
     }
 
+    // Requête HEAD pour obtenir la taille d'un objet; mappe NotFound/Unauthorized en erreurs dédiées.
     fn fetchSize(self: *GCS, dir: std.Io.Dir, sub_path: []const u8) !u64 {
         var path_buffer: [8 * 1024]u8 = undefined;
         const path = try self.resolvePath(dir, sub_path, &path_buffer);
@@ -1063,6 +1112,7 @@ pub const GCS = struct {
         return size;
     }
 
+    // Découpe la lecture en chunks, les soumet au pool parallèle et attend la fin de tous les jobs.
     fn performRead(self: *GCS, handle: *Handle, data: []const []u8, offset: u64) !usize {
         const read_size = parallel_read.readSize(handle.size, offset, data);
         if (read_size == 0) return 0;
@@ -1100,6 +1150,7 @@ pub const GCS = struct {
     }
 };
 
+// Test: le parsing XML extrait les objets et les préfixes communs en ignorant le préfixe lui-même.
 test "GCS parses XML bucket listing objects and common prefixes" {
     const xml =
         "<?xml version='1.0' encoding='UTF-8'?>" ++
@@ -1125,6 +1176,7 @@ test "GCS parses XML bucket listing objects and common prefixes" {
     try std.testing.expectEqualStrings("LC08/01/001/002/scene/", objects[1]);
 }
 
+// Test: la décomposition d'un chemin sépare correctement bucket et préfixe.
 test "GCS splits bucket and object prefix" {
     var backend: GCS = undefined;
 
