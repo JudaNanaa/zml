@@ -23,6 +23,9 @@ const Tensor = @import("tensor.zig").Tensor;
 const TensorToCustomCallBuffer = @import("pjrtx.zig").TensorToCustomCallBuffer;
 const log = std.log.scoped(.@"zml/Compiler");
 
+// Applique une reduction collective (all-reduce) sur tous les appareils du maillage courant
+// en utilisant la fonction de reduction fournie ; accepte un Tensor, un tuple ou un tableau
+// de Tensors et renvoie la meme structure avec les valeurs reduites.
 pub fn allReduce(inputs: anytype, comptime func: anytype) AllReduceReturnType(@TypeOf(inputs)) {
     const ctx = Compiler.current();
     const mlir_ctx = ctx.mlir_ctx;
@@ -57,6 +60,7 @@ pub fn allReduce(inputs: anytype, comptime func: anytype) AllReduceReturnType(@T
 
             var flat_inputs: [n_inputs]Tensor = undefined;
             meta.collectBuf((struct {
+                // Callback interne qui renvoie le Tensor tel quel ; sert a aplatir les entrees composees en tableau.
                 pub fn cb(t: Tensor) Tensor {
                     return t;
                 }
@@ -174,6 +178,8 @@ pub fn allReduce(inputs: anytype, comptime func: anytype) AllReduceReturnType(@T
     };
 }
 
+// Calcule le type de retour de `allReduce` selon la forme du conteneur d'entree
+// (Tensor, tuple ou tableau) ; erreur de compilation sinon.
 fn AllReduceReturnType(comptime InputsT: type) type {
     if (InputsT == Tensor) return Tensor;
 
@@ -194,6 +200,8 @@ fn AllReduceReturnType(comptime InputsT: type) type {
     };
 }
 
+// Renvoie un Tensor scalaire contenant l'identifiant de la partition (appareil) courante
+// (operation stablehlo.partition_id).
 pub fn partitionId() Tensor {
     const ctx = Compiler.current();
     const op = mlir.Operation.make(ctx.mlir_ctx, "stablehlo.partition_id", .{
@@ -208,6 +216,8 @@ pub const ReduceArgs = struct {
     right: Tensor,
 };
 
+// Emet une operation stablehlo.reduce sur les axes donnes avec le reducteur fourni,
+// puis re-diffuse le resultat vers la forme des entrees pour preserver les tags.
 pub fn reduce(inputs: anytype, inits: anytype, axes_: []const i64, comptime func: anytype, context: anytype) stdx.meta.FnReturn(func) {
     const compiler = Compiler.current();
     const caller_scope = compiler.currentScope();
@@ -312,6 +322,8 @@ pub const ReduceWindowOpts = struct {
     padding: []const [2]i64,
 };
 
+// Construit le type de fonction utilise comme reducteur par `reduceWindow` :
+// prend N paires ReduceArgs et renvoie N Tensors.
 pub fn ReduceWindowFn(N: comptime_int) type {
     return @Fn(
         &@as([N]type, @splat(ReduceArgs)),
@@ -321,6 +333,8 @@ pub fn ReduceWindowFn(N: comptime_int) type {
     );
 }
 
+// Emet une operation stablehlo.reduce_window avec les fenetres, pas, dilatations et padding
+// donnes, en appelant le reducteur fourni sur chaque fenetre.
 pub fn reduceWindow(N: comptime_int, inputs: [N]Tensor, inits: [N]Tensor, opts: ReduceWindowOpts, func: *const ReduceWindowFn(N)) [N]Tensor {
     const compiler = Compiler.current();
     const mlir_ctx = compiler.mlir_ctx;
@@ -399,6 +413,8 @@ pub const SortArgs = struct {
     right: Tensor,
 };
 
+// Emet une operation stablehlo.sort le long de `axis_` avec le comparateur fourni,
+// en precisant si le tri doit etre stable ; renvoie un Tensor par entree.
 pub fn sort(inputs: anytype, axis_: i64, comptime func: anytype, context: anytype, is_stable: bool) [inputs.len]Tensor {
     const compiler = Compiler.current();
     const mlir_ctx = compiler.mlir_ctx;
@@ -460,6 +476,9 @@ pub fn sort(inputs: anytype, axis_: i64, comptime func: anytype, context: anytyp
     return result;
 }
 
+// Implemente une boucle while : construit les blocs de condition et de corps a partir du type
+// `While` et emet une operation stablehlo.while renvoyant l'etat final.
+// `While` doit fournir un type State, une methode `cond` et une methode `body`.
 /// Implement a while loop.
 /// The given While struct contains all the parameters that are fixed through the while.
 /// It must have:
@@ -484,6 +503,7 @@ pub fn @"while"(
     // Force to materialize tensor.value() before we push a new scope.
     var captured_context: While = undefined;
     meta.mapAlloc(struct {
+        // Callback interne qui materialise la valeur d'un Tensor avant d'entrer dans une nouvelle portee.
         fn capture(_: void, tensor: Tensor) Tensor {
             return Tensor._result(tensor.shape(), tensor.value());
         }
@@ -574,6 +594,7 @@ pub fn @"while"(
         og_tensors: []*const Tensor,
         idx: usize = 0,
 
+        // Callback interne qui reecrit chaque Tensor de resultat pour pointer sur les resultats de l'op while.
         fn assign(ctx: *@This(), tensor: *Tensor) void {
             tensor.* = Tensor._result(ctx.og_tensors[ctx.idx].shape(), ctx.op_.result(ctx.idx));
             ctx.idx += 1;
@@ -590,6 +611,7 @@ pub fn @"while"(
 
 pub const while_ = @"while";
 
+// Verifie qu'une boucle while (compteur i et accumulateur sum) produit bien i=10 et sum=9.
 test @"while" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -604,10 +626,12 @@ test @"while" {
             sum: zml.Tensor,
         };
 
+        // Condition de la boucle while de test : vraie tant que state.i < limit.
         pub fn cond(self: @This(), state: State) Tensor {
             return state.i.cmp(.LT, Tensor.scalar(self.limit, .i64));
         }
 
+        // Corps de la boucle while de test : incremente i et sum de step.
         pub fn body(self: @This(), state: State) State {
             return .{
                 .i = state.i.add(self.step),
@@ -615,6 +639,7 @@ test @"while" {
             };
         }
 
+        // Point d'entree de test qui lance la boucle while depuis i et sum initiaux.
         fn forward(i: Tensor, sum: Tensor) State {
             return zml.ops.@"while"(
                 @This(),
@@ -657,6 +682,8 @@ test @"while" {
     try std.testing.expectEqual(@as(i64, 9), cpu_sum.items(i64)[0]);
 }
 
+// Implemente un if/else via stablehlo.if : les tenseurs sont captures et chaque branche
+// n'est evaluee que dans son propre bloc (les effets de bord restent locaux a la branche).
 /// Implement if/else branches.
 /// The given If struct contains all the parameters that can be referenced in the if/else branches.
 ///
@@ -688,6 +715,7 @@ pub fn @"if"(
 
     // Explicitly capture values from the parent block.
     meta.mapAlloc(struct {
+        // Callback interne qui materialise la valeur des tenseurs captures avant d'entrer dans les branches.
         fn capture(_: void, tensor: Tensor) Tensor {
             return Tensor._result(tensor.shape(), tensor.value());
         }
@@ -742,6 +770,7 @@ pub fn @"if"(
     return fromMlirOperationWithTags(op, true_branch);
 }
 
+// Verifie la compilation d'un `if` dont les branches calculent des produits matriciels differents.
 test "if" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -751,14 +780,17 @@ test "if" {
         a: Tensor,
         b: Tensor,
 
+        // Forward de test qui appelle `@"if"` avec la condition convertie en booleen.
         pub fn _fwd(pred: Tensor, a: Tensor, b: Tensor) Tensor {
             return @"if"(@This(), .{ .a = a, .b = b }, pred.convert(.bool));
         }
 
+        // Branche vraie de test : produit a . b.
         pub fn onTrue(ctx: @This()) Tensor {
             return ctx.a.dotGeneral(ctx.b, &.{.{ 1, 0 }}, &.{});
         }
 
+        // Branche fausse de test : produit b . a.
         pub fn onFalse(ctx: @This()) Tensor {
             return ctx.b.dotGeneral(ctx.a, &.{.{ 1, 0 }}, &.{});
         }
@@ -773,6 +805,8 @@ test "if" {
     }
 }
 
+// Variante simplifiee de `@"if"` supposant que le backend peut deplacer le code :
+// les deux branches sont calculees avant la condition, puis la condition selectionne le resultat.
 /// Simpler variant of `zml.ops.if` that assumes code-motion is supported by the backend.
 /// The two branches are evaluated before the condition, then the condition chose which branches to keep.
 pub fn if2(
@@ -829,12 +863,14 @@ pub fn if2(
     return fromMlirOperationWithTags(op, on_true);
 }
 
+// Verifie la compilation de `if2` avec deux branches de produits matriciels.
 test if2 {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
     const allocator = std.testing.allocator;
 
     const IfMod = struct {
+        // Forward de test qui appelle `if2` avec les deux produits matriciels.
         pub fn _fwd(pred: Tensor, a: Tensor, b: Tensor) Tensor {
             return if2(
                 pred.convert(.bool),
@@ -853,6 +889,8 @@ test if2 {
     }
 }
 
+// Reconstruit une structure (ex. tuple de Tensors) a partir d'une operation MLIR en conservant
+// les tags et le sharding de `base`, mais en utilisant les dimensions des resultats de l'op.
 /// Create a Tensor struct similar to base, keeping base tags,
 /// but using mlir value and dims from the mlir operation.
 fn fromMlirOperationWithTags(op: *const mlir.Operation, base: anytype) @TypeOf(base) {
@@ -863,6 +901,7 @@ fn fromMlirOperationWithTags(op: *const mlir.Operation, base: anytype) @TypeOf(b
     var context = LocalContext{ .index = 0, .op = op };
     var res = base;
     meta.visit((struct {
+        // Callback interne qui associe chaque Tensor au resultat MLIR suivant, en recopiant tags et sharding.
         fn cb(inner_ctx: *LocalContext, tensor: *Tensor) void {
             var new = Tensor.fromMlirValue(inner_ctx.op.result(inner_ctx.index));
             stdx.debug.internalAssert(new.rank() == tensor.rank(), "expected operand result to have rank {} but got {f}", .{ tensor.rank(), new });
@@ -890,6 +929,8 @@ pub const TritonOps = struct {
     output_operand_aliases: []const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = &.{},
 };
 
+// Emet un custom_call stablehlo appelant un noyau Triton GPU XLA, avec l'IR, la grille et les
+// options de compilation fournis ; renvoie un Tensor par sortie.
 /// Generate an MLIR call to the given member function with the given tensors.
 pub fn triton(inputs: anytype, outputs: anytype, opts: TritonOps) [outputs.len]Tensor {
     const compiler = Compiler.current();
@@ -971,6 +1012,7 @@ pub const FlyOps = struct {
     output_operand_aliases: []const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = &.{},
 };
 
+// Emet un custom_call stablehlo appelant un noyau GPU "fly" (ROCm), avec l'IR et la grille fournis.
 pub fn fly(inputs: anytype, outputs: anytype, opts: FlyOps) [outputs.len]Tensor {
     const compiler = Compiler.current();
     const mlir_ctx = compiler.mlir_ctx;
@@ -1044,6 +1086,7 @@ pub fn fly(inputs: anytype, outputs: anytype, opts: FlyOps) [outputs.len]Tensor 
     return outputs_;
 }
 
+// Verifie les custom calls fly sur ROCm pour les deux ABI d'entree (pointeurs !fly.ptr et tenseur destination).
 test "fly custom call, both entry ABIs" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1053,6 +1096,7 @@ test "fly custom call, both entry ABIs" {
 
     // Compile `forward` over one f32 input and bring the result back.
     const call = struct {
+        // Aide de test : compile `forward`, televerse l'entree, execute le module et renvoie le resultat hote.
         fn f(comptime forward: anytype, p: *const zml.Platform, t: Tensor, h: []const f32) !zml.Slice {
             var exe = try zml.module.compile(std.testing.allocator, std.testing.io, forward, .{t}, p, .{});
             defer exe.deinit();
@@ -1090,6 +1134,7 @@ test "fly custom call, both entry ABIs" {
                 \\  }
                 \\}
             ;
+            // Forward de test utilisant l'IR du noyau au format ABI natif Fly (!fly.ptr par operande puis par resultat).
             pub fn forward(a: Tensor) Tensor {
                 return fly(.{a}, .{a.shape()}, .{ .name = "add_one", .ir = ir, .grid = .{ 1, 1, 1 }, .num_warps = 2 })[0];
             }
@@ -1119,6 +1164,7 @@ test "fly custom call, both entry ABIs" {
                 \\  }
                 \\}
             ;
+            // Forward de test utilisant l'IR du noyau au format ABI tenseur a destination (func.func).
             pub fn forward(a: Tensor) Tensor {
                 return fly(.{a}, .{a.shape()}, .{ .name = "add_one", .ir = ir, .grid = .{ 1, 1, 1 }, .num_warps = 2 })[0];
             }
@@ -1142,6 +1188,8 @@ pub const NeuronNkiOps = struct {
     output_operand_aliases: []const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = &.{},
 };
 
+// Emet un custom_call pour un noyau Neuron NKI : compile la source en backend_config puis emet l'op.
+// N'est disponible que sur la plateforme Neuron.
 /// Generate an MLIR call for a Neuron NKI kernel.
 ///
 /// This API is Neuron-only: the source is compiled to an
@@ -1235,6 +1283,7 @@ pub fn neuronNki(inputs: anytype, outputs: anytype, opts: NeuronNkiOps) [outputs
     return outputs_;
 }
 
+// Verifie le custom call Triton sur CUDA, ROCm ou oneAPI.
 test "triton" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1257,6 +1306,7 @@ test "triton" {
     ;
 
     const TritonMod = struct {
+        // Forward de test invoquant le noyau Triton d'addition.
         pub fn forward(a: Tensor, b: Tensor) [2]Tensor {
             return triton(.{ a, b }, .{ a.shape(), b.shape() }, .{
                 .debug = false,
@@ -1312,6 +1362,8 @@ pub const CudaTileOps = struct {
     output_operand_aliases: []const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = &.{},
 };
 
+// Emet un custom_call "cuda_tile" : XLA assemble l'IR TileIR et lance le noyau sur la grille.
+// Chaque operande et resultat est recu sous forme de pointeur brut dans l'ordre.
 /// A `__gpu$xla.gpu.cuda_tile` custom call: XLA assembles `ir` with tileiras
 /// and launches `name` over `grid` tile blocks. Every operand and result
 /// arrives as one raw device pointer, in order, in the default layout.
@@ -1381,6 +1433,7 @@ pub const CuteOps = struct {
     output_operand_aliases: []const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = &.{},
 };
 
+// Emet un custom_call "cute" : XLA compile l'IR CuTe DSL et lance le noyau nomme.
 /// A `__gpu$xla.gpu.cute` custom call: XLA compiles `ir` with the CuTe compiler
 /// and launches `name`. Every operand and result arrives as one raw device
 /// pointer, in order, in the default layout.
@@ -1447,6 +1500,7 @@ pub fn cute(inputs: anytype, outputs: anytype, opts: CuteOps) [outputs.len]Tenso
     return outputs_;
 }
 
+// Verifie le custom call CuTe (addition sur 128 f32) sur CUDA.
 test "cute" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1486,6 +1540,7 @@ test "cute" {
     ;
 
     const Mod = struct {
+        // Forward de test invoquant le noyau CuTe d'addition.
         pub fn forward(a: Tensor) Tensor {
             return cute(.{a}, .{a.shape()}, .{ .name = "add_one", .ir = ir })[0];
         }
@@ -1512,6 +1567,7 @@ test "cute" {
     }
 }
 
+// Verifie le custom call cuda_tile (addition sur 128 f32) sur CUDA.
 test "cuda_tile" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1541,6 +1597,7 @@ test "cuda_tile" {
     ;
 
     const Mod = struct {
+        // Forward de test invoquant le noyau cuda_tile d'addition.
         pub fn forward(a: Tensor) Tensor {
             return cudaTile(.{a}, .{a.shape()}, .{
                 .name = "add_one",
@@ -1571,6 +1628,7 @@ test "cuda_tile" {
     }
 }
 
+// Verifie cuda_tile avec une grille multi-blocs (2x3x4) ecrivant des tranches distinctes.
 test "cuda_tile grid" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1608,6 +1666,7 @@ test "cuda_tile grid" {
     ;
 
     const Mod = struct {
+        // Forward de test invoquant le noyau cuda_tile de grille.
         pub fn forward(a: Tensor) Tensor {
             return cudaTile(.{a}, .{a.shape()}, .{
                 .name = "grid",
@@ -1638,6 +1697,7 @@ test "cuda_tile grid" {
     }
 }
 
+// Verifie cuda_tile avec `zeroed_outputs` : le noyau n'ecrit que la premiere moitie, XLA met l'autre a zero.
 test "cuda_tile zeroed_outputs" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1667,6 +1727,7 @@ test "cuda_tile zeroed_outputs" {
     ;
 
     const Mod = struct {
+        // Forward de test invoquant le noyau cuda_tile d'ecriture partielle.
         pub fn forward(a: Tensor) Tensor {
             return cudaTile(.{a}, .{a.shape()}, .{
                 .name = "half",
@@ -1704,6 +1765,8 @@ pub const ScatterArgs = struct {
     update: Tensor,
 };
 
+// Version generalisee de scatter a plusieurs entrees : memes indices pour mettre a jour plusieurs
+// tenseurs via une fonction utilisateur. Lent sur GPU, preferer Tensor.scatterSlices.
 /// Generalized version of scatter to many inputs.
 /// See `zml.Tensor.scatterSlices` for documentation on scatter.
 ///
@@ -1848,6 +1911,8 @@ const ScatterConfig = struct {
 
 const ScatterAxisKind = enum { batching, update_window, inserted_window, window_id };
 
+// Calcule la configuration StableHLO d'un scatter (types d'axes, batching, transposition des updates)
+// a partir des formes taggees de l'operande, des mises a jour et des indices.
 fn scatterConfig(
     op: Shape,
     update: Shape,
@@ -1937,6 +2002,7 @@ fn scatterConfig(
     };
 }
 
+// Verifie `scatterConfig` pour la forme taggee et la forme normalisee (axes batch/inserted/window_id).
 test scatterConfig {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -1951,6 +2017,7 @@ test scatterConfig {
     defer scope.pop();
 
     const Local = struct {
+        // Aide de test : renvoie des indices nuls diffuses vers `idx_shape`.
         pub fn _idx(idx_shape: anytype) Tensor {
             return Tensor.constant(.{ .i32 = 0 }).broad(Shape.init(idx_shape, .i32));
         }
@@ -1980,6 +2047,8 @@ test scatterConfig {
     }
 }
 
+// Concatene les indices par axe en un seul tenseur, en reordonnant et etendant les
+// axes de batching pour simplifier le travail du backend.
 /// Concatenate all indices tensor in one tensor.
 ///
 /// Is allowed to reorder stuff to simplify the job of the backend,
@@ -2034,6 +2103,8 @@ pub const GatherAxisKind = enum { batching, offset, collapsed, indices };
 
 pub const GatherOpts = struct { indices_are_sorted: bool = false };
 
+// Emet une operation stablehlo.gather sur les axes tagges donnes ; gere batching, axes regroupes
+// et sentinelles de remplissage, et retombe sur un slice pour le cas simple.
 pub fn gather(self: Tensor, idx_axes: []const u3, idx_per_axis: []const Tensor, opts: GatherOpts) Tensor {
     const compiler = Compiler.current();
     const mlir_ctx = compiler.mlir_ctx;
@@ -2158,6 +2229,8 @@ pub fn gather(self: Tensor, idx_axes: []const u3, idx_per_axis: []const Tensor, 
 /// Fill/drop indexed ops use max-value integer sentinels for inactive lanes;
 /// those lanes must not issue indirect memory accesses after lowering.
 pub const LoweringCompatibility = struct {
+    // Correctif Neuron : conserve les scalaires entiers de rang 0 comme diffusions scalaires pour
+    // eviter leur repliement trop precoce par le backend. Renvoie null hors Neuron.
     /// Keep scalar integer broadcasts as scalar broadcasts until StableHLO broadcast emission.
     ///
     /// Some backend compilers fold rank-0 integer scalars into full-rank dense
@@ -2173,6 +2246,8 @@ pub const LoweringCompatibility = struct {
         return self.optimizationBarrier().broadcast(output_shape, &.{});
     }
 
+    // Correctif Neuron : neutralise les voies indicees inactives (sentinelles de remplissage) avant
+    // l'abaissement en acces memoire indirect. Sans effet hors Neuron.
     /// Preserve gather fill semantics before backend indirect-memory lowering.
     ///
     /// Frontends represent inactive gather rows by passing an out-of-bounds
@@ -2192,6 +2267,8 @@ pub const LoweringCompatibility = struct {
         replaceInactiveIndirectIndices(indices, active_lanes);
     }
 
+    // Correctif Neuron : masque les mises a jour de scatter inactives et reecrit les indices
+    // sentinelles avant l'abaissement indirect. Sans effet hors Neuron.
     /// Preserve scatter drop semantics before backend indirect-memory lowering.
     /// Same as above but for scatter drop semantics.
     pub fn preserveScatterDropSemantics(indices: []Tensor, updates: anytype, opts: Tensor.ScatterOpts, update_values: *[updates.len]*const mlir.Value) void {
@@ -2212,6 +2289,8 @@ pub const LoweringCompatibility = struct {
         }
     }
 
+    // Construit le masque booleen des voies actives (indices valides) pour les sentinelles de
+    // remplissage/abandon ; tient compte du retrecissement des indices 64 bits vers i32.
     /// Builds the lane mask used by fill/drop compatibility rewrites.
     ///
     /// For normal index widths, the max representable value is the inactive
@@ -2245,6 +2324,8 @@ pub const LoweringCompatibility = struct {
         return active;
     }
 
+    // Remplace les indices sentinelles inactifs par zero avant l'abaissement indirect,
+    // la mise a jour correspondante etant masquee cote appelant.
     /// Replaces inactive sentinel indices with a safe index before indirect lowering.
     ///
     /// The replacement index is intentionally zero: it is always in-bounds for
@@ -2261,6 +2342,8 @@ pub const LoweringCompatibility = struct {
     }
 };
 
+// Renvoie les indices d'axes dont la valeur de type T egale `value`, sous forme de BoundedArray.
+// `T` est en pratique ScatterAxisKind ou GatherAxisKind.
 pub fn _collectAxes(T: type, bounded_array: stdx.BoundedArray(T, constants.MAX_RANK), value: T) stdx.BoundedArray(i64, constants.MAX_RANK) {
     var res: stdx.BoundedArray(i64, constants.MAX_RANK) = .empty;
     for (bounded_array.constSlice(), 0..) |v, ax| {
@@ -2271,6 +2354,8 @@ pub fn _collectAxes(T: type, bounded_array: stdx.BoundedArray(T, constants.MAX_R
     return res;
 }
 
+// Convertit un type de specification des sorties (void, Shape, tuple, tableau, slice) en type
+// de retour correspondant (void, Tensor, [N]Tensor ou []Tensor).
 fn CustomCallResultTypeFromOutputSpec(comptime OutputSpecT: type) type {
     const type_info = @typeInfo(OutputSpecT);
     return switch (type_info) {
@@ -2303,6 +2388,8 @@ pub const CustomCallOptions = struct {
     compute_on_host: bool = false,
 };
 
+// Construit les attributs MLIR supplementaires du custom call, notamment le marqueur
+// "compute on host" pour le calcul deporte sur l'hote.
 fn customCallAdditionalAttributes(ctx: *Compiler, opts: CustomCallOptions) []const mlir.NamedAttribute {
     if (!opts.compute_on_host or ctx.platform.target == .cpu) return &.{};
 
@@ -2315,6 +2402,8 @@ fn customCallAdditionalAttributes(ctx: *Compiler, opts: CustomCallOptions) []con
     return additional_attributes;
 }
 
+// Convertit une table d'alias nommes (champ de sortie vers champ d'entree optionnel) en tableau
+// d'alias sortie/operande StableHLO (ou null si absent).
 pub fn customCallOutputOperandAliases(
     comptime I: type,
     comptime O: type,
@@ -2351,6 +2440,8 @@ pub const CompositeOpts = struct {
     composite_attributes: []const mlir.NamedAttribute = &.{},
 };
 
+// Emet une operation stablehlo.composite nommee, en enregistrant la fonction de decomposition
+// fournie et en renvoyant les Tensors de sortie.
 pub fn composite(
     name: [:0]const u8,
     inputs: []const Tensor,
@@ -2385,6 +2476,7 @@ pub fn composite(
             var result = @call(.auto, decomposition, .{ arg_tensors, context });
             const rtensors = ctx.alloc(Tensor, outputs.len);
             meta.collectBuf((struct {
+                // Callback interne qui recopie les resultats de la decomposition vers les valeurs de retour du bloc.
                 pub fn func(t: Tensor) Tensor {
                     return t;
                 }
@@ -2439,6 +2531,8 @@ pub fn composite(
     return out_tensors;
 }
 
+// Emet un custom_call stablehlo generique : normalise entrees et sorties en slices plates,
+// appelle `typedCustomCall`, puis reconstruit la structure de sortie demandee.
 pub fn customCall(target_name: [:0]const u8, inputs: anytype, outputs: anytype, metadata: anytype, opts: CustomCallOptions) CustomCallResultTypeFromOutputSpec(@TypeOf(outputs)) {
     // Transform generic inputs to flat slice.
     const inputs_: []const Tensor = switch (@typeInfo(@TypeOf(inputs))) {
@@ -2449,6 +2543,7 @@ pub fn customCall(target_name: [:0]const u8, inputs: anytype, outputs: anytype, 
             if (!struct_info.is_tuple) @compileError("Expected tuple");
             var inputs_: [struct_info.fields.len]Tensor = undefined;
             meta.collectBuf((struct {
+                // Callback interne qui aplatit les entrees composees en un tableau de Tensors.
                 pub fn func(t: Tensor) Tensor {
                     return t;
                 }
@@ -2473,6 +2568,7 @@ pub fn customCall(target_name: [:0]const u8, inputs: anytype, outputs: anytype, 
             if (!struct_info.is_tuple) @compileError("Expected tuple");
             var output_shapes: [struct_info.fields.len]Shape = undefined;
             meta.collectBuf((struct {
+                // Callback interne qui aplatit les formes de sortie composees en un tableau de Shapes.
                 pub fn func(t: Shape) Shape {
                     return t;
                 }
@@ -2523,6 +2619,8 @@ pub fn customCall(target_name: [:0]const u8, inputs: anytype, outputs: anytype, 
     };
 }
 
+// Execute un corps par fragment (shard) en utilisant un seul maillage pour toutes les
+// specifications de partitionnement d'entree et de sortie.
 /// Runs a per-shard body using one mesh for all input and output partition specs.
 pub fn manualComputation(
     comptime body_fn: anytype,
@@ -2538,6 +2636,7 @@ pub fn manualComputation(
             if (!struct_info.is_tuple) @compileError("Expected tuple output shapes");
             var output_shapes_flat: [struct_info.fields.len]Shape = undefined;
             meta.collectBuf((struct {
+                // Callback interne qui aplatit les formes de sortie composees en un tableau de Shapes.
                 pub fn func(t: Shape) Shape {
                     return t;
                 }
@@ -2559,11 +2658,14 @@ pub fn manualComputation(
     return manualComputationSliceToReturn(ReturnT, sharded_outputs);
 }
 
+// Reconstruit la structure d'entrees en substituant a chaque Tensor son equivalent localise
+// sur le fragment courant.
 fn manualComputationLocalizeInputs(allocator: std.mem.Allocator, inputs: anytype, local_tensors: []const Tensor) !@TypeOf(inputs) {
     const Context = struct {
         local_tensors: []const Tensor,
         input_idx: usize = 0,
 
+        // Callback interne qui renvoie le prochain tenseur localise et incremente l'indice.
         fn localize(self: *@This(), _: Tensor) Tensor {
             stdx.debug.assert(self.input_idx < self.local_tensors.len, "manualComputation ran out of localized inputs", .{});
             defer self.input_idx += 1;
@@ -2578,6 +2680,8 @@ fn manualComputationLocalizeInputs(allocator: std.mem.Allocator, inputs: anytype
     return local_inputs;
 }
 
+// Determine le maillage unique partage par toutes les entrees et sorties, ou le maillage de
+// repli ; renvoie une erreur si des maillages incompatibles coexistent.
 fn manualComputationMesh(inputs: []const Shape, outputs: []const Shape, fallback: *const Sharding.Mesh) error{IncompatibleMeshes}!*const Sharding.Mesh {
     var mesh: ?*const Sharding.Mesh = null;
     for ([_][]const Shape{ inputs, outputs }) |shapes| {
@@ -2592,6 +2696,7 @@ fn manualComputationMesh(inputs: []const Shape, outputs: []const Shape, fallback
     return mesh orelse fallback;
 }
 
+// Verifie l'inference du maillage dans manualComputation (cas homogene, mixte et incompatibles).
 test "manualComputation infers one mesh from inputs and outputs" {
     const fallback: Sharding.Mesh = .{
         .name = "fallback",
@@ -2619,6 +2724,8 @@ test "manualComputation infers one mesh from inputs and outputs" {
     try std.testing.expectError(error.IncompatibleMeshes, manualComputationMesh(&.{sharded}, &.{other}, &fallback));
 }
 
+// Coeur de manualComputation : calcule les formes locales et emet sdy.manual_computation
+// (partitionneur Shardy) ou les shims SPMDFullToShard/ShardToFull (GSPMD).
 fn manualComputationInternal(
     inputs: anytype,
     outputs: []const Shape,
@@ -2800,6 +2907,8 @@ fn manualComputationInternal(
     };
 }
 
+// Verifie l'API de gestionnaire de manualComputation : configuration conservee, champs
+// optionnels nuls et entrees imbriquees localisees.
 test "manualComputation handler API" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -2824,6 +2933,7 @@ test "manualComputation handler API" {
         enabled: bool,
         rhs: Tensor,
 
+        // Gestionnaire de test verifiant que la configuration est preservee, puis calcule lhs+rhs+bias.
         pub fn compute(self: @This(), output_shape: Shape) Tensor {
             stdx.debug.assert(self.enabled, "manualComputation did not preserve handler configuration", .{});
             stdx.debug.assert(self.missing_bias == null, "manualComputation did not preserve a null optional tensor", .{});
@@ -2847,6 +2957,7 @@ test "manualComputation handler API" {
         (struct {
             input: Tensor,
 
+            // Gestionnaire de test qui se contente de recopier son entree vers la forme de sortie.
             pub fn call(self: @This(), output_shape: Shape) Tensor {
                 return self.input.reshape(output_shape);
             }
@@ -2874,6 +2985,7 @@ test "manualComputation handler API" {
         slice_inputs: []const Tensor,
         original_values: [5]usize,
 
+        // Gestionnaire de test verifiant que les entrees imbriquees et les slices sont localisees, puis les somme.
         pub fn compute(self: @This(), output_shape: Shape) Tensor {
             const localized_inputs = [_]Tensor{
                 self.nested_inputs.pair[0],
@@ -2906,6 +3018,7 @@ test "manualComputation handler API" {
     try zml.testing.expectEqualShapes(shape, nested.shape());
 }
 
+// Calcule le type de retour du corps d'un manualComputation (void, Tensor ou tranche de Tensors).
 fn manualComputationReturnType(comptime body_fn: anytype) type {
     const ReturnT = stdx.meta.FnReturn(body_fn);
     if (ReturnT == void or ReturnT == Tensor) return ReturnT;
@@ -2921,6 +3034,7 @@ fn manualComputationReturnType(comptime body_fn: anytype) type {
     };
 }
 
+// Normalise le resultat du corps en une tranche []const Tensor.
 fn manualComputationBodyToSlice(comptime ReturnT: type, allocator: std.mem.Allocator, result: ReturnT) []const Tensor {
     if (ReturnT == void) return &.{};
     if (ReturnT == Tensor) {
@@ -2932,6 +3046,7 @@ fn manualComputationBodyToSlice(comptime ReturnT: type, allocator: std.mem.Alloc
     return result;
 }
 
+// Construit l'argument des formes de sortie attendu par le corps, selon son type de parametre.
 fn manualComputationOutputShapesArg(comptime OutputShapesT: type, local_output_shapes: []const Shape) OutputShapesT {
     if (OutputShapesT == void) {
         stdx.debug.assert(local_output_shapes.len == 0, "manualComputation body expects no output shapes, got {}", .{local_output_shapes.len});
@@ -2956,6 +3071,7 @@ fn manualComputationOutputShapesArg(comptime OutputShapesT: type, local_output_s
     };
 }
 
+// Reconstitue la valeur de retour du corps a partir de la tranche de sorties par fragment.
 fn manualComputationSliceToReturn(comptime ReturnT: type, outputs: []const Tensor) ReturnT {
     if (ReturnT == void) {
         stdx.debug.assert(outputs.len == 0, "manualComputation expected no outputs, got {}", .{outputs.len});
@@ -2968,6 +3084,8 @@ fn manualComputationSliceToReturn(comptime ReturnT: type, outputs: []const Tenso
     return outputs;
 }
 
+// Convertit une valeur entiere (signee ou non) en attribut MLIR du bon type ;
+// `int_field` decrit la largeur et la signature du champ.
 fn metadataIntegerFieldToMlirAttribute(mlir_ctx: *mlir.Context, int_field: std.builtin.Type.Int, value: anytype) *const mlir.Attribute {
     return switch (int_field.signedness) {
         .signed => switch (int_field.bits) {
@@ -2987,6 +3105,7 @@ fn metadataIntegerFieldToMlirAttribute(mlir_ctx: *mlir.Context, int_field: std.b
     };
 }
 
+// Convertit une valeur flottante en attribut MLIR f16/f32/f64 selon la largeur du champ.
 fn metadataFloatFieldToMlirAttribute(mlir_ctx: *mlir.Context, float_field: std.builtin.Type.Float, value: anytype) *const mlir.Attribute {
     return switch (float_field.bits) {
         16 => .float(mlir_ctx, .f16, @as(f64, value)),
@@ -2996,6 +3115,8 @@ fn metadataFloatFieldToMlirAttribute(mlir_ctx: *mlir.Context, float_field: std.b
     };
 }
 
+// Convertit un champ de metadonnees quelconque (entier, flottant, booleen, enum, chaine,
+// optionnel) en attribut MLIR ; renvoie null pour un optionnel absent.
 fn metadataFieldToMlirAttribute(mlir_ctx: *mlir.Context, comptime T: type, value: anytype) ?*const mlir.Attribute {
     const type_info = @typeInfo(T);
     return switch (type_info) {
@@ -3024,6 +3145,8 @@ fn metadataFieldToMlirAttribute(mlir_ctx: *mlir.Context, comptime T: type, value
     };
 }
 
+// Generateur de type pour un custom call type : expose `register` (enregistrement FFI) et
+// `call` (emission de l'operation), avec parametres nommes et gestion du sharding.
 pub fn CustomCall(
     // A, I and O are assumed to be simple struct without any nesting like: { a: zml.Tensor }
     I: type,
@@ -3056,6 +3179,7 @@ pub fn CustomCall(
         pub const OutputShapes = O;
         pub const Attributes = A;
 
+        // Enregistre le gestionnaire FFI de ce custom call aupres de la plateforme.
         /// Register the custom call so you can use it.
         pub fn register(platform: *const Platform) !void {
             try platform.registerFfi(.{
@@ -3068,6 +3192,7 @@ pub fn CustomCall(
             });
         }
 
+        // Emet le custom call type, en choisissant la variante sensible ou non au sharding.
         pub fn call(input_tensors: I, output_shapes: O, attributes: A) ShapeToTensor(O) {
             const opts: CustomCallOptions = .{
                 .has_side_effect = params.has_side_effect,
@@ -3093,6 +3218,8 @@ pub fn CustomCall(
             }
         }
 
+        // Gestionnaire FFI appele par PJRT : decode les tampons et attributs de l'appel puis execute
+        // la fonction utilisateur, en convertissant les erreurs en erreur PJRT.
         fn handler(call_frame: *pjrt.ffi.CallFrame) callconv(.c) ?*pjrt.ffi.Error {
             if (call_frame.registeringHook()) return null;
 
@@ -3103,10 +3230,13 @@ pub fn CustomCall(
     };
 }
 
+// Associe un type de structure de Shapes au type de structure de Tensors correspondant.
 pub fn ShapeToTensor(T: type) type {
     return meta.MapRestrict(Shape, Tensor).map(T);
 }
 
+// Construit le type de structure d'alias de sortie : un champ optionnel par champ de sortie,
+// pointant vers un champ d'entree possible.
 pub fn CustomCallOutputOperandAliases(I: type, O: type) type {
     const output_fields = @typeInfo(O).@"struct".fields;
     var field_names: [output_fields.len][]const u8 = undefined;
@@ -3122,6 +3252,8 @@ pub fn CustomCallOutputOperandAliases(I: type, O: type) type {
     );
 }
 
+// Emet un custom call type par fragment via manualComputation, pour respecter le sharding ;
+// chaque fragment produit ses propres tenseurs de sortie, ensuite reassembles.
 pub fn shardingAwareTypedCustomCall(
     comptime target_name: [:0]const u8,
     comptime opts: CustomCallOptions,
@@ -3142,6 +3274,7 @@ pub fn shardingAwareTypedCustomCall(
         input: Input,
         attributes: Attributes,
 
+        // Corps interne qui emet le custom call type sur les formes de sortie locales au fragment.
         fn body(self: @This(), sharded_output_shapes: []const Shape) []const Tensor {
             return typedCustomCall(target_name, opts, self.input, sharded_output_shapes, self.attributes);
         }
@@ -3160,6 +3293,8 @@ pub fn shardingAwareTypedCustomCall(
     return out;
 }
 
+// Abaisse un custom call type en stablehlo.custom_call : convertit les entrees/sorties,
+// assemble les attributs de metadonnees et les dispositions, puis renvoie les Tensors.
 pub fn typedCustomCall(
     target_name: [:0]const u8,
     opts: CustomCallOptions,
@@ -3290,6 +3425,8 @@ pub fn typedCustomCall(
     }
 }
 
+// Decode un cadre d'appel PJRT en arguments types : tampons d'entree, tampons de sortie
+// et attributs nommes issus de la requete.
 fn customCallArgsFromPjrtCallFrame(I: type, O: type, A: type, call_frame: *pjrt.ffi.CallFrame) struct {
     TensorToCustomCallBuffer(I),
     ShapeToCustomCallBuffer(O),
@@ -3325,6 +3462,7 @@ fn customCallArgsFromPjrtCallFrame(I: type, O: type, A: type, call_frame: *pjrt.
     return .{ input, output, attributes };
 }
 
+// Verifie l'emission d'un customCall et la coherence des formes d'entree/sortie.
 test customCall {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
@@ -3348,6 +3486,7 @@ test customCall {
     try zml.testing.expectEqualShapes(input.shape(), output.shape());
 }
 
+// Verifie la conversion d'alias de champs nommes en indices sortie/operande.
 test "CustomCallOutputOperandAliases maps named fields to indices" {
     const Input = struct {
         q: Tensor,
@@ -3375,12 +3514,15 @@ test "CustomCallOutputOperandAliases maps named fields to indices" {
     );
 }
 
+// Convertit une sequence d'entiers en BoundedArray(usize).
 fn toUsize(values: anytype) stdx.BoundedArray(usize, constants.MAX_RANK) {
     var res: stdx.BoundedArray(usize, constants.MAX_RANK) = .empty;
     for (values) |val| res.appendAssumeCapacity(@intCast(val));
     return res;
 }
 
+// Produit scalaire mis a l'echelle : convertit les operandes en bf16, applique les echelles
+// puis effectue le produit scalaire et repasse en bf16.
 pub fn scaled_dot(lhs: Tensor, rhs: Tensor, lhs_scale: Tensor, rhs_scale: Tensor, args: anytype) Tensor {
     const real_lhs = lhs.convert(.bf16).mul(lhs_scale.convert(.bf16));
     const real_rhs = rhs.convert(.bf16).mul(rhs_scale.convert(.bf16));

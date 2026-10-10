@@ -23,6 +23,7 @@ pub const Linear = struct {
     tag: Shape.Tag,
     quantization: ?Quantization = null,
 
+    // Construit une couche Linear a partir des poids, du biais optionnel et d'un tag d'axe contracte.
     pub fn init(weight: Tensor, bias: ?Tensor, tag: anytype) Linear {
         return .{
             .weight = weight,
@@ -31,18 +32,23 @@ pub const Linear = struct {
         };
     }
 
+    // Libere tous les tampons d'une couche Linear bufferisee.
     pub fn unloadBuffers(self: *zml.Bufferized(Linear)) void {
         zml.Buffer.deinitAll(Linear, self);
     }
 
+    // Renvoie le schema de quantification de la couche, ou null si elle n'est pas quantifiee.
     pub fn quantizationScheme(self: Linear) ?Quantization.Scheme {
         return if (self.quantization) |q| q.scheme else null;
     }
 
+    // Renvoie le tenseur d'echelles de quantification, ou null.
     pub fn quantizationScales(self: Linear) ?Tensor {
         return if (self.quantization) |q| q.scales else null;
     }
 
+    // Applique la couche lineaire a `x` (produit scalaire + biais), en quantifiant l'entree si la
+    // couche est quantifiee, et en convertissant la sortie vers `out_dtype`.
     pub fn forward(self: Linear, x: Tensor, out_dtype: DataType) Tensor {
         if (self.quantization) |q| {
             if (quantization.quantizeInput(q, x, self.tag, zml.Compiler.current().platform)) |input| {
@@ -54,6 +60,8 @@ pub const Linear = struct {
         return if (self.bias) |bias| y.add(bias.convert(y.dtype()).broad(y.shape())) else y;
     }
 
+    // Applique la couche a une activation deja quantifiee (valeurs et echelles reutilisables),
+    // avec conversion vers `output_dtype` avant l'ajout du biais.
     /// Apply this layer to reusable quantized activation values and scales.
     /// Convert to output_dtype before adding bias.
     pub fn forwardQuantized(self: Linear, input: quantization.QuantizedInput, output_dtype: DataType) Tensor {
@@ -61,6 +69,8 @@ pub const Linear = struct {
         return self.forwardScaled(input.values, input.scales, input.global_scale, output_dtype);
     }
 
+    // Coeur du chemin quantifie : prepare poids et echelles (depaquetage fp4, conversion des
+    // echelles), effectue scaledDot, applique les echelles globales puis le biais.
     fn forwardScaled(self: Linear, lhs: Tensor, lhs_scale: ?Tensor, input_global_scale: ?Tensor, output_dtype: DataType) Tensor {
         const q = self.quantization.?;
         const weight_global_scale: ?Tensor = if (q.global_scale) |s| s.asMultiplier() else null;
@@ -72,10 +82,13 @@ pub const Linear = struct {
     }
 };
 
+// Indique si les poids sont des poids 8 bits empaquetes en nvfp4 ou mxfp4.
 pub fn isPackedFp4(scheme: ?Quantization.Scheme, weight_dtype: DataType) bool {
     return (scheme == .nvfp4 or scheme == .mxfp4) and (weight_dtype == .u8 or weight_dtype == .i8);
 }
 
+// Depaquette deux valeurs f4e2m1 par octet le long de `packed_tag` et renomme l'axe etendu
+// `k_tag` ; independant de la taille de groupe (16 NVFP4, 32 MXFP4).
 /// Unpacks two f4e2m1 values per byte along `packed_tag` and names the expanded
 /// axis `k_tag`. Group-size agnostic: NVFP4 (16) and MXFP4 (32) share this packing.
 pub fn unpackFp4(w: Tensor, packed_tag: anytype, contracting_tag: anytype) Tensor {
@@ -87,10 +100,12 @@ pub fn unpackFp4(w: Tensor, packed_tag: anytype, contracting_tag: anytype) Tenso
         .renameTag(.kb, result_tag);
 }
 
+// Verifie que `unpackFp4` double bien la taille de l'axe demande.
 test "unpackFp4 expands the requested axis" {
     const platform = zml.testing.env();
     const packed_weight: Tensor = .init(.{ .out = 2, .stored = 4 }, .u8);
     const Local = struct {
+        // Aide de test qui appelle `unpackFp4` avec les tags donnes.
         fn call(w: Tensor) Tensor {
             return unpackFp4(w, .stored, .contracted);
         }
@@ -102,6 +117,9 @@ test "unpackFp4 expands the requested axis" {
     try zml.testing.expectEqualShapes(.init(.{ .out = 2, .contracted = 8 }, .f4e2m1), exe.output_shapes[0]);
 }
 
+// Produit matriciel mis a l'echelle (xla.scaled_dot) pour les formats quantifies :
+// `acc = (lhs * lhs_scale) @ (rhs * rhs_scale)`. Gere batching, axes contractes, echelles
+// par bloc et option de disposition swizzled des echelles rhs.
 /// Scaled matrix multiply (`xla.scaled_dot`): `acc = (lhs * lhs_scale) @ (rhs * rhs_scale)`.
 ///
 /// - **NVFP4**: values `.f4e2m1`, scales `.f8e4m3fn`, block 16 (weight-only bf16 lhs ok)
@@ -221,6 +239,8 @@ pub const ScaledDotOpts = struct {
     rhs_scale_swizzled: bool = false,
 };
 
+// Compare scaledDot (chemin fusionne block-128) a une reference dequantifiee, pour de
+// nombreuses dispositions et types d'echelles.
 test "block128 scaled dot layouts" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -231,6 +251,7 @@ test "block128 scaled dot layouts" {
     const Local = struct {
         const Outputs = struct { actual: Tensor, expected: Tensor, linear: Tensor, linear_expected: Tensor };
 
+        // Aide de test : developpe les echelles et multiplie les valeurs pour dequantifier.
         fn dequantize(values: Tensor, scales: Tensor) Tensor {
             var expanded = scales.convert(.bf16);
             for (0..values.rank()) |axis| {
@@ -242,6 +263,8 @@ test "block128 scaled dot layouts" {
             return values.convert(.bf16).mul(expanded);
         }
 
+        // Aide de test : calcule, pour une configuration donnee, les resultats reels et attendus
+        // de scaledDot et de la couche Linear.
         fn forward(x: Tensor, w: Tensor, scales: Tensor, fp8: DataType, prequantized: bool) Outputs {
             const weight = w.convert(fp8);
             const input = quantization.quantizeBlockFp8(x, .k, 128, fp8, .f32);
@@ -309,6 +332,7 @@ test "block128 scaled dot layouts" {
     }
 }
 
+// Renvoie `shape` avec le type `dt` et toutes les dimensions ramenees a 1.
 /// `shape` with every dimension collapsed to 1
 fn onesGrid(shape: Shape, dt: DataType) Shape {
     var res = shape.withDtype(dt);
@@ -319,6 +343,7 @@ fn onesGrid(shape: Shape, dt: DataType) Shape {
     return res;
 }
 
+// Implementation de reference de scaledDot, sous forme de custom call non apparie.
 fn scaledDotReference(in: []const Tensor, out_shape: Shape) Tensor {
     return ops.customCall(
         "zml$scaled_dot_unmatched",
@@ -329,6 +354,8 @@ fn scaledDotReference(in: []const Tensor, out_shape: Shape) Tensor {
     );
 }
 
+// Applique les echelles globales d'entree et de poids a l'accumulateur, en f32.
+// Renvoie l'accumulateur inchange si aucun facteur n'est fourni.
 fn applyGlobalScale(acc: Tensor, igs: ?Tensor, wgs: ?Tensor) Tensor {
     if (igs == null and wgs == null) {
         return acc;
@@ -349,6 +376,8 @@ fn applyGlobalScale(acc: Tensor, igs: ?Tensor, wgs: ?Tensor) Tensor {
 pub const TokenEmbedding = struct {
     weight: Tensor,
 
+    // TokenEmbedding : transforme des indices de tokens entiers en vecteurs en rassemblant les
+    // lignes correspondantes de la matrice de poids (gather sur l'axe .voc).
     pub fn forward(self: TokenEmbedding, idx: Tensor) Tensor {
         stdx.debug.assert(idx.dtype().isInteger(), "TokenEmbedding expects an integer input, received: {f}", .{idx});
         stdx.debug.assert(self.weight.rank() == 2, "TokenEmbedding expects it's weight Tensor to be a 2D matrix, got {f}", .{self.weight});
@@ -366,6 +395,7 @@ pub const Activation = union(enum) {
     gelu,
     quick_gelu,
 
+    // Applique la fonction d'activation selectionnee a `x`.
     pub fn forward(self: Activation, x: Tensor) Tensor {
         return switch (self) {
             .sigmoid => x.sigmoid(),
@@ -380,6 +410,7 @@ pub const Activation = union(enum) {
     }
 };
 
+// Activation ELU : renvoie x si x >= 0, sinon alpha * (exp(x) - 1).
 pub fn elu(x: Tensor, alpha: f32) Tensor {
     return x.cmp(.GE, Tensor.scalar(0, x.dtype())).select(
         x,
@@ -393,6 +424,7 @@ pub const LayerNorm = struct {
     bias: ?Tensor = null,
     eps: f32 = 1e-5,
 
+    // LayerNorm : normalise `x` (moyenne/variance) puis applique le gain et le biais par diffusion.
     pub fn forward(self: LayerNorm, x: Tensor) Tensor {
         const normed = normalizeVariance(x, self.eps);
         const ax = x.axis(-1);
@@ -403,6 +435,8 @@ pub const LayerNorm = struct {
     }
 };
 
+// RMS normalization : passe en f32, divise x par la racine de la moyenne des carres (plus
+// epsilon) le long de `axis`, puis redescend au type d'origine.
 pub fn rmsNorm(x_: Tensor, axis: anytype, eps: f32) Tensor {
     const ax = x_.axis(axis);
     // upcast to improve precision
@@ -412,6 +446,8 @@ pub fn rmsNorm(x_: Tensor, axis: anytype, eps: f32) Tensor {
     return x.mul(rsqrt.broad(x.shape())).convert(x_.dtype());
 }
 
+// Centre et normalise par la variance le long du dernier axe :
+// (x - moyenne) / sqrt(variance + eps), calcule en f32.
 /// Center and scale by the variance.
 /// normalize(x, eps) = (x - mean(x)) / sqrt(var(x) + eps)
 /// Work on the last axis.
@@ -430,11 +466,13 @@ pub fn normalizeVariance(x: Tensor, eps: f32) Tensor {
 
 // ref: https://pytorch.org/docs/stable/generated/torch.nn.functional.normalize.html
 // Implementation equivalent to `nn.functional.normalize(tensor, dim=-1)` call
+// Normalisation L2 le long du dernier axe : x / sqrt(sum(x^2) + eps).
 pub fn normalizeL2(input: Tensor, eps: f32) Tensor {
     const inv_norm = input.powByConst(2).sum(-1).addConstant(eps).rsqrt();
     return input.mul(inv_norm);
 }
 
+// Verifie les valeurs de `normalizeL2` sur un petit exemple.
 test normalizeL2 {
     const platform = zml.testing.env();
 
@@ -512,6 +550,7 @@ pub const RopeOpts = struct {
             rope_theta: f32 = 10000,
         };
 
+        // Point d'entree de parsing JSON d'une configuration de scaling RoPE (format HF config.json).
         /// Read a Rope scaling config from HF config.json format.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !Scaling {
             return jsonParseFromValue(
@@ -521,6 +560,8 @@ pub const RopeOpts = struct {
             );
         }
 
+        // Construit la variante de `Scaling` correspondant au `rope_type` du JSON,
+        // en repli sur le scaling par defaut pour les types inconnus.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) std.json.ParseFromValueError!Scaling {
             _ = allocator;
             _ = options;
@@ -548,6 +589,7 @@ pub const RopeOpts = struct {
             }
         }
 
+        // Calcule le facteur d'ajustement Yarn (getMScale) a partir du facteur et du mscale.
         fn getMScale(factor: f32, mscale: f32) f32 {
             if (mscale < 1.0) {
                 return 1.0;
@@ -555,6 +597,7 @@ pub const RopeOpts = struct {
             return 0.1 * mscale * @log(factor) + 1.0;
         }
 
+        // Renvoie le facteur d'echelle applique a l'attention (Yarn-aware, 1.0 sinon).
         pub fn attentionScaling(scaling: Scaling) f32 {
             return switch (scaling) {
                 .yarn => |yarn| yarn_scaling: {
@@ -570,6 +613,7 @@ pub const RopeOpts = struct {
             };
         }
 
+        // Regle `rope_theta` sur la variante de scaling active.
         pub fn setRopeTheta(self: *Scaling, rope_theta: f32) void {
             // NOTE(Corendos): We can use a "inline else" because `rope_theta` is mandatory in each variant.
             return switch (self.*) {
@@ -577,6 +621,7 @@ pub const RopeOpts = struct {
             };
         }
 
+        // Renvoie `rope_theta` de la variante de scaling active.
         pub fn getRopeTheta(self: *const Scaling) f32 {
             // NOTE(Corendos): We can use a "inline else" because `rope_theta` is mandatory in each variant.
             return switch (self.*) {
@@ -584,6 +629,7 @@ pub const RopeOpts = struct {
             };
         }
 
+        // Nombre de dimensions reellement tournees (gere partial_rotary_factor pour Yarn/proportional).
         pub fn partialRotaryDim(self: *const Scaling, head_dim: i64) u32 {
             return switch (self.*) {
                 inline .yarn, .proportional => |s| @intFromFloat(@floor(
@@ -595,6 +641,9 @@ pub const RopeOpts = struct {
     };
 };
 
+// Applique le rotary position embedding (RoPE) a `x` : decoupe en parties reelle/image
+// (et passe-simple eventuelle), calcule cos/sin et effectue la rotation.
+// `x` a la forme .{ .s, .hd } et `pos_idx` restreint eventuellement les positions.
 /// Rotary position embedding modify queries and keys tensor before compute Q * K in self attention.
 /// This biases a token to look at token near him.
 /// The nice thing with rope is that you can cache the modified queries and keys directly.
@@ -635,6 +684,7 @@ pub fn rope(x: Tensor, pos_idx: ?Tensor, opts: RopeOpts) Tensor {
     return zml.nn.mergeRealImgPass(y_real, y_imag, x_pass, opts.layout);
 }
 
+// Decoupe le dernier axe de `x` en parties reelle et imaginaire selon la disposition demandee.
 pub fn splitRealImg(x: Tensor, layout: RopeOpts.Layout) [2]Tensor {
     const n = x.dim(-1);
 
@@ -656,6 +706,8 @@ const Pass = union(RopeOpts.Layout) {
     interleaved: Tensor,
 };
 
+// Decoupe `x` en parties reelle, imaginaire et passe-simple pour le RoPE partiel
+// (rotary_dim < head dim) ; renvoie aussi l'information pour les recomposer.
 pub fn splitRealImgPass(x: Tensor, layout: RopeOpts.Layout, rotary_dim: u32) struct { Tensor, Tensor, ?Pass } {
     const ax = x.axis(.hd);
     const hd = x.dim(ax);
@@ -688,6 +740,7 @@ pub fn splitRealImgPass(x: Tensor, layout: RopeOpts.Layout, rotary_dim: u32) str
     };
 }
 
+// Recompose un axe unique a partir des parties reelle et imaginaire selon la disposition.
 pub fn mergeRealImg(x_real: Tensor, x_imag: Tensor, layout: RopeOpts.Layout) Tensor {
     return switch (layout) {
         .real_im_pass, .real_pass_im_pass => .concatenate(&.{ x_real, x_imag }, -1),
@@ -696,6 +749,7 @@ pub fn mergeRealImg(x_real: Tensor, x_imag: Tensor, layout: RopeOpts.Layout) Ten
     };
 }
 
+// Recompose les parties reelle, imaginaire et passe-simple en un seul axe `hd`.
 pub fn mergeRealImgPass(x_real: Tensor, x_imag: Tensor, x_pass: ?Pass, layout: RopeOpts.Layout) Tensor {
     if (x_pass == null) return mergeRealImg(x_real, x_imag, layout);
 
@@ -713,6 +767,7 @@ pub fn mergeRealImgPass(x_real: Tensor, x_imag: Tensor, x_pass: ?Pass, layout: R
     };
 }
 
+// Construit le tenseur des frequences inverses utilise par RoPE : { exp(-n ln(theta) / N) }.
 /// {exp( - n * ln(10_000) / N ) | n in [0..N] }
 pub fn invFreq(N: i64, opts: RopeOpts) Tensor {
     const allocator = zml.Compiler.current().allocator;
@@ -726,6 +781,8 @@ pub fn invFreq(N: i64, opts: RopeOpts) Tensor {
     return .constantTensor(.init(.{num_freqs}, .f32), @ptrCast(inv_freq));
 }
 
+// Remplit le tableau `inv_freq` selon la variante de scaling (default, proportional, linear,
+// llama3, yarn).
 fn _invFreq(opts: RopeOpts, inv_freq: []f32, half_head_dim: u32) void {
     const N: u32 = @intCast(inv_freq.len);
     // Default frequencies
@@ -799,6 +856,7 @@ fn _invFreq(opts: RopeOpts, inv_freq: []f32, half_head_dim: u32) void {
     }
 }
 
+// Verifie `_invFreq` contre les valeurs de reference de la configuration Llama 3.2.
 test "invFreq Llama3" {
     // Llama 3.2-1B config
     const llama_conf: RopeOpts = .{
@@ -820,6 +878,7 @@ test "invFreq Llama3" {
     }
 }
 
+// Verifie `_invFreq` et le facteur d'attention contre les valeurs de reference Yarn.
 test "invFreq Yarn" {
     const yarn_conf: RopeOpts = .{
         .scaling = .{ .yarn = .{
@@ -842,6 +901,7 @@ test "invFreq Yarn" {
     try std.testing.expectApproxEqRel(1.3465735902799727, yarn_conf.scaling.attentionScaling(), 1e-5);
 }
 
+// Verifie le parsing JSON du scaling "proportional".
 test "RopeOpts.Scaling parses proportional" {
     const json =
         \\{
@@ -863,6 +923,7 @@ test "RopeOpts.Scaling parses proportional" {
     }
 }
 
+// Verifie le parsing JSON du scaling "yarn" avec partial_rotary_factor.
 test "RopeOpts.Scaling parses yarn partial rotary factor" {
     const json =
         \\{
@@ -884,6 +945,7 @@ test "RopeOpts.Scaling parses yarn partial rotary factor" {
     }
 }
 
+// Verifie le parsing JSON du scaling "default".
 test "RopeOpts.Scaling parses default rope type" {
     const json =
         \\{
@@ -903,10 +965,12 @@ test "RopeOpts.Scaling parses default rope type" {
     }
 }
 
+// Verifie les fonctions splitRealImg/mergeRealImg : aller-retours et egalite des dispositions.
 test "real/img" {
     const platform = zml.testing.env();
 
     const Fns = struct {
+        // Verifie que decouper puis recomposer `x` est l'identite : renvoie le nombre d'elements egaux.
         fn testSplitMergeIsId(layout: RopeOpts.Layout) Tensor {
             const x = Tensor.arange(.{ .end = 20 }, .f32).reshape(.{ .n = 5, .hd = 4 });
             const real, const imag = splitRealImg(x, layout);
@@ -917,6 +981,7 @@ test "real/img" {
             );
         }
 
+        // Verifie la decoupe real_im_pass avec un argument void (aucune entree tensorielle).
         fn testSplitSeqVoid(_: void) Tensor {
             const x = Tensor.arange(.{ .end = 20 }, .f32).reshape(.{ .n = 5, .hd = 4 });
             const real, const imag = splitRealImg(x, .real_im_pass);
@@ -934,6 +999,7 @@ test "real/img" {
             );
         }
 
+        // Verifie la decoupe real_im_pass d'une fonction sans argument.
         fn testSplitSeq() Tensor {
             const x = Tensor.arange(.{ .end = 20 }, .f32).reshape(.{ 5, 4 });
             const real, const imag = splitRealImg(x, .real_im_pass);
@@ -951,6 +1017,7 @@ test "real/img" {
             );
         }
 
+        // Verifie la decoupe au format interleaved.
         fn testSplitInterleaved() Tensor {
             const x = Tensor.arange(.{ .end = 20 }, .f32).reshape(.{ 5, 4 });
             const real, const imag = splitRealImg(x, .interleaved);
@@ -1009,10 +1076,13 @@ test "real/img" {
     }
 }
 
+// Verifie que RoPE donne le meme resultat en disposition interleaved et sequentielle.
 test rope {
     const platform = zml.testing.env();
 
     const Local = struct {
+        // Forward de test : convertit l'entree dans la disposition demandee, applique RoPE, puis
+        // repasse en disposition sequentielle.
         fn _fwd(x: Tensor, opts: RopeOpts) Tensor {
             var input = x;
             {
@@ -1052,6 +1122,7 @@ test rope {
     try zml.testing.expectClose(std.testing.io, res1, res2, .{});
 }
 
+// Verifie RoPE avec un facteur de rotation partielle "proportional".
 test "rope: Proportional" {
     const io = std.testing.io;
     const allocator = std.testing.allocator;
@@ -1096,6 +1167,7 @@ test "rope: Proportional" {
     try zml.testing.expectClose(io, expected, res, .{});
 }
 
+// Verifie RoPE avec le scaling Yarn et un partial_rotary_factor.
 test "rope: Yarn with partial_rotary_factor" {
     const io = std.testing.io;
     const allocator = std.testing.allocator;
@@ -1156,6 +1228,7 @@ pub const UpsampleMode = enum {
     // TODO: Trilinear,
 };
 
+// Sur-echantillonne les dimensions spatiales (tenseurs 3D a 5D) selon le mode demande.
 /// Upsample
 pub fn upsample(
     input: Tensor,
@@ -1179,6 +1252,8 @@ pub fn upsample(
     };
 }
 
+// Sur-echantillonnage au plus proche voisin des dernieres dimensions selon les facteurs
+// d'echelle fournis.
 pub fn nearest(input: Tensor, scale_factor: []const f64) Tensor {
     var out_shape = input.shape();
     for (scale_factor, 0..) |sf, i| {
@@ -1204,6 +1279,7 @@ pub fn nearest(input: Tensor, scale_factor: []const f64) Tensor {
     return res;
 }
 
+// Verifie `nearest`/`upsample` sur des tenseurs 3D, 4D et 5D (formes et valeurs).
 test nearest {
     const platform = zml.testing.env();
 
@@ -1412,6 +1488,7 @@ pub const ResizeOpts = struct {
     precision: ?zml.DataType = null,
 };
 
+// Redimensionnement bilineaire : applique un redimensionnement lineaire 1D sur chaque axe demande.
 pub fn resizeBilinear(image: Tensor, resized_axes: anytype, opt: ResizeOpts) Tensor {
     const new_size, const tags_ = Shape.parseStruct(u63, resized_axes);
     var out = image;
@@ -1425,6 +1502,7 @@ pub fn resizeBilinear(image: Tensor, resized_axes: anytype, opt: ResizeOpts) Ten
     return out;
 }
 
+// Verifie les formes de sortie de `resizeBilinear` (teste uniquement les formes).
 test resizeBilinear {
     const platform = zml.testing.env();
 
@@ -1451,6 +1529,8 @@ test resizeBilinear {
     }
 }
 
+// Redimensionnement lineaire 1D le long de `axis` : interpole lineairement entre les deux
+// voisins encadrant chaque position de sortie.
 pub fn resizeLinear1d(image: Tensor, axis: i8, new_len: u63, opt: ResizeOpts) Tensor {
     const ax = image.axis(axis);
     const res_shape = image.shape().set(ax, new_len);
@@ -1475,6 +1555,8 @@ pub fn resizeLinear1d(image: Tensor, axis: i8, new_len: u63, opt: ResizeOpts) Te
     return res.convert(image.dtype()).withTags(image.shape().tags());
 }
 
+// Redimensionnement bicubique : applique un redimensionnement cubique 1D sur chaque axe.
+// Attention : peu optimise sur CPU en mai 2024.
 /// Bicubic interpolation of the given image.
 /// Warning as of May 2024 the cpu backend don't optimize this very well
 /// and is not able to merge the weighting with the gather,
@@ -1492,6 +1574,7 @@ pub fn resizeBicubic(image: Tensor, resized_axes: anytype, opt: ResizeOpts) Tens
     return out;
 }
 
+// Verifie les formes de sortie de `resizeBicubic` (teste uniquement les formes).
 test resizeBicubic {
     const platform = zml.testing.env();
 
@@ -1518,6 +1601,8 @@ test resizeBicubic {
     }
 }
 
+// Redimensionnement cubique 1D le long de `axis` : collecte 4 voisins par position et
+// applique les poids d'interpolation cubiques.
 pub fn resizeCubic1d(image: Tensor, axis: i8, new_len: u63, opt: ResizeOpts) Tensor {
     // Extract neighboring pixels from the image.
     const dtype = opt.precision orelse if (image.dtype().class() == .integer) .f32 else image.dtype();
@@ -1570,6 +1655,8 @@ pub fn resizeCubic1d(image: Tensor, axis: i8, new_len: u63, opt: ResizeOpts) Ten
     return res.convert(image.dtype()).withTags(image.shape());
 }
 
+// Construit un masque d'attention causal (eventuellement fenetre) pour la forme donnee :
+// les positions futures sont masquees (0 pour les flottants, 0/1 pour les entiers).
 /// Return causal attention masks for the given shape.
 /// The last dimensions are
 pub fn causalAttnMask(
@@ -1609,6 +1696,8 @@ pub const SdpaOpts = struct {
     softmax_bias: ?Tensor = null,
 };
 
+// Scaled dot-product attention. q de forme .{ .h, .q, .hd }, k et v .{ .h, .k, .hd }.
+// Applique le facteur d'echelle, le masque et le softmax, puis multiplie par v.
 /// Scaled dot product attention.
 ///
 /// **Shapes**:
@@ -1694,6 +1783,7 @@ pub const GatedDeltaNet = struct {
         outputs: Tensor,
     };
 
+    // Condition de boucle du Gated Delta Net : vraie tant que step < active_length (borne).
     pub fn cond(gdn: GatedDeltaNet, state: State) Tensor {
         const active_length = gdn.active_length
             .convert(.i32)
@@ -1702,6 +1792,8 @@ pub const GatedDeltaNet = struct {
         return state.step.cmp(.LT, active_length);
     }
 
+    // Une etape recurrente du Gated Delta Net : met a jour l'etat s, ecrit la sortie a la
+    // position step et incremente le pas.
     /// Single-step recurrent update for Gated Delta Net.
     pub fn body(gdn: GatedDeltaNet, state: State) State {
         // q, k: .{ .h, .k }
@@ -1729,10 +1821,13 @@ pub const GatedDeltaNet = struct {
         };
     }
 
+    // Decoupe la position `step_` (dynamique) le long de l'axe .s.
     fn sliceStep(input: Tensor, step_: Tensor) Tensor {
         return input.slice(.s, .dynSingle(step_));
     }
 
+    // Valide les formes et tags des entrees du Gated Delta Net, ainsi que la coherence des
+    // dimensions h, k et v.
     fn validateInitialState(gdn: GatedDeltaNet, state: State) void {
         const err_template = "GatedDeltaNet.step(state: {f}, q: {f}, k: {f}, v: {f}, alpha: {f}, beta: {f}) is invalid ! ";
         const err_args = .{ state.s, gdn.queries, gdn.keys, gdn.values, gdn.alphas, gdn.betas };
@@ -1756,6 +1851,8 @@ pub const GatedDeltaNet = struct {
         };
     }
 
+    // Execute la recurrence complete du Gated Delta Net via stablehlo.while.
+    // Renvoie la sequence de sorties et l'etat final.
     /// Processes a sequence with Gated Delta Net recurrence using `stablehlo.while`.
     ///
     /// Shapes:
@@ -1796,6 +1893,8 @@ pub const GatedDeltaNet = struct {
     }
 };
 
+// Verifie le Gated Delta Net : sorties et etat final pour une longueur active complete
+// puis tronquee (prefixe).
 test "gated delta net" {
     const platform = zml.testing.env();
 
@@ -1957,6 +2056,9 @@ pub const SamplingStrategy = struct {
     temperature: f32 = 1.0,
 };
 
+// A partir des logits (axe .voc), calcule les indices du prochain token selon la strategie
+// d'echantillonnage (greedy si topk <= 1, sinon top-k avec bruit de Gumbel).
+// Renvoie l'indice et le nouveau generateur aleatoire.
 /// Given the output of the last layer of a LM with a `.voc` axis,
 /// Compute indices for the next tokens, following the given sampling strategy.
 /// Returns an integer tensor with a shape similar to the input, but without the .voc axis.
@@ -1988,6 +2090,7 @@ pub fn sampleTokens(activations: Tensor, opts: SamplingStrategy, rng: Tensor.Rng
     return .{ next_tokens, next_rng };
 }
 
+// Verifie `sampleTokens` avec top-k=4 et une temperature de 2.0.
 test sampleTokens {
     const platform = zml.testing.env();
 
@@ -2036,6 +2139,8 @@ pub const DynamicSamplingStrategy = struct {
         min_p: f32 = 0.0,
     };
 
+    // Construit une strategie d'echantillonnage dynamique : tenseurs scalaires pour top_k,
+    // temperature, top_p et min_p, avec une borne max_top_k.
     pub fn init(dtype: DataType, max_top_k: u32) DynamicSamplingStrategy {
         const scalar_float_shape = Shape.init(.{}, dtype);
         const scalar_i32_shape = Shape.init(.{}, .i32);
@@ -2048,6 +2153,7 @@ pub const DynamicSamplingStrategy = struct {
         };
     }
 
+    // Cree les tampons sur l'appareil contenant les options de la strategie d'echantillonnage.
     pub fn makeBuffers(
         io: std.Io,
         platform: *const zml.Platform,
@@ -2062,6 +2168,7 @@ pub const DynamicSamplingStrategy = struct {
         };
     }
 
+    // Libere les tampons de la strategie d'echantillonnage dynamique.
     pub fn deinitBuffers(self: *zml.Bufferized(DynamicSamplingStrategy)) void {
         self.top_k.deinit();
         self.temperature.deinit();
@@ -2070,6 +2177,8 @@ pub const DynamicSamplingStrategy = struct {
     }
 };
 
+// Echantillonne le prochain token avec la strategie dynamique (top_k/top_p/min_p/temperature),
+// en reduisant d'abord les logits a un sous-ensemble de candidats (fixupLogits).
 /// Given the output of the last layer of a LM with a `.voc` axis,
 /// Compute indices for the next tokens, following the given sampling strategy.
 /// The dynamic sampling strategy is more expressive but top_p requires computing the softmax.
@@ -2092,6 +2201,9 @@ pub fn sampleTokensDynamic(logits: Tensor, opts: DynamicSamplingStrategy, rng: T
     return .{ next_tokens, next_rng };
 }
 
+// Trie/elague les logits en un ensemble candidat : applique max_top_k, top_k, temperature,
+// top_p et min_p, en garantissant qu'au moins le premier candidat est conserve.
+// Renvoie les logits modifies (sentinelle -inf pour les rejets) et les indices tries.
 fn fixupLogits(logits: Tensor, opts: DynamicSamplingStrategy) [2]Tensor {
     const min_inf = Tensor.constant(logits.dtype().minValue());
 
@@ -2129,6 +2241,8 @@ fn fixupLogits(logits: Tensor, opts: DynamicSamplingStrategy) [2]Tensor {
     return .{ x, full_topk.indices };
 }
 
+// Verifie `fixupLogits` pour diverses combinaisons de top_k, top_p, min_p et temperature,
+// y compris un cas bf16 avec infinis.
 test sampleTokensDynamic {
     const platform = zml.testing.env();
 
@@ -2208,6 +2322,8 @@ const ShapeError = error{ DimMismatch, NotFound };
 const NOT_SET: i64 = -2;
 const DIM_MISMATCH: i64 = -1;
 
+// Rassemble les dimensions taggees demandees a travers les tenseurs de `v`, en verifiant leur
+// coherence ; le mode controle la tolerance aux dimensions manquantes ou en desaccord.
 /// Collect the given dimensions inside a struct containing tagged tensors.
 pub fn collectDims(
     comptime dims: anytype,
@@ -2226,6 +2342,7 @@ pub fn collectDims(
     @memset(std.mem.bytesAsSlice(i64, std.mem.asBytes(&context.res)), NOT_SET);
 
     meta.visit((struct {
+        // Callback interne parcourant chaque Shape pour enregistrer ou valider les dimensions des axes demandes.
         fn cb(ctx: *LocalContext, shape: *const Shape) void {
             inline for (dims) |a| {
                 if (shape.hasTag(a)) |axis| {
@@ -2259,10 +2376,12 @@ pub fn collectDims(
     return context.res;
 }
 
+// Reinterprete une structure de dimensions (champs i64 contigus) comme un tableau i64.
 fn shapeToDims(shape: anytype) [@divExact(@sizeOf(@TypeOf(shape)), @sizeOf(i64))]i64 {
     return @bitCast(shape);
 }
 
+// Verifie `collectDims` en mode strict et ignore_errors (dimensions coherentes, mismatch, absentes).
 test collectDims {
     const Model = struct {
         x: Shape,
@@ -2310,6 +2429,7 @@ test collectDims {
     }
 }
 
+// Construit un type de structure `extern` avec un champ i64 (defaut NOT_SET) par axe demande.
 fn ShapeStruct(comptime dims: anytype) type {
     const rank = dims.len;
     @setEvalBranchQuota(rank + 5);

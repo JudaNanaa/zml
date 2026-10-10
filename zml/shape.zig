@@ -10,6 +10,7 @@ const Sharding = @import("Sharding.zig");
 
 const log = std.log.scoped(.shape);
 
+// Verifie que toutes les declarations publiques de Shape sont bien referencees (refAllDecls).
 test {
     std.testing.refAllDecls(Shape);
 }
@@ -38,6 +39,7 @@ pub const Shape = struct {
     pub const TagsArray = stdx.BoundedArray(Tag, constants.MAX_RANK);
     pub const AxesArray = stdx.BoundedArray(u3, constants.MAX_RANK);
 
+    // Analyse un litteral (slice, struct ou Shape) en tableaux de dimensions et de tags.
     pub fn parseDimensions(v: anytype) struct { DimsArray, TagsArray } {
         const T = @TypeOf(v);
 
@@ -80,6 +82,7 @@ pub const Shape = struct {
         stdx.debug.compileError("expected a dimension tuple eg '.{{ .a = 10, .b = 20}}' or '.{{ 10, 20 }}', got {}", .{T});
     }
 
+    // Verifie l'extraction des dimensions et tags depuis un litteral de struct.
     test parseDimensions {
         const ref = Shape.init(.{ .a = 0, .b = 1 }, .f32);
         const dims_, const tags_ = parseDimensions(.{ .a = 0, .b = 1 });
@@ -88,6 +91,7 @@ pub const Shape = struct {
         try testing.expectEqualSlices(Tag, ref.tags(), tags_.constSlice());
     }
 
+    // Convertit un litteral d'axes (int, tag ou Shape) en tableaux d'indices d'axes et de tags.
     pub fn parseAxes(self: Shape, v: anytype) struct { AxesArray, TagsArray } {
         const T = @TypeOf(v);
 
@@ -117,6 +121,7 @@ pub const Shape = struct {
         stdx.debug.compileError("Wrong type, got {}. Expected .{{.a, .b}}", .{T});
     }
 
+    // Convertit un tuple de litteraux d'enum en tableau de tags.
     pub fn parseTags(v: anytype) TagsArray {
         const T = @TypeOf(v);
         stdx.debug.assertComptime(stdx.meta.isTupleOf(T, @EnumLiteral()), "Wrong type, got {}. Expected .{{ .a, .b }}", .{T});
@@ -127,6 +132,7 @@ pub const Shape = struct {
         return tags_;
     }
 
+    // Cree une Shape repliquee a partir d'un litteral de dimensions et d'un type de donnees.
     /// Create a shape from a struct literal, eg:
     /// Shape.init(.{ .h = 1024, .w = 512, .c = 3 });
     /// Shape.init(.{ 1024, 512, 3 });
@@ -142,6 +148,7 @@ pub const Shape = struct {
         };
     }
 
+    // Cree une Shape scalaire (rang 0) repliquee pour le type de donnees donne.
     pub fn scalar(dt: DataType) Shape {
         return .{
             ._dtype = dt,
@@ -151,6 +158,7 @@ pub const Shape = struct {
         };
     }
 
+    // Cree une Shape de dimensions .{0, 1, ..., rank-1} avec des tags inconnus.
     /// Creates a Shape with dims set to `.{0, 1, 2, ..., rank-1}`.
     pub fn range(rank_: usize, dt: DataType) Shape {
         stdx.debug.assert(rank_ <= MAX_RANK, "zml.Shape.range expects a maximum rank of {d}, got {}", .{ MAX_RANK, rank_ });
@@ -166,29 +174,35 @@ pub const Shape = struct {
         return res;
     }
 
+    // Retourne le type de donnees de la forme.
     pub fn dtype(self: Shape) DataType {
         return self._dtype;
     }
 
+    // Retourne le nombre de dimensions de la forme.
     pub fn rank(self: Shape) u4 {
         self.ensureAttributesAreSync();
         return @intCast(self._dims.len);
     }
 
+    // Retourne la taille de la dimension designee (par index ou par tag).
     pub fn dim(self: Shape, ax: anytype) i64 {
         self.ensureAttributesAreSync();
         return self._dims.get(self.axis(ax));
     }
 
+    // Retourne la tranche des dimensions de la forme.
     pub fn dims(self: *const Shape) []const i64 {
         self.ensureAttributesAreSync();
         return self._dims.constSlice();
     }
 
+    // Indique si un type peut designer un axe (entier ou tag).
     fn isAxisConvertible(comptime T: type) bool {
         return stdx.meta.isInteger(T) or isTagConvertible(T);
     }
 
+    // Indique si un type peut etre converti en tag (enum literal, StructField ou Tag).
     fn isTagConvertible(comptime T: type) bool {
         return switch (T) {
             @EnumLiteral(), std.builtin.Type.StructField, Tag => true,
@@ -196,6 +210,7 @@ pub const Shape = struct {
         };
     }
 
+    // Convertit un litteral, un StructField ou un Tag en Shape.Tag.
     pub fn toTag(v: anytype) Tag {
         const T = @TypeOf(v);
         return switch (T) {
@@ -206,17 +221,20 @@ pub const Shape = struct {
         };
     }
 
+    // En mode Debug, verifie que les tableaux de dimensions et de tags sont synchronises.
     fn ensureAttributesAreSync(self: Shape) void {
         if (builtin.mode == .Debug) {
             stdx.debug.assert(self._dims.len == self._tags.len, "Tags, dims and partitioning have diverged! dims={d} tags={d}", .{ self._dims.len, self._tags.len });
         }
     }
 
+    // Retourne le tag de la dimension designee.
     pub fn tag(self: Shape, ax: anytype) Tag {
         self.ensureAttributesAreSync();
         return self._tags.get(self.axis(ax));
     }
 
+    // Retourne un nom lisible pour un axe : son tag, ou un chiffre s'il n'est pas tague.
     /// Returns a printable name for a given axis.
     /// Either the tag itself, or a digit if it's not tagged.
     pub fn debugTag(self: Shape, ax: usize) []const u8 {
@@ -226,21 +244,25 @@ pub const Shape = struct {
         return "01234567"[ax .. ax + 1];
     }
 
+    // Retourne une copie de la forme avec le tag de l'axe donne remplace.
     pub fn setTag(self: Shape, ax: anytype, tag_: anytype) Shape {
         var res = self;
         res._tags.set(self.axis(ax), toTag(tag_));
         return res;
     }
 
+    // Retourne la tranche des tags de la forme.
     pub fn tags(self: *const Shape) []const Tag {
         self.ensureAttributesAreSync();
         return self._tags.constSlice();
     }
 
+    // Retourne l'index de l'axe portant le tag donne, ou null.
     pub fn hasTag(self: Shape, tag_: anytype) ?u3 {
         return axisFromTagMaybe(self.tags(), toTag(tag_));
     }
 
+    // Verifie que tous les tags donnes (slice ou tuple) existent dans la forme.
     pub fn hasTags(self: Shape, tagz: anytype) bool {
         const T = @TypeOf(tagz);
 
@@ -265,6 +287,7 @@ pub const Shape = struct {
         stdx.debug.compileError("Expected tuple of tags, got {any}", .{T});
     }
 
+    // Indique si toutes les dimensions possedent un tag connu.
     pub fn isFullyTagged(self: Shape) bool {
         for (self._tags.constSlice()) |t| {
             if (t == TagUnknown) return false;
@@ -272,6 +295,7 @@ pub const Shape = struct {
         return true;
     }
 
+    // Resout un designateur d'axe (int signe/non signe, literal, tag) en index d'axe u3.
     pub fn axis(self: Shape, axis_: anytype) u3 {
         self.ensureAttributesAreSync();
 
@@ -293,6 +317,7 @@ pub const Shape = struct {
         };
     }
 
+    // Convertit un litteral d'axes (slice, struct, Shape) en tableau d'indices d'axes.
     pub fn axes(self: Shape, axes_: anytype) AxesArray {
         self.ensureAttributesAreSync();
 
@@ -321,6 +346,7 @@ pub const Shape = struct {
         stdx.debug.compileError("axes expects an int-tuple or a tuple of enum literal, got {}", .{T});
     }
 
+    // Normalise un index d'axe signe (negatif compte depuis la fin) en u3.
     pub fn axisFromInt(self: Shape, a: isize) u3 {
         const rk: i8 = self.rank();
         if (a < -rk or a > rk) {
@@ -332,6 +358,7 @@ pub const Shape = struct {
             @intCast(a);
     }
 
+    // Retourne l'index de l'axe portant le tag (comparaison comptime par contenu, runtime par pointeur).
     pub fn axisFromTagMaybe(tagz: []const Tag, t: Tag) ?u3 {
         if (t == TagUnknown) return null;
 
@@ -355,6 +382,7 @@ pub const Shape = struct {
         return null;
     }
 
+    // Reconnait la syntaxe .{ ._0 = x } et retourne l'index encode dans le litteral.
     /// Handle .{ ._0 = x } syntax.
     fn axisFromLiteralInt(t: Tag) ?u3 {
         // match .{ '_', '0-9', null }
@@ -364,6 +392,7 @@ pub const Shape = struct {
         return null;
     }
 
+    // Comme axisFromTagMaybe mais panique si le tag est inconnu ou absent.
     fn axisFromTag(self: Shape, d: Tag) u3 {
         stdx.debug.assert(d != TagUnknown, "The unknown tag .{s} can't be used to fetch axis in {f}", .{ d, self });
         return axisFromTagMaybe(self.tags(), d) orelse {
@@ -371,12 +400,14 @@ pub const Shape = struct {
         };
     }
 
+    // Verifie la resolution d'axes par index positif, index negatif et par tag.
     test axis {
         try testing.expectEqual(1, Shape.init(.{ 5, 2 }, .f32).axis(1));
         try testing.expectEqual(1, Shape.init(.{ 5, 2 }, .f32).axis(-1));
         try testing.expectEqual(1, Shape.init(.{ .a = 5, .b = 2 }, .f32).axis(.b));
     }
 
+    // Calcule le nombre total d'elements decrits par la forme (produit des dimensions).
     /// The number of element inside a Tensor described by this shape.
     pub fn count(self: Shape) usize {
         var res: i64 = 1;
@@ -387,26 +418,31 @@ pub const Shape = struct {
         return @intCast(res);
     }
 
+    // Calcule la taille en octets necessaire pour representer la forme en memoire hote.
     /// Total size in bytes needed to represent this shape on host
     pub fn byteSize(self: Shape) usize {
         return std.math.divCeil(usize, self.count() * self.dtype().bitSizeOf(), 8) catch unreachable;
     }
 
+    // Compare deux formes en ignorant les tags (dimensions et dtype).
     /// Compares the two shapes described, ignoring tagging.
     pub fn eql(self: Shape, other: Shape) bool {
         return std.mem.eql(i64, self.dims(), other.dims()) and self.dtype() == other.dtype();
     }
 
+    // Compare deux formes uniquement sur leurs dimensions, en ignorant tags et dtype.
     /// Compares the two shapes described, ignoring tagging and dtype.
     pub fn eqlDims(self: Shape, other: Shape) bool {
         return std.mem.eql(i64, self.dims(), other.dims());
     }
 
+    // Compare deux formes en incluant les tags et le dtype.
     /// Compares the two shapes described including tags.
     pub fn eqlWithTags(self: Shape, other: Shape) bool {
         return self.eql(other) and std.mem.eql(Tag, self.tags(), other.tags()) and self.dtype() == other.dtype();
     }
 
+    // Formate la forme, ex: "{.a=10, .b=20, f32}", avec sharding eventuel.
     /// Format the shape.
     /// "Shape({.a=10, .b=20}, dtype=.f32)"
     pub fn format(self: Shape, writer: *std.Io.Writer) !void {
@@ -445,6 +481,7 @@ pub const Shape = struct {
         }
     }
 
+    // Indique si cette forme peut etre diffusee (broadcast) vers une autre de facon non ambigue.
     /// Broadcasts a Tensor to the given shape, extending dimensions if needed.
     pub fn canBroadcastTo(self: Shape, other: Shape) bool {
         // Already the right shape
@@ -468,6 +505,7 @@ pub const Shape = struct {
         return true;
     }
 
+    // Reorganise la forme en conservant le nombre d'elements ; le partitionnement n'est pas preserve sauf si replique.
     /// Reshape a given shape but keep the same total number of elements.
     /// Partitioning information is generally NOT preserved,
     /// unless input was fully replicated.
@@ -485,6 +523,7 @@ pub const Shape = struct {
         return new_shape;
     }
 
+    // Infere la dimension marquee .auto (-1) a partir du nombre total d'elements fourni.
     fn inferMissingAxis(self: *Shape, n_: usize) error{ UnexpectedRemainder, TooBig }!void {
         stdx.debug.assert(std.mem.count(i64, self.dims(), &.{-1}) < 2, "Cannot infer multiple dimensions when reshaping to: {f}", .{self.*});
 
@@ -504,6 +543,7 @@ pub const Shape = struct {
         self._dims.set(inferred_ax, @divExact(n, tmp_count));
     }
 
+    // Teste le reshape avec dimensions auto/-1 et les erreurs UnexpectedRemainder/TooBig.
     test reshape {
         const x = Shape.init(.{ 2, 5, 3 }, .f32);
         {
@@ -525,6 +565,7 @@ pub const Shape = struct {
         }
     }
 
+    // Retourne une copie de la forme avec la dimension de l'axe donne remplacee.
     pub fn setDim(self: Shape, ax: anytype, d: i64) Shape {
         var res = self;
         res._dims.set(self.axis(ax), d);
@@ -533,14 +574,17 @@ pub const Shape = struct {
 
     pub const set = setDim;
 
+    // Indique si une valeur correspond a la dimension automatique .auto.
     fn isAutoDim(v: anytype) bool {
         return toTag(v) == toTag(.auto);
     }
 
+    // Indique si une valeur correspond a la dimension dynamique .dyn.
     fn isDynDim(v: anytype) bool {
         return toTag(v) == toTag(.dyn);
     }
 
+    // Insere une ou plusieurs dimensions avant l'axe donne (axe negatif ou .last acceptes).
     /// Inserts one ore more axes with the given dimensions, before the given axis.
     /// Negative axis is interpreted wrt the current shape.
     /// `.last` axis can be used to insert at the end (ie to append).
@@ -567,12 +611,14 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie l'insertion a un index, avant le dernier element, et en fin (.last).
     test insert {
         try testing.expectEqualSlices(i64, &.{ 10, 1, 11, 12 }, Shape.init(.{ 10, 11, 12 }, .f32).insert(1, .{1}).dims());
         try testing.expectEqualSlices(i64, &.{ 10, 11, 12, 1, 13 }, Shape.init(.{ 10, 11, 12, 13 }, .f32).insert(-1, .{1}).dims());
         try testing.expectEqualSlices(i64, &.{ 10, 11, 12, 13, 1 }, Shape.init(.{ 10, 11, 12, 13 }, .f32).insert(.last, .{1}).dims());
     }
 
+    // Insere une nouvelle dimension taguee a la position donnee.
     pub fn insertTag(self: Shape, axis_: anytype, d: i64, tag_: anytype) Shape {
         stdx.debug.assert(self.rank() < constants.MAX_RANK - 1, "Can't insert new axis in {f}, it's already at max rank.", .{self});
 
@@ -589,6 +635,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Ajoute les dimensions d'un litteral a la fin de la forme.
     pub fn append(self: Shape, v: anytype) Shape {
         var res = self;
         const dims_, const tags_ = parseDimensions(v);
@@ -598,6 +645,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie l'ajout de dimensions a la fin ainsi que le tag associe.
     test append {
         try testing.expectEqualSlices(
             i64,
@@ -612,6 +660,7 @@ pub const Shape = struct {
         );
     }
 
+    // Ajoute une dimension (avec tag optionnel) a la fin de la forme.
     pub fn appendDim(self: Shape, d: i64, tag_: ?Tag) Shape {
         var res = self;
         res._dims.appendAssumeCapacity(d);
@@ -620,6 +669,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Retire l'axe donne en decalant les axes suivants.
     pub fn remove(self: Shape, axis_: anytype) Shape {
         var res = self;
         const a = self.axis(axis_);
@@ -631,11 +681,13 @@ pub const Shape = struct {
 
     pub const drop = remove;
 
+    // Verifie le retrait d'un axe par index et par index negatif.
     test remove {
         try testing.expectEqualSlices(i64, &.{ 10, 12 }, Shape.init(.{ 10, 11, 12 }, .f32).remove(1).dims());
         try testing.expectEqualSlices(i64, &.{ 10, 11, 12 }, Shape.init(.{ 10, 11, 12, 13 }, .f32).remove(-1).dims());
     }
 
+    // Retire plusieurs axes d'un coup en compactant les axes restants.
     pub fn removeMany(self: Shape, axes_: anytype) Shape {
         var to_remove = self.axes(axes_);
         if (to_remove.len == 0) return self;
@@ -660,6 +712,7 @@ pub const Shape = struct {
         return sh;
     }
 
+    // Verifie le retrait simultane de plusieurs axes.
     test removeMany {
         try testing.expectEqualSlices(
             i64,
@@ -673,6 +726,7 @@ pub const Shape = struct {
         );
     }
 
+    // Reordonne les axes selon une permutation donnee.
     pub fn transpose(self: Shape, permutations: anytype) Shape {
         std.debug.assert(self.rank() == permutations.len);
         const permutations_ = self.axes(permutations);
@@ -690,6 +744,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie la transposition des dimensions, tags et specs de partitionnement.
     test transpose {
         try testing.expect(
             Shape.init(.{ 12, 11, 10 }, .f32).eql(
@@ -708,6 +763,7 @@ pub const Shape = struct {
         try testing.expectEqualDeep(Sharding.Partitioning.init(&.{ .mesh_axis_0, .open, .mesh_axis_2 }), shape._sharding.partition);
     }
 
+    // Retourne une copie de la forme en assignant les tags donnes a chaque axe.
     /// Tag each ax of this shape with tags from a tuple.
     pub fn withTags(self: Shape, tagz: anytype) Shape {
         const T = @TypeOf(tagz);
@@ -737,6 +793,7 @@ pub const Shape = struct {
         stdx.debug.compileError("Expected a tuple of enum literals eg: .{{ .a, .b, .c }} got: {any}", .{@TypeOf(tagz)});
     }
 
+    // Verifie l'assignation complete des tags, y compris le tag inconnu `._`.
     test withTags {
         {
             const tagged = Shape.init(.{ 0, 1 }, .f32).withTags(.{ .a, .b });
@@ -755,6 +812,7 @@ pub const Shape = struct {
         }
     }
 
+    // Assigne les tags donnes aux derniers axes de la forme.
     /// Tag the last axes of this shape with tags from a tuple.
     pub fn withPartialTags(self: Shape, tagz: anytype) Shape {
         const T = @TypeOf(tagz);
@@ -784,6 +842,7 @@ pub const Shape = struct {
         stdx.debug.compileError("Expected a tuple of enum literals eg: .{ .a, .b, .c } got: {any}", .{@TypeOf(tagz)});
     }
 
+    // Verifie l'assignation partielle des tags sur les derniers axes.
     test withPartialTags {
         {
             const tagged = Shape.init(.{ 0, 1 }, .f32).withPartialTags(.{ .a, .b });
@@ -808,6 +867,7 @@ pub const Shape = struct {
         }
     }
 
+    // Retourne une copie de la forme avec un autre type de donnees.
     pub fn withDtype(self: Shape, dt: DataType) Shape {
         var res = self;
         res._dtype = dt;
@@ -828,6 +888,7 @@ pub const Shape = struct {
         .folds_consumed = .empty,
     };
 
+    // Assigne un partitionnement (mesh + specs) a la forme, en normalisant les axes hors-rang.
     pub fn withPartitioning(self: Shape, mesh: *const Sharding.Mesh, partitioning: anytype) Shape {
         if (@TypeOf(partitioning) != Sharding.Partitioning) {
             return self.withPartitioning(mesh, Sharding.Partitioning.parse(self.tags(), mesh, .replicated, partitioning));
@@ -844,6 +905,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie l'affectation d'un partitionnement puis sa reinitialisation.
     test withPartitioning {
         var shape = Shape.init(.{ .a = 10, .b = 20, .c = 30 }, .f32).withPartitioning(&test_mesh, .{ .c = .feature, .a = .batch });
         try testing.expectEqualSlices(Sharding.PartitionSpec, &.{ .sharded(0), .replicated, .sharded(1) }, shape._sharding.toArray()[0..shape.rank()]);
@@ -855,6 +917,7 @@ pub const Shape = struct {
         try testing.expectEqualSlices(Sharding.PartitionSpec, &.{ .sharded(0), .open, .sharded(1) }, shape._sharding.toArray()[0..shape.rank()]);
     }
 
+    // Remappe les axes de mesh d'un partitionnement selon un dictionnaire ancien->nouveau.
     pub fn mapPartitioningAxes(self: Shape, mesh: *const Sharding.Mesh, mapping: anytype) Shape {
         const T = @TypeOf(mapping);
         stdx.debug.assertComptime(stdx.meta.isStruct(T), "Mapping must be a struct, e.g., .{ .old_axis = .new_axis }", .{});
@@ -876,6 +939,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie le remappage des axes de partitionnement, total puis partiel.
     test mapPartitioningAxes {
         const shape = Shape.init(.{ .batch = 64, .seq = 128, .features = 512 }, .f32)
             .withPartitioning(&test_mesh, .{ .batch = .batch, .seq = .replicated, .features = .feature });
@@ -888,12 +952,14 @@ pub const Shape = struct {
         try testing.expectEqual(shape.partition(.features), partial.partition(.features));
     }
 
+    // Remet le partitionnement de la forme a replique.
     pub fn withDefaultPartitioning(self: Shape) Shape {
         var res = self;
         res._sharding.partition = .replicated(self.rank());
         return res;
     }
 
+    // Verifie le retour au partitionnement replique par defaut.
     test withDefaultPartitioning {
         var shape = Shape.init(.{ 10, 20, 30 }, .f32);
         try testing.expectEqual(3, shape.rank());
@@ -907,12 +973,14 @@ pub const Shape = struct {
         try testing.expectEqualSlices(Sharding.PartitionSpec, &.{ .replicated, .replicated, .replicated }, shape._sharding.toArray()[0..shape.rank()]);
     }
 
+    // Remet le partitionnement de la forme a replique (variante explicite).
     pub fn withReplicatedPartitioning(self: Shape) Shape {
         var res = self;
         res._sharding.partition = .replicated(self._dims.len);
         return res;
     }
 
+    // Verifie le retour au partitionnement replique explicite.
     test withReplicatedPartitioning {
         var shape = Shape.init(.{ 10, 20, 30 }, .f32);
         try testing.expectEqual(3, shape.rank());
@@ -926,6 +994,7 @@ pub const Shape = struct {
         try testing.expectEqualSlices(Sharding.PartitionSpec, &.{ .replicated, .replicated, .replicated }, shape._sharding.toArray()[0..shape.rank()]);
     }
 
+    // Indique si au moins un axe de la forme est sharde.
     pub fn hasAtLeastOnePartitionedAxis(self: Shape) bool {
         for (0..self.rank()) |ax| {
             const spec = self._sharding.get(ax);
@@ -934,6 +1003,7 @@ pub const Shape = struct {
         return false;
     }
 
+    // Verifie la detection d'au moins un axe partitionne.
     test hasAtLeastOnePartitionedAxis {
         var shape = Shape.init(.{ .a = 10, .b = 20 }, .f32).withPartitioning(&test_mesh, .{ .a = .batch, .b = .replicated });
         try testing.expect(shape.hasAtLeastOnePartitionedAxis());
@@ -945,6 +1015,7 @@ pub const Shape = struct {
         try testing.expect(!shape.hasAtLeastOnePartitionedAxis());
     }
 
+    // Indique si tous les axes de la forme sont shardes.
     pub fn isFullyPartitioned(self: Shape) bool {
         for (0..self.rank()) |ax| {
             const spec = self._sharding.get(ax);
@@ -953,6 +1024,7 @@ pub const Shape = struct {
         return true;
     }
 
+    // Verifie la detection d'un partitionnement complet.
     test isFullyPartitioned {
         var shape = Shape.init(.{ .a = 10, .b = 20 }, .f32).withPartitioning(&test_mesh, .{ .a = .batch, .b = .feature });
         try testing.expect(shape.isFullyPartitioned());
@@ -964,10 +1036,12 @@ pub const Shape = struct {
         try testing.expect(!shape.isFullyPartitioned());
     }
 
+    // Indique si la forme est entierement repliquee.
     pub fn isFullyReplicated(self: Shape) bool {
         return self._sharding.isFullyReplicated();
     }
 
+    // Verifie la detection d'une replication totale.
     test isFullyReplicated {
         var shape = Shape.init(.{ .a = 10, .b = 20 }, .f32).withPartitioning(&test_mesh, .{ .a = .replicated, .b = .replicated });
         try testing.expect(shape.isFullyReplicated());
@@ -976,10 +1050,12 @@ pub const Shape = struct {
         try testing.expect(!shape.isFullyReplicated());
     }
 
+    // Retourne la spec de partitionnement de l'axe donne.
     pub fn partition(self: Shape, ax: anytype) Sharding.PartitionSpec {
         return self._sharding.get(self.axis(ax));
     }
 
+    // Verifie la lecture des specs de partitionnement par tag.
     test partition {
         const shape = Shape.init(.{ .a = 10, .b = 20, .c = 30 }, .f32).withPartitioning(&test_mesh, .{ .a = .batch, .b = .open, .c = .feature });
         try testing.expectEqual(Sharding.PartitionSpec.sharded(0), shape.partition(.a));
@@ -987,6 +1063,7 @@ pub const Shape = struct {
         try testing.expectEqual(Sharding.PartitionSpec.sharded(1), shape.partition(.c));
     }
 
+    // Indique si l'une des specs de partitionnement de la forme est egale a part.
     pub fn containsPartitionSpec(self: Shape, part: Sharding.PartitionSpec) bool {
         for (0..self.rank()) |ax| {
             const dim_part = self._sharding.get(ax);
@@ -995,6 +1072,7 @@ pub const Shape = struct {
         return false;
     }
 
+    // Verifie la presence de specs donnees (sharded/open/replicated/out_of_bound).
     test containsPartitionSpec {
         var shape = Shape.init(.{ .a = 10, .b = 20, .c = 30, .d = 40 }, .f32).withPartitioning(&test_mesh, .{ .a = .batch, .b = .open, .c = .feature });
         try testing.expect(shape.containsPartitionSpec(.sharded(0)));
@@ -1009,6 +1087,7 @@ pub const Shape = struct {
         try testing.expect(!shape.containsPartitionSpec(.open));
     }
 
+    // Renomme certains tags de la forme selon un litteral ancien->nouveau.
     /// Renames some of the tags in this shape.
     /// Shape.init(.{ .a = 10, .b = 20 }).rename(.{ .b = .batch }); // .{ .a = 10, .batch = 20 };
     pub fn rename(self: Shape, renames: anytype) Shape {
@@ -1023,6 +1102,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie le renommage de tags.
     test rename {
         {
             const tagged = Shape.init(.{ .a = 0, .b = 1 }, .f32).rename(.{ .a = .x, .b = .y });
@@ -1037,12 +1117,14 @@ pub const Shape = struct {
         }
     }
 
+    // Calcule les strides de la forme en elements (pour {d0,d1,d2} : {d1*d2, d2, 1}).
     /// Computes the strides of the shape in units of elements.
     /// For a shape {d0, d1, d2}, the strides would be {d1*d2, d2, 1}.
     pub fn computeElementStrides(self: Shape) stdx.BoundedArray(i64, constants.MAX_RANK) {
         return self.computeStrides(1);
     }
 
+    // Verifie le calcul des strides en elements sur plusieurs formes, scalaire compris.
     test computeElementStrides {
         {
             const s = Shape.init(.{ 4, 1024 }, .bf16);
@@ -1087,6 +1169,7 @@ pub const Shape = struct {
         }
     }
 
+    // Calcule les strides de la forme en octets (stride elementaire x taille du type).
     /// Computes the strides of the shape in units of bytes.
     /// For a shape {d0, d1, d2} of type T, the strides would be
     /// {(d1*d2)*sizeof(T), d2*sizeof(T), 1*sizeof(T)}.
@@ -1094,6 +1177,7 @@ pub const Shape = struct {
         return self.computeStrides(self.dtype().sizeOf());
     }
 
+    // Verifie le calcul des strides en octets pour divers dtypes et le scalaire.
     test computeByteStrides {
         {
             const s = Shape.init(.{ 2, 3, 4 }, .f16); // 2 bytes
@@ -1133,6 +1217,7 @@ pub const Shape = struct {
         }
     }
 
+    // Calcule les strides via un prefix-scan SIMD sur la copie des dimensions x taille d'element.
     fn computeStrides(self: Shape, element_size: i64) stdx.BoundedArray(i64, constants.MAX_RANK) {
         const rk = self.rank();
         var strides: stdx.BoundedArray(i64, constants.MAX_RANK) = .{ .buffer = undefined, .len = rk };
@@ -1151,6 +1236,7 @@ pub const Shape = struct {
         return strides;
     }
 
+    // Retourne la permutation amenant les axes donnes en fin de forme (pour les rendre contigus).
     /// Returns the permutation needed to transpose this shape
     /// so that the given axes are contiguous.
     pub fn contiguousPerm(self: Shape, axes_: anytype) AxesArray {
@@ -1166,6 +1252,7 @@ pub const Shape = struct {
         return perms;
     }
 
+    // Verifie que la permutation contigue, appliquee via transpose, produit la forme attendue.
     test contiguousPerm {
         const abc = Shape.init(.{ .a = 10, .b = 11, .c = 12 }, .f32);
         try testing.expect(
@@ -1193,6 +1280,7 @@ pub const Shape = struct {
         );
     }
 
+    // Decoupe un axe en plusieurs axes ; le produit des tailles doit egaler la dimension d'origine.
     /// Splits the given axis in several axes.
     /// eg: `Shape.init(.{ .a = 10, .b = 3 }).split(.a, .{.a1 = 5, .a2 = 2}); -> .{.a1 = 5, .a2 = 2, .b = 3}`
     /// The number of elements in the split shape must match the number of element
@@ -1216,6 +1304,7 @@ pub const Shape = struct {
         return new_shape;
     }
 
+    // Verifie le decoupage d'axe avec dims explicites et avec .auto.
     test splitAxis {
         try expectEqualShapes(
             .init(.{ .a1 = 5, .a2 = 2, .b = 3 }, .f32),
@@ -1227,6 +1316,7 @@ pub const Shape = struct {
         );
     }
 
+    // Applique splitAxis a plusieurs axes decrits dans un litteral de struct.
     pub fn splitAxes(self: Shape, axes_: anytype) Shape {
         const T = @TypeOf(axes_);
         stdx.debug.assertComptime(stdx.meta.isStruct(T), "Must pass struct of enum literals like .{ .a = .{ .a1, .a2 } }. Passed: {any}", .{T});
@@ -1238,6 +1328,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie le decoupage de plusieurs axes d'un coup.
     test splitAxes {
         try testing.expect(
             Shape.init(.{ .a1 = 5, .a2 = 2, .b = 3 }, .f32).eql(
@@ -1251,6 +1342,7 @@ pub const Shape = struct {
         );
     }
 
+    // Fusionne plusieurs axes en un seul ; le partitionnement devient open si l'un est sharde.
     /// Merge the given axes into one axis.
     /// eg: `Shape.init(.{.a1 = 5, .a2 = 2, .b = 3}).merge(.{ .a = .{ .a1, .a2 }); -> .{ .a = 10, .b = 3 }`
     pub fn mergeAxis(self: Shape, axis_: anytype, axes_: anytype) Shape {
@@ -1289,6 +1381,7 @@ pub const Shape = struct {
         return new_shape;
     }
 
+    // Verifie la fusion d'axes avec dimensions et tags.
     test mergeAxis {
         try testing.expect(
             Shape.init(.{ .a = 10, .b = 3, .c = 4 }, .f32).eqlWithTags(
@@ -1317,6 +1410,7 @@ pub const Shape = struct {
         );
     }
 
+    // Verifie la regle de partitionnement apres fusion (sharded+replicated -> open, etc.).
     test "mergeAxis partitioning" {
         // Merging a partitioned axis with a replicated one -> open
         const shape1 = Shape.init(.{ .a = 5, .b = 2, .c = 3 }, .f32)
@@ -1339,6 +1433,7 @@ pub const Shape = struct {
         try testing.expect(merged3.partition(.ab) == .replicated);
     }
 
+    // Applique mergeAxis a plusieurs groupes d'axes decrits dans un litteral de struct.
     pub fn mergeAxes(self: Shape, axes_: anytype) Shape {
         const T = @TypeOf(axes_);
         stdx.debug.assertComptime(stdx.meta.isStruct(T), "Must pass struct of enum literals like .{ .a = .{ .a1, .a2 } }. Passed: {any}", .{T});
@@ -1351,6 +1446,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie la fusion multiple d'axes.
     test mergeAxes {
         try testing.expect(
             Shape.init(.{ .a = 10, .b = 3 }, .f32).eqlWithTags(
@@ -1374,6 +1470,7 @@ pub const Shape = struct {
         );
     }
 
+    // Retourne les tags presents a la fois dans a et dans b.
     fn intersectTags(a: []const Tag, b: []const Tag) TagsArray {
         var res: TagsArray = .empty;
         for (a) |tag_| {
@@ -1384,6 +1481,7 @@ pub const Shape = struct {
         return res;
     }
 
+    // Analyse un slice ou struct en tableau de valeurs (et tags pour un struct non-tuple).
     pub fn parseStruct(T: type, v: anytype) struct { stdx.BoundedArray(T, constants.MAX_RANK), TagsArray } {
         const V = @TypeOf(v);
 
@@ -1414,6 +1512,7 @@ pub const Shape = struct {
         stdx.debug.compileError("parseStruct expects struct or tuple, got {}", .{V});
     }
 
+    // Verifie l'extraction de valeurs et tags depuis un litteral de struct.
     test parseStruct {
         const vals_, const tags_ = parseStruct(f32, .{ .a = 0.1, .b = 1.2 });
 
@@ -1421,6 +1520,7 @@ pub const Shape = struct {
         try testing.expectEqualSlices(Tag, &.{ "a".ptr, "b".ptr }, tags_.constSlice());
     }
 
+    // Analyse un litteral d'options par axe ; les valeurs manquantes prennent la valeur default.
     /// Parses a struct literal into a list of options for each axes.
     pub fn parseAxesOptions(self: Shape, T: type, options: anytype, default: T) stdx.BoundedArray(T, constants.MAX_RANK) {
         const V = @TypeOf(options);
@@ -1447,6 +1547,7 @@ pub const Shape = struct {
         stdx.debug.compileError("parseStruct expects struct or tuple, got {}", .{V});
     }
 
+    // Verifie le parsing d'options par axe avec valeur par defaut.
     test parseAxesOptions {
         const shape = Shape.init(.{ .a = 10, .b = 20, .c = 30 }, .u8);
         const scaling = shape.parseAxesOptions(f32, .{ .b = 1.2, .a = 0.1 }, 1.0);
@@ -1454,6 +1555,7 @@ pub const Shape = struct {
         try testing.expectEqualSlices(f32, &.{ 0.1, 1.2, 1.0 }, scaling.constSlice());
     }
 
+    // Verifie que les operations Shape (rank, byteSize, axis) fonctionnent a la compilation.
     test "comptimeShape" {
         comptime {
             const s = Shape.init(.{ .a = 5, .b = 6, .c = 7 }, .f32);
@@ -1471,6 +1573,7 @@ pub const Shape = struct {
         }
     }
 
+    // Calcule la forme du produit exterieur de deux formes (broadcasting des dims de other).
     pub fn outer(self: Shape, other: Shape) Shape {
         var res_shape = self;
         var batching_axes: u8 = 0;
@@ -1487,6 +1590,7 @@ pub const Shape = struct {
         return res_shape;
     }
 
+    // Retourne un iterateur multidimensionnel sur toutes les coordonnees de la forme.
     pub fn iterator(self: Shape) MultiDimIterator {
         return .{
             .shape = self,
@@ -1495,6 +1599,7 @@ pub const Shape = struct {
         };
     }
 
+    // Retourne la forme compactee visible par PJRT (type u8) pour les dtypes inferieurs a 1 octet.
     /// Generate the packed shape visible to PJRT
     pub fn packedShape(sh: Shape) Shape {
         const bit_size = sh.dtype().bitSizeOf();
@@ -1506,11 +1611,13 @@ pub const Shape = struct {
         return res;
     }
 
+    // Verifie la compaction d'une forme u2 en u8.
     test packedShape {
         const x: Shape = .init(.{ 4, 8 }, .u2);
         try expectEqualShapes(.init(.{ 4, 2 }, .u8), x.packedShape());
     }
 
+    // Verifie que les transformations de forme preservent le partitionnement et nettoient les slots inutilises.
     test "shape transformations preserve partition specs and clear unused slots" {
         var shape = Shape.init(.{ 2, 3, 4 }, .f32);
         shape._sharding = .{ .mesh = &test_mesh, .partition = Sharding.Partitioning.out_of_bound.set(0, .mesh_axis_0).set(1, .open).set(2, .mesh_axis_1) };
@@ -1556,6 +1663,7 @@ pub const MultiDimIterator = struct {
         flat_index: usize,
     };
 
+    // Retourne l'element suivant (coords + index plat) ou null en fin d'iteration.
     pub fn next(self: *MultiDimIterator) ?Item {
         if (self.flat_index >= self.shape.count()) {
             return null;
@@ -1584,6 +1692,7 @@ pub const MultiDimIterator = struct {
     }
 };
 
+// Verifie l'iteration sur un scalaire (un seul element, rang 0).
 test "MultiDimIterator / Scalar" {
     const shape = Shape.scalar(.f32);
     var iter = shape.iterator();
@@ -1594,6 +1703,7 @@ test "MultiDimIterator / Scalar" {
     try std.testing.expect(iter.next() == null);
 }
 
+// Verifie qu'une forme avec une dimension nulle n'itere sur rien.
 test "MultiDimIterator / Empty" {
     const shape = Shape.init(.{ .x = 5, .y = 0, .z = 2 }, .f32);
     var iter = shape.iterator();
@@ -1601,6 +1711,7 @@ test "MultiDimIterator / Empty" {
     try std.testing.expect(iter.next() == null);
 }
 
+// Verifie l'iteration sur une forme 1D.
 test "MultiDimIterator / 1D shape" {
     const shape = Shape.init(.{5}, .f32);
     var iter = shape.iterator();
@@ -1612,6 +1723,7 @@ test "MultiDimIterator / 1D shape" {
     try std.testing.expectEqual(5, count);
 }
 
+// Verifie l'ordre d'iteration et les coordonnees sur une forme 2D.
 test "MultiDimIterator / 2D shape" {
     const shape = Shape.init(.{ .rows = 2, .cols = 3 }, .f32);
     var iter = shape.iterator();
@@ -1632,6 +1744,7 @@ test "MultiDimIterator / 2D shape" {
     try std.testing.expectEqual(5, items.items[5].flat_index);
 }
 
+// Verifie l'ordre d'iteration row-major sur une forme 3D.
 test "MultiDimIterator / 3D shape" {
     const shape = Shape.init(.{ .d = 2, .h = 2, .w = 2 }, .f32);
     var iter = shape.iterator();
@@ -1655,6 +1768,7 @@ test "MultiDimIterator / 3D shape" {
     try std.testing.expectEqual(8, count);
 }
 
+// Verifie l'iteration avec une dimension de taille 1 (coordonnee toujours nulle).
 test "MultiDimIterator / Shape with dimension of size 1" {
     const shape = Shape.init(.{ .a = 2, .b = 1, .c = 3 }, .f32);
     var iter = shape.iterator();
@@ -1666,6 +1780,7 @@ test "MultiDimIterator / Shape with dimension of size 1" {
     try std.testing.expectEqual(6, count);
 }
 
+// Compare deux formes avec tags et echoue avec TestExpectedEqual si elles different.
 fn expectEqualShapes(expected: Shape, actual: Shape) error{TestExpectedEqual}!void {
     if (expected.eqlWithTags(actual)) return;
 

@@ -22,34 +22,40 @@ partition: Partitioning,
 pub const MAX_MESH_RANK = 4;
 pub const replicated: Sharding = .{ .mesh = null, .partition = .replicated(Shape.MAX_RANK) };
 
+// Retourne la PartitionSpec de l'axe donne ; .replicated si aucun mesh n'est defini.
 pub fn get(sharding: Sharding, ax: usize) PartitionSpec {
     return if (sharding.mesh == null) .replicated else sharding.partition.get(ax);
 }
 
+// Retourne une copie du Sharding avec la spec de partitionnement de l'axe ax remplacee.
 pub fn set(self: Sharding, ax: usize, spec: PartitionSpec) Sharding {
     var res = self;
     res.partition = res.partition.set(ax, spec);
     return res;
 }
 
+// Insere une spec a l'axe ax en decalant les axes suivants vers la droite.
 pub fn insert(self: Sharding, ax: usize, spec: PartitionSpec) Sharding {
     var res = self;
     res.partition = res.partition.insert(ax, spec);
     return res;
 }
 
+// Retire la spec de l'axe ax en decalant les axes suivants vers la gauche.
 pub fn orderedRemove(self: Sharding, ax: usize) Sharding {
     var res = self;
     res.partition = res.partition.orderedRemove(ax);
     return res;
 }
 
+// Retourne les specs de partitionnement sous forme de tableau de taille MAX_RANK.
 pub fn toArray(self: Sharding) [Shape.MAX_RANK]PartitionSpec {
     var result: [Shape.MAX_RANK]PartitionSpec = undefined;
     for (&result, 0..) |*spec, ax| spec.* = self.get(ax);
     return result;
 }
 
+// Indique si le tenseur est entierement replique (mesh absent ou axes repliques/out_of_bound).
 pub fn isFullyReplicated(self: Sharding) bool {
     if (self.mesh == null) return true;
     for (self.partition.toArray()) |spec| {
@@ -58,6 +64,7 @@ pub fn isFullyReplicated(self: Sharding) bool {
     return true;
 }
 
+// Verifie que deux Sharding sont compatibles : mesh non specifie, axes ouverts ou specs identiques.
 /// An unspecified mesh is compatible with any sharding. On the same mesh,
 /// open axes accept any in-bounds partition, while closed axes must match.
 pub fn isCompatible(self: Sharding, other: Sharding) bool {
@@ -71,6 +78,7 @@ pub fn isCompatible(self: Sharding, other: Sharding) bool {
     return true;
 }
 
+// Teste la compatibilite de Sharding sur differents cas (ouvert, ferme, out_of_bound, mesh differents).
 test isCompatible {
     const tp: Mesh = .initTest(.tp, .{.model});
     const dp: Mesh = .initTest(.dp, .{ .data, .model });
@@ -97,6 +105,7 @@ test isCompatible {
     }
 }
 
+// Formate le Sharding pour l'affichage/debug (ex: "{replicated}" ou "{?}@mesh").
 pub fn format(self: Sharding, writer: *std.Io.Writer) !void {
     const mesh = self.mesh orelse return writer.writeAll("{replicated}");
     const specs = self.partition.toArray();
@@ -134,24 +143,29 @@ pub const PartitionSpec = enum(u4) {
     out_of_bound = 0xa,
     open = 15,
 
+    // Construit une PartitionSpec shardee sur l'axe de mesh donne.
     pub fn sharded(mesh_axis: u3) PartitionSpec {
         return @enumFromInt(mesh_axis);
     }
 
+    // Retourne l'axe de mesh le long duquel on est sharde, ou null si non sharde.
     /// Extract the mesh axis along which we are sharded. Null if not sharded.
     pub fn meshAxis(self: PartitionSpec) ?u3 {
         const ax = @intFromEnum(self);
         return if (ax < @intFromEnum(PartitionSpec.replicated)) @intCast(ax) else null;
     }
 
+    // Indique si cette spec correspond a un partitionnement sur un axe de mesh.
     pub fn isSharded(self: PartitionSpec) bool {
         return @intFromEnum(self) < @intFromEnum(PartitionSpec.replicated);
     }
 
+    // Indique si la spec est fermee (axe de mesh ou replicated), par opposition a open.
     pub fn isClosed(self: PartitionSpec) bool {
         return @intFromEnum(self) <= @intFromEnum(PartitionSpec.replicated);
     }
 
+    // Verifie que replicated et les axes de mesh sont fermes, et que open/out_of_bound ne le sont pas.
     test isClosed {
         try std.testing.expect(PartitionSpec.mesh_axis_2.isClosed());
         try std.testing.expect(!PartitionSpec.open.isClosed());
@@ -166,6 +180,7 @@ pub const Partitioner = union(enum) {
     shardy,
     gspmd,
 
+    // Choisit le partitionneur (shardy) a utiliser pour une cible de plateforme.
     pub fn fromTarget(target: Target) Partitioner {
         return switch (target) {
             .cpu, .cuda, .rocm, .tpu, .oneapi, .neuron, .metal, .furiosa => .shardy,
@@ -173,6 +188,7 @@ pub const Partitioner = union(enum) {
     }
 };
 
+// Indique si au moins un axe de la forme est partitionne sur un axe de mesh.
 fn shapeHasAxisPartition(shape: Shape) bool {
     for (0..shape.rank()) |ax| {
         if (shape.partition(ax).meshAxis()) |_| return true;
@@ -188,6 +204,7 @@ pub const DimMeshe = union(enum) {
     replicated,
 };
 
+// Construit l'attribut Shardy "per-value" d'un lot de formes, une entree par forme.
 pub fn sdyPerValueShardingAttr(
     allocator: std.mem.Allocator,
     ctx: *mlir.Context,
@@ -201,6 +218,7 @@ pub fn sdyPerValueShardingAttr(
     return dialects.shardy.TensorShardingPerValueAttribute.init(ctx, meshe_attrs).asAttr();
 }
 
+// Assemble l'attribut Shardy des axes manuels (repliques et dimensionnels) des formes d'entree/sortie.
 pub fn sdyManualAxesAttr(
     allocator: std.mem.Allocator,
     ctx: *mlir.Context,
@@ -212,6 +230,7 @@ pub fn sdyManualAxesAttr(
     defer axis_names.deinit(allocator);
 
     const Collect = struct {
+        // Ajoute un nom d'axe a la liste s'il n'y figure pas deja (deduplication).
         fn appendUnique(list: *std.ArrayList([]const u8), allocator_: std.mem.Allocator, axis_name: []const u8) void {
             for (list.items) |existing| {
                 if (std.mem.eql(u8, existing, axis_name)) return;
@@ -268,6 +287,7 @@ pub const Partitioning = packed struct {
     const MAX_RANK = Shape.MAX_RANK;
     const Vec = @Vector(MAX_RANK, u4);
 
+    // Construit un Partitioning a partir d'une liste de specs ; les axes restants sont out_of_bound.
     pub fn init(specs: []const PartitionSpec) Partitioning {
         var res: Partitioning = out_of_bound;
         for (0.., specs) |i, spec| {
@@ -276,19 +296,23 @@ pub const Partitioning = packed struct {
         return res;
     }
 
+    // Construit un Partitioning avec les rank_ premiers axes repliques et le reste out_of_bound.
     pub fn replicated(rank_: usize) Partitioning {
         return repeat(.replicated, rank_);
     }
 
+    // Construit un Partitioning avec les rank_ premiers axes ouverts et le reste out_of_bound.
     pub fn open(rank_: usize) Partitioning {
         return repeat(.open, rank_);
     }
 
+    // Remplit les MAX_RANK axes avec la meme spec par bit-cast d'un vecteur uniforme.
     pub fn splat(spec: PartitionSpec) Partitioning {
         const vec: Vec = @splat(@intFromEnum(spec));
         return @bitCast(vec);
     }
 
+    // Remplit les rank_ premiers axes avec spec et les suivants avec out_of_bound.
     pub fn repeat(spec: PartitionSpec, rank_: usize) Partitioning {
         std.debug.assert(rank_ <= MAX_RANK);
         const splatted: Vec = @splat(@intFromEnum(spec));
@@ -296,6 +320,7 @@ pub const Partitioning = packed struct {
         return @bitCast(@select(u4, mask, splatted, @as(Vec, @bitCast(out_of_bound))));
     }
 
+    // Extrait la spec de l'axe ax depuis la representation packee (4 bits par axe).
     pub fn get(p: Partitioning, ax: usize) PartitionSpec {
         std.debug.assert(ax < MAX_RANK);
         const pack: u32 = @bitCast(p);
@@ -303,6 +328,7 @@ pub const Partitioning = packed struct {
         return @enumFromInt(@as(u4, @truncate(pack >> shift)));
     }
 
+    // Remplace la spec de l'axe ax dans la representation packee.
     pub fn set(p: Partitioning, ax: usize, spec: PartitionSpec) Partitioning {
         std.debug.assert(ax < MAX_RANK);
         const pack: u32 = @bitCast(p);
@@ -311,6 +337,7 @@ pub const Partitioning = packed struct {
         return @bitCast((pack & ~mask) | (@as(u32, @intFromEnum(spec)) << shift));
     }
 
+    // Retourne le nombre d'axes valides avant le premier out_of_bound.
     pub fn rank(p: Partitioning) u8 {
         for (0..MAX_RANK) |i_usize| {
             const i: u8 = @truncate(i_usize);
@@ -319,6 +346,7 @@ pub const Partitioning = packed struct {
         return MAX_RANK;
     }
 
+    // Insere une spec a l'axe ax, decale les suivantes a droite et jette le dernier slot.
     /// Inserts a spec, shifting subsequent slots right and discarding the last slot.
     pub fn insert(p: Partitioning, ax: usize, spec: PartitionSpec) Partitioning {
         std.debug.assert(ax < MAX_RANK);
@@ -328,6 +356,7 @@ pub const Partitioning = packed struct {
         return @bitCast((pack & lower_mask) | ((pack & ~lower_mask) << 4) | (@as(u32, @intFromEnum(spec)) << shift));
     }
 
+    // Retire la spec de l'axe ax, decale les suivantes a gauche et place out_of_bound en fin.
     /// Removes a spec, shifting subsequent slots left and filling the last with unknown.
     pub fn orderedRemove(p: Partitioning, ax: usize) Partitioning {
         std.debug.assert(ax < MAX_RANK);
@@ -337,12 +366,14 @@ pub const Partitioning = packed struct {
         return @bitCast((pack & lower_mask) | ((pack >> 4) & ~lower_mask) | (@as(u32, @intFromEnum(PartitionSpec.out_of_bound)) << 28));
     }
 
+    // Convertit le Partitioning packe en tableau de MAX_RANK specs.
     pub fn toArray(p: Partitioning) [MAX_RANK]PartitionSpec {
         var res: [MAX_RANK]PartitionSpec = undefined;
         for (&res, 0..) |*spec, ax| spec.* = p.get(ax);
         return res;
     }
 
+    // Verifie qu'aucun axe de mesh n'est utilise deux fois par les axes de la forme.
     pub fn hasUniqueAxes(p: Partitioning) bool {
         var used_mesh_axes: std.StaticBitSet(MAX_RANK) = .initEmpty();
         for (0..MAX_RANK) |shape_ax| {
@@ -355,11 +386,13 @@ pub const Partitioning = packed struct {
         return true;
     }
 
+    // Teste la detection d'axes de mesh dupliques.
     test hasUniqueAxes {
         try std.testing.expect(hasUniqueAxes(.init(&.{ .mesh_axis_0, .mesh_axis_1, .replicated, .mesh_axis_2 })));
         try std.testing.expect(!hasUniqueAxes(.init(&.{ .mesh_axis_0, .mesh_axis_1, .replicated, .mesh_axis_0 })));
     }
 
+    // Verifie la taille (32 bits) et la coherence get/set/splat/repeat du Partitioning packe.
     test "packed access and updates" {
         try std.testing.expectEqual(32, @bitSizeOf(Partitioning));
         try std.testing.expectEqual(4, @sizeOf(Partitioning));
@@ -381,6 +414,7 @@ pub const Partitioning = packed struct {
         }
     }
 
+    // Verifie insert/orderedRemove a chaque position, y compris en comptime.
     test "insertion and removal at every slot" {
         var parts: Partitioning = .out_of_bound;
         for (0..MAX_RANK) |ax| parts = parts.set(ax, @enumFromInt(ax));
@@ -404,6 +438,7 @@ pub const Partitioning = packed struct {
         try std.testing.expectEqual(PartitionSpec.out_of_bound, comptime_parts.get(7));
     }
 
+    // Construit un Partitioning depuis un litteral de struct en mappant chaque champ sur un axe de forme.
     /// Parse a struct literal into a partitioning object.
     /// The struct passed to partitioning must only have fields names present in `tags`.
     /// The ordering of tags matter, the return struct will map names to axis as specified by `tags`.
@@ -453,10 +488,12 @@ pub const Device = struct {
     // Private so it's kept as implementation detail
     const undefined_coords: Coords = @splat(0xff);
 
+    // Indique si le device possede des coordonnees valides (non placeholders).
     fn hasValidCoords(device: Device) bool {
         return @as(u32, @bitCast(device.coords)) != @as(u32, @bitCast(undefined_coords));
     }
 
+    // Formate un Device (id et coordonnees) pour l'affichage/debug.
     pub fn format(device: Device, writer: *std.Io.Writer) !void {
         try writer.print(
             "Device(id={d} coords={any})",
@@ -494,6 +531,7 @@ pub const AxisGeometry = union(enum) {
     tree: void, // Hierarchical (Standard PCIe)
     isolated: void, // No direct communication (AWS Inf2 islands)
 
+    // Formate la geometrie d'axe (P2P, Ring, Mesh, Tree, Isolated).
     pub fn format(self: AxisGeometry, writer: *std.Io.Writer) !void {
         switch (self) {
             .point_to_point => try writer.writeAll("P2P"),
@@ -516,6 +554,7 @@ pub const PhysicalNode = union(enum) {
     /// A leaf represents the actual hardware device
     leaf: Device,
 
+    // Construit un noeud interne (branch) du topology tree avec tag, geometrie et enfants.
     pub fn axis(tag: PhysicalAxisTag, geometry_: AxisGeometry, children: []const PhysicalNode) PhysicalNode {
         return .{
             .branch = .{
@@ -526,6 +565,7 @@ pub const PhysicalNode = union(enum) {
         };
     }
 
+    // Construit une feuille (leaf) du topology tree a partir d'un device de plateforme.
     pub fn device(device_: PlatformDevice) PhysicalNode {
         return .{
             .leaf = .{
@@ -535,6 +575,7 @@ pub const PhysicalNode = union(enum) {
         };
     }
 
+    // Compte recursivement le nombre de devices (feuilles) sous ce noeud.
     pub fn countDevices(self: PhysicalNode) usize {
         return switch (self) {
             .leaf => 1,
@@ -573,6 +614,7 @@ pub const PhysicalMesh = struct {
         /// Depth (index) of each axis tag in the order.
         depth_by_tag: DepthByTag,
 
+        // Construit l'ordre canonique des axes (DFS) et la profondeur de chaque tag depuis l'arbre.
         /// Build axis order and depth mapping from a topology tree.
         pub fn init(root: PhysicalNode) AxisTraversal {
             var order: Order = .empty;
@@ -589,10 +631,12 @@ pub const PhysicalMesh = struct {
             };
         }
 
+        // Retourne la profondeur (index dans l'ordre canonique) du tag donne, ou null s'il est absent.
         pub fn depth(self: AxisTraversal, tag: PhysicalAxisTag) ?u8 {
             return self.depth_by_tag.get(tag);
         }
 
+        // Formate l'ordre des axes et la table des profondeurs.
         pub fn format(self: AxisTraversal, writer: *std.Io.Writer) !void {
             try writer.writeAll("AxisTraversal(order=[");
 
@@ -619,6 +663,7 @@ pub const PhysicalMesh = struct {
             try writer.writeAll("})");
         }
 
+        // Parcourt l'arbre en ne descendant que le premier enfant pour fixer l'ordre canonique des axes.
         /// Canonical DFS axis order:
         ///
         /// Tree:
@@ -653,6 +698,7 @@ pub const PhysicalMesh = struct {
     axis_traversal: AxisTraversal,
     devices_in_canonical_order: []Device,
 
+    // Construit un PhysicalMesh depuis un arbre : clone, valide la geometrie et assigne les coordonnees.
     /// Build a PhysicalMesh from a tree:
     /// - clone the tree into `allocator`
     /// - validate geometry invariants
@@ -665,6 +711,7 @@ pub const PhysicalMesh = struct {
         return try fromOwnedTree(allocator, target, cloned);
     }
 
+    // Construit un PhysicalMesh en prenant possession de l'arbre : valide, assigne les coords et trie les devices.
     fn fromOwnedTree(allocator: std.mem.Allocator, target: Target, root: PhysicalNode) !PhysicalMesh {
         try validateGeometry(root);
 
@@ -685,6 +732,7 @@ pub const PhysicalMesh = struct {
         return mesh;
     }
 
+    // Collecte les devices de l'arbre puis les trie selon l'index lineaire canonique.
     fn populateDevicesInCanonicalOrder(self: *PhysicalMesh, allocator: std.mem.Allocator) !void {
         var devices_: std.ArrayList(Device) = .empty;
         errdefer devices_.deinit(allocator);
@@ -693,6 +741,7 @@ pub const PhysicalMesh = struct {
 
         const Order = struct {
             mesh: *const PhysicalMesh,
+            // Compare deux devices par leur index lineaire canonique pour le tri.
             fn lessThan(ctx: @This(), a: Device, b: Device) bool {
                 const ia = ctx.mesh.linearIndexFromCoords(a.coords);
                 const ib = ctx.mesh.linearIndexFromCoords(b.coords);
@@ -703,6 +752,7 @@ pub const PhysicalMesh = struct {
         std.mem.sort(Device, self.devices_in_canonical_order, Order{ .mesh = self }, Order.lessThan);
     }
 
+    // Clone recursivement un arbre de topologie dans l'allocateur fourni.
     fn cloneNode(allocator: std.mem.Allocator, node: PhysicalNode) !PhysicalNode {
         return switch (node) {
             .leaf => |d| .{
@@ -728,6 +778,7 @@ pub const PhysicalMesh = struct {
         };
     }
 
+    // Libere recursivement la memoire allouee pour un arbre de topologie.
     fn freeNode(allocator: std.mem.Allocator, node: PhysicalNode) void {
         switch (node) {
             .leaf => {},
@@ -738,12 +789,14 @@ pub const PhysicalMesh = struct {
         }
     }
 
+    // Libere les ressources du PhysicalMesh (devices et arbre).
     pub fn deinit(self: *PhysicalMesh, allocator: std.mem.Allocator) void {
         allocator.free(self.devices_in_canonical_order);
         freeNode(allocator, self.root);
         self.* = undefined;
     }
 
+    // Valide recursivement les invariants de geometrie (mesh mixte interdit, ring >= 2 enfants).
     fn validateGeometry(node: PhysicalNode) !void {
         switch (node) {
             .leaf => return,
@@ -783,6 +836,7 @@ pub const PhysicalMesh = struct {
         }
     }
 
+    // Assigne des coordonnees a chaque feuille via les index de chemin DFS.
     /// Assign coords to each leaf using DFS path indices.
     ///
     /// Example (2x2):
@@ -809,10 +863,12 @@ pub const PhysicalMesh = struct {
         }
     }
 
+    // Retourne le nombre total de devices du mesh physique.
     pub fn countDevices(self: PhysicalMesh) usize {
         return self.root.countDevices();
     }
 
+    // Parcourt l'arbre et ajoute chaque device rencontre a la liste de sortie.
     fn devicesNodeInto(allocator: std.mem.Allocator, node: PhysicalNode, out: *std.ArrayList(Device)) !void {
         switch (node) {
             .leaf => |d| try out.append(allocator, d),
@@ -824,6 +880,7 @@ pub const PhysicalMesh = struct {
         }
     }
 
+    // Calcule l'index lineaire canonique d'un jeu de coordonnees (row-major selon l'ordre des axes).
     /// Canonical DFS linearization for coordinate consensus.
     ///
     /// sizes: S0..Sk, coords: C0..Ck
@@ -842,10 +899,12 @@ pub const PhysicalMesh = struct {
         return idx;
     }
 
+    // Retourne les informations (tag, taille, geometrie) de l'axe demande, ou null.
     pub fn axisInfo(self: PhysicalMesh, tag: PhysicalAxisTag) ?AxisInfo {
         return axisInfoNode(self.root, tag);
     }
 
+    // Recherche recursivement le noeud portant le tag d'axe et construit son AxisInfo.
     fn axisInfoNode(node: PhysicalNode, tag: PhysicalAxisTag) ?AxisInfo {
         return switch (node) {
             .leaf => null,
@@ -867,26 +926,31 @@ pub const PhysicalMesh = struct {
         };
     }
 
+    // Indique si le mesh physique contient l'axe donne.
     pub fn hasAxis(self: PhysicalMesh, tag: PhysicalAxisTag) bool {
         return self.axisInfo(tag) != null;
     }
 
+    // Retourne la taille de l'axe donne, ou 1 s'il est absent.
     pub fn axis(self: PhysicalMesh, tag: PhysicalAxisTag) i64 {
         if (self.axisInfo(tag)) |info| return info.size;
 
         return 1;
     }
 
+    // Retourne l'ordre canonique des axes physiques.
     pub fn axisOrder(self: PhysicalMesh) AxisTraversal.Order {
         return self.axis_traversal.order;
     }
 
+    // Retourne la geometrie de l'axe donne, ou null s'il est absent.
     pub fn geometry(self: PhysicalMesh, tag: PhysicalAxisTag) ?AxisGeometry {
         if (self.axisInfo(tag)) |info| return info.geometry;
 
         return null;
     }
 
+    // Retourne les axes physiques partitionnables, du plus rapide au plus lent, selon la cible.
     /// Preferred axis ordering by speed: fastest -> slowest.
     /// This is used by Strategy.suggest to match intent to bandwidth.
     pub fn shardableAxes(self: PhysicalMesh) []const PhysicalAxisTag {
@@ -899,6 +963,7 @@ pub const PhysicalMesh = struct {
         };
     }
 
+    // Indique si l'axe physique donne figure parmi les axes partitionnables.
     pub fn isShardable(self: PhysicalMesh, tag: PhysicalAxisTag) bool {
         for (self.shardableAxes()) |t| {
             if (t == tag) return true;
@@ -907,6 +972,7 @@ pub const PhysicalMesh = struct {
         return false;
     }
 
+    // Formate le mesh physique : plateforme, axes partitionnables, nombre de devices et arbre.
     pub fn format(self: PhysicalMesh, writer: *std.Io.Writer) !void {
         try writer.print("\nPhysicalMesh(platform={s} shardable_axes={any} num_devices={d})\n", .{ @tagName(self.target), self.shardableAxes(), self.countDevices() });
         try writer.print("├── {f}\n", .{self.axis_traversal});
@@ -915,6 +981,7 @@ pub const PhysicalMesh = struct {
         try formatNode(self.root, writer, "", true);
     }
 
+    // Formate recursivement un noeud de topologie avec une indentation de type arbre.
     fn formatNode(node: PhysicalNode, writer: *std.Io.Writer, prefix: []const u8, is_last: bool) !void {
         try writer.print("{s}{s}", .{ prefix, if (is_last) "└── " else "├── " });
 
@@ -948,6 +1015,7 @@ pub const PhysicalMesh = struct {
             linear: usize,
         };
 
+        // Lit l'attribut PJRT "coords" d'un device et construit le Device correspondant.
         fn parseDevice(device: PlatformDevice) !Device {
             const api = device.platform.pjrt_api;
             const coords_attr = device.pjrt_desc.attribute(api, "coords") orelse return error.MissingDeviceCoords;
@@ -967,6 +1035,7 @@ pub const PhysicalMesh = struct {
             return .{ .id = device.id(), .coords = coords };
         }
 
+        // Convertit une liste de devices de plateforme en liste de placements (avec coords).
         pub fn collect(allocator: std.mem.Allocator, platform_devices: []const PlatformDevice) ![]Device {
             const placements = try allocator.alloc(Device, platform_devices.len);
             for (platform_devices, 0..) |device, i| {
@@ -975,6 +1044,7 @@ pub const PhysicalMesh = struct {
             return placements;
         }
 
+        // Deduit le rang et la taille de chaque axe de coordonnees a partir des placements.
         pub fn layout(placements: []const Device, max_rank: usize) !CoordLayout {
             if (placements.len == 0) return error.InvalidPhysicalMesh;
 
@@ -1001,6 +1071,7 @@ pub const PhysicalMesh = struct {
             };
         }
 
+        // Calcule l'index lineaire d'un jeu de coords selon des tailles d'axes donnees.
         fn linearIndex(coords: Device.Coords, rank: usize, axis_sizes: []const usize) usize {
             var linear: usize = 0;
             var stride: usize = 1;
@@ -1013,6 +1084,7 @@ pub const PhysicalMesh = struct {
             return linear;
         }
 
+        // Trie les placements par index lineaire et verifie l'absence de coordonnees dupliquees.
         pub fn sorted(allocator: std.mem.Allocator, placements: []const Device, rank: usize, axis_sizes: []const usize) ![]IndexedCoord {
             const indexed = try allocator.alloc(IndexedCoord, placements.len);
             for (placements, indexed) |coord_placement, *out| {
@@ -1023,6 +1095,7 @@ pub const PhysicalMesh = struct {
             }
 
             const SortCtx = struct {
+                // Compare deux placements par leur index lineaire pour le tri.
                 fn lessThan(_: @This(), a: IndexedCoord, b: IndexedCoord) bool {
                     return a.linear < b.linear;
                 }
@@ -1036,6 +1109,7 @@ pub const PhysicalMesh = struct {
             return indexed;
         }
 
+        // Calcule les strides de chaque axe (produits des tailles des axes suivants).
         pub fn axisStrides(axis_sizes: []const usize) ![MAX_MESH_RANK]usize {
             var strides: [MAX_MESH_RANK]usize = @splat(0);
             var stride: usize = 1;
@@ -1050,6 +1124,7 @@ pub const PhysicalMesh = struct {
             return strides;
         }
 
+        // Construit recursivement l'arbre de mesh (branchs "mesh torus") couvrant toutes les coordonnees.
         pub fn buildMeshNode(
             allocator: std.mem.Allocator,
             indexed: []const IndexedCoord,
@@ -1094,6 +1169,7 @@ pub const PhysicalMesh = struct {
         }
     };
 
+    // Construit automatiquement un PhysicalMesh adapte a la cible a partir des devices de plateforme.
     pub fn auto(allocator: std.mem.Allocator, target: Target, platform_devices: []const PlatformDevice) !PhysicalMesh {
         const root = try switch (target) {
             .cpu => cpu(allocator, platform_devices),
@@ -1118,6 +1194,7 @@ pub const PhysicalMesh = struct {
         return mesh;
     }
 
+    // Construit une topologie a plat (un axe "bus" de geometrie tree) regroupant tous les devices.
     pub fn cpu(allocator: std.mem.Allocator, platform_devices: []const PlatformDevice) !Tree {
         const nodes = try allocator.alloc(PhysicalNode, platform_devices.len);
 
@@ -1132,6 +1209,7 @@ pub const PhysicalMesh = struct {
         };
     }
 
+    // Construit une topologie GPU : un axe "link" point_to_point, devices tries par coords.
     pub fn gpu(allocator: std.mem.Allocator, platform_devices: []const PlatformDevice) !Tree {
         const placements = try CoordsTopology.collect(allocator, platform_devices);
         defer allocator.free(placements);
@@ -1155,6 +1233,7 @@ pub const PhysicalMesh = struct {
         };
     }
 
+    // Construit une topologie TPU (mesh torus link_x/link_y/link_z) a partir des coords PJRT.
     pub fn tpu(allocator: std.mem.Allocator, platform_devices: []const PlatformDevice) !Tree {
         if (platform_devices.len == 0) return error.InvalidPhysicalMesh;
 
@@ -1184,6 +1263,7 @@ pub const PhysicalMesh = struct {
         return CoordsTopology.buildMeshNode(allocator, indexed, axis_sizes[0..rank], axis_tags[0..rank], axis_strides[0..rank], 0, 0);
     }
 
+    // Construit la topologie Neuron en regroupant les devices (nc_id) par axes de fabric (link_x/y/z).
     pub fn neuron(allocator: std.mem.Allocator, platform_devices: []const PlatformDevice) !PhysicalMesh {
         if (comptime !platforms.isEnabled(.neuron)) {
             return error.UnsupportedPlatform;
@@ -1224,6 +1304,7 @@ pub const PhysicalMesh = struct {
         var next_device: usize = 0;
 
         const Node = struct {
+            // Construit recursivement un noeud de l'arbre Neuron a partir des placements et tailles d'axes.
             fn build(
                 allocator_: std.mem.Allocator,
                 platform_devices_: []const PlatformDevice,
@@ -1343,6 +1424,7 @@ pub const LogicalMesh = struct {
     axes: Axes,
     intents: Intents,
 
+    // Construit un LogicalMesh : chaque champ du litteral devient un axe logique avec son intention.
     pub fn mesh(axes_: anytype) LogicalMesh {
         const T = @TypeOf(axes_);
 
@@ -1365,6 +1447,7 @@ pub const LogicalMesh = struct {
         };
     }
 
+    // Retourne l'intention de l'axe logique dont le tag correspond, ou null.
     pub fn intent(self: LogicalMesh, tag: Shape.Tag) ?LogicalAxisIntent {
         const target = std.mem.span(tag);
         for (self.axes.slice(), self.intents.slice()) |t, i| {
@@ -1374,6 +1457,7 @@ pub const LogicalMesh = struct {
         return null;
     }
 
+    // Normalise une valeur (literal ou LogicalAxisIntent) en LogicalAxisIntent.
     fn intentFromValue(v: anytype) LogicalAxisIntent {
         const V = @TypeOf(v);
         if (V == LogicalAxisIntent) return v;
@@ -1385,6 +1469,7 @@ pub const LogicalMesh = struct {
         stdx.debug.compileError("LogicalMesh intent must be LogicalAxisIntent, got {}", .{V});
     }
 
+    // Formate le LogicalMesh (tags et intentions de chaque axe).
     pub fn format(self: LogicalMesh, writer: *std.Io.Writer) !void {
         try writer.writeAll("LogicalMesh(");
         for (self.axes.slice(), self.intents.slice()) |axis, int| {
@@ -1408,6 +1493,7 @@ pub const Axis = struct {
     geometry: ?AxisGeometry,
     folded: stdx.BoundedArray(PhysicalAxisTag, MAX_MESH_RANK),
 
+    // Indique si cet axe (ou l'un de ses axes replies) porte le tag donne.
     pub fn contains(self: *const Axis, tag: PhysicalAxisTag) bool {
         if (self.tag == tag) return true;
         for (self.folded.slice()) |t| if (t == tag) return true;
@@ -1419,12 +1505,14 @@ pub const PhysicalView = struct {
     axes: stdx.BoundedArray(Axis, MAX_MESH_RANK),
     total_devices: i64,
 
+    // Retourne la coordonnee le long d'un axe a partir d'un index lineaire de shard.
     pub fn axisCoordFromLinearShard(self: *const PhysicalView, axis_index: usize, linear_idx: usize) usize {
         const stride = self.axisStrideForLinear(axis_index);
         const axis_size: usize = @intCast(self.axes.slice()[axis_index].size);
         return (linear_idx / stride) % axis_size;
     }
 
+    // Calcule le stride lineaire de l'axe donne (produit des tailles des axes suivants).
     pub fn axisStrideForLinear(self: *const PhysicalView, axis_index: usize) usize {
         var stride: usize = 1;
         var j = axis_index + 1;
@@ -1449,6 +1537,7 @@ pub const Mesh = struct {
     folds: Folds,
     folds_consumed: std.EnumSet(PhysicalAxisTag),
 
+    // Decide si et comment une dimension peut etre shardee sur un axe logique, selon must_divide.
     pub fn shardableDim(mesh: *const Mesh, dim: i64, logical_axis: anytype, must_divide: i64) DimMeshe {
         const partitions = mesh.numPartitionsForLogicalAxis(logical_axis);
 
@@ -1466,10 +1555,12 @@ pub const Mesh = struct {
         }
     }
 
+    // Retourne les axes physiques lies a un axe logique du mesh.
     pub fn binding(self: *const Mesh, mesh_axis: usize) []const PhysicalAxisTag {
         return self.bindings.constSlice()[mesh_axis].constSlice();
     }
 
+    // Retourne l'index de l'axe logique portant le tag donne, ou null.
     pub fn resolveLogicalAxis(self: *const Mesh, tag: Shape.Tag) ?u8 {
         for (0.., self.logical.axes.slice()) |i, logical_axis| {
             if (std.mem.eql(u8, std.mem.span(logical_axis), std.mem.span(tag))) return @truncate(i);
@@ -1477,6 +1568,7 @@ pub const Mesh = struct {
         return null;
     }
 
+    // Construit un Mesh : resout les bindings de la strategie et valide les axes de repli.
     pub fn init(
         name_: []const u8,
         physical: *const PhysicalMesh,
@@ -1524,6 +1616,7 @@ pub const Mesh = struct {
         };
     }
 
+    // Construit un Mesh de test (mesh physique indefini) depuis un nom et des tags d'axes logiques.
     pub fn initTest(name_: @EnumLiteral(), tagz: anytype) Mesh {
         if (!builtin.is_test) @compileError("Cannot use zml.Sharding.Mesh.initTest outside of a test block");
         const axes_tags = Shape.parseTags(tagz);
@@ -1540,6 +1633,7 @@ pub const Mesh = struct {
         };
     }
 
+    // Retourne les axes sources explicitement replies dans le tag cible, ou null.
     fn foldSources(self: *const Mesh, tag: PhysicalAxisTag) ?[]const PhysicalAxisTag {
         for (self.folds.slice()) |*f| {
             if (f.target == tag) return f.sources.slice();
@@ -1547,10 +1641,12 @@ pub const Mesh = struct {
         return null;
     }
 
+    // Retourne les devices du mesh physique dans l'ordre canonique.
     pub fn devicesInCanonicalOrder(mesh: *const Mesh) []const Device {
         return mesh.physical.devices_in_canonical_order;
     }
 
+    // Construit la vue physique du mesh : axes effectifs, tailles et replis resolus.
     pub fn physicalView(self: *const Mesh) PhysicalView {
         const physical = self.physical;
         var view: PhysicalView = .{
@@ -1589,14 +1685,17 @@ pub const Mesh = struct {
         return view;
     }
 
+    // Traduit des coordonnees physiques en index lineaire logique.
     pub fn logicalIndexFromCoords(self: *const Mesh, coords: []const u8) usize {
         return self.physical.linearIndexFromCoords(coords);
     }
 
+    // Retourne le nombre total de partitions du mesh (devices effectifs).
     pub fn numPartitions(self: *const Mesh) i32 {
         return @intCast(self.physicalView().total_devices);
     }
 
+    // Calcule le nombre de partitions d'un axe logique via ses axes physiques lies/replies.
     pub fn numPartitionsForLogicalAxis(self: *const Mesh, logical_axis: anytype) i64 {
         const logical_tag = Shape.toTag(logical_axis);
         const logical_ax = self.resolveLogicalAxis(logical_tag) orelse std.debug.panic("mesh {f} has no axis {s}", .{ self, logical_tag });
@@ -1620,14 +1719,17 @@ pub const Mesh = struct {
         return partitions;
     }
 
+    // Retourne le nombre de replicas (toujours 1 dans cette implementation).
     pub fn numReplicas(_: *const Mesh) i32 {
         return 1;
     }
 
+    // Retourne le nombre de devices = partitions x replicas.
     pub fn numDevices(self: *const Mesh) i32 {
         return self.numPartitions() * self.numReplicas();
     }
 
+    // Genere la representation texte de l'attribut Shardy #sdy.mesh du mesh.
     pub fn sdyMeshAttr(self: *const Mesh, allocator: std.mem.Allocator) ![]const u8 {
         var out: std.Io.Writer.Allocating = .init(allocator);
         errdefer out.deinit();
@@ -1651,6 +1753,7 @@ pub const Mesh = struct {
         view: PhysicalView,
     };
 
+    // Associe chaque dimension du tenseur aux axes physiques du mesh et identifie les axes de replication.
     /// Common logic to map tensor dimensions to physical mesh indices.
     fn getDimMapping(self: *const Mesh, shape: Shape) DimMapping {
         const view = self.physicalView();
@@ -1690,6 +1793,7 @@ pub const Mesh = struct {
         };
     }
 
+    // Construit l'attribut Shardy de sharding d'une forme a partir de son partitionnement.
     pub fn sdyShardingAttrForShape(
         data: *const Mesh,
         parent_allocator: std.mem.Allocator,
@@ -1732,6 +1836,7 @@ pub const Mesh = struct {
         return .init(ctx, .{ .mesh = data.name, .dimensions = dimensions, .replicated_axes = replicated_axes });
     }
 
+    // Construit l'attribut GSPMD de sharding d'une forme (tile_shape + assignation des devices).
     pub fn gspmdShardingAttrForShape(self: *const Mesh, parent_allocator: std.mem.Allocator, ctx: *mlir.Context, shape: Shape) !*const mlir.Attribute {
         var arena = try stdx.arenaWithCapacity(parent_allocator, 1024);
         defer arena.deinit();
@@ -1798,6 +1903,7 @@ pub const Mesh = struct {
         return .string(ctx, try out.toOwnedSlice());
     }
 
+    // Calcule l'assignation des devices aux tuiles GSPMD selon l'ordre des axes du tenseur.
     fn gspmdTileAssignment(self: *const Mesh, allocator: std.mem.Allocator, shape: Shape) ![]u32 {
         const placement = try Placement.init(shape);
         const devices = self.devicesInCanonicalOrder();
@@ -1822,6 +1928,7 @@ pub const Mesh = struct {
         return ids;
     }
 
+    // Retourne, pour chaque partition, l'id du device correspondant ; erreur si incomplet.
     pub fn deviceAssignment(self: *const Mesh, allocator: std.mem.Allocator) ![]u32 {
         const view = self.physicalView();
         const count: u32 = @intCast(view.total_devices);
@@ -1842,6 +1949,7 @@ pub const Mesh = struct {
         return ids;
     }
 
+    // Ajoute la contribution d'un axe physique (taille et profondeur) a un AxisSplit.
     /// Extract coordinate data from the physical mesh for a specific axis.
     fn addPhysicalToSplit(mesh: *const Mesh, plan: *AxisSplit, tag: PhysicalAxisTag) void {
         const physical = mesh.physical;
@@ -1850,6 +1958,7 @@ pub const Mesh = struct {
         plan.add(@intCast(info.size), depth);
     }
 
+    // Formate le Mesh : nom, bindings logiques->physiques, capacite et geometries.
     pub fn format(self: Mesh, writer: *std.Io.Writer) !void {
         try writer.print("Mesh(name={s})\n", .{self.name});
 
@@ -1919,6 +2028,7 @@ pub const Strategy = struct {
     // It's currently an error to call .init and never calling `addBinding`
     pub const init: Strategy = .{ .bindings = .empty, .folding = .empty };
 
+    // Construit une Strategy depuis un litteral associant axes logiques et axes physiques.
     pub fn parseBindings(bindings: anytype) Strategy {
         const err_msg = "Strategy.parseBindings excepts fields to be PhysicalAxisTag or tuple of PhysicalAxisTag, got {}";
         var res: Strategy = .{ .bindings = .empty, .folding = .empty };
@@ -1939,6 +2049,7 @@ pub const Strategy = struct {
         return res;
     }
 
+    // Ajoute un axe physique au binding de l'axe logique donne (cree le binding si absent).
     pub fn addBinding(self: *Strategy, logical: anytype, physical: PhysicalAxisTag) void {
         const raw_tag = Shape.toTag(logical);
         const logical_tag: []const u8 = std.mem.span(raw_tag);
@@ -1955,6 +2066,7 @@ pub const Strategy = struct {
         self.bindings.appendAssumeCapacity(.{ .logical = raw_tag, .physical = list });
     }
 
+    // Enregistre un repli explicite : target conserve, sources definissant l'ordre.
     /// Explicitly fold axes: `target` is the kept axis, `sources` define order.
     /// If `target` is missing from `sources`, it is prepended.
     pub fn addFold(self: *Strategy, target: PhysicalAxisTag, sources: []const PhysicalAxisTag) void {
@@ -1981,6 +2093,7 @@ pub const Strategy = struct {
         self.folding.appendAssumeCapacity(.{ .target = target, .sources = list });
     }
 
+    // Propose une Strategy en appariant les intentions logiques aux axes physiques partitionnables.
     /// suggest builds a Strategy from logical intents.
     pub fn suggest(logical: LogicalMesh, physical: *const PhysicalMesh) Strategy {
         var strategy: Strategy = .{ .bindings = .empty, .folding = .empty };
@@ -2018,6 +2131,7 @@ pub const Strategy = struct {
     }
 };
 
+// Calcule la forme locale recue par chaque shard (forme repliquee si mesh absent).
 /// For a given shape, compute the shape of the slice each shard will receive.
 pub fn shardedShape(shape: Shape) error{IncompatibleSharding}!Shape {
     if (shape._sharding.mesh != null) {
@@ -2045,6 +2159,7 @@ pub const Placement = struct {
     global_shape: if (builtin.mode == .Debug) Shape else void,
     axis_plans: stdx.BoundedArray(AxisSplit, Shape.MAX_RANK),
 
+    // Prepare le Placement d'une forme : plans de decoupage par axe et forme locale par shard.
     pub fn init(shape: Shape) error{IncompatibleSharding}!Placement {
         var pl: Placement = .{
             .shape = shape, // modified below
@@ -2067,10 +2182,12 @@ pub const Placement = struct {
         return pl;
     }
 
+    // Retourne le mesh associe au placement (null si replique).
     pub fn mesh(pl: *const Placement) ?*const Mesh {
         return pl.shape._sharding.mesh;
     }
 
+    // Calcule, pour un device, les intervalles [start, size) le long de chaque axe.
     pub fn slices(pl: *const Placement, device: Device.Coords) Slices {
         var res: Slices = .{ .buffer = undefined, .len = pl.shape.rank() };
         if (pl.mesh() == null) {
@@ -2087,6 +2204,7 @@ pub const Placement = struct {
         return res;
     }
 
+    // Calcule le pointeur vers le debut des donnees d'un device dans un Slice global.
     pub fn shardPtr(pl: *const Placement, device: Device.Coords, slice: Slice) [*]const u8 {
         if (builtin.mode == .Debug) {
             // there is a bug in caller code that used a placement for a different shape
@@ -2103,6 +2221,7 @@ pub const Placement = struct {
         return ptr;
     }
 
+    // Retourne le sous-Slice correspondant a un device donne (potentiellement non contigu).
     /// Given a Slice, returns the subslice corresponding to a specific device.
     /// Depending on the layout, the sub-slice may or may not be contiguous.
     pub fn shardSlice(pl: *const Placement, device: Device.Coords, slice: Slice) Slice {
@@ -2117,6 +2236,7 @@ pub const Placement = struct {
         };
     }
 
+    // Formate le Placement : resume par axe et decoupage detaille par shard.
     pub fn format(pl: Placement, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         const ordered_devices = if (pl.mesh()) |m| m.devicesInCanonicalOrder() else {
             return try writer.print("Placement(shape={f}, replicated)\n", .{pl.shape});
@@ -2139,6 +2259,7 @@ pub const Placement = struct {
         }
     }
 
+    // Ecrit un resume du decoupage par axe (dim, spec, taille de shard, nombre de shards).
     fn formatPlacementSummary(pl: Placement, shape: Shape, shard_count: usize, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print("Placement(shape={f} shards={d})\n", .{ shape, shard_count });
 
@@ -2175,6 +2296,7 @@ const AxisSplit = struct {
         .num_devices = 1,
     };
 
+    // Incremente un AxisSplit d'un axe physique de taille size a la profondeur depth.
     pub fn add(split: *AxisSplit, size: u8, depth: u8) void {
         for (&split.coord_strides) |*stride| stride.* *= size;
         split.coord_strides[depth] = 1;
@@ -2182,6 +2304,7 @@ const AxisSplit = struct {
         split.num_devices *= size;
     }
 
+    // Calcule l'index lineaire d'un device via le produit scalaire coords . strides.
     pub fn linearIndex(split: AxisSplit, device_coords: Device.Coords) u32 {
         @setRuntimeSafety(false);
         const coords_u8: @Vector(MAX_MESH_RANK, u8) = device_coords;
@@ -2189,11 +2312,13 @@ const AxisSplit = struct {
         return @reduce(.Add, coords_u8 * strides);
     }
 
+    // Formate un AxisSplit (counts et strides).
     pub fn format(split: AxisSplit, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.print("Plan(counts={any},strides={any})", .{ split.counts, split.coord_strides });
     }
 };
 
+// Construit le plan de decoupage d'un axe de forme selon sa spec de partition.
 fn axisSplit(
     mesh: *const Mesh,
     shape: Shape,
@@ -2211,6 +2336,7 @@ fn axisSplit(
     } else .empty;
 }
 
+// Calcule l'AxisSplit d'une dimension sur ses axes physiques lies, en gerant les replis.
 fn calculateSplit(
     mesh: *const Mesh,
     dim: i64,
@@ -2256,6 +2382,7 @@ const ShardingTest = struct {
         expected_sdy: ?[]const u8 = null,
         expected_shards: []const ExpectedShard = &.{},
 
+        // Formate un scenario de test (erreur attendue, shardy attendu, shards attendus).
         pub fn format(scenario: Scenario, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.print("Scenario:\n", .{});
             if (scenario.expect_error) |err| try writer.print("- error {}\n", .{err});
@@ -2269,10 +2396,12 @@ const ShardingTest = struct {
 
     allocator: std.mem.Allocator,
 
+    // Initialise un ShardingTest avec l'allocateur donne.
     pub fn init(allocator: std.mem.Allocator) ShardingTest {
         return .{ .allocator = allocator };
     }
 
+    // Construit un PhysicalMesh 1D a 3D a partir de tailles simples et d'une geometrie.
     /// Creates a 1D-3D PhysicalMesh from simple dimensions.
     pub fn physical(self: ShardingTest, dims: anytype, geometry: AxisGeometry) !PhysicalMesh {
         const info = @typeInfo(@TypeOf(dims)).@"struct";
@@ -2288,6 +2417,7 @@ const ShardingTest = struct {
         return try .fromTree(self.allocator, .tpu, root);
     }
 
+    // Construit recursivement un arbre de test (axes link_x/y/z) repetant la geometrie donnee.
     fn buildNode(self: ShardingTest, tags: []const PhysicalAxisTag, sizes: []const usize, depth: usize, next_id: *u32, geometry: AxisGeometry) !PhysicalNode {
         if (depth == tags.len) {
             const id = next_id.*;
@@ -2302,6 +2432,7 @@ const ShardingTest = struct {
         return .{ .branch = .{ .tag = tags[depth], .geometry = geometry, .children = children } };
     }
 
+    // Execute un scenario de test : verifie l'attribut shardy, l'erreur et/ou les tranches par shard.
     pub fn run(self: ShardingTest, s: Scenario) !void {
         const mesh = s.mesh;
         errdefer std.log.warn("Failed mesh {f}", .{s});
@@ -2370,6 +2501,7 @@ const ShardingTest = struct {
     }
 };
 
+// Un partitionnement inconnu (aucune spec) implique une replication sur tous les devices.
 test "mesh: unknown partitioning implies replication" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2395,6 +2527,7 @@ test "mesh: unknown partitioning implies replication" {
     });
 }
 
+// Verifie que Strategy.suggest repartit batch et model sur les axes physiques attendus.
 test "mesh: suggest strategy realization" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2428,6 +2561,7 @@ test "mesh: suggest strategy realization" {
     });
 }
 
+// Verifie que des axes logiques de meme intention partagent un meme axe physique.
 test "mesh: suggest folds logical axes with same intent" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2457,6 +2591,7 @@ test "mesh: suggest folds logical axes with same intent" {
     });
 }
 
+// Verifie le repli de plusieurs axes physiques sur une dimension logique, et l'effet de l'ordre.
 test "mesh: multiple physical axes on one logical dimension (folding)" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2500,6 +2635,7 @@ test "mesh: multiple physical axes on one logical dimension (folding)" {
     }
 }
 
+// Verifie le repli explicite defini via addFold (link_x + link_z).
 test "mesh: explicit strategy folding" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2529,6 +2665,7 @@ test "mesh: explicit strategy folding" {
     });
 }
 
+// Verifie le comportement d'un melange d'axes ouverts et repliques.
 test "mesh: open and replicated dimension mix" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2553,6 +2690,7 @@ test "mesh: open and replicated dimension mix" {
     });
 }
 
+// Verifie le placement complet d'un cluster 3D (batch/context/model) sur un mesh torus.
 test "mesh: full 3D cluster mesh" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2587,6 +2725,7 @@ test "mesh: full 3D cluster mesh" {
     });
 }
 
+// Verifie le calcul du nombre de partitions d'un axe logique, repli compris.
 test "mesh: num partitions for logical axis" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2607,6 +2746,7 @@ test "mesh: num partitions for logical axis" {
     try std.testing.expectEqual(1, mesh.numPartitionsForLogicalAxis(.batch));
 }
 
+// Verifie que la forme locale (par shard) perd son sharding global.
 test "localized shapes do not retain global sharding" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -2622,6 +2762,7 @@ test "localized shapes do not retain global sharding" {
     try std.testing.expectEqual(&mesh_, global._sharding.mesh);
 }
 
+// Verifie que l'assignation des tuiles GSPMD suit l'ordre des axes du tenseur.
 test "GSPMD tiles use tensor axis order and logical partition indices" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

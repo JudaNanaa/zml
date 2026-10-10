@@ -17,6 +17,7 @@ const Platform = @import("platform.zig").Platform;
 const Shape = @import("shape.zig").Shape;
 const Sharding = @import("Sharding.zig");
 
+// Vérifie que toutes les déclarations du module sont bien référencées (compile tout).
 test {
     std.testing.refAllDecls(@This());
     std.testing.refAllDecls(Tensor);
@@ -33,47 +34,59 @@ pub const Tensor = struct {
 
     const ResolvedAxis = u3;
 
+    // Construit un Tensor (non matérialisé) à partir d'une forme et d'un dtype.
     pub fn init(shape_like: anytype, dt: DataType) Tensor {
         return .fromShape(.init(shape_like, dt));
     }
 
+    // Retourne un identifiant de Tensor unique et strictement croissant (compteur atomique).
     fn nextTensorId() Id {
         return @enumFromInt(Tensor.current_id.fetchAdd(1, .seq_cst));
     }
 
+    // Crée un Tensor sans valeur MLIR à partir d'une Shape, en lui attribuant un nouvel id.
     pub fn fromShape(shape_: Shape) Tensor {
         return .{ .id = nextTensorId(), ._shape = shape_ };
     }
 
+    // Implémente le formatage `{}` d'un Tensor en écrivant sa Shape.
     pub fn format(self: Tensor, writer: *std.Io.Writer) !void {
         try writer.print("Tensor({f})", .{self._shape});
     }
 
+    // Retourne la Shape (dimensions, dtype, tags, sharding) du tenseur.
     /// Returns the shape of a Tensor.
     pub fn shape(self: Tensor) Shape {
         return self._shape;
     }
 
+    // Retourne le DataType des éléments du tenseur.
     /// Returns the datatype of a Tensor.
     pub fn dtype(self: Tensor) DataType {
         return self._shape.dtype();
     }
 
+    // Retourne le nombre de dimensions (rang) du tenseur.
     /// Returns the rank of a Tensor.
     pub fn rank(self: Tensor) u4 {
         return self._shape.rank();
     }
 
+    // Retourne le nombre total d'éléments du tenseur.
     /// Returns the number of element of a Tensor.
     pub fn count(self: Tensor) usize {
         return self._shape.count();
     }
 
+    // Retourne la taille en octets du tenseur.
     /// Returns the size in bytes of a Tensor.
     pub fn byteSize(self: Tensor) usize {
         return self._shape.byteSize();
     }
 
+    // Construit un Tensor à partir d'une Shape et d'une valeur MLIR.
+    // Le partitionnement est marqué comme ouvert (non contraint) ; en mode Debug, vérifie
+    // que la shape correspond bien au type de la valeur MLIR.
     /// Internal use
     ///
     /// Creates a tensor from a Shape and an mlir.Value.
@@ -94,12 +107,15 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Comme `_result` mais conserve et propage le sharding de la Shape fournie.
     pub fn _resultPropagateSharding(sh: Shape, val: *const mlir.Value) Tensor {
         var res = _result(sh, val);
         res._shape._sharding = sh._sharding;
         return res;
     }
 
+    // Reconstruit un Tensor depuis une valeur MLIR, en déduisant dtype/dims de son type
+    // et en associant la mesh `unknown`.
     /// Creates a Tensor from a mlir.Value
     ///
     /// The shape is derived from the type of the mlir.Value.
@@ -123,6 +139,7 @@ pub const Tensor = struct {
         return .{ ._shape = sh, ._value = val, .id = nextTensorId() };
     }
 
+    // Retourne la taille de l'axe désigné par un index ou un tag.
     /// Returns the dimension of axis 'axis_'.
     ///
     /// 'axis_' can be an integer or a tag.
@@ -130,11 +147,13 @@ pub const Tensor = struct {
         return self._shape.dim(axis_);
     }
 
+    // Retourne les dimensions du tenseur sous forme de slice.
     /// Returns the dimensions of a Tensor as a slice.
     pub fn dims(self: *const Tensor) []const i64 {
         return self._shape.dims();
     }
 
+    // Retourne l'index résolu (position) de l'axe désigné par un index ou un tag.
     /// Returns the index of axis 'axis_'.
     ///
     /// 'axis_' can be an integer or a tag.
@@ -142,6 +161,7 @@ pub const Tensor = struct {
         return self._shape.axis(axis_);
     }
 
+    // Retourne les index résolus d'une liste d'axes (index ou tags).
     /// Returns the indices of each of the given axes.
     ///
     /// 'axis_' can be an integer or a tag.
@@ -149,6 +169,7 @@ pub const Tensor = struct {
         return self._shape.axes(axes_);
     }
 
+    // Retourne une copie du tenseur dont la shape reçoit les tags fournis.
     /// Returns a Tensor tagged with the tags in 'tagz'.
     pub fn withTags(self: Tensor, tagz: anytype) Tensor {
         var res = self;
@@ -156,6 +177,7 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Retourne une copie dont les n dernières dimensions reçoivent les tags fournis.
     /// Returns a Tensor tagged partially with the tags in 'tagz'.
     ///
     /// If 'tagz' is of length n, the n last dimensions of the Tensor will be tagged.
@@ -165,6 +187,8 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Associe le tenseur à une mesh et un partitionnement, puis émet l'opération de
+    // contrainte de sharding (sdy.sharding_constraint ou custom_call selon le partitioner).
     /// Specify the mesh of the input tensor.
     /// * mesh: *const zml.Mesh, but during compilation the `.meshe_name` syntax can used to get
     /// a known mesh from the compilation options.
@@ -226,6 +250,7 @@ pub const Tensor = struct {
         return _resultPropagateSharding(partitioned_shape, op_result);
     }
 
+    // Force le tenseur à être entièrement répliqué sur tous les devices.
     /// Force the input tensor to be fully replicated.
     /// This can be detrimental for performance.
     pub fn replicate(self: Tensor) Tensor {
@@ -234,6 +259,7 @@ pub const Tensor = struct {
         return self.withPartitioning(compiler.platform.replicated_mesh, partitioning);
     }
 
+    // Vérifie que withPartitioning distingue correctement deux meshes différentes.
     test withPartitioning {
         // Create two similar meshes,
         // Then check that tensor.withPartitioning don't confuse the meshes
@@ -270,6 +296,8 @@ pub const Tensor = struct {
         try std.testing.expectEqual(Sharding.PartitionSpec.replicated, x2_replicated.shape().partition(.h));
     }
 
+    // Copie le tenseur dans le type de mémoire demandé (device, hôte...) en annotant le
+    // placement ; sans effet sur les plateformes à mémoire unique.
     /// Copy the given tensor to the specified memory.
     pub fn toMemory(self: Tensor, kind: Memory.Kind) Tensor {
         const ctx = Compiler.current();
@@ -306,6 +334,7 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie la copie host_pinned -> device via `toMemory` et `onMemory`.
     test toMemory {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -315,6 +344,7 @@ pub const Tensor = struct {
         const x_t = Tensor.init(.{8}, .f32);
 
         const Local = struct {
+            // Fonction de test : copie un tenseur de la mémoire hôte pinned vers la mémoire device.
             fn memcpyH2D(x: Tensor) Tensor {
                 return x.onMemory(.host_pinned).toMemory(.device);
             }
@@ -335,6 +365,7 @@ pub const Tensor = struct {
         try zml.testing.expectClose(std.testing.io, x_h, x_d, .exact_match);
     }
 
+    // Applique `toMemory` à tous les tenseurs d'une struct plate (copiée sur la pile).
     /// Copy all the given tensor to the specified memory.
     /// The input struct is copied on the stack, so it must be a simple flat struct without pointers.
     pub fn toMemoryAll(flat_tensors: anytype, kind: Memory.Kind) @TypeOf(flat_tensors) {
@@ -346,6 +377,7 @@ pub const Tensor = struct {
 
         var copy = flat_tensors;
         meta.visitFlatStruct(struct {
+            // Callback interne appliquant `toMemory` à un champ Tensor d'une struct.
             fn toMemory(k: Memory.Kind, x: *Tensor) void {
                 x.* = x.toMemory(k);
             }
@@ -353,6 +385,8 @@ pub const Tensor = struct {
         return copy;
     }
 
+    // Marque un tenseur d'entrée comme résidant physiquement sur une mémoire donnée.
+    // Sans effet si le tenseur n'est pas une entrée d'exécutable.
     /// Mark the given input tensor as being physically located on a specific memory.
     /// Has no effect if the input tensor is not an executable input.
     pub fn onMemory(self: Tensor, kind: Memory.Kind) Tensor {
@@ -371,6 +405,7 @@ pub const Tensor = struct {
         return self;
     }
 
+    // Applique `onMemory` à tous les tenseurs d'un agrégat, voir `Tensor.onMemory`.
     /// Mark all the given input tensors as being physically located on a specific memory
     /// see `zml.Tensor.onMemory`
     pub fn onMemoryAll(tensors: anytype, kind: Memory.Kind) void {
@@ -382,12 +417,14 @@ pub const Tensor = struct {
         }
 
         meta.visit(struct {
+            // Callback interne appliquant `onMemory` à un champ Tensor constant.
             fn onMemory(k: Memory.Kind, x: *const Tensor) void {
                 _ = x.onMemory(k);
             }
         }.onMemory, kind, &tensors);
     }
 
+    // Retourne une copie du tenseur avec de nouveaux noms de tags.
     /// Returns a Tensor with new tag names.
     pub fn rename(self: Tensor, renames: anytype) Tensor {
         var res = self;
@@ -395,18 +432,22 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Renomme un tag unique (`old` -> `new`) dans la shape du tenseur.
     pub fn renameTag(self: Tensor, old: anytype, new: anytype) Tensor {
         var res = self;
         res._shape = self._shape.setTag(old, new);
         return res;
     }
 
+    // Renomme le tag de l'axe `ax` par le nom donné.
     pub fn renameAxis(self: Tensor, ax: i8, name: @EnumLiteral()) Tensor {
         var res = self;
         res._shape._tags.set(self.axis(ax), @tagName(name).ptr);
         return res;
     }
 
+    // Retourne la valeur MLIR associée au tenseur : argument de la fonction compilée ou
+    // résultat d'une opération ; échoue hors d'un contexte de compilation.
     /// Returns the mlir.Value associated with the Tensor.
     ///
     /// This will fail if used outside of a Compiler context.
@@ -417,6 +458,8 @@ pub const Tensor = struct {
             @panic("Something went really wrong, tensor is not an argument nor has an mlir.Value");
     }
 
+    // Indique au compilateur que le buffer de `origin` peut être réutilisé pour `self`
+    // (donation explicite) et propage le sharding de `origin`.
     /// Tell PJRT compiler that memory should be reuse between the two tensors.
     /// The compiler is already aggressively reusing tensors for intermediate results,
     /// but this API allows to reuse buffer between input and output arguments
@@ -463,6 +506,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Vérifie que `reuseBuffer` recycle bien la mémoire device de l'entrée donnée.
     test reuseBuffer {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -474,6 +518,7 @@ pub const Tensor = struct {
         const z_t = Tensor.init(.{ 6, 2 }, .i4);
 
         const Local = struct {
+            // Fonction de test : la première sortie réutilise le buffer de `y`, la seconde non.
             fn memcopy(x: Tensor, y: Tensor, z: Tensor) [2]Tensor {
                 // the first output reuses the given y, but the second ouput does NOT reuse z.
                 return .{ x.addConstant(1).reuseBuffer(y), z };
@@ -521,6 +566,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Retourne la valeur absolue, élément par élément (les complexes donnent un réel).
     /// Returns a Tensor containing the absolute value of each element of the input Tensor.
     pub fn abs(self: Tensor) Tensor {
         const op = dialects.stablehlo.abs(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
@@ -533,6 +579,8 @@ pub const Tensor = struct {
         return _result(self._shape.withDtype(dt), op.result(0));
     }
 
+    // Réinterprète les bits vers un autre dtype. Ajuste la shape : ajoute une dimension
+    // en descente de précision, en retire une en montée.
     /// Returns a Tensor whose elements have been bitcast to a target datatype.
     ///
     /// The Tensor shape needs to be compatible with the target datatype.
@@ -564,23 +612,27 @@ pub const Tensor = struct {
         return _result(res_shape, op.result(0));
     }
 
+    // Retourne le tenseur vu comme un unique buffer contigu d'octets (tag `.bytes`).
     /// Returns the given tensor as one contiguous buffer of bytes.
     pub fn bytes(self: Tensor) Tensor {
         return self.bitCast(.u8).flatten().withTags(.{.bytes});
     }
 
+    // Retourne le nombre de bits de tête à zéro, élément par élément.
     /// Returns a Tensor containing the element-wise number of leading 0 bits in the input Tensor.
     pub fn countLeadingZeros(self: Tensor) Tensor {
         const op = dialects.stablehlo.count_leading_zeros(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Retourne un booléen indiquant si chaque élément est fini.
     /// Returns a Tensor containing booleans indicating if each element of the input Tensor is finite.
     pub fn isFinite(self: Tensor) Tensor {
         const op = dialects.stablehlo.is_finite(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape.withDtype(.bool), op.result(0));
     }
 
+    // Retourne le nombre de bits à 1, élément par élément (entiers uniquement).
     /// Returns a Tensor containing the element-wise number of bits set in the input Tensor.
     pub fn popcnt(self: Tensor) Tensor {
         stdx.debug.assert(self.dtype().isInteger(), "popcnt expects tensor type to be an integer, got {}", .{self.dtype()});
@@ -588,12 +640,14 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Retourne le signe (-1, 0 ou +1) de chaque élément.
     /// Returns a Tensor containing the sign of the input Tensor element-wise.
     pub fn sign(self: Tensor) Tensor {
         const op = dialects.stablehlo.sign(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Reste de la division élément par élément par un diviseur scalaire (style torch.fmod).
     /// Returns a Tensor containing the element-wise remainder of dividend 'self' and divisor 'other'.
     ///
     /// See https://pytorch.org/docs/stable/generated/torch.fmod.html for more details.
@@ -601,6 +655,7 @@ pub const Tensor = struct {
         return self.remainder(scalar(divisor, .f32).broadcast(self._shape, &.{}));
     }
 
+    // Vérifie `fmod` sur plusieurs couples dividende/diviseur.
     test fmod {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -632,21 +687,26 @@ pub const Tensor = struct {
         }
     }
 
+    // Décalage bit à bit vers la gauche, élément par élément.
     /// Returns a Tensor containing the element-wise left-shift operation of 'self' by 'other'.
     pub fn shiftLeft(self: Tensor, other: Tensor) Tensor {
         return binaryOp("shiftLeft", dialects.stablehlo.shift_left)(self, other);
     }
 
+    // Décalage bit à bit arithmétique (signe conservé) vers la droite, élément par élément.
     /// Returns a Tensor containing the element-wise arithmetic right-shift operation of 'self' by 'other'.
     pub fn shiftRightArithmetic(self: Tensor, other: Tensor) Tensor {
         return binaryOp("shiftRightArithmetic", dialects.stablehlo.shift_right_arithmetic)(self, other);
     }
 
+    // Décalage bit à bit logique (zéros injectés) vers la droite, élément par élément.
     /// Returns a Tensor containing the element-wise logical right-shift operation of 'self' by 'other'.
     pub fn shiftRightLogical(self: Tensor, other: Tensor) Tensor {
         return binaryOp("shiftRightLogical", dialects.stablehlo.shift_right_logical)(self, other);
     }
 
+    // Décomposition de Cholesky du tenseur (rang <= 2), triangulaire inférieure si
+    // `lower` vaut true, supérieure sinon.
     /// Returns the Cholesky decomposition of the input Tensor.
     ///
     /// 'lower' controls the form of the output Tensor. The output will be lower-triangular if 'lower' is true
@@ -658,6 +718,7 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Résout un système linéaire triangulaire avec le second membre `other`.
     /// Solves the system of linear equations formed by the input tensors.
     pub fn triangularSolve(self: Tensor, other: Tensor, opts: dialects.stablehlo.TriangularSolveOpts) Tensor {
         stdx.debug.assert(self.dtype() == other.dtype(), "triangularSolve expects tensors to be of the same type, got {} and {}", .{ self.dtype(), other.dtype() });
@@ -667,6 +728,7 @@ pub const Tensor = struct {
         return _result(other._shape, op.result(0));
     }
 
+    // Arrondit au plus proche en éloignant les égalités de zéro (round half away from zero).
     /// Returns a Tensor containing the element-wise rounding towards the nearest integer, breaking ties away from zero, of the input Tensor.
     pub fn roundNearestAfz(self: Tensor) Tensor {
         stdx.debug.assert(self.dtype().isFloat(), "roundNearestAfz expects tensor type to be a float, got {}", .{self.dtype()});
@@ -675,6 +737,7 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Arrondit au plus proche en ramenant les égalités vers l'entier pair.
     /// Returns a Tensor containing the element-wise rounding towards the nearest integer, breaking ties towards the even integer, of the input Tensor.
     pub fn roundNearestEven(self: Tensor) Tensor {
         stdx.debug.assert(self.dtype().isFloat(), "roundNearestEven expects tensor type to be a float, got {}", .{self.dtype()});
@@ -683,6 +746,7 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Construit un tenseur complexe à partir des parties réelle et imaginaire.
     /// Returns a Tensor of complex number converted from a pair of real and imaginary Tensors.
     pub fn complex(re: Tensor, im: Tensor) Tensor {
         stdx.debug.assert(re._shape.eql(im._shape), "complex expects tensor shapes to match, got {f} and {f}", .{ re._shape, im._shape });
@@ -693,6 +757,7 @@ pub const Tensor = struct {
         return _result(re._shape.withDtype(dt), op.result(0));
     }
 
+    // Retourne la partie réelle (identité si le tenseur est déjà réel).
     /// Returns a Tensor containing the element-wise real part of the input Tensor.
     ///
     /// Tensor type can float or complex.
@@ -712,6 +777,7 @@ pub const Tensor = struct {
         return _result(self._shape.withDtype(dt), op.result(0));
     }
 
+    // Retourne la partie imaginaire (tenseur nul si le tenseur est réel).
     /// Returns a Tensor containing the element-wise imaginary part of the input Tensor.
     ///
     /// Tensor type can float or complex.
@@ -733,6 +799,8 @@ pub const Tensor = struct {
         return _result(self._shape.withDtype(dt), op.result(0));
     }
 
+    // Calcule la transformée de Fourier discrète (FFT/IFFT/RFFT/IRFFT) sur les dernières
+    // dimensions, en déduisant la shape et le dtype de sortie du type de transformée.
     /// Returns the Fast Fourier Transform (FFT) of the input Tensor.
     pub fn fft(self: Tensor, opts: dialects.stablehlo.FftOpts) Tensor {
         // TODO: support tagged API.
@@ -777,18 +845,21 @@ pub const Tensor = struct {
         return _result(sh, op.result(0));
     }
 
+    // Calcule la taille de sortie de RFFT pour une longueur d'entrée donnée.
     fn rfftOutputLen(input_len: i64) i64 {
         const rfft_len_divisor = 2;
         const rfft_edge_bin_count = 1;
         return @divTrunc(input_len, rfft_len_divisor) + rfft_edge_bin_count;
     }
 
+    // Vérifie qu'IRFFT(RFFT(x)) restaure bien la dimension temporelle d'origine.
     test "Tensor.fft IRFFT restores RFFT last dimension" {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
         const rfft_input_len: i64 = 10;
 
         const Local = struct {
+            // Fonction de test appliquant RFFT puis IRFFT pour valider les dimensions.
             pub fn _fwd(x: Tensor) Tensor {
                 const freq = x.fft(.{ .kind = .RFFT, .length = &.{rfft_input_len} });
                 std.debug.assert(freq.dim(-1) == rfftOutputLen(rfft_input_len));
@@ -815,20 +886,25 @@ pub const Tensor = struct {
 
         pub const Buffer = mem.Bufferized(Rng);
 
+        // Crée un état Rng initial (vecteur d'entiers u64 de taille 2).
         pub fn init() Rng {
             return .{ ._state = .init(.{2}, .u64) };
         }
 
+        // Matérialise l'état Rng dans un buffer device à partir d'une graine.
         pub fn initBuffer(rng: Rng, io: std.Io, platform: *const Platform, seed: u128) !Buffer {
             return .{
                 ._state = try .fromBytes(io, platform, rng._state._shape, std.mem.asBytes(&seed)),
             };
         }
 
+        // Libère le buffer d'état associé au Rng.
         pub fn deinitBuffer(self: *Buffer) void {
             self._state.deinit();
         }
 
+        // Génère des bits aléatoires de la shape demandée via rng_bit_generator et retourne
+        // le nouvel état Rng (l'ancien ne doit plus être utilisé).
         /// Returns a Tensor of the given shape, filled with uniform random bits, and a new Rng state.
         ///
         /// The given Rng state should not be used anymore (or you'll get the same numbers again).
@@ -846,6 +922,7 @@ pub const Tensor = struct {
             return .{ self.update(op.result(0)), _resultPropagateSharding(sh, op.result(1)) };
         }
 
+        // Construit le nouvel état Rng à partir de la valeur de sortie, en réutilisant l'ancien buffer.
         fn update(self: Rng, new_state: *const mlir.Value) Rng {
             return .{
                 ._state = _resultPropagateSharding(self._state._shape, new_state).reuseBuffer(self._state),
@@ -853,6 +930,8 @@ pub const Tensor = struct {
             };
         }
 
+        // Échantillonne des floats uniformément dans [min, max[, en générant des bits puis en
+        // fabriquant la mantisse/exposant ; retourne le nouvel état Rng et le tenseur.
         /// Returns a Tensor of the given shape, filled with uniformly sampled floating point numbers from an interval,
         /// and a new Rng state.
         ///
@@ -892,6 +971,7 @@ pub const Tensor = struct {
             return .{ rng, _resultPropagateSharding(shape_, floats.convert(shape_.dtype()).value()) };
         }
 
+        // Vérifie la moyenne, la variance, le min et le max d'un tirage uniforme.
         test uniform {
             const zml = @import("zml.zig");
             const Stats = struct {
@@ -902,6 +982,7 @@ pub const Tensor = struct {
                 min: Tensor,
                 max: Tensor,
 
+                // Calcule les statistiques (moyenne, variance, min, max) d'un tirage uniforme pour test.
                 pub fn uniformStats(
                     rand: Rng,
                     shape_: Shape,
@@ -957,6 +1038,7 @@ pub const Tensor = struct {
             try std.testing.expectApproxEqAbs(10, max_, 0.05);
         }
 
+        // Échantillonne une loi normale via stablehlo.rng (op dépréciée).
         /// Returns a Tensor of the given shape, filled with floating point numbers sampled from a normal distribution.
         ///
         /// Note: this uses stablehlo.rng which is deprecated.
@@ -971,6 +1053,8 @@ pub const Tensor = struct {
             return _resultPropagateSharding(sh, op.result(0));
         }
 
+        // Échantillonne une loi de Gumbel (μ=0, β=1) par transformée inverse à partir d'un
+        // tirage uniforme, et retourne le nouvel état Rng.
         /// Returns a Tensor of the given shape, filled with floating point numbers sampled from a Gumbel distribution, and a new Rng state.
         ///
         /// Often used in ML because of the reparametrization tricks.
@@ -990,6 +1074,7 @@ pub const Tensor = struct {
             return .{ rand, _resultPropagateSharding(shape_, result.value()) };
         }
 
+        // Vérifie les statistiques de la Gumbel et l'astuce de reparamétrisation (argmax).
         test gumbel {
             const zml = @import("zml.zig");
             const Stats = struct {
@@ -999,6 +1084,7 @@ pub const Tensor = struct {
                 variance: Tensor,
                 actual_dist: Tensor,
 
+                // Calcule les stats d'un tirage Gumbel et vérifie la reparamétrisation sur une distribution cible.
                 pub fn gumbelStats(rand: Rng, target_dist: Tensor) struct { Rng, Stats } {
                     const s = Shape.init(.{ .n = 1024, .d = 4 }, .f32);
                     const rng, const data = rand.gumbel(s);
@@ -1070,6 +1156,7 @@ pub const Tensor = struct {
         }
     };
 
+    // Réduit la précision (bits d'exposant/mantisse) d'un float, élément par élément.
     /// Returns a Tensor containing the element-wise conversion to another floating point type.
     pub fn reducePrecision(self: Tensor, exponent_bits: i32, mantissa_bits: i32) Tensor {
         stdx.debug.assert(self.dtype().isFloat(), "reducePrecision expects tensor type to be a float, got {}", .{self.dtype()});
@@ -1080,6 +1167,8 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Implémentation générique de la convolution stablehlo : valide de nombreuses
+    // options, calcule la shape de sortie (padding/dilatations/strides) puis émet l'op.
     fn convolution(self: Tensor, other: Tensor, opts: dialects.stablehlo.ConvolutionOpts) Tensor {
         stdx.debug.assert(self.rank() == other.rank(), "convolution expects tensor ranks to match, got {} and {}", .{ self.rank(), other.rank() });
         const N = self.rank();
@@ -1175,6 +1264,7 @@ pub const Tensor = struct {
         return _result(new_shape, op.result(0));
     }
 
+    // Convolution 1D, wrapper simplifié autour de `convolution`.
     /// Returns a Tensor containing the result of the 1D convolution of 'input' by 'kernel'.
     pub fn conv1d(
         input: Tensor,
@@ -1218,6 +1308,7 @@ pub const Tensor = struct {
         });
     }
 
+    // Convolution 2D (format B,C,W,H par défaut), wrapper autour de `convolution`.
     /// Returns a Tensor containing the result of the 2D convolution of 'input' by 'kernel'.
     /// Defaults values correspond to a (B, C_in, W, H) image, (C_out, C_in, W, H) kernel weights and (B, C_out, W, H) output.
     pub fn conv2d(
@@ -1262,71 +1353,85 @@ pub const Tensor = struct {
         });
     }
 
+    // Addition élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise addition of the input Tensors.
     pub fn add(self: Tensor, other: Tensor) Tensor {
         return binaryOp("add", dialects.stablehlo.add)(self, other);
     }
 
+    // Soustraction élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise subtraction of the input Tensors.
     pub fn sub(self: Tensor, other: Tensor) Tensor {
         return binaryOp("subtract", dialects.stablehlo.subtract)(self, other);
     }
 
+    // Multiplication élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise multiplication of the input Tensors.
     pub fn mul(self: Tensor, other: Tensor) Tensor {
         return binaryOp("mul", dialects.stablehlo.multiply)(self, other);
     }
 
+    // Division élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise division of the input Tensors.
     pub fn div(self: Tensor, other: Tensor) Tensor {
         return binaryOp("div", dialects.stablehlo.divide)(self, other);
     }
 
+    // Élévation à la puissance, élément par élément.
     /// Returns a Tensor containing the element-wise exponentiation of the input Tensors.
     pub fn pow(self: Tensor, other: Tensor) Tensor {
         return binaryOp("pow", dialects.stablehlo.power)(self, other);
     }
 
+    // Maximum élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise maximum operation of the input Tensors.
     pub fn maximum(self: Tensor, other: Tensor) Tensor {
         return binaryOp("maximum", dialects.stablehlo.maximum)(self, other);
     }
 
+    // Minimum élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise minimum operation of the input Tensors.
     pub fn minimum(self: Tensor, other: Tensor) Tensor {
         return binaryOp("minimum", dialects.stablehlo.minimum)(self, other);
     }
 
+    // Reste (modulo) élément par élément de deux tenseurs.
     /// Returns a Tensor containing the element-wise remainder of dividend 'self' and divisor 'other'.
     pub fn remainder(self: Tensor, other: Tensor) Tensor {
         return binaryOp("remainder", dialects.stablehlo.remainder)(self, other);
     }
 
+    // Reste de la division de chaque élément par une constante scalaire.
     /// Returns a Tensor containing the element-wise substraction of the input Tensor with a constant.
     pub fn remainderConst(self: Tensor, b: anytype) Tensor {
         return self.remainder(.scalar(b, self.dtype()));
     }
 
+    // Ajoute une constante scalaire à chaque élément.
     /// Returns a Tensor containing the element-wise addition of the input Tensor with a constant.
     pub fn addConstant(self: Tensor, b: anytype) Tensor {
         return self.add(.scalar(b, self.dtype()));
     }
 
+    // Soustrait une constante scalaire à chaque élément.
     /// Returns a Tensor containing the element-wise substraction of the input Tensor with a constant.
     pub fn subConstant(self: Tensor, b: anytype) Tensor {
         return self.sub(.scalar(b, self.dtype()));
     }
 
+    // Divise chaque élément par une constante scalaire.
     /// Returns a Tensor containing the element-wise division of the input Tensor by a constant.
     pub fn divByConst(self: Tensor, b: anytype) Tensor {
         return self.div(.scalar(b, self.dtype()));
     }
 
+    // Élève chaque élément à la puissance d'une constante scalaire.
     /// Returns a Tensor containing the element-wise power of the input Tensor by a constant.
     pub fn powByConst(self: Tensor, b: anytype) Tensor {
         return self.pow(.scalar(b, self.dtype()));
     }
 
+    // Multiplie chaque élément par une constante scalaire.
     /// Returns a Tensor containing the element-wise multiplication of the input Tensor by a constant.
     pub fn scale(self: Tensor, val: anytype) Tensor {
         return self.mul(.scalar(val, self.dtype()));
@@ -1334,6 +1439,7 @@ pub const Tensor = struct {
 
     pub const LogicalOp = enum { OR, XOR, AND };
 
+    // Applique une opération logique (OR/XOR/AND) élément par élément.
     /// Returns a Tensor containing the element-wise logical operation of the input Tensors.
     pub fn logical(self: Tensor, comptime logical_op: LogicalOp, other: Tensor) Tensor {
         return switch (logical_op) {
@@ -1343,16 +1449,19 @@ pub const Tensor = struct {
         };
     }
 
+    // Partie entière inférieure (floor), élément par élément.
     /// Returns a Tensor containing the element-wise floor operation of the input Tensor.
     pub fn floor(self: Tensor) Tensor {
         return _result(self._shape, dialects.stablehlo.floor(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock()).result(0));
     }
 
+    // Partie entière supérieure (ceil), élément par élément.
     /// Returns a Tensor containing the element-wise ceil operation of the input Tensor.
     pub fn ceil(self: Tensor) Tensor {
         return _result(self._shape, dialects.stablehlo.ceil(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock()).result(0));
     }
 
+    // Convertit les éléments vers un autre dtype (no-op si identique).
     /// Returns a Tensor containing the element-wise conversion to another type.
     pub fn convert(self: Tensor, to: DataType) Tensor {
         if (to == self.dtype()) {
@@ -1364,6 +1473,7 @@ pub const Tensor = struct {
         return _result(self._shape.withDtype(to), op.result(0));
     }
 
+    // Vérifie la conversion f32 -> f4e2m1 contre l'implémentation de référence.
     test "convert f32 -> f4e2m1" {
         const floats = @import("floats.zig");
         const zml = @import("zml.zig");
@@ -1398,6 +1508,7 @@ pub const Tensor = struct {
         try std.testing.expectEqualSlices(floats.Float4E2M1.Packed, &x_f4, x_f4_items);
     }
 
+    // Vérifie la conversion f32 -> f8e3m4 contre l'implémentation de référence.
     test "convert f32 -> f8e3m4" {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -1429,6 +1540,7 @@ pub const Tensor = struct {
         try std.testing.expectEqualSlices(u8, @ptrCast(&x_f8e3), x_f8e3_xla.constData());
     }
 
+    // Vérifie la conversion u2 -> u8.
     test "convert u2 -> u8" {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -1458,6 +1570,7 @@ pub const Tensor = struct {
         try std.testing.expectEqualSlices(u8, &x_u8, x_u8_xla.constData());
     }
 
+    // Vérifie la conversion f4e2m1 -> f32.
     test "convert f4e2m1 -> f32" {
         const floats = @import("floats.zig");
         const zml = @import("zml.zig");
@@ -1488,18 +1601,22 @@ pub const Tensor = struct {
         try std.testing.expectEqualSlices(f32, &x_f32_expected, x_f32_h.items(f32));
     }
 
+    // Arrondit au plus proche (égalités vers l'entier pair), élément par élément.
     /// Returns a Tensor containing the element-wise rounding operation of the input Tensor.
     pub fn round(self: Tensor) Tensor {
         const round_op = dialects.stablehlo.round_nearest_even(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, round_op.result(0));
     }
 
+    // Borne chaque élément entre `min_` et `max_`.
     /// Returns a Tensor containing the element-wise clamping operation of the input Tensor.
     pub fn clamp(self: Tensor, min_: Tensor, max_: Tensor) Tensor {
         const op = dialects.stablehlo.clamp(mlirCtx(), min_.value(), self.value(), max_.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Produit matriciel où les axes contractés sont désignés par leurs tags ; les axes
+    // de même tag non contractés deviennent des axes de batch.
     /// Matrix multiplication, where contracting axes are specified using their tags.
     /// eg dot(.{ .a, .b, .c }, .{ .a, .c, .d }, .c) -> .{ .a, .b, .d }
     /// Axes with the same tag on both sides, and which aren't contracting,
@@ -1514,6 +1631,7 @@ pub const Tensor = struct {
         batching: stdx.BoundedArray([2]i8, constants.MAX_RANK),
     };
 
+    // Déduit les paires d'axes contractants et de batch à partir des tags fournis.
     /// Returns contracting and batching axis pairs inferred from one or more tags.
     pub fn dotAxes(lhs: Tensor, rhs: Tensor, tags: anytype) DotAxes {
         const T = @TypeOf(tags);
@@ -1543,6 +1661,7 @@ pub const Tensor = struct {
         return .{ .contracting = contracting_axes, .batching = batching_axes };
     }
 
+    // Vérifie l'inférence des axes contractants et batch de `dotAxes`.
     test dotAxes {
         const lhs: Tensor = .init(.{ .a = 20, .b = 21, .c = 22 }, .f32);
         const rhs: Tensor = .init(.{ .c = 22, .b = 21, .d = 23, .a = 20 }, .f32);
@@ -1553,6 +1672,7 @@ pub const Tensor = struct {
         try std.testing.expectEqualSlices([2]i8, &.{.{ 1, 1 }}, dot_axes.batching.constSlice());
     }
 
+    // Vérifie les shapes de sortie de `dot` pour plusieurs cas.
     test dot {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -1584,6 +1704,7 @@ pub const Tensor = struct {
             const ctr = Shape.toTag(testcase[2]);
             const z_shape: Shape = .init(testcase[3], .f32);
             const forward = struct {
+                // Fonction de test effectuant un `dot` entre deux tenseurs selon un tag.
                 fn forward(x_: Tensor, y_: Tensor, tag: Shape.Tag) Tensor {
                     return x_.dot(y_, tag);
                 }
@@ -1603,6 +1724,8 @@ pub const Tensor = struct {
         }
     }
 
+    // Produit généralisé (dot_general) avec axes contractants et axes de batch
+    // explicitement fournis ; construit la shape de sortie puis émet l'op.
     /// Generalized matrix multiplication of two tensors along the specified axes.
     /// In this version batching dimensions need to be explicitly specified.
     /// The result shape is made of (batching_axes ++ lhs_result_axes ++ rhs_result_axes.
@@ -1680,6 +1803,7 @@ pub const Tensor = struct {
         return _result(res_shape, op.result(0));
     }
 
+    // Applique la sigmoïde, élément par élément.
     /// Returns a Tensor containing the sigmoid function applied to each element of the input Tensor.
     pub fn sigmoid(self: Tensor) Tensor {
         const op = dialects.stablehlo.logistic(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
@@ -1688,11 +1812,13 @@ pub const Tensor = struct {
 
     pub const logistic = sigmoid;
 
+    // Applique ReLU (max(0, x)), élément par élément.
     /// Returns a Tensor containing the ReLU activation function applied to each element of the input Tensor.
     pub fn relu(self: Tensor) Tensor {
         return self.maximum(Tensor.constant(self.dtype().zero()).broad(.init(self.dims(), self.dtype())));
     }
 
+    // Applique LeakyReLU avec la pente donnée pour x < 0.
     /// Returns a Tensor containing the leaky-ReLU activation function applied to each element of the input Tensor.
     ///
     /// LeakyReLU(x) = max(0,x) + negative_slope * min(0,x)
@@ -1702,6 +1828,7 @@ pub const Tensor = struct {
         return self.relu().add(below_zero);
     }
 
+    // Vérifie LeakyReLU sur quelques valeurs.
     test leakyReLU {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -1727,6 +1854,8 @@ pub const Tensor = struct {
         try zml.testing.expectClose(std.testing.io, expectation, res, .{});
     }
 
+    // Applique l'activation SwiGLU : deux projections linéaires (valeur et porte)
+    // combinées par sigmoïde puis produit extérieur.
     /// Returns a Tensor containing the SwiGLU activation function applied to the input Tensor.
     pub fn swiglu(self: Tensor, beta: f32, w: Tensor, v: Tensor, b: Tensor, c: Tensor, tag: Shape.Tag) Tensor {
         var value_path = self.dot(w, tag);
@@ -1740,6 +1869,7 @@ pub const Tensor = struct {
         return value_path.mul(sigmoid_tensor).outer(gate_path);
     }
 
+    // Vérifie SwiGLU sur des tenseurs de petite taille.
     test swiglu {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -1797,6 +1927,7 @@ pub const Tensor = struct {
         try zml.testing.expectClose(std.testing.io, expectation, res, .{});
     }
 
+    // Approxime en FP32 la fonction d'erreur erf (approximation rationnelle d'Eigen).
     /// Returns an element-wise approximation of the error function, computed and returned in FP32.
     /// Uses the Eigen rational approximation from CHLO's FP32 erf legalization:
     /// https://github.com/openxla/stablehlo/blob/95ee4c70146864ed7d0a21dd135ccec37ece1b52/stablehlo/transforms/ChloLegalizeToStablehlo.cpp#L1038
@@ -1831,6 +1962,7 @@ pub const Tensor = struct {
         return x.mul(numerator).div(denominator).clamp(.scalar(-1, .f32), .scalar(1, .f32));
     }
 
+    // Approxime en FP32 la fonction d'erreur complémentaire erfc (schéma de Cephes).
     /// Returns an element-wise approximation of the complementary error function in FP32.
     /// Uses CHLO's Cephes-based approximation to preserve the small positive tail:
     /// https://github.com/openxla/stablehlo/blob/95ee4c70146864ed7d0a21dd135ccec37ece1b52/stablehlo/transforms/ChloLegalizeToStablehlo.cpp#L1018
@@ -1896,6 +2028,7 @@ pub const Tensor = struct {
         return abs_x.cmp(.LT, one).select(small, large);
     }
 
+    // Applique GELU via l'approximation tanh.
     /// Returns a Tensor containing the Gaussian Error Linear Units (GeLU) activation function applied to each element of the input Tensor.
     ///
     /// We use an approximation of the erf function using tanh:
@@ -1908,6 +2041,7 @@ pub const Tensor = struct {
         return tanh_.addConstant(1).mul(x).scale(0.5);
     }
 
+    // Approximation grossière de GELU (sigmoïde de 1.702x).
     /// Returns a Tensor containing an approximation of the Gaussian Error Linear Units (GeLU) activation function applied to each element of the input Tensor.
     ///
     /// It's an even more crude approximation than gelu.
@@ -1915,6 +2049,7 @@ pub const Tensor = struct {
         return x.scale(1.702).sigmoid().mul(x);
     }
 
+    // Applique SiLU : x * sigmoïde(x).
     /// Returns a Tensor containing the Sigmoid Linear Unit (SiLU) activation function applied to each element of the input Tensor.
     ///
     /// silu(x) = x σ(x)
@@ -1922,6 +2057,8 @@ pub const Tensor = struct {
         return x.mul(.sigmoid(x));
     }
 
+    // Softmax le long d'un axe, stabilisée par soustraction du max ; les lignes
+    // entièrement -inf donnent 0 plutôt que NaN.
     /// Computes softmax along the given axis.
     /// y[i] = exp(x[i]) / ( Σ_k exp(x[k]) + bias )
     pub fn softmax(self: Tensor, axis_: anytype) Tensor {
@@ -1937,6 +2074,7 @@ pub const Tensor = struct {
         return row_mask.broad(self.shape()).select(res, .scalar(0, self.dtype()));
     }
 
+    // Softmax avec un biais (optionnel) ajouté au dénominateur.
     /// Computes softmax, but adds a bias to the sum of exponentiel.
     /// y[i] = exp(x[i]) / ( Σ_k exp(x[k]) + bias )
     pub fn softmaxBiased(self: Tensor, axis_: anytype, bias: ?Tensor) Tensor {
@@ -1953,6 +2091,7 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Logarithme de la somme des exponentielles le long d'un axe, stabilisé par le max.
     /// Returns a Tensor containing the log of the sum of exponential over the given axis.
     pub fn logSumExp(self: Tensor, axis_: anytype) Tensor {
         const a = self.axis(axis_);
@@ -1963,23 +2102,27 @@ pub const Tensor = struct {
         return max_.add(log_sum_exp);
     }
 
+    // Somme les éléments le long d'un axe (la dimension de l'axe devient 1).
     /// Returns a Tensor containing the sum of elements over the given axis.
     /// Output shape is the input shape with the axis_ dim set to 1.
     pub fn sum(self: Tensor, axis_: anytype) Tensor {
         const a = self.axis(axis_);
         return ops.reduce(.{self}, .{Tensor.constant(self.dtype().zero())}, &.{a}, struct {
+            // Réducteur additionnant deux éléments, avec conversion vers le dtype de droite.
             pub fn acc(args: ops.ReduceArgs) struct { Tensor } {
                 return .{args.right.add(args.left.convert(args.right.dtype()))};
             }
         }.acc, .{})[0];
     }
 
+    // Moyenne des éléments le long d'un axe (somme divisée par la taille).
     /// Returns a Tensor containing the mean of elements over the given axis.
     /// Output shape is the input shape with the axis_ dim set to 1.
     pub fn mean(self: Tensor, axis_: anytype) Tensor {
         return self.sum(axis_).divByConst(self.dim(axis_));
     }
 
+    // Somme cumulée le long d'un axe, implémentée via reduce_window.
     /// Returns a Tensor containing the cumulative sum of elements over the given axis.
     /// Output shape is the same as input shape.
     /// [0, 1, 0, 1, 0, 0, 1, 1].cumulativeSum(0) -> [0, 1, 1, 2, 2, 2, 3, 4]
@@ -2005,6 +2148,7 @@ pub const Tensor = struct {
                 .padding = padding[0..rk],
             },
             struct {
+                // Réducteur additionnant les deux valeurs d'une fenêtre de réduction.
                 fn add(values: ops.ReduceArgs) [1]Tensor {
                     return .{.add(values.left, values.right)};
                 }
@@ -2013,11 +2157,13 @@ pub const Tensor = struct {
         return result[0];
     }
 
+    // Vérifie le résultat et la propagation des tags de `cumulativeSum`.
     test cumulativeSum {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Fonction de test vérifiant que `cumulativeSum` propage bien les tags.
             pub fn _cumsum(input: Tensor) Tensor {
                 const x = input.withPartialTags(.{.n});
                 const y = x.cumulativeSum(.n);
@@ -2048,6 +2194,7 @@ pub const Tensor = struct {
         try std.testing.expectEqual([2][5]f32{ .{ 0, 1, 2, 2, 3 }, .{ 3, 4, 4, 6, 7 } }, try res.getValue([2][5]f32, std.testing.io));
     }
 
+    // Transpose le tenseur selon la permutation d'axes donnée.
     /// Returns a transposed Tensor computed using the given axes.
     pub fn transpose(self: Tensor, axes_: anytype) Tensor {
         const axes__ = self.axes(axes_).constSlice();
@@ -2084,6 +2231,7 @@ pub const Tensor = struct {
         return _result(res_shape, op.result(0));
     }
 
+    // Échange deux axes du tenseur.
     pub fn swapAxes(self: Tensor, a: anytype, b: anytype) Tensor {
         if (self.axis(a) == self.axis(b)) return self;
         var perm: Shape.AxesArray = .empty;
@@ -2095,6 +2243,7 @@ pub const Tensor = struct {
         return self.transpose(perm.constSlice());
     }
 
+    // Scinde une dimension en (n, dim/n), en insérant un nouvel axe.
     /// Returns a Tensor with the given axis unflattened.
     ///
     /// unflatten((d0, d1, axis_m, d3), 2, n) -> (d0, d1, n, d2_m, d3)
@@ -2115,6 +2264,7 @@ pub const Tensor = struct {
         return _result(new_shape, reshaped_val.result(0));
     }
 
+    // Scinde un axe selon une shape de découpage dont le produit des tailles correspond.
     /// Splits the given axis in several axes.
     /// eg: `Tensor.init(.{ .a = 10, .b = 3 }).split(.a, .{.a1 = 5, .a2 = 2});`
     /// The number of elements in the split shape must match the number of element
@@ -2131,11 +2281,13 @@ pub const Tensor = struct {
         return _result(new_shape, reshaped_val.result(0));
     }
 
+    // Fusionne deux ou plusieurs axes contigus en un seul (simple reshape).
     /// Merges two or more contiguous axes into one axis.
     pub fn merge(self: Tensor, merges_: anytype) Tensor {
         return self.reshape(self._shape.mergeAxes(merges_));
     }
 
+    // Rend contigus puis fusionne des axes non contigus (transpose si nécessaire).
     /// Merges two or more non-contiguous axes into one axis.
     /// Will make a transpose if needed.
     /// .{ .a, .b, .c }.mergeTranspose(.{ .a, .c }, .ac) -> .{ .b, .ac }
@@ -2144,6 +2296,7 @@ pub const Tensor = struct {
         return cont.reshape(cont._shape.mergeAxis(merged, axes_));
     }
 
+    // Transpose pour que les axes donnés se retrouvent en position contiguë.
     /// Transposes the input Tensor, such has the given axes end up in contiguous position.
     /// .{ .a, .b, .c, .d }.contiguous(.{ .c, .a }) -> .{ .b, .d, .c, .a }
     pub fn contiguous(self: Tensor, axes_: anytype) Tensor {
@@ -2151,6 +2304,7 @@ pub const Tensor = struct {
         return self.transpose(perm.constSlice());
     }
 
+    // Aplatit le tenseur en un vecteur de `count()` éléments.
     pub fn flatten(self: Tensor) Tensor {
         return self.reshape(.{self.count()});
     }
@@ -2166,22 +2320,26 @@ pub const Tensor = struct {
         /// Select the full slice
         pub const full: Slice = .{ .start = 0, .end = to_the_end, .step = 1 };
 
+        // Crée un slice d'un seul élément, supprimant l'axe correspondant.
         /// Select a single element and drop the corresponding axis (to keep the axis use .{ .start = off, .len =1 })
         pub fn single(offset: i64) Slice {
             return .{ .start = offset, .end = offset + 1, .singleton = true };
         }
 
+        // Crée un slice de longueur fixe dont le début est un tenseur calculé à l'exécution.
         /// Select a single element and drop the corresponding axis (to keep the axis use .{ .start = off, .len =1 })
         pub fn dyn(start: Tensor, len: i64) Slice {
             stdx.debug.assert(start.rank() == 0, "Slice.dyn expects scalar input, got {f}", .{start});
             return .{ .dyn_start = start, .len = len };
         }
 
+        // Slice dynamique d'un seul élément, supprimant l'axe correspondant.
         pub fn dynSingle(start: Tensor) Slice {
             stdx.debug.assert(start.rank() == 0, "Slice.dynSingle expects scalar input, got {f}", .{start});
             return .{ .dyn_start = start, .len = 1, .singleton = true };
         }
 
+        // Résout les bornes d'un slice (négatives, fin, longueur) en coordonnées absolues.
         pub fn absolute(s: Slice, d: i64) Slice {
             const start = if (s.start < 0) d + s.start else s.start;
             const end = if (s.singleton)
@@ -2202,6 +2360,7 @@ pub const Tensor = struct {
 
         const to_the_end = std.math.maxInt(i64);
 
+        // Formate un Slice pour l'affichage (bornes, singleton, slice dynamique).
         pub fn format(s: Slice, writer: *std.Io.Writer) !void {
             const end = if (s.len != to_the_end) s.start +| s.len else s.end;
             if (s.dyn_start) |_| {
@@ -2221,6 +2380,7 @@ pub const Tensor = struct {
         }
     };
 
+    // Découpe le tenseur le long d'un axe selon un Slice.
     /// Slice a Tensor across a specific axes.
     ///
     /// Due to the nature of stablehlo, the length of the slices need to be known when compiling the IR.
@@ -2233,6 +2393,8 @@ pub const Tensor = struct {
         return self.slices(@as([]const ResolvedAxis, &.{self.axis(axis_)}), &.{slice_});
     }
 
+    // Découpe le tenseur le long de plusieurs axes ; bascule sur dynamic_slice si un
+    // début est dynamique, sinon utilise stablehlo.slice.
     /// Slices a Tensor across many axes.
     ///
     /// ```
@@ -2285,6 +2447,7 @@ pub const Tensor = struct {
         return res.reshape(new_shape.removeMany(to_remove.constSlice()));
     }
 
+    // Implémente les slices à bornes statiques via stablehlo.slice, en résolvant négatifs et steps.
     fn staticSlices(self: Tensor, axes_: []const ResolvedAxis, slices_: []const Slice) Tensor {
         var start_indices: [constants.MAX_RANK]i64 = @splat(0);
         var strides: [constants.MAX_RANK]i64 = @splat(1);
@@ -2321,6 +2484,7 @@ pub const Tensor = struct {
         return res.reshape(res_shape.removeMany(to_remove.constSlice()));
     }
 
+    // Vérifie `slice` sur plusieurs combinaisons d'axe, de bornes et de pas.
     test slice {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -2333,6 +2497,7 @@ pub const Tensor = struct {
         // Wrap slice to hide the anytype in the signature.
         // TODO(wzk): stdx.meta.specifyFn (waiting 0.17 for SoA meta programming)
         const Local = struct {
+            // Fonction de test encapsulant un slice statique sur un axe.
             fn _slice1dAxis(input: Tensor, ax: i8, slice_: Tensor.Slice) Tensor {
                 return input.slice(ax, slice_);
             }
@@ -2361,11 +2526,13 @@ pub const Tensor = struct {
         }
     }
 
+    // Vérifie les slices à début dynamique pour des tenseurs 1D et 2D.
     test "dynamic slices" {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Fonction de test effectuant un slice dynamique après résolution de l'axe.
             fn dynSliceResolved(x: Tensor, ax: ResolvedAxis, dyn_slice: Slice) Tensor {
                 return x.slice(ax, dyn_slice);
             }
@@ -2394,10 +2561,12 @@ pub const Tensor = struct {
         }
     }
 
+    // Ramène un index négatif en index positif relativement à la dimension de l'axe.
     inline fn wrapIndex(self: Tensor, axis_: usize, idx: i64) i64 {
         return if (idx < 0) self.dim(axis_) + idx else idx;
     }
 
+    // Concatène plusieurs tenseurs le long d'un axe.
     /// Concatenates the input Tensors along the given axis.
     pub fn concatenate(tensors: []const Tensor, axis_: anytype) Tensor {
         if (tensors.len == 1) return tensors[0];
@@ -2420,6 +2589,7 @@ pub const Tensor = struct {
         return _result(res_shape, op.result(0));
     }
 
+    // Empile des tenseurs de même shape le long d'un nouvel axe taggé.
     /// Concatenates the input Tensors along a new axis. The Tensors must have the same shape.
     /// For x, y, z of shape .{ .a = 10, .b = 11, .c = 12 }:
     /// - Tensor.stack(&.{x, y, z}, .b, .layers) -> .{ .a, .layers, .b, .c }
@@ -2449,6 +2619,7 @@ pub const Tensor = struct {
         return Tensor.concatenate(reshaped, ax);
     }
 
+    // Répète le tenseur n fois le long d'un axe (concaténation de copies).
     /// Repeats a Tensor several times along the given axis.
     ///
     /// * repeat1d(x, axis, 4) = concat(&.{x, x, x, x}, axis);
@@ -2467,6 +2638,7 @@ pub const Tensor = struct {
         return self.broadcast(broadshape, repeat_dims.dims()).reshape(res_shape);
     }
 
+    // Répète le tenseur selon un facteur appliqué à chaque axe.
     /// Repeats a Tensor several times along the given axes.
     pub fn repeat(self: Tensor, n_reps: []const u63) Tensor {
         // TODO: this should support the tagged syntax: x.repeat(.{ .a = 3, .b = 2});
@@ -2481,11 +2653,13 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie `repeat1d` sur des tenseurs 1D et 2D.
     test repeat1d {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `repeat1d`.
             fn repeat1d(x: Tensor, axis_: u3, n_reps: u32) Tensor {
                 return x.repeat1d(axis_, n_reps);
             }
@@ -2517,6 +2691,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Répète consécutivement chaque valeur le long d'un axe (stutter).
     /// Repeats in line each value along the given axis.
     ///
     /// * stutter1d([0, 1, 2, 3], -1, 2) = [0, 0, 1, 1, 2, 2, 3, 3]
@@ -2531,6 +2706,7 @@ pub const Tensor = struct {
         return self.broadcast(broadshape, stutter_dims.dims()).reshape(res_shape);
     }
 
+    // Répète consécutivement chaque valeur selon un facteur par axe.
     /// Repeats in line each value along the given axes.
     pub fn stutter(self: Tensor, n_reps: []const u32) Tensor {
         // TODO: this should support the tagged syntax: x.repeat(.{ .a = 3, .b = 2});
@@ -2544,11 +2720,13 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie `stutter1d` sur des tenseurs 1D et 2D, y compris l'axe non final.
     test stutter1d {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `stutter1d`.
             fn stutter1d(x: Tensor, axis_: u3, n_reps: u32) Tensor {
                 return x.stutter1d(axis_, n_reps);
             }
@@ -2581,54 +2759,63 @@ pub const Tensor = struct {
         }
     }
 
+    // Négation élément par élément.
     /// Returns a Tensor containing the element-wise negation of the input Tensor.
     pub fn negate(self: Tensor) Tensor {
         const negate_op = dialects.stablehlo.negate(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, negate_op.result(0));
     }
 
+    // Cosinus élément par élément.
     /// Returns a Tensor containing the element-wise cosine of the input Tensor.
     pub fn cos(self: Tensor) Tensor {
         const cosine_op = dialects.stablehlo.cosine(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, cosine_op.result(0));
     }
 
+    // Sinus élément par élément.
     /// Returns a Tensor containing the element-wise sine of the input Tensor.
     pub fn sin(self: Tensor) Tensor {
         const sine_op = dialects.stablehlo.sine(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, sine_op.result(0));
     }
 
+    // Exponentielle élément par élément.
     /// Returns a Tensor containing the element-wise exponential operation of the input Tensor.
     pub fn exp(self: Tensor) Tensor {
         const op = dialects.stablehlo.exponential(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Logarithme népérien élément par élément.
     /// Returns a Tensor containing the element-wise logarithm operation of the input Tensor.
     pub fn log(self: Tensor) Tensor {
         const op = dialects.stablehlo.log(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Racine carrée élément par élément.
     /// Returns a Tensor containing the element-wise square-root of the input Tensor.
     pub fn sqrt(self: Tensor) Tensor {
         const sqrt_op = dialects.stablehlo.sqrt(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, sqrt_op.result(0));
     }
 
+    // Inverse de la racine carrée élément par élément.
     /// Returns a Tensor containing the element-wise reverse square-root of the input Tensor.
     pub fn rsqrt(self: Tensor) Tensor {
         const rsqrt_op = dialects.stablehlo.rsqrt(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, rsqrt_op.result(0));
     }
 
+    // Tangente hyperbolique élément par élément.
     /// Returns a Tensor containing the element-wise hyperbolic tangent of the input Tensor.
     pub fn tanh(self: Tensor) Tensor {
         const tanh_op = dialects.stablehlo.tanh(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, tanh_op.result(0));
     }
 
+    // Calcule exp(x) - 1, élément par élément, précis au voisinage de 0.
     /// Returns a Tensor containing the element-wise exponential minus one operation of the input Tensor.
     pub fn exponentialMinusOne(self: Tensor) Tensor {
         const expm1_op = dialects.stablehlo.exponential_minus_one(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
@@ -2641,6 +2828,7 @@ pub const Tensor = struct {
         step: i64 = 1,
     };
 
+    // Génère des valeurs régulièrement espacées sur [start, end[ par pas `step`.
     /// Returns a Tensor containing evenly spaced values within a given interval.
     pub fn arange(args: ArangeArgs, dt: DataType) Tensor {
         stdx.debug.assert(args.start <= args.end, "arange expects 'args.start' to be less than 'args.end', got {} and {}", .{ args.start, args.end });
@@ -2667,6 +2855,7 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie qu'arange génère la séquence attendue (start=2, step=4).
     test arange {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -2692,6 +2881,8 @@ pub const Tensor = struct {
         );
     }
 
+    // Retourne des indices croissants depuis 0 le long d'un axe, en i32 (ou i64 si la
+    // dimension dépasse la portée de i32).
     /// Returns a Tensor containing values in increasing order starting from 0 along the given axis.
     ///
     /// The output dtype will be `.i32`, unless the given axis has a too big dimension, in that case we use `.i64`.
@@ -2717,6 +2908,7 @@ pub const Tensor = struct {
         steps: i64,
     };
 
+    // Retourne `steps` valeurs régulièrement espacées entre start et end, bornes incluses.
     /// Returns a Tensor containing 'args.steps' values evenly spaced from 'args.start' to 'args.end', inclusive.
     pub fn linspace(args: LinspaceArgs, dt: DataType) Tensor {
         stdx.debug.assert(args.start < args.end, "linspace expects 'args.start' to be less than 'args.end', got {} and {}", .{ args.start, args.end });
@@ -2743,6 +2935,7 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Crée un tenseur de rang 0 contenant la valeur scalaire donnée.
     /// Returns a 0-rank Tensor with the given value.
     pub fn scalar(val: anytype, dt: DataType) Tensor {
         const data = DataType.Value.init(dt, val);
@@ -2753,11 +2946,13 @@ pub const Tensor = struct {
         return Tensor.constant(data);
     }
 
+    // Vérifie la création de scalaires pour différents dtypes.
     test scalar {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Fonction de test créant un scalaire zéro pour plusieurs dtypes.
             pub fn _fwd() [6]Tensor {
                 var res: [6]Tensor = undefined;
                 const dtypes = .{ .bool, .u8, .i32, .f32, .bf16, .u64 };
@@ -2770,6 +2965,7 @@ pub const Tensor = struct {
         defer exe.deinit();
     }
 
+    // Crée un tenseur constant (rang 0) à partir d'une valeur typée.
     /// Returns a constant Tensor with the given value.
     pub fn constant(val: DataType.Value) Tensor {
         const op = dialects.stablehlo.constant(
@@ -2782,10 +2978,12 @@ pub const Tensor = struct {
         return _result(.init(&.{}, val.dtype()), op.result(0));
     }
 
+    // Retourne un tenseur rempli de zéros de la shape donnée.
     pub fn zeroes(sh: Shape) Tensor {
         return Tensor.constant(sh.dtype().zero()).broad(sh);
     }
 
+    // Alloue un buffer non initialisé (createBuffer/unpin) exposé comme tenseur.
     pub fn uninitialized(sh: Shape) Tensor {
         const ctx = Compiler.current();
         const buffer_type = mlir.Type.memRef(
@@ -2801,6 +2999,7 @@ pub const Tensor = struct {
         return _result(sh, tensor.result(0));
     }
 
+    // Incorpore un buffer d'octets de valeurs constantes dans le programme MLIR.
     /// Embeds a buffer with concrete values into an Mlir program.
     pub fn constantTensor(sh: Shape, bytes_: []const u8) Tensor {
         const elem_type = mlirx.Type.fromDType(mlirCtx(), sh.dtype());
@@ -2809,6 +3008,7 @@ pub const Tensor = struct {
         return _result(sh, constant_op.result(0));
     }
 
+    // Produit extérieur de deux tenseurs (cas vecteur-vecteur réduit à une multiplication).
     /// Returns a Tensor containing the result of the outer product between the input Tensors.
     pub fn outer(self: Tensor, other: Tensor) Tensor {
         if (self.rank() + other.rank() == 1) {
@@ -2819,6 +3019,8 @@ pub const Tensor = struct {
         return self.broad(res_shape).mul(other.broad(res_shape));
     }
 
+    // Diffuse le tenseur vers une shape cible en mappant explicitement chaque axe ; les
+    // tags du résultat proviennent de `output_shape`.
     /// Given a tensor and a shape of the same rank,
     /// will "broadcast" the given axes, so that `self` has the given shape.
     /// This happens by virtually repeating the data several time along each give axes.
@@ -2845,6 +3047,7 @@ pub const Tensor = struct {
         return _result(res_shape, broadcast_op.result(0));
     }
 
+    // Diffuse le tenseur vers une shape en ajoutant les axes manquants au début.
     /// Broadcasts a Tensor to the given shape, adding axes at the beginning.
     pub fn broadcastLeft(self: Tensor, output_shape: Shape) Tensor {
         stdx.debug.assert(self.rank() <= output_shape.rank(), "broadcastLeft expects tensor rank to be less than output tensor rank, got {d} and {d}", .{ self.rank(), output_shape.rank() });
@@ -2857,6 +3060,7 @@ pub const Tensor = struct {
         return self.broadcast(output_shape, Shape.range(output_shape.rank(), output_shape.dtype()).dims()[a..]);
     }
 
+    // Diffuse le tenseur vers une shape en ajoutant les axes manquants à la fin.
     /// Broadcasts a Tensor to the given shape, adding axes at the end.
     pub fn broadcastRight(self: Tensor, output_shape: Shape) Tensor {
         stdx.debug.assert(self.rank() <= output_shape.rank(), "broadcastRight expects tensor rank to be less than output tensor rank, got {d} and {d}", .{ self.rank(), output_shape.rank() });
@@ -2868,6 +3072,7 @@ pub const Tensor = struct {
         return self.broadcast(output_shape, Shape.range(self.rank(), output_shape.dtype()).dims());
     }
 
+    // Diffuse le tenseur vers une shape en utilisant les tags pour aligner les axes.
     /// Broadcasts a Tensor to the given shape, extending dimensions if needed.
     pub fn broad(self: Tensor, other: Shape) Tensor {
         // TODO: broad is too restrictive because sometime you only want to specify one specific axis
@@ -2894,6 +3099,7 @@ pub const Tensor = struct {
         return self.broadcast(other, axes_.constSlice());
     }
 
+    // Insère une barrière empêchant le compilateur de fusionner ou réordonner ce tenseur.
     pub fn optimizationBarrier(self: Tensor) Tensor {
         const ctx = Compiler.current();
 
@@ -2907,6 +3113,7 @@ pub const Tensor = struct {
         return _result(self.shape(), op.result(0));
     }
 
+    // Reformatte le tenseur vers la shape donnée (stablehlo.reshape).
     /// Reshapes the input Tensor with the given shape.
     pub fn reshape(self: Tensor, output_shape_: anytype) Tensor {
         const output_shape = self._shape.reshape(output_shape_);
@@ -2915,6 +3122,7 @@ pub const Tensor = struct {
         return _result(output_shape, reshape_value.result(0));
     }
 
+    // Ramène un tenseur à 1 élément vers le rang 0.
     /// Converts the given 1 element Tensor into a 0-rank Tensor.
     pub fn asScalar(self: Tensor) Tensor {
         stdx.debug.assert(self.count() == 1, "Tensor.asScalar expects an input with exactly 1-element got {f}", .{self});
@@ -2927,6 +3135,8 @@ pub const Tensor = struct {
         interior: i64 = 0,
     };
 
+    // Ajoute un remplissage (low/high/interior) le long des axes, en calculant la shape
+    // résultante et en émettant stablehlo.pad.
     /// Pads the input Tensor with the given values.
     /// Usage: x.pad(0, .{ .a = .{ .low = 1, .high = 1 }});
     pub fn pad(self: Tensor, padding_value: anytype, paddings: anytype) Tensor {
@@ -2960,6 +3170,7 @@ pub const Tensor = struct {
         return _result(res_shape, pad_op.result(0));
     }
 
+    // Insère des axes de dimension 1 aux positions et tags donnés.
     /// Inserts 1-dim axes at the given position, with the given tags.
     /// `.{.a = 5, .b = 4}.insert(.b, .{ .c, .d }) -> .{ .a = 5, .c = 1, .d = 1, .b = 4 }`
     pub fn insertAxes(self: Tensor, axis_: anytype, tags: anytype) Tensor {
@@ -2977,6 +3188,7 @@ pub const Tensor = struct {
         return self.reshape(res_shape);
     }
 
+    // Ajoute des axes de dimension 1 à la fin du tenseur.
     /// Appends a 1-dim axis, with the given tag.
     pub fn appendAxes(self: Tensor, t: anytype) Tensor {
         // stdx.debug.assert(self.rank() < Tensor.MAX_RANK - t.len, "appendAxis expects tensor rank to be small enough in order to extend it, got {} and {} (max is {})", .{ self.rank(), t.len, Tensor.MAX_RANK });
@@ -2984,6 +3196,7 @@ pub const Tensor = struct {
         return self.insertAxes(.last, t);
     }
 
+    // Supprime un axe de dimension 1.
     /// Drops a 1-dim axis at the given index
     pub fn squeeze(self: Tensor, axis_: anytype) Tensor {
         const a = self.axis(axis_);
@@ -2995,6 +3208,7 @@ pub const Tensor = struct {
         return _result(new_shape, self.reshape(new_shape).value());
     }
 
+    // Inverse l'ordre des éléments le long des axes donnés.
     /// Returns a Tensor with the given axes reversed.
     pub fn reverse(self: Tensor, axes_: anytype) Tensor {
         const actual_axes = self._shape.axes(axes_);
@@ -3005,6 +3219,8 @@ pub const Tensor = struct {
 
     pub const GatherOpts = ops.GatherOpts;
 
+    // Extrait des valeurs indexées par des tenseurs le long d'axes nommés ; les axes
+    // communs à `self` et aux indices servent d'axes de batch.
     /// `gather` extracts slices from the given tensor at the specified offsets.
     /// example: `values.gather(.{ .a = idx }, .{})`
     ///
@@ -3045,11 +3261,13 @@ pub const Tensor = struct {
         return ops.gather(self, idx_axes.slice(), idx_per_axis.slice(), opts);
     }
 
+    // Vérifie les shapes de sortie de `gather` au niveau IR (sans exécution).
     test gather {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Fonction de test créant des indices constants (zéro) broadcast à la shape donnée.
             pub fn _idx(idx_shape: anytype) Tensor {
                 return Tensor.constant(.{ .i32 = 0 }).broad(Shape.init(idx_shape, .i64));
             }
@@ -3107,6 +3325,8 @@ pub const Tensor = struct {
         }
     }
 
+    // Extrait des tranches à coordonnées runtime le long d'axes nommés, avec axes de
+    // batch optionnels ; favorise les copies contiguës.
     /// Gathers slices along the given axes with runtime indices.
     /// * slice_shape represents the shape of the slices to extract,
     ///   it must be smaller than original shape.
@@ -3199,11 +3419,13 @@ pub const Tensor = struct {
         return _result(res_shape, gather_op.result(0));
     }
 
+    // Vérifie shapes et valeurs de `gatherSlices`, y compris avec axe de batch.
     test gatherSlices {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `gatherSlices`.
             pub fn _gatherSlices(self: Tensor, slice_shape: Shape, indices: Tensor, opts: GatherOpts) Tensor {
                 return self.gatherSlices(slice_shape, indices, opts);
             }
@@ -3268,6 +3490,7 @@ pub const Tensor = struct {
         defer indices_buffer.deinit();
         var operand_buffer: zml.Buffer = b: {
             const temp_func = struct {
+                // Fonction de test générant un tenseur arange reshapé servant d'opérande.
                 fn forward() Tensor {
                     return Tensor.arange(.{ .end = 2 * 4 * 6 }, .u16).reshape(.{ .a = 2, .b = 4, .c = 6 });
                 }
@@ -3312,15 +3535,19 @@ pub const Tensor = struct {
         /// of the operator which is backend specific.
         update_fn: *const fn (ops.ScatterArgs) struct { Tensor } = increment,
 
+        // Fonction d'update par défaut de scatter : additionne l'update à la valeur existante.
         pub fn increment(values: ops.ScatterArgs) struct { Tensor } {
             return .{values.input.add(values.update)};
         }
 
+        // Fonction d'update de scatter qui remplace la valeur existante par l'update.
         pub fn override(values: ops.ScatterArgs) struct { Tensor } {
             return .{values.update};
         }
     };
 
+    // Écrit des tranches (`updates`) dans `self` aux coordonnées runtime données par les
+    // indices ; version généralisée de dynamicUpdateSlice.
     /// Update the given tensor, by copying `values` into slice by slice into `self`.
     /// The slices are chosen at runtime by interpreting indices as coordinates into `self`.
     /// This is a generalized version of `dynamicUpdateSlice` where more than one offset can be specified at a time.
@@ -3400,6 +3627,7 @@ pub const Tensor = struct {
         const UpdateType = @TypeOf(ScatterOpts.increment);
 
         const Custom = struct {
+            // Adaptateur appelant la fonction d'update fournie dans les options de scatter.
             pub fn inc(values: ops.ScatterArgs, custom: *const UpdateType) struct { Tensor } {
                 return @call(.auto, custom, .{values});
             }
@@ -3408,11 +3636,13 @@ pub const Tensor = struct {
         return ops.scatter(.{self}, indices, .{updates}, Custom.inc, .{opts.update_fn}, opts)[0];
     }
 
+    // Vérifie `scatterSlices` sur les shapes puis sur des valeurs réelles, avec et sans batch.
     test scatterSlices {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `scatterSlices` avec la fonction increment.
             pub fn _scatter(self: Tensor, indices: []const Tensor, updates: Tensor) Tensor {
                 return self.scatterSlices(
                     indices,
@@ -3421,6 +3651,7 @@ pub const Tensor = struct {
                 );
             }
 
+            // Wrapper de test scatterSlices dont les coordonnées sont extraites d'un tenseur .coord.
             pub fn _scatterCB(self: Tensor, coords: Tensor, updates: Tensor) Tensor {
                 return self.scatterSlices(
                     .{ .c = coords.slice(.coord, .single(0)), .b = coords.slice(.coord, .single(1)) },
@@ -3429,6 +3660,7 @@ pub const Tensor = struct {
                 );
             }
 
+            // Fonction de test créant des indices constants broadcast à la shape donnée.
             pub fn _idx(idx_shape: anytype) Tensor {
                 return Tensor.constant(.{ .i32 = 0 }).broad(Shape.init(idx_shape, .i32));
             }
@@ -3562,6 +3794,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Retourne le maximum le long d'un axe.
     /// Returns a Tensor containing the maximum over a given axis.
     pub fn max(self: Tensor, axis_: anytype) Tensor {
         const a = self.axis(axis_);
@@ -3570,6 +3803,7 @@ pub const Tensor = struct {
             .{Tensor.constant(self.dtype().minValue())},
             &.{a},
             struct {
+                // Réducteur retournant le maximum de deux éléments.
                 pub fn cmp(args: ops.ReduceArgs) struct { Tensor } {
                     return .{args.left.maximum(args.right)};
                 }
@@ -3578,6 +3812,7 @@ pub const Tensor = struct {
         )[0];
     }
 
+    // Retourne le minimum le long d'un axe.
     /// Returns a Tensor containing the minimum over a given axis.
     pub fn min(self: Tensor, axis_: anytype) Tensor {
         const a = self.axis(axis_);
@@ -3586,6 +3821,7 @@ pub const Tensor = struct {
             .{Tensor.constant(self.dtype().maxValue())},
             &.{a},
             struct {
+                // Réducteur retournant le minimum de deux éléments.
                 pub fn cmp(args: ops.ReduceArgs) struct { Tensor } {
                     return .{args.left.minimum(args.right)};
                 }
@@ -3598,6 +3834,8 @@ pub const Tensor = struct {
         values: Tensor,
         indices: Tensor,
 
+        // Réducteur pour argMax : garde la plus grande valeur (NaN propagé) et, à égalité,
+        // le plus petit index.
         fn cmp(values: ops.ReduceArgs, indices: ops.ReduceArgs) [2]Tensor {
             const left_gt_right = values.left.cmp(.GT, values.right);
             const is_nan = values.left.cmp(.NE, values.left);
@@ -3616,6 +3854,7 @@ pub const Tensor = struct {
         }
     };
 
+    // Retourne les valeurs maximales et leurs indices le long d'un axe.
     pub fn argMax(x: Tensor, axis_: anytype) ArgMaxRes {
         const a = x.axis(axis_);
         const dt: DataType = if (x.dim(a) <= std.math.maxInt(i32)) .i32 else .i64;
@@ -3630,11 +3869,13 @@ pub const Tensor = struct {
         return .{ .values = values, .indices = indices };
     }
 
+    // Vérifie argMax (premier max retenu) et la propagation des NaN.
     test argMax {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
         const allocator = std.testing.allocator;
         const ArgMaxTest = struct {
+            // Wrapper de test pour argMax.
             pub fn _fwd(x: Tensor) Tensor.ArgMaxRes {
                 return x.argMax(1);
             }
@@ -3682,12 +3923,14 @@ pub const Tensor = struct {
 
     pub const SortOpts = struct { descending: bool = false };
 
+    // Trie le tenseur le long d'un axe et retourne valeurs et indices triés.
     /// Returns two Tensors. The first contains the sorted values and the second one contains the sorted indices.
     pub fn sort(self: Tensor, axis_: anytype, opts: SortOpts) SortRes {
         const a = self.axis(axis_);
         const indices = Tensor.arange(.{ .end = self.dim(a) }, .i32).broadcast(self._shape, &.{a});
         const direction: dialects.stablehlo.ComparisonDirection.Direction = if (opts.descending) .GT else .LT;
         const res = ops.sort(.{ self, indices }, a, struct {
+            // Comparateur utilisé par l'opération de tri stablehlo.
             fn call(values: ops.SortArgs, _: ops.SortArgs, direction_: dialects.stablehlo.ComparisonDirection.Direction) Tensor {
                 return values.left.cmp(direction_, values.right);
             }
@@ -3697,16 +3940,19 @@ pub const Tensor = struct {
 
     pub const ArgSortOpts = SortOpts;
 
+    // Retourne les indices donnant l'ordre trié le long d'un axe.
     /// Returns a Tensor containing the indices corresponding to the sorted values over the given axis.
     pub fn argsort(self: Tensor, axis_: anytype, opts: ArgSortOpts) Tensor {
         return self.sort(axis_, .{ .descending = opts.descending }).indices;
     }
 
+    // Vérifie argsort sur des tenseurs 2D, 3D et 4D, ascendant et descendant.
     test argsort {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour argsort.
             pub fn _argsort(x: Tensor, axis_: u3, opts: ArgSortOpts) Tensor {
                 return x.argsort(axis_, opts);
             }
@@ -3802,6 +4048,8 @@ pub const Tensor = struct {
 
     pub const TopKOpts = struct { descending: bool = true };
 
+    // Retourne les k plus grandes (ou plus petites) valeurs et leurs indices ; utilise
+    // un custom_call sur Neuron et un tri + slice ailleurs.
     /// Returns a Tensor representing the result of Top-K over the given axis.
     pub fn topK(self: Tensor, named_axis_: anytype, k: u32, opts: TopKOpts) SortRes {
         stdx.debug.assert(k > 0, "topK expects a k > 0, got 0", .{});
@@ -3870,6 +4118,7 @@ pub const Tensor = struct {
 
     pub const MaxPoolRes = ArgMaxRes;
 
+    // Max-pooling 1D sur le dernier axe ; retourne valeurs et indices.
     /// Computes the 1d maxPool operation on the input Tensor.
     pub fn maxPool1d(self: Tensor, opts: struct {
         window_dimensions: i64,
@@ -3919,6 +4168,7 @@ pub const Tensor = struct {
         return .{ .values = values, .indices = indices };
     }
 
+    // Max-pooling 2D sur les deux derniers axes ; retourne valeurs et indices.
     /// Computes the 2d maxPool operation on the input Tensor.
     pub fn maxPool2d(self: Tensor, opts: struct {
         window_dimensions: [2]i64,
@@ -3959,6 +4209,7 @@ pub const Tensor = struct {
         return .{ .values = values, .indices = indices };
     }
 
+    // Découpe le tenseur en n tranches de taille strictement égale.
     /// Chunk a given tensor into exactly n parts of equal shape.
     /// `self.dim(axis_)` must be divisible by n_chunks.
     pub fn chunkExact(self: Tensor, axis_: anytype, n_chunks: comptime_int) [n_chunks]Tensor {
@@ -3973,6 +4224,7 @@ pub const Tensor = struct {
         return chunks;
     }
 
+    // Vérifie les shapes des tranches produites par `chunkExact`.
     test chunkExact {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -4004,6 +4256,8 @@ pub const Tensor = struct {
         }
     }
 
+    // Découpe le tenseur en n tranches égales, plus éventuellement une tranche de reste
+    // si la dimension n'est pas divisible.
     /// Chunk a given tensor into n parts of equal shape, and one part with the remaining items.
     /// When `self.dim(axis_)` is divisible by `n_chunks` it will return exactly `n_chunks`.
     pub fn chunkAllowTrailing(
@@ -4026,6 +4280,7 @@ pub const Tensor = struct {
         return chunks;
     }
 
+    // Vérifie `chunkAllowTrailing`, avec et sans tranche de reste.
     test chunkAllowTrailing {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -4065,6 +4320,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Découpe le tenseur le long d'un axe selon une liste de tailles dont la somme vaut la dimension.
     pub fn split(self: Tensor, axis_: anytype, split_sizes: []const i64) []Tensor {
         stdx.debug.assert(split_sizes.len > 0, "split expects at least one 'split_sizes', got 0", .{});
 
@@ -4084,11 +4340,13 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie `split` sur plusieurs axes et tailles de tranches.
     test split {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `split`.
             pub fn _split(x: Tensor, axis_: i8, split_sizes: []const i64) []Tensor {
                 return x.split(axis_, split_sizes);
             }
@@ -4122,6 +4380,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Met à jour une tranche d'un axe avec un offset connu à l'exécution.
     /// Updates a slice of the input Tensor along a specific axis using the given 'update' Tensor, with a start offset known at runtime.
     /// Note this is the untagged api, if you have tags, you should use dynamicUpdateSlice directly.
     pub fn dynamicUpdateSlice1d(self: Tensor, update: Tensor, axis_: i64, offset: Tensor) Tensor {
@@ -4131,6 +4390,8 @@ pub const Tensor = struct {
         return self.dynamicUpdateSlice(start_indices[0..self.rank()], update);
     }
 
+    // Met à jour une région du tenseur à offsets runtime (offset par axe ou par tag) ;
+    // stablehlo.dynamic_update_slice.
     /// Updates a part of the input Tensor using the given 'update' Tensor, with runtime known offsets.
     ///
     /// The offsets are specified similarly to the dynamicSlice api.
@@ -4218,6 +4479,7 @@ pub const Tensor = struct {
         return _result(self._shape, op.result(0));
     }
 
+    // Vérifie dynamicUpdateSlice sur plusieurs cas taggés et non taggés.
     test dynamicUpdateSlice {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -4227,6 +4489,7 @@ pub const Tensor = struct {
             const y = Tensor.init(.{2}, .f32).withTags(.{.a});
             const ids: Tensor = .init(.{}, .i32);
             const forward = struct {
+                // Test dynamicUpdateSlice taggé (slice 1D sur l'axe .a).
                 pub fn _fwd(x_: Tensor, idx_: struct { a: Tensor }, y_: Tensor) Tensor {
                     return x_.dynamicUpdateSlice(idx_, y_);
                 }
@@ -4253,6 +4516,7 @@ pub const Tensor = struct {
             const y = Tensor.init(.{2}, .f32).withTags(.{.a});
             const ids: Tensor = .init(.{}, .i32);
             const forward = struct {
+                // Test dynamicUpdateSlice taggé (offset sur l'axe .b d'un tenseur 2D).
                 pub fn _fwd(x_: Tensor, idx_: Tensor, y_: Tensor) Tensor {
                     return x_.dynamicUpdateSlice(.{ .b = idx_ }, y_);
                 }
@@ -4282,6 +4546,7 @@ pub const Tensor = struct {
             const y: Tensor = .init(.{ 2, 1 }, .f32);
             const ids: Tensor = .init(.{}, .i32);
             const forward = struct {
+                // Test dynamicUpdateSlice non taggé avec un update de dimension 1 sur l'axe secondaire.
                 pub fn _fwd(x_: Tensor, idx_: Tensor, y_: Tensor) Tensor {
                     return x_.dynamicUpdateSlice(.{ zml.Tensor.scalar(0, .i32), idx_ }, y_);
                 }
@@ -4312,6 +4577,7 @@ pub const Tensor = struct {
             const idx_a: Tensor = .init(.{}, .i32);
             const idx_b: Tensor = .init(.{}, .i32);
             const forward = struct {
+                // Test dynamicUpdateSlice partiel taggé (offsets sur .a et .b).
                 pub fn _fwd(x_: Tensor, idx_: struct { a: Tensor, b: Tensor }, y_: Tensor) Tensor {
                     return x_.dynamicUpdateSlice(idx_, y_);
                 }
@@ -4344,6 +4610,7 @@ pub const Tensor = struct {
             const idx_a: Tensor = .init(.{}, .i32);
             const idx_b: Tensor = .init(.{}, .i32);
             const forward = struct {
+                // Test dynamicUpdateSlice partiel non taggé avec offsets fournis dans un tableau.
                 pub fn _fwd(x_: Tensor, idx_: [2]Tensor, y_: Tensor) Tensor {
                     return x_.dynamicUpdateSlice(&idx_, y_);
                 }
@@ -4370,6 +4637,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Comparaison élément par élément selon une direction (LT, LE, GT...).
     /// Returns a Tensor containing the element-wise result of the given 'cmp' comparison between the two input Tensors.
     pub fn cmp(self: Tensor, direction: dialects.stablehlo.ComparisonDirection.Direction, other: Tensor) Tensor {
         stdx.debug.assert(self.dtype() == other.dtype(), "cmp expects input tensors to be of the same type, got {t} and {t}", .{ self.dtype(), other.dtype() });
@@ -4391,6 +4659,8 @@ pub const Tensor = struct {
         return _result(self._shape.withDtype(.bool), op.result(0));
     }
 
+    // Transforme chaque vecteur en matrice diagonale selon deux nouveaux tags, en
+    // insérant deux axes.
     /// For each vector in the input tensor,
     /// creates a diagonal-matrix where diagonal values are set to the vector values.
     pub fn toDiagonal(self: Tensor, axis_: anytype, new_tags: [2]@EnumLiteral()) Tensor {
@@ -4414,11 +4684,13 @@ pub const Tensor = struct {
         return res;
     }
 
+    // Vérifie `toDiagonal` (placement des valeurs sur la diagonale).
     test toDiagonal {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `toDiagonal`.
             pub fn _toDiag(input: Tensor) Tensor {
                 const res = input.toDiagonal(-1, .{ .x, .y });
                 std.debug.assert(res.dim(.x) == input.dim(-1));
@@ -4446,6 +4718,8 @@ pub const Tensor = struct {
         );
     }
 
+    // Met à zéro la partie au-dessus de la diagonale (décalée de `num_diagonals`) des
+    // matrices désignées par deux axes.
     /// For each matrix specified by the two axes, returns the lower triangular part of it.
     /// The other elements are set to 0.
     /// Usage: `.{ .b = 32, .w = 20, .h = 20 }.triangular(.{ .w, .h}, 0);`
@@ -4467,11 +4741,13 @@ pub const Tensor = struct {
         return x.addConstant(num_diagonals).cmp(.GE, y).select(self, zeros);
     }
 
+    // Vérifie `triangular` pour différentes valeurs de num_diagonals.
     test triangular {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
         const Local = struct {
+            // Wrapper de test pour `triangular`.
             pub fn _tri(input: Tensor, num_diagonals: i32) Tensor {
                 return input.triangular(.{ -2, -1 }, num_diagonals);
             }
@@ -4536,6 +4812,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Sélectionne élément par élément entre `on_true` et `on_false` selon un masque booléen.
     /// For each element at index `i`, if `bool_tensor[i] == true`, `output[i] = on_true[i]`
     /// otherwise, if `bool_tensor[i] == false`, `output[i] = on_false[i]`
     pub fn select(bool_tensor: Tensor, on_true: Tensor, on_false: Tensor) Tensor {
@@ -4563,16 +4840,19 @@ pub const Tensor = struct {
         return _result(on_true._shape, op.result(0));
     }
 
+    // Remplace par `mask_value` les éléments où `pred` est vrai.
     pub fn mask(x: Tensor, pred: Tensor, mask_value: anytype) Tensor {
         return pred.broad(x.shape()).select(x, .scalar(mask_value, x.dtype()));
     }
 
+    // Négation logique (NOT), élément par élément.
     /// Returns a Tensor containing the element-wise not logical operation of the input Tensor.
     pub fn not(self: Tensor) Tensor {
         const op = dialects.stablehlo.not(mlirCtx(), self.value(), currentLoc()).appendTo(currentBlock());
         return _result(self._shape, op.result(0));
     }
 
+    // Retourne vrai s'il existe une valeur non nulle le long de l'axe.
     /// Returns a Tensor containing boolean indicating if there is a non-zero value over the given axis.
     pub fn any(self: Tensor, axis_: anytype) Tensor {
         const pred = self.cmp(.NE, Tensor.constant(self.dims(), self.dtype().zero()));
@@ -4581,6 +4861,7 @@ pub const Tensor = struct {
             .{Tensor.scalar(false, .bool)},
             &.{self.axis(axis_)},
             struct {
+                // Réducteur effectuant un OU logique de deux prédicats.
                 pub fn acc(args: ops.ReduceArgs) Tensor {
                     return args.left.logical(.OR, args.right);
                 }
@@ -4589,6 +4870,7 @@ pub const Tensor = struct {
         )[0];
     }
 
+    // Retourne vrai si toutes les valeurs sont non nulles le long de l'axe.
     /// Returns a Tensor containing boolean indicating if there is a non-zero value over the given axis.
     pub fn all(self: Tensor, axis_: anytype) Tensor {
         const pred = if (self.dtype() == .bool) self else self.cmp(.NE, Tensor.scalar(0, self.dtype()));
@@ -4597,6 +4879,7 @@ pub const Tensor = struct {
             .{Tensor.scalar(true, .bool)},
             &.{self.axis(axis_)},
             struct {
+                // Réducteur effectuant un ET logique de deux prédicats.
                 pub fn acc(args: ops.ReduceArgs) Tensor {
                     return args.left.logical(.AND, args.right);
                 }
@@ -4605,6 +4888,8 @@ pub const Tensor = struct {
         )[0];
     }
 
+    // Génère le produit cartésien de N vecteurs sous forme de N tenseurs de rang N
+    // (équivalent de meshgrid en mode "ij"), implémenté par broadcasting.
     /// Given a set of N vectors of lengths A, B, C, D,
     /// returns N tensors of rank N, and shape (A, B, C, D).
     /// For any coordinate (a, b, c, d), we have:
@@ -4623,6 +4908,7 @@ pub const Tensor = struct {
         return out;
     }
 
+    // Implémente le produit cartésien par broadcasting de chaque vecteur sur la shape commune.
     fn _cartesianProduct(vectors: []const Tensor, out: []Tensor) void {
         stdx.debug.assert(vectors.len >= 1, "cartesianProduct expects at least one input.", .{});
         stdx.debug.assert(vectors.len < constants.MAX_RANK, "cartesianProduct expects at most {} input vectors, received {} !", .{ constants.MAX_RANK - 1, vectors.len });
@@ -4645,6 +4931,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Vérifie `cartesianProduct` sur deux vecteurs.
     test cartesianProduct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -4653,6 +4940,7 @@ pub const Tensor = struct {
         const y: Tensor = .init(.{4}, .i32);
 
         const Local = struct {
+            // Wrapper de test pour cartesianProduct à 2 vecteurs.
             pub fn _cartesianProduct2(a: Tensor, b: Tensor) [2]Tensor {
                 return cartesianProduct(2, .{ a, b });
             }
@@ -4700,6 +4988,7 @@ pub const Tensor = struct {
         );
     }
 
+    // Décale circulairement les éléments vers la droite le long d'un axe.
     pub fn rollRight1d(self: Tensor, axis_: anytype, shift: i64) Tensor {
         const a = self.axis(axis_);
         const n = self.dim(a);
@@ -4711,6 +5000,7 @@ pub const Tensor = struct {
         }, a);
     }
 
+    // Produit cartésien empilé dans un nouvel axe `.coord`.
     /// Given a set of N vectors of lengths A, B, C, D,
     /// returns 1 tensors of rank N+1, and shape (A, B, C, D, N).
     /// For any coordinate (a, b, c, d), we have:
@@ -4723,6 +5013,7 @@ pub const Tensor = struct {
         return Tensor.stack(out.constSlice(), .last, .coord);
     }
 
+    // Vérifie `cartesianProductStacked` sur deux vecteurs.
     test cartesianProductStacked {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
@@ -4730,6 +5021,7 @@ pub const Tensor = struct {
         const y: Tensor = .init(.{4}, .i32);
 
         const Local = struct {
+            // Wrapper de test pour `cartesianProductStacked`.
             pub fn _fwd(a: Tensor, b: Tensor) Tensor {
                 return cartesianProductStacked(&.{ a, b });
             }
@@ -4759,11 +5051,15 @@ pub const Tensor = struct {
         );
     }
 
+    // Fabrique une fonction binaire (Tensor, Tensor) -> Tensor appliquant un op MLIR
+    // avec un broadcasting restreint (tags identiques).
     fn binaryOp(
         op_name: []const u8,
         op_fn: fn (*mlir.Context, *const mlir.Value, *const mlir.Value, *const mlir.Location) *mlir.Operation,
     ) fn (Tensor, Tensor) Tensor {
         return struct {
+            // Applique l'op binaire après alignement des shapes ; les scalaires sont diffusés
+            // et un broadcast implicite est autorisé quand les tags correspondent déjà.
             pub fn binaryOpHelper(self: Tensor, other: Tensor) Tensor {
                 stdx.debug.assert(self.dtype() == other.dtype(), "{s} expects tensor to be of same type, got {f} and {f}", .{ op_name, self, other });
 
@@ -4792,6 +5088,8 @@ pub const Tensor = struct {
         }.binaryOpHelper;
     }
 
+    // Insère un noeud d'impression du contenu du tenseur à l'exécution (debug) ;
+    // provoque une synchronisation device -> hôte.
     /// Insert code that will print the content of the given buffer at runtime.
     /// Use the name parameter to differentiate different print calls in the output.
     /// Only for debug purpose, it inserts device to host synchronization
@@ -4806,6 +5104,7 @@ pub const Tensor = struct {
                     input: Tensor,
                     name: []const u8,
 
+                    // Corps du manualComputation émettant l'appel custom d'impression.
                     fn body(body_ctx: @This(), _: void) void {
                         ops.customCall("zml$print", body_ctx.input, {}, .{ .name = body_ctx.name }, .{ .has_side_effect = true });
                     }
@@ -4815,19 +5114,24 @@ pub const Tensor = struct {
         }
     }
 
+    // Retourne le contexte MLIR du compilateur courant.
     fn mlirCtx() *mlir.Context {
         return Compiler.current().mlir_ctx;
     }
 
+    // Retourne la localisation MLIR courante.
     fn currentLoc() *const mlir.Location {
         return Compiler.current().location;
     }
 
+    // Retourne le bloc MLIR courant.
     fn currentBlock() *mlir.Block {
         return Compiler.current().currentScope().block;
     }
 };
 
+// Place la liste de paramètres de pooling sur les derniers axes et complète le
+// reste avec des 1 jusqu'à MAX_RANK.
 fn initPoolArg(rank: usize, data: []const i64) [constants.MAX_RANK]i64 {
     // TODO use shape
     var result: [constants.MAX_RANK]i64 = @splat(1);
@@ -4836,6 +5140,8 @@ fn initPoolArg(rank: usize, data: []const i64) [constants.MAX_RANK]i64 {
     return result;
 }
 
+// Calcule les dimensions de sortie d'un pooling à partir des dilatations, padding,
+// tailles de fenêtre et strides.
 fn getPoolResDims(dt: DataType, in_dims: []const i64, base_dilations: @Vector(constants.MAX_RANK, i64), padding: []const i64, window_dimensions: @Vector(constants.MAX_RANK, i64), window_dilations: @Vector(constants.MAX_RANK, i64), window_strides: @Vector(constants.MAX_RANK, i64)) Shape {
     // TODO use shape
     var input_dims: [constants.MAX_RANK]i64 = @splat(1);
@@ -4860,6 +5166,7 @@ fn getPoolResDims(dt: DataType, in_dims: []const i64, base_dilations: @Vector(co
     return Shape.init(dims_arr[0..in_dims.len], dt);
 }
 
+// Retourne le type de comparaison stablehlo correspondant au dtype (signé/non signé/float).
 fn getComparisonType(ctx: *mlir.Context, dtype: DataType) *const dialects.stablehlo.CompareType {
     return .init(ctx, switch (dtype.class()) {
         .bool => .UNSIGNED,
@@ -4869,11 +5176,13 @@ fn getComparisonType(ctx: *mlir.Context, dtype: DataType) *const dialects.stable
     });
 }
 
+// Teste maxPool1d sur un tenseur 3D et vérifie valeurs et indices.
 test "Tensor.maxPool1d" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
     const MaxPool = struct {
+        // Wrapper de test pour maxPool1d.
         pub fn _fwd(x: zml.Tensor) Tensor.ArgMaxRes {
             return x.maxPool1d(.{
                 .window_dimensions = 3,
@@ -4911,11 +5220,13 @@ test "Tensor.maxPool1d" {
     );
 }
 
+// Teste maxPool2d sur un tenseur 4D et vérifie valeurs et indices.
 test "Tensor.maxPool2d" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
     const MaxPool = struct {
+        // Wrapper de test pour maxPool2d.
         pub fn _fwd(x: Tensor) Tensor.ArgMaxRes {
             return x.maxPool2d(.{
                 .window_dimensions = .{ 3, 2 },
@@ -4961,6 +5272,8 @@ test "Tensor.maxPool2d" {
     );
 }
 
+// Normalise les axes de gather en un booléen (axes scalaire ou non) et une liste
+// d'axes résolus.
 fn _parseGatherCoord(self: Tensor, axes_: anytype) struct { bool, stdx.BoundedArray(u3, constants.MAX_RANK) } {
     const AxesT = @TypeOf(axes_);
     const axes_is_scalar = AxesT == @EnumLiteral() or AxesT == comptime_int or @typeInfo(AxesT) == .int;
@@ -4973,12 +5286,15 @@ fn _parseGatherCoord(self: Tensor, axes_: anytype) struct { bool, stdx.BoundedAr
     return .{ axes_is_scalar, coord_axes };
 }
 
+// Convertit une collection de valeurs entières en BoundedArray(i64).
 fn toI64(values: anytype) stdx.BoundedArray(i64, constants.MAX_RANK) {
     var res: stdx.BoundedArray(i64, constants.MAX_RANK) = .empty;
     for (values) |val| res.appendAssumeCapacity(@intCast(val));
     return res;
 }
 
+// Indique si une transposition se réduit à un reshape, c'est-à-dire si les axes de
+// taille 1 rendent la permutation effectivement identité.
 fn transposeIsJustAReshape(x: Shape, permutation: []const i64) bool {
     var perm: stdx.BoundedArray(struct { u8, bool }, constants.MAX_RANK) = .empty;
     // Don't rewrite on invalid inputs.
@@ -5008,6 +5324,7 @@ fn transposeIsJustAReshape(x: Shape, permutation: []const i64) bool {
     return true;
 }
 
+// Vérifie `transposeIsJustAReshape` sur plusieurs shapes et permutations.
 test transposeIsJustAReshape {
     try std.testing.expect(transposeIsJustAReshape(Shape.init(.{ 5, 1, 3 }, .i32), &.{ 0, 1, 2 }));
     try std.testing.expect(transposeIsJustAReshape(Shape.init(.{ 5, 1, 3 }, .i32), &.{ 1, 0, 2 }));
@@ -5020,11 +5337,13 @@ test transposeIsJustAReshape {
     try std.testing.expect(transposeIsJustAReshape(Shape.init(.{ 1, 10, 155, 1 }, .f32), &.{ 0, 1, 3, 2 }));
 }
 
+// Vérifie qu'un tenseur calculé mais non utilisé n'empêche pas la compilation.
 test "unused tensor" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
     const Local = struct {
+        // Fonction de test produisant un tenseur intermédiaire non utilisé.
         pub fn _fwd(x: Tensor) Tensor {
             const y = x.addConstant(1);
             _ = y;
