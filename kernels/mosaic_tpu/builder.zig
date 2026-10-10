@@ -52,14 +52,17 @@ pub const Value = struct {
 
     pub const Shape = stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK);
 
+    // Renvoie le type MLIR du value SSA sous-jacent (`inner.type_()`).
     pub fn type_(self: Value) *const mlir.Type {
         return self.inner.type_();
     }
 
+    // Builder proprietaire du Value; panic si le Value est detache (sans kernel).
     fn kern(self: Value) *Builder {
         return self.kernel orelse @panic("Value has no owning kernel; use Builder.* helpers instead");
     }
 
+    // Type d'element: element d'un shaped (vector/memref) sinon le type scalaire lui-meme.
     /// Element type of a vector / memref value, or the value's own type if
     /// scalar.
     pub fn elemType(self: Value) *const mlir.Type {
@@ -67,32 +70,38 @@ pub const Value = struct {
         return self.type_();
     }
 
+    // Vrai si le value est de type `vector` (rang >= 1).
     /// True when this value is a vector (rank ≥ 1).
     pub fn isVector(self: Value) bool {
         return self.type_().isA(mlir.VectorType) != null;
     }
 
+    // Vrai si le value est un `memref`.
     /// True when this value is a memref.
     pub fn isMemRef(self: Value) bool {
         return self.type_().isA(mlir.MemRefType) != null;
     }
 
+    // Vrai si le value est shape (vector / memref / tensor).
     /// True when the value is shaped (vector / memref / tensor).
     pub fn isShaped(self: Value) bool {
         return self.type_().isA(mlir.ShapedType) != null;
     }
 
+    // Rang du value shape; 0 pour un scalaire.
     /// Rank of this value. Scalars have rank 0.
     pub fn rank(self: Value) usize {
         if (self.type_().isA(mlir.ShapedType)) |shaped| return shaped.rank();
         return 0;
     }
 
+    // Taille de la i-eme dimension d'un value shape (trap si scalaire).
     /// `i`-th dim size of a shaped value; traps on scalar.
     pub fn dim(self: Value, i: usize) i64 {
         return self.type_().isA(mlir.ShapedType).?.dimension(i);
     }
 
+    // Renvoie la forme dans un `BoundedArray` alloue sur la pile (`.constSlice()` pour un slice).
     /// Shape as a stack-allocated BoundedArray. Use `.constSlice()` for `[]const i64`.
     pub fn shape(self: Value) Shape {
         var out: Shape = .empty;
@@ -103,6 +112,7 @@ pub const Value = struct {
         return out;
     }
 
+    // Vrai si le type d'element est flottant (f16/bf16/f32/f64/fp8...).
     /// True if the element type is a floating-point type (f16/bf16/f32/f64/fp8/…).
     pub fn isFloatElem(self: Value) bool {
         const et = self.elemType();
@@ -112,6 +122,7 @@ pub const Value = struct {
         return false;
     }
 
+    // Vrai si le type d'element est entier.
     /// True if the element type is an integer type.
     pub fn isIntElem(self: Value) bool {
         return self.elemType().isA(mlir.IntegerType) != null;
@@ -119,82 +130,97 @@ pub const Value = struct {
 
     // -------- fluent arithmetic (int/float auto-dispatch from elem type) --------
 
+    // Addition fluide: `arith.addf` si flottant sinon `arith.addi`, selon l'element de lhs.
     pub fn add(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.addf(l, r) else k.addi(l, r);
     }
 
+    // Soustraction fluide: `arith.subf` si flottant sinon `arith.subi`.
     pub fn sub(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.subf(l, r) else k.subi(l, r);
     }
 
+    // Multiplication fluide: `arith.mulf` si flottant sinon `arith.muli`.
     pub fn mul(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.mulf(l, r) else k.muli(l, r);
     }
 
+    // Division fluide: `arith.divf` si flottant sinon `arith.divsi` (signee).
     pub fn div(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.divf(l, r) else k.divsi(l, r);
     }
 
+    // Reste fluide: `arith.remf` si flottant sinon `arith.remsi`.
     pub fn rem(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.remf(l, r) else k.remsi(l, r);
     }
 
+    // ET bit a bit via `arith.andi`.
     pub fn bitAnd(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.andi(l, r);
     }
 
+    // OU bit a bit via `arith.ori`.
     pub fn bitOr(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.ori(l, r);
     }
 
+    // Minimum elementwise via le Builder, avec broadcast scalaire->vector.
     pub fn minimum(self: Value, rhs: anytype) Value {
         return self.kern().minimum(self, rhs);
     }
+    // Maximum elementwise via le Builder, avec broadcast scalaire->vector.
     pub fn maximum(self: Value, rhs: anytype) Value {
         return self.kern().maximum(self, rhs);
     }
 
     // -------- fluent comparisons (int predicates default; float uses cmpf) --------
 
+    // Comparaison `<`: `arith.cmpf olt` si flottant sinon `arith.cmpi slt`.
     pub fn lt(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(.olt, l, r) else k.cmpi(.slt, l, r);
     }
+    // Comparaison `<=`: `arith.cmpf ole` si flottant sinon `arith.cmpi sle`.
     pub fn le(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(.ole, l, r) else k.cmpi(.sle, l, r);
     }
+    // Comparaison `>`: `arith.cmpf ogt` si flottant sinon `arith.cmpi sgt`.
     pub fn gt(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(.ogt, l, r) else k.cmpi(.sgt, l, r);
     }
+    // Comparaison `>=`: `arith.cmpf oge` si flottant sinon `arith.cmpi sge`.
     pub fn ge(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(.oge, l, r) else k.cmpi(.sge, l, r);
     }
+    // Egalite `==`: `arith.cmpf oeq` si flottant sinon `arith.cmpi eq`.
     pub fn eq(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(.oeq, l, r) else k.cmpi(.eq, l, r);
     }
+    // Difference `!=`: `arith.cmpf one` si flottant sinon `arith.cmpi ne`.
     pub fn ne(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
@@ -203,22 +229,26 @@ pub const Value = struct {
 
     // -------- casts --------
 
+    // Cast numerique conservant la forme; dispatch auto selon float/entier source et cible.
     /// Numeric cast preserving shape (vector or scalar). Auto-dispatches on
     /// source / destination float-vs-int.
     pub fn to(self: Value, dtype: DType) Value {
         return self.kern().cast(self, dtype);
     }
 
+    // `tpu.bitcast`: reinterpretation a largeur d'element identique, forme conservee.
     /// `tpu.bitcast` — same-bitwidth element-type swap.
     pub fn bitcast(self: Value, dtype: DType) Value {
         return self.kern().bitcastTo(self, dtype);
     }
 
+    // Valeur absolue: `math.absf` si flottant sinon `math.absi`.
     /// Absolute value (float→absf, int→absi).
     pub fn abs(self: Value) Value {
         return self.kern().abs(self);
     }
 
+    // Pliage best-effort d'un value en `i64`: `arith.constant` et `addi`/`muli` de constantes; `null` sinon.
     /// Best-effort fold to an `i64` for `arith.constant` (and `addi`/`muli` of folded
     /// operands). Returns `null` for anything else; the caller decides what to do.
     /// TODO(raph): check if there is no better way
@@ -539,6 +569,7 @@ pub const Builder = struct {
         sc_transform_indices: bool = false,
     };
 
+    // Cree un Builder et son `func.func` public via `initOpts` avec options par defaut.
     /// Create a sub-module containing a single public `func.func` of the
     /// given name, signature, and result types.
     pub fn init(
@@ -551,6 +582,7 @@ pub const Builder = struct {
         return initOpts(allocator, ctx, name, args, result_types, .{});
     }
 
+    // Ouvre le module puis declare les arguments du `func.func` selon les `ArgSpec` et les `Opts`.
     pub fn initOpts(
         allocator: std.mem.Allocator,
         ctx: *mlir.Context,
@@ -565,6 +597,7 @@ pub const Builder = struct {
         return b;
     }
 
+    // Cree un Builder vide (module + arene) sans `func.func`; `declareArgs` le peuplera ensuite.
     /// Create an empty `Builder` with no `func.func` yet.
     pub fn open(
         allocator: std.mem.Allocator,
@@ -590,12 +623,14 @@ pub const Builder = struct {
         };
     }
 
+    // Declare les args depuis un struct litteral nomme et renvoie un `NamedArgs` mappant chaque champ sur un Value.
     /// Declare the kernel's args from a named-field struct literal and
     /// return a `NamedArgs(Spec)`.
     pub fn declareArgs(self: *Builder, spec: anytype) !dsl.NamedArgs(@TypeOf(spec), Value) {
         return self.declareArgsOpts(spec, &.{}, .{});
     }
 
+    // Comme `declareArgs` mais avec types de retour et `Opts`; convertit les champs du spec en `ArgSpec`.
     pub fn declareArgsOpts(
         self: *Builder,
         spec: anytype,
@@ -644,6 +679,7 @@ pub const Builder = struct {
         return named;
     }
 
+    // Construit la signature du `func.func` (types, attrs par-arg et de kernel, window_params/transform) et cree l'entry block.
     fn declareArgsLowOpts(
         self: *Builder,
         args: []const ArgSpec,
@@ -847,25 +883,30 @@ pub const Builder = struct {
         self.entry_block = entry;
     }
 
+    // Libere le module MLIR et l'arene allouee par le Builder.
     pub fn deinit(self: *Builder) void {
         self.module.deinit();
         self.arena.deinit();
     }
 
+    // Renvoie le i-eme argument de l'entry block comme Value.
     /// The i-th entry block argument.
     pub fn arg(self: *Builder, i: usize) Value {
         const eb = self.entry_block orelse @panic("Builder.arg called before declareArgs");
         return .{ .inner = eb.argument(i), .kernel = self };
     }
 
+    // Empile un bloc sur la pile d'insertion (nouvelle portee courante).
     pub fn pushBlock(self: *Builder, b: *mlir.Block) void {
         self.block_stack.append(self.arena.allocator(), b) catch @panic("Builder.pushBlock OOM");
     }
 
+    // Depile le bloc courant de la pile d'insertion.
     pub fn popBlock(self: *Builder) void {
         _ = self.block_stack.pop();
     }
 
+    // Bloc d'insertion courant, ou l'entry block a defaut; panic si aucun (declareArgs non appele).
     pub fn currentBlock(self: *Builder) *mlir.Block {
         if (self.block_stack.items.len > 0) {
             return self.block_stack.items[self.block_stack.items.len - 1];
@@ -873,6 +914,7 @@ pub const Builder = struct {
         return self.entry_block orelse @panic("Builder has no current block — call declareArgs first");
     }
 
+    // Convertit un slice de Value en slice (alloue dans l'arene) de pointeurs MLIR bruts.
     /// Unpack a slice of `Value`s into an arena-allocated slice of raw MLIR
     /// value pointers.
     fn innerSlice(self: *Builder, values: []const Value) []const *const mlir.Value {
@@ -881,12 +923,14 @@ pub const Builder = struct {
         return out;
     }
 
+    // Ajoute l'op au bloc courant et renvoie son premier resultat comme Value.
     /// Emit `op` into the current block and return its first result as a Value.
     pub fn emit(self: *Builder, op: *mlir.Operation) Value {
         _ = op.appendTo(self.currentBlock());
         return .{ .inner = op.result(0), .kernel = self };
     }
 
+    // Ajoute l'op au bloc courant et renvoie ses `n` resultats comme slice de Value.
     pub fn emitMulti(self: *Builder, op: *mlir.Operation, n: usize) []Value {
         _ = op.appendTo(self.currentBlock());
         const out = self.arena.allocator().alloc(Value, n) catch @panic("Builder.emitMulti OOM");
@@ -894,6 +938,7 @@ pub const Builder = struct {
         return out;
     }
 
+    // Convertit un tuple litteral `.{v1, v2}` en slice de Value; erreur de compilation si un element n'est pas un Value.
     pub fn yield(self: *Builder, values: anytype) []const Value {
         const T = @TypeOf(values);
         const info = @typeInfo(T);
@@ -909,28 +954,34 @@ pub const Builder = struct {
         return out;
     }
 
+    // Renvoie une location MLIR `unknown` liee au contexte courant.
     pub fn loc(self: *const Builder) *const mlir.Location {
         return .unknown(self.ctx);
     }
 
     // ==================== type helpers ====================
 
+    // Type MLIR d'un scalaire pour un DType donne.
     pub fn scalarTy(self: *const Builder, dtype: DType) *const mlir.Type {
         return dtype.toMlir(self.ctx);
     }
 
+    // Type `vector<shape x dtype>`.
     pub fn vectorTy(self: *const Builder, shape: []const i64, dtype: DType) *const mlir.Type {
         return .vector(shape, dtype.toMlir(self.ctx));
     }
 
+    // Type `memref<shape x dtype, memory_space>`.
     pub fn memRefTy(self: *const Builder, shape: []const i64, dtype: DType, memory_space: MemorySpace) *const mlir.Type {
         return .memRef(dtype.toMlir(self.ctx), shape, null, memory_space.attribute(self.ctx));
     }
 
+    // Convertit un type d'element MLIR en DType ZML (delegue a `dtypes`).
     fn mlirElemToDType(self: *const Builder, elem: *const mlir.Type) DType {
         return dtypes.mlirElemToDType(self.ctx, elem);
     }
 
+    // Remplace le type d'element de `src` par `out_dtype` en conservant rang, forme et memory space.
     /// Replace `src`'s element type with `out_dtype`, preserving rank/shape.
     fn swapElem(self: *const Builder, src: Value, out_dtype: DType) *const mlir.Type {
         const out_elem = out_dtype.toMlir(self.ctx);
@@ -944,10 +995,12 @@ pub const Builder = struct {
 
     // ==================== constants ====================
 
+    // Emet `arith.constant` entier (valeur + dtype) et renvoie le Value.
     fn emitInt(self: *Builder, dtype: DType, value: i64) Value {
         return self.emit(arith.constant_int(self.ctx, value, dtype.toMlir(self.ctx), self.loc()));
     }
 
+    // Emet `arith.constant` flottant; pour fp8, emet f32 puis un `truncf`.
     fn emitFloat(self: *Builder, dtype: DType, value: f64) Value {
         return switch (dtype) {
             .f16 => self.emit(arith.constant_float(self.ctx, value, .f16, self.loc())),
@@ -959,11 +1012,13 @@ pub const Builder = struct {
         };
     }
 
+    // Emet une constante de type `index` (bornes de memref / de boucle).
     /// Constant `index`-typed value (for memref / loop bounds).
     pub fn cIndex(self: *Builder, value: i64) Value {
         return self.emit(arith.constant_index(self.ctx, value, self.loc()));
     }
 
+    // Promeut un scalaire Zig (ou un Value) en constante DSL du type adapte (i32/i64/f16/f32/f64).
     /// Lift a Zig scalar (or pass-through Value) to a DSL constant.
     pub fn lift(self: *Builder, value: anytype) Value {
         const T = @TypeOf(value);
@@ -998,6 +1053,7 @@ pub const Builder = struct {
         };
     }
 
+    // Promeut `value` et force le DType cible; les entiers non signes preservent le bit-pattern.
     /// Lift `value` and pin its dtype to `dtype`. Unsigned ints bit-cast
     /// preserving the source bit-pattern.
     pub fn liftAs(self: *Builder, value: anytype, dtype: DType) Value {
@@ -1026,6 +1082,7 @@ pub const Builder = struct {
         return self.emitInt(dtype, v_i64);
     }
 
+    // Construit une constante du type d'element MLIR donne (index ou scalaire) a partir d'un nombre Zig.
     /// Build an arith.constant of the given MLIR element type from a Zig
     /// numeric. Used for matching the type of an existing reference value.
     pub fn constMatching(self: *Builder, value: anytype, elem: *const mlir.Type) Value {
@@ -1033,6 +1090,7 @@ pub const Builder = struct {
         return self.liftAs(value, self.mlirElemToDType(elem));
     }
 
+    // Lift un literal comptime au type de reference `ref_elem`, sinon lift standard.
     fn liftMatching(self: *Builder, value: anytype, ref_elem: *const mlir.Type) Value {
         const T = @TypeOf(value);
         if (T == Value) return value;
@@ -1042,6 +1100,7 @@ pub const Builder = struct {
         };
     }
 
+    // Diffuse un scalaire en vector: litteraux via `arith.constant dense<v>`, Value via `vector.broadcast`.
     /// Splat a scalar to a vector. Zig scalars take the dense-splat fast path
     /// (`arith.constant dense<v>`); a `Value` falls back to `vector.broadcast`.
     pub fn splat(self: *Builder, value: anytype, shape: []const i64, dtype: DType) Value {
@@ -1065,19 +1124,23 @@ pub const Builder = struct {
         return self.emit(arith.constant_dense_splat_i(self.ctx, v_i64, ty, self.loc()));
     }
 
+    // Vector nul `shape x dtype` (splat de 0).
     /// Zero-valued vector of `shape x dtype`.
     pub fn zeros(self: *Builder, shape: []const i64, dtype: DType) Value {
         return self.splat(@as(i64, 0), shape, dtype);
     }
 
+    // Vector rempli de 1 `shape x dtype`.
     pub fn ones(self: *Builder, shape: []const i64, dtype: DType) Value {
         return self.splat(@as(i64, 1), shape, dtype);
     }
 
+    // Vector rempli de `value` `shape x dtype` (alias de `splat`).
     pub fn full(self: *Builder, shape: []const i64, value: anytype, dtype: DType) Value {
         return self.splat(value, shape, dtype);
     }
 
+    // Promeut les scalaires et diffuse scalaire<->vector pour aligner deux operandes (avec promotion de largeur entiere).
     /// Lift scalars and broadcast scalar → vector to match the other operand.
     pub fn coerce(self: *Builder, a: anytype, b: anytype) struct { Value, Value } {
         const a_ref: ?*const mlir.Type = if (@TypeOf(b) == Value) b.elemType() else null;
@@ -1110,33 +1173,43 @@ pub const Builder = struct {
 
     // ==================== arith: binary ====================
 
+    // `arith.addi`: addition entiere elementwise.
     pub fn addi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.addi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.subi`: soustraction entiere elementwise.
     pub fn subi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.subi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.muli`: multiplication entiere elementwise.
     pub fn muli(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.muli(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.addf`: addition flottante elementwise.
     pub fn addf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.addf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.subf`: soustraction flottante elementwise.
     pub fn subf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.subf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.mulf`: multiplication flottante elementwise.
     pub fn mulf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.mulf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.divf`: division flottante elementwise.
     pub fn divf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.divf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.divsi`: division entiere signee (troncature vers zero).
     pub fn divsi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.divsi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.divui`: division entiere non signee.
     pub fn divui(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.divui(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // Division entiere plancher (comme `jnp.floor_divide`): `divsi` plus correction de signe quand signes differents et reste non nul.
     /// Mirrors `jax.numpy.floor_divide` (`jax/_src/numpy/ufuncs.py:2487`):
     /// truncating `divsi` plus the sign-correcting expansion
     ///   `q - 1 if (sign(a) != sign(b) and rem != 0) else q`.
@@ -1165,63 +1238,83 @@ pub const Builder = struct {
         return self.select(cond, self.subi(q, one_v), q);
     }
 
+    // `arith.remsi`: reste signe (signe du dividende).
     pub fn remsi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.remsi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.remui`: reste non signe.
     pub fn remui(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.remui(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.remf`: reste flottant.
     pub fn remf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.remf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.andi`: ET bit a bit.
     pub fn andi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.andi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.ori`: OU bit a bit.
     pub fn ori(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.ori(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.xori`: OU exclusif bit a bit.
     pub fn xori(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.xori(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.shli`: decalage a gauche.
     pub fn shli(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.shli(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.shrsi`: decalage arithmetique a droite (propagation du signe).
     pub fn shrsi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.shrsi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.shrui`: decalage logique a droite.
     pub fn shrui(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.shrui(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.maxsi`: maximum entier signe.
     pub fn maxsi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.maxsi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.minsi`: minimum entier signe.
     pub fn minsi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.minsi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.maximumf`: max flottant propageant les NaN.
     pub fn maximumf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.maximumf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.minimumf`: min flottant propageant les NaN.
     pub fn minimumf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.minimumf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.maxnumf`: max flottant non propageant les NaN (prefere un nombre).
     pub fn maxnumf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.maxnumf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.minnumf`: min flottant non propageant les NaN.
     pub fn minnumf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(arith.minnumf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.negf`: negation flottante.
     pub fn negf(self: *Builder, src: Value) Value {
         return self.emit(arith.negf(self.ctx, src.inner, self.loc()));
     }
+    // `arith.cmpi`: comparaison entiere avec predicat donne (renvoie un i1).
     pub fn cmpi(self: *Builder, predicate: arith.CmpIPredicate, lhs: Value, rhs: Value) Value {
         return self.emit(arith.cmpi(self.ctx, predicate, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.cmpf`: comparaison flottante avec predicat donne (renvoie un i1).
     pub fn cmpf(self: *Builder, predicate: arith.CmpFPredicate, lhs: Value, rhs: Value) Value {
         return self.emit(arith.cmpf(self.ctx, predicate, lhs.inner, rhs.inner, self.loc()));
     }
+    // `arith.select`: choix elementwise entre `t` et `f` selon `cond`.
     pub fn select(self: *Builder, cond: Value, t: Value, f: Value) Value {
         return self.emit(arith.select(self.ctx, cond.inner, t.inner, f.inner, self.loc()));
     }
+    // Select avec broadcast: aligne les operandes et diffuse un predicat scalaire en vector.
     pub fn where(self: *Builder, condition: Value, x: Value, y: Value) Value {
         const xv, const yv = self.coerce(x, y);
         const c = if (condition.isVector() == xv.isVector()) condition else blk: {
@@ -1234,11 +1327,13 @@ pub const Builder = struct {
         return self.select(c, xv, yv);
     }
 
+    // Max elementwise avec broadcast scalaire->vector (NaN non propage par defaut).
     /// Elementwise max with auto-broadcast scalar→vector. Use `maxOpts`
     /// for NaN-propagation control.
     pub fn maximum(self: *Builder, a: anytype, b: anytype) Value {
         return self.maximumOpts(a, b, .{});
     }
+    // Comme `maximum` avec controle de propagation des NaN via `MinMaxOpts`.
     pub fn maximumOpts(self: *Builder, a: anytype, b: anytype, opts: MinMaxOpts) Value {
         const l, const r = self.coerce(a, b);
         if (l.isFloatElem()) {
@@ -1246,9 +1341,11 @@ pub const Builder = struct {
         }
         return self.maxsi(l, r);
     }
+    // Min elementwise avec broadcast scalaire->vector (NaN non propage par defaut).
     pub fn minimum(self: *Builder, a: anytype, b: anytype) Value {
         return self.minimumOpts(a, b, .{});
     }
+    // Comme `minimum` avec controle de propagation des NaN via `MinMaxOpts`.
     pub fn minimumOpts(self: *Builder, a: anytype, b: anytype, opts: MinMaxOpts) Value {
         const l, const r = self.coerce(a, b);
         if (l.isFloatElem()) {
@@ -1259,42 +1356,54 @@ pub const Builder = struct {
 
     // ==================== arith casts ====================
 
+    // `arith.extsi`: extension de signe entiere vers `dt`.
     pub fn extsi(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.extsi(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.extui`: extension non signee (zero) vers `dt`.
     pub fn extui(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.extui(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.extf`: extension de largeur flottante vers `dt`.
     pub fn arithExtf(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.extf(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.trunci`: troncature entiere vers `dt`.
     pub fn trunci(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.trunci(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.truncf`: troncature de largeur flottante vers `dt`.
     pub fn arithTruncf(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.truncf(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.sitofp`: conversion entier signe -> flottant.
     pub fn arithSitofp(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.sitofp(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.uitofp`: conversion entier non signe -> flottant.
     pub fn arithUitofp(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.uitofp(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.fptosi`: conversion flottant -> entier signe.
     pub fn arithFptosi(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.fptosi(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.fptoui`: conversion flottant -> entier non signe.
     pub fn arithFptoui(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.fptoui(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `arith.bitcast`: reinterpretation meme largeur vers l'element `dt`.
     pub fn arithBitcast(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(arith.bitcast(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
 
+    // `arith.index_cast`: cast entre entier et type `index`.
     /// `arith.index_cast` — cast between integer and `index` types.
     pub fn indexCast(self: *Builder, src: Value, target: *const mlir.Type) Value {
         return self.emit(arith.index_cast(self.ctx, src.inner, target, self.loc()));
     }
 
+    // Convertit un scalaire entier en type `index` (offsets de memref typiques).
     /// Cast a scalar integer (i32 / i64 / …) to the `index` type. Common
     /// pattern for using i32 program-ids and scalar-prefetch values as
     /// memref offsets.
@@ -1304,29 +1413,37 @@ pub const Builder = struct {
 
     // ==================== TPU casts ====================
 
+    // `tpu.bitcast`: swap d'element a largeur identique, forme conservee.
     /// `tpu.bitcast` — same-bitwidth element-type swap. Shape preserved.
     pub fn bitcastTo(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.bitcast(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.extf`: extension flottante (variante Mosaic).
     pub fn extf(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.extf(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.truncf`: troncature flottante (variante Mosaic).
     pub fn truncf(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.truncf(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.sitofp`: entier signe -> flottant (variante Mosaic).
     pub fn sitofp(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.sitofp(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.uitofp`: entier non signe -> flottant (variante Mosaic).
     pub fn uitofp(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.uitofp(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.fptosi`: flottant -> entier signe (variante Mosaic).
     pub fn fptosi(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.fptosi(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
+    // `tpu.fptoui`: flottant -> entier non signe (variante Mosaic).
     pub fn fptoui(self: *Builder, src: Value, dt: DType) Value {
         return self.emit(tpu.fptoui(self.ctx, src.inner, self.swapElem(src, dt), self.loc()));
     }
 
+    // Cast numerique auto-dispatche via `arith.*`, conservant la forme.
     /// Numeric cast with auto-dispatch. Routes through `arith.*` ops for the
     /// common float / int conversions (which don't carry a rounding-mode
     /// attribute). The `tpu.*` cast variants (`tpuTruncf`, `tpuFptosi`, …)
@@ -1335,6 +1452,7 @@ pub const Builder = struct {
     pub fn cast(self: *Builder, src: Value, dt: DType) Value {
         return self.castOpts(src, dt, .{});
     }
+    // Comme `cast` avec options: `bitcast`, ou variantes `tpu.*` avec mode d'arrondi.
     pub fn castOpts(self: *Builder, src: Value, dt: DType, opts: CastOpts) Value {
         if (opts.bitcast) return self.bitcastTo(src, dt);
         const cur_elem = src.elemType();
@@ -1363,9 +1481,11 @@ pub const Builder = struct {
 
     // ==================== math dialect ====================
 
+    // `math.exp`: exponentielle elementwise.
     pub fn exp(self: *Builder, x: Value) Value {
         return self.emit(math.exp(self.ctx, x.inner, self.loc()));
     }
+    // `exp2(x)` exprime en `exp(x * ln2)` pour coller au lowering Pallas/TPU (materiaise la constante ln2).
     /// `exp2(x)` → `exp(x * ln(2))`. Matches Pallas's TPU lowering rule
     /// (`jax/_src/pallas/mosaic/lowering.py:_exp2_lowering_rule`), which
     /// expands `lax.exp2_p` into the same `x * ln2` pattern in forward-compat
@@ -1377,61 +1497,79 @@ pub const Builder = struct {
         const ln2_bc = if (x.isShaped()) self.broadcastTo(ln2, x.shape().constSlice()) else ln2;
         return self.exp(self.mulf(x, ln2_bc));
     }
+    // `math.exp2`: op brut (TPU recent) sans decomposition.
     pub fn mathExp2(self: *Builder, x: Value) Value {
         return self.emit(math.exp2(self.ctx, x.inner, self.loc()));
     }
+    // `math.log`: logarithme naturel.
     pub fn log(self: *Builder, x: Value) Value {
         return self.emit(math.log(self.ctx, x.inner, self.loc()));
     }
+    // `math.log1p`: log(1+x), precis pour petits x.
     pub fn log1p(self: *Builder, x: Value) Value {
         return self.emit(math.log1p(self.ctx, x.inner, self.loc()));
     }
+    // `math.log2`: logarithme base 2.
     pub fn log2(self: *Builder, x: Value) Value {
         return self.emit(math.log2(self.ctx, x.inner, self.loc()));
     }
+    // `math.sqrt`: racine carree.
     pub fn sqrt(self: *Builder, x: Value) Value {
         return self.emit(math.sqrt(self.ctx, x.inner, self.loc()));
     }
+    // `math.rsqrt`: inverse de la racine carree.
     pub fn rsqrt(self: *Builder, x: Value) Value {
         return self.emit(math.rsqrt(self.ctx, x.inner, self.loc()));
     }
+    // `math.sin`: sinus.
     pub fn sin(self: *Builder, x: Value) Value {
         return self.emit(math.sin(self.ctx, x.inner, self.loc()));
     }
+    // `math.cos`: cosinus.
     pub fn cos(self: *Builder, x: Value) Value {
         return self.emit(math.cos(self.ctx, x.inner, self.loc()));
     }
+    // `math.tanh`: tangente hyperbolique.
     pub fn tanh(self: *Builder, x: Value) Value {
         return self.emit(math.tanh(self.ctx, x.inner, self.loc()));
     }
+    // `math.erf`: fonction d'erreur.
     pub fn erf(self: *Builder, x: Value) Value {
         return self.emit(math.erf(self.ctx, x.inner, self.loc()));
     }
+    // `math.absf`: valeur absolue flottante.
     pub fn absf(self: *Builder, x: Value) Value {
         return self.emit(math.absf(self.ctx, x.inner, self.loc()));
     }
+    // `math.absi`: valeur absolue entiere.
     pub fn absi(self: *Builder, x: Value) Value {
         return self.emit(math.absi(self.ctx, x.inner, self.loc()));
     }
+    // Valeur absolue avec dispatch float (`absf`) / entier (`absi`).
     pub fn abs(self: *Builder, x: Value) Value {
         if (x.isFloatElem()) return self.absf(x);
         return self.absi(x);
     }
+    // `math.floor`: arrondi vers -infini.
     pub fn floor(self: *Builder, x: Value) Value {
         return self.emit(math.floor(self.ctx, x.inner, self.loc()));
     }
+    // `math.ceil`: arrondi vers +infini.
     pub fn ceil(self: *Builder, x: Value) Value {
         return self.emit(math.ceil(self.ctx, x.inner, self.loc()));
     }
+    // `math.powf`: puissance flottante elementwise.
     pub fn powf(self: *Builder, x: Value, y: Value) Value {
         return self.emit(math.powf(self.ctx, x.inner, y.inner, self.loc()));
     }
+    // `math.fma`: multiplication-addition fusionnee `a*b+c`.
     pub fn fma(self: *Builder, a: Value, b: Value, c_: Value) Value {
         return self.emit(math.fma(self.ctx, a.inner, b.inner, c_.inner, self.loc()));
     }
 
     // ==================== TPU memory: vector_load / vector_store / scalar load/store ====================
 
+    // Construit le type vector pleine forme de `ref` (forme + element) pour un `vector_load` complet.
     /// Build the result vector type for a full-shape `tpu.vector_load` from
     /// the input ref's shape + element type.
     fn refVectorType(self: *Builder, ref: Value) *const mlir.Type {
@@ -1442,6 +1580,7 @@ pub const Builder = struct {
         return .vector(s.constSlice(), mr.elementType());
     }
 
+    // `vector.load` pleine forme avec indices a zero.
     /// Full-shape `vector.load`. Use `tpuVectorLoad` for sublane stride / masking.
     pub fn refLoad(self: *Builder, ref: Value) Value {
         const result_ty = self.refVectorType(ref);
@@ -1449,6 +1588,7 @@ pub const Builder = struct {
         return self.emit(vector.load(self.ctx, ref.inner, idx_inner, result_ty, .{}, self.loc()));
     }
 
+    // `vector.load` avec offsets `index` explicites.
     /// `vector.load(ref, indices)` — explicit `index`-typed offsets.
     pub fn vectorLoadAt(self: *Builder, ref: Value, indices: []const Value) Value {
         const result_ty = self.refVectorType(ref);
@@ -1456,6 +1596,7 @@ pub const Builder = struct {
         return self.emit(vector.load(self.ctx, ref.inner, idx_inner, result_ty, .{}, self.loc()));
     }
 
+    // `tpu.vector_load` avec stride de sublane et masque optionnel; forme de resultat = celle de `ref`.
     /// `tpu.vector_load` — sublane stride + optional element-wise mask.
     pub fn tpuVectorLoad(self: *Builder, ref: Value, indices: []const Value, opts: VectorLoadOpts) Value {
         const ctx = self.ctx;
@@ -1473,6 +1614,7 @@ pub const Builder = struct {
         ));
     }
 
+    // `tpu.vector_load` avec forme de resultat explicite (crop de la forme de `ref`).
     /// `tpu.vector_load` with an explicit result vector shape.
     pub fn tpuVectorLoadShape(self: *Builder, ref: Value, indices: []const Value, shape: []const i64, opts: VectorLoadOpts) Value {
         const ctx = self.ctx;
@@ -1490,15 +1632,18 @@ pub const Builder = struct {
         ));
     }
 
+    // `tpu.vector_store` pleine forme, sans stride ni masque.
     /// `tpu.vector_store(value, ref)` — full-shape vector store.
     pub fn refStore(self: *Builder, ref: Value, value: Value) void {
         self.refStoreOpts(ref, value, &.{}, .{});
     }
 
+    // `tpu.vector_store` avec offsets explicites.
     pub fn vectorStoreAt(self: *Builder, ref: Value, value: Value, indices: []const Value) void {
         self.refStoreOpts(ref, value, indices, .{});
     }
 
+    // `tpu.vector_store` avec strides, masque et option atomique `add`.
     pub fn refStoreOpts(self: *Builder, ref: Value, value: Value, indices: []const Value, opts: VectorStoreOpts) void {
         const idx_inner = self.indicesOrZero(ref, indices);
         const mask_inner: ?*const mlir.Value = if (opts.mask) |m| m.inner else null;
@@ -1513,18 +1658,21 @@ pub const Builder = struct {
         ).appendTo(self.currentBlock());
     }
 
+    // `memref.load` scalaire avec indices de type `index`.
     /// `memref.load` — scalar load. Indices must be `index`-typed.
     pub fn scalarLoad(self: *Builder, ref: Value, indices: []const Value) Value {
         const idx_inner = self.indicesOrZero(ref, indices);
         return self.emit(memref.load(self.ctx, ref.inner, idx_inner, .{}, self.loc()));
     }
 
+    // `memref.store` scalaire.
     /// `memref.store` — scalar store.
     pub fn scalarStore(self: *Builder, ref: Value, value: Value, indices: []const Value) void {
         const idx_inner = self.indicesOrZero(ref, indices);
         _ = memref.store(self.ctx, value.inner, ref.inner, idx_inner, .{}, self.loc()).appendTo(self.currentBlock());
     }
 
+    // Normalise les indices: renvoie ceux fournis, ou un slice de zeros `index` de longueur = rang.
     /// Returns a `*const mlir.Value` slice of length `ref.rank()`, padding with
     /// a cached `arith.constant 0 : index` when `indices` is empty.
     fn indicesOrZero(self: *Builder, ref: Value, indices: []const Value) []const *const mlir.Value {
@@ -1537,6 +1685,7 @@ pub const Builder = struct {
         return out;
     }
 
+    // Constante `arith.constant 0 : index` mise en cache, reemise si le bloc d'insertion change.
     /// Return a cached `arith.constant 0 : index` Value, lazily emitting
     /// it the first time it's needed. The cache is invalidated whenever
     /// the insertion block changes — `index` constants are scoped to the
@@ -1552,6 +1701,7 @@ pub const Builder = struct {
         return z;
     }
 
+    // `tpu.strided_load`; forme de resultat = ceil(ref.shape / stride) par dimension.
     /// `tpu.strided_load` — multi-dim strided load. Result shape is derived
     /// from `ref.shape / strides` (per-dim ceil divide).
     pub fn stridedLoad(self: *Builder, ref: Value, indices: []const Value, strides: []const i32) Value {
@@ -1566,6 +1716,7 @@ pub const Builder = struct {
         return self.emit(tpu.strided_load(self.ctx, ref.inner, self.innerSlice(indices), strides, result_ty, self.loc()));
     }
 
+    // `tpu.strided_load` avec forme de resultat explicite (quand elle ne suit pas `shape/stride`).
     /// `tpu.strided_load` with an explicit result shape — when you know the
     /// load shape doesn't match the simple `ref.shape / strides` form (e.g.
     /// inner-dim crop).
@@ -1575,6 +1726,7 @@ pub const Builder = struct {
         return self.emit(tpu.strided_load(self.ctx, ref.inner, self.innerSlice(indices), strides, result_ty, self.loc()));
     }
 
+    // `tpu.strided_store` multi-dim avec strides.
     /// `tpu.strided_store` — multi-dim strided store.
     pub fn stridedStore(self: *Builder, ref: Value, value: Value, indices: []const Value, strides: []const i32) void {
         _ = tpu.strided_store(self.ctx, value.inner, ref.inner, self.innerSlice(indices), strides, self.loc()).appendTo(self.currentBlock());
@@ -1582,12 +1734,14 @@ pub const Builder = struct {
 
     // ==================== TPU compute: matmul / iota / reciprocal ====================
 
+    // `tpu.matmul(lhs, rhs, acc)` avec options par defaut; type de resultat = celui de `acc`.
     /// `tpu.matmul(lhs, rhs, acc)`. Result type is taken from `acc`. Use
     /// `matmulOpts` to set transposes / precision / dimension_numbers.
     pub fn matmul(self: *Builder, lhs: Value, rhs: Value, acc: Value) Value {
         return self.matmulOpts(lhs, rhs, acc, .{});
     }
 
+    // `tpu.matmul` avec transposes, precision et `dimension_numbers` optionnels.
     pub fn matmulOpts(self: *Builder, lhs: Value, rhs: Value, acc: Value, opts: MatmulOpts) Value {
         return self.emit(tpu.matmul(
             self.ctx,
@@ -1606,6 +1760,7 @@ pub const Builder = struct {
         ));
     }
 
+    // `tpu.iota` sur la forme/dtype donnes; `dimensions` optionnel (null = defaut).
     /// `tpu.iota` over the given shape / dimensions. Pass `null` for
     /// `dimensions` to use the default.
     pub fn iota(self: *Builder, shape: []const i64, dtype: DType, dimensions: ?[]const i32) Value {
@@ -1613,6 +1768,7 @@ pub const Builder = struct {
         return self.emit(tpu.iota(self.ctx, dimensions, ty, self.loc()));
     }
 
+    // `arange(0, n)`: `tpu.iota` 2-D `<1xN>` puis `shape_cast` vers `<N>` (contrainte de layout TPU).
     /// 1-D `arange(0, n)`. TPU layout pass requires rank ≥ 2 with the lane dim
     /// trailing, so this emits a `<1xN>` `tpu.iota` then `shape_cast` to `<N>`.
     pub fn arange(self: *Builder, n: i64, dtype: DType) Value {
@@ -1622,11 +1778,13 @@ pub const Builder = struct {
         return self.shapeCast(iota_2d, &.{n});
     }
 
+    // `tpu.reciprocal` avec options par defaut.
     /// `tpu.reciprocal(x)` with default options.
     pub fn reciprocal(self: *Builder, x: Value) Value {
         return self.reciprocalOpts(x, .{});
     }
 
+    // `tpu.reciprocal` avec modes `approx` et `full_range`.
     pub fn reciprocalOpts(self: *Builder, x: Value, opts: ReciprocalOpts) Value {
         return self.emit(tpu.reciprocal(self.ctx, x.inner, .{
             .approx = opts.approx,
@@ -1639,18 +1797,21 @@ pub const Builder = struct {
     // The `tpu.*` shape ops (`reshape`, `repeat`, `transpose`,
     // `broadcastInSublanes`) are Mosaic-specific layout-aware variants.
 
+    // `vector.broadcast` vers `shape` (pour litteraux preferer `splat`).
     /// `vector.broadcast` to `shape`. For Zig scalar literals prefer `splat` (dense-splat fast path).
     pub fn broadcastTo(self: *Builder, src: Value, shape: []const i64) Value {
         const ty = mlir.Type.vector(shape, src.elemType());
         return self.emit(vector.broadcast(self.ctx, src.inner, ty, self.loc()));
     }
 
+    // `vector.shape_cast`: reshape a nombre de lanes conserve (a comparer a `reshape` qui emet `tpu.reshape`).
     /// `vector.shape_cast` — reshape preserving total lanes. `reshape` emits `tpu.reshape` instead.
     pub fn shapeCast(self: *Builder, src: Value, new_shape: []const i64) Value {
         const ty = mlir.Type.vector(new_shape, src.elemType());
         return self.emit(vector.shape_cast(self.ctx, src.inner, ty, self.loc()));
     }
 
+    // `vector.extract` a position statique; forme resultat = dims apres `position`.
     /// `vector.extract` — extract a scalar (or lower-rank vector) at a
     /// static position. Result shape = `src.shape[position.len..]`.
     pub fn vectorExtract(self: *Builder, src: Value, position: []const i64) Value {
@@ -1664,6 +1825,7 @@ pub const Builder = struct {
         return self.emit(vector.extract(self.ctx, src.inner, position, &.{}, ty, self.loc()));
     }
 
+    // `vector.extract_strided_slice`: decoupage statique (offsets/sizes/strides).
     /// `vector.extract_strided_slice` — statically slice a vector.
     pub fn vectorExtractStridedSlice(self: *Builder, src: Value, offsets: []const i64, sizes: []const i64, strides: []const i64) Value {
         const ty = mlir.Type.vector(sizes, src.elemType());
@@ -1674,6 +1836,7 @@ pub const Builder = struct {
         }, ty, self.loc()));
     }
 
+    // `vector.reduction <kind>`: reduit un vector 1-D en scalaire (op brut; le layout pass TPU peut rejeter le 1-D).
     /// `vector.reduction <kind>` — reduce a 1-D vector to a scalar.
     /// Emits the bare upstream op; on real TPU the layout pass may reject
     /// 1-D vectors, so prefer `reduceToScalar` for kernel-level reductions.
@@ -1681,6 +1844,7 @@ pub const Builder = struct {
         return self.emit(vector.reduction(self.ctx, kind, src.inner, src.elemType(), .{}, self.loc()));
     }
 
+    // Reduction 1-D -> scalaire adaptee TPU: `shape_cast` vers <1xN>, `multi_reduction[1]`, `extract[0]`.
     /// 1-D vector → scalar. TPU vectors are 2-D, so this adds a leading
     /// singleton before reducing: shape_cast<N>→<1xN>, multi_reduction[1]→<1>, extract[0].
     /// `acc` is the reduction identity (e.g. `k.zeros(&.{1}, .f32)` for sum).
@@ -1692,6 +1856,7 @@ pub const Builder = struct {
         return self.vectorExtract(reduced, &.{0});
     }
 
+    // `vector.multi_reduction <kind>`: reduction multi-D selon `axes` avec accumulateur; rang resultat = rang - |axes|.
     /// `vector.multi_reduction <kind>` — reduce a multi-D vector along
     /// the given axes with an explicit accumulator. Result rank =
     /// `src.rank - axes.len`.
@@ -1715,6 +1880,7 @@ pub const Builder = struct {
         return self.emit(vector.multi_reduction(self.ctx, kind, src.inner, acc.inner, axes, ty, self.loc()));
     }
 
+    // `vector.load` avec forme de resultat explicite (charges decoupees).
     /// `vector.load` with an explicit result shape — for `ref[i, j, :, k:k+BLOCK]`-style sliced loads.
     pub fn vectorLoadShape(self: *Builder, ref: Value, indices: []const Value, shape: []const i64) Value {
         const idx_inner = self.indicesOrZero(ref, indices);
@@ -1724,11 +1890,13 @@ pub const Builder = struct {
 
     // ==================== TPU shape ====================
 
+    // `tpu.reshape`: reshape de vector specifique Mosaic.
     pub fn reshape(self: *Builder, src: Value, new_shape: []const i64) Value {
         const ty = mlir.Type.vector(new_shape, src.elemType());
         return self.emit(tpu.reshape(self.ctx, src.inner, ty, self.loc()));
     }
 
+    // `tpu.repeat`: repete `times` la dimension `dimension`; forme resultat adaptee.
     pub fn repeat(self: *Builder, src: Value, dimension: i32, times: i32) Value {
         const in_shape = src.shape();
         var out: stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK) = .empty;
@@ -1740,6 +1908,7 @@ pub const Builder = struct {
         return self.emit(tpu.repeat(self.ctx, src.inner, dimension, times, ty, self.loc()));
     }
 
+    // `tpu.concatenate`: concatene des vectors sur `dimension` (somme des tailles sur cet axe).
     pub fn concatenate(self: *Builder, sources: []const Value, dimension: i32) Value {
         std.debug.assert(sources.len > 0);
         const ax: usize = @intCast(dimension);
@@ -1752,6 +1921,7 @@ pub const Builder = struct {
         return self.emit(tpu.concatenate(self.ctx, self.innerSlice(sources), dimension, ty, self.loc()));
     }
 
+    // `tpu.transpose`: transpose selon la permutation de dimensions donnee.
     pub fn transpose(self: *Builder, src: Value, permutation: []const i64) Value {
         const in_shape = src.shape();
         std.debug.assert(permutation.len == in_shape.len);
@@ -1761,11 +1931,13 @@ pub const Builder = struct {
         return self.emit(tpu.transpose(self.ctx, src.inner, permutation, ty, self.loc()));
     }
 
+    // `tpu.broadcast_in_sublanes`: replique en sublanes; forme de resultat = forme source.
     pub fn broadcastInSublanes(self: *Builder, src: Value, lane: i32) Value {
         // Result shape = src shape (the op replicates within sublanes).
         return self.emit(tpu.broadcast_in_sublanes(self.ctx, src.inner, lane, src.type_(), self.loc()));
     }
 
+    // `tpu.dynamic_rotate`: rotation d'amount dynamique (l'amount est lift en constante).
     pub fn rotate(self: *Builder, value: Value, opts: RotateOpts) Value {
         const amount = self.lift(@as(i32, opts.amount));
         return self.emit(tpu.dynamic_rotate(self.ctx, value.inner, amount.inner, .{
@@ -1777,6 +1949,7 @@ pub const Builder = struct {
 
     // ==================== TPU reductions / scan / sort ====================
 
+    // `tpu.all_reduce` sur une dimension; la dimension reduite devient de taille 1.
     /// `tpu.all_reduce(input, dim, kind)` over a single dim.
     pub fn allReduce(self: *Builder, input: Value, kind: ReductionKind, dim: i64) Value {
         const in_shape = input.shape();
@@ -1786,6 +1959,7 @@ pub const Builder = struct {
         return self.emit(tpu.all_reduce(self.ctx, input.inner, dim, kind, ty, self.loc()));
     }
 
+    // `tpu.reduce_index`: supprime `axis` et renvoie des indices de type i32.
     /// `tpu.reduce_index(input, kind, axis)` — drop axis, replace with
     /// `index`-valued indices (integer).
     pub fn reduceIndex(self: *Builder, input: Value, kind: ReductionKind, axis: i32) Value {
@@ -1798,6 +1972,7 @@ pub const Builder = struct {
         return self.emit(tpu.reduce_index(self.ctx, input.inner, axis, kind, ty, self.loc()));
     }
 
+    // `tpu.scan` sur la derniere dimension avec masque optionnel de rang 1; forme conservee.
     /// Scan the last dimension; a mask must be rank one with that dimension
     /// as its length. The result has the same shape as the input.
     pub fn scan(self: *Builder, input: Value, kind: ReductionKind, mask: ?Value) Value {
@@ -1805,6 +1980,7 @@ pub const Builder = struct {
         return self.emit(tpu.scan(self.ctx, input.inner, kind, m_inner, input.type_(), self.loc()));
     }
 
+    // `tpu.sort(keys, values, mask?)`: renvoie (mask, keys triees, values triees); masque par defaut <keys.shape x i1>.
     /// `tpu.sort(keys, values, mask?)` — returns (output_mask, sorted_keys, sorted_values).
     pub fn sort(self: *Builder, keys: Value, values: Value, mask: ?Value, opts: SortOpts) [3]Value {
         const m_inner: ?*const mlir.Value = if (mask) |m| m.inner else null;
@@ -1833,6 +2009,7 @@ pub const Builder = struct {
 
     // ==================== TPU memref-shape ops ====================
 
+    // `tpu.memref_slice` avec base, forme de resultat et tailles dynamiques.
     pub fn memRefSlice(
         self: *Builder,
         mem_ref: Value,
@@ -1848,22 +2025,26 @@ pub const Builder = struct {
         }, result_ty, self.loc()));
     }
 
+    // `tpu.memref_squeeze` vers une forme de resultat (retrait de dimensions de taille 1).
     pub fn memRefSqueeze(self: *Builder, mem_ref: Value, result_shape: []const i64) Value {
         const mr = mem_ref.type_().isA(mlir.MemRefType) orelse @panic("memRefSqueeze: not a memref");
         const result_ty = mlir.Type.memRef(mr.elementType(), result_shape, null, mr.memorySpace());
         return self.emit(tpu.memref_squeeze(self.ctx, mem_ref.inner, result_ty, self.loc()));
     }
 
+    // `tpu.memref_reshape` vers une forme de resultat.
     pub fn memRefReshape(self: *Builder, mem_ref: Value, result_shape: []const i64) Value {
         const mr = mem_ref.type_().isA(mlir.MemRefType) orelse @panic("memRefReshape: not a memref");
         const result_ty = mlir.Type.memRef(mr.elementType(), result_shape, null, mr.memorySpace());
         return self.emit(tpu.memref_reshape(self.ctx, mem_ref.inner, result_ty, self.loc()));
     }
 
+    // `memref.alloca` d'un memref de forme/dtype/memory space donnes.
     pub fn memRefAlloca(self: *Builder, shape: []const i64, dtype: DType, memory_space: MemorySpace) Value {
         return self.emit(memref.alloca(self.ctx, self.memRefTy(shape, dtype, memory_space), &.{}, &.{}, .{}, self.loc()));
     }
 
+    // `tpu.memref_bitcast`: change le dtype d'element en gardant la forme.
     pub fn memRefBitcast(self: *Builder, mem_ref: Value, dt: DType) Value {
         const mr = mem_ref.type_().isA(mlir.MemRefType) orelse @panic("memRefBitcast: not a memref");
         var s: stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK) = .empty;
@@ -1872,6 +2053,7 @@ pub const Builder = struct {
         return self.emit(tpu.memref_bitcast(self.ctx, mem_ref.inner, result_ty, self.loc()));
     }
 
+    // `tpu.memref_bitcast` avec forme de resultat explicite (ex: packing bf16 -> i32).
     /// `tpu.memref_bitcast` with an explicit result shape — needed for the
     /// `bf16 → i32` packing trick in ragged-paged-attention's
     /// `strided_load_kv` path (`<64x128xbf16>` → `<32x128xi32>`).
@@ -1881,16 +2063,19 @@ pub const Builder = struct {
         return self.emit(tpu.memref_bitcast(self.ctx, mem_ref.inner, result_ty, self.loc()));
     }
 
+    // `tpu.reinterpret_cast` d'un memref vers la forme/dtype donnes.
     pub fn reinterpretCast(self: *Builder, mem_ref: Value, result_shape: []const i64, dt: DType) Value {
         const mr = mem_ref.type_().isA(mlir.MemRefType) orelse @panic("reinterpretCast: not a memref");
         const result_ty = mlir.Type.memRef(dt.toMlir(self.ctx), result_shape, null, mr.memorySpace());
         return self.emit(tpu.reinterpret_cast(self.ctx, mem_ref.inner, result_ty, self.loc()));
     }
 
+    // `tpu.assume_layout`: type de resultat egal a celui de la source.
     pub fn assumeLayout(self: *Builder, src: Value) Value {
         return self.emit(tpu.assume_layout(self.ctx, src.inner, src.type_(), self.loc()));
     }
 
+    // `tpu.erase_memref_layout`: retire le layout en conservant forme, element et memory space.
     pub fn eraseMemRefLayout(self: *Builder, mem_ref: Value) Value {
         const mr = mem_ref.type_().isA(mlir.MemRefType) orelse @panic("eraseMemRefLayout: not a memref");
         var s: stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK) = .empty;
@@ -1902,12 +2087,14 @@ pub const Builder = struct {
 
     // ==================== Mask building ====================
 
+    // `tpu.create_mask`: masque a deux bornes `[low, high)` par dimension, type <shape x i1>.
     /// `tpu.create_mask` — 2-sided mask `[low, high)` per dim.
     pub fn createMask(self: *Builder, low_bounds: []const Value, high_bounds: []const Value, shape: []const i64) Value {
         const ty = mlir.Type.vector(shape, .integer(self.ctx, .i1));
         return self.emit(tpu.create_mask(self.ctx, self.innerSlice(low_bounds), self.innerSlice(high_bounds), ty, self.loc()));
     }
 
+    // Masque 1 cote `0 <= idx < limit`: deux constantes index puis `tpu.create_mask`.
     /// Convenience: 1-sided range mask `(0 <= idx < limit)` — emits two
     /// `index` constants and a `tpu.create_mask`.
     pub fn rangeMask(self: *Builder, limits: []const Value, shape: []const i64) Value {
@@ -1919,6 +2106,7 @@ pub const Builder = struct {
 
     // ==================== Semaphores / DMA / barriers ====================
 
+    // Alloue un semaphore (`tpu.sem_alloc`) regulier ou DMA en semaphore_mem.
     pub fn semAlloc(self: *Builder, kind: ArgSpec.SemKind) Value {
         const elem = switch (kind) {
             .regular => tpu.semaphoreType(self.ctx),
@@ -1928,24 +2116,29 @@ pub const Builder = struct {
         return self.emit(tpu.sem_alloc(self.ctx, ty, self.loc()));
     }
 
+    // Alloue un `tpu.sem_barrier` (barriere) en semaphore_mem.
     pub fn semBarrier(self: *Builder) Value {
         const ty = mlir.Type.memRef(tpu.semaphoreType(self.ctx), &.{}, null, MemorySpace.semaphore_mem.attribute(self.ctx));
         return self.emit(tpu.sem_barrier(self.ctx, ty, self.loc()));
     }
 
+    // `tpu.sem_read`: lit la valeur d'un semaphore.
     pub fn semRead(self: *Builder, semaphore: Value) Value {
         return self.emit(tpu.sem_read(self.ctx, semaphore.inner, self.loc()));
     }
 
+    // `tpu.sem_wait`: attend `amount` sur le semaphore (amount lift si non-Value).
     pub fn semWait(self: *Builder, semaphore: Value, amount: anytype) void {
         const a = if (@TypeOf(amount) == Value) amount else self.lift(amount);
         _ = tpu.sem_wait(self.ctx, semaphore.inner, a.inner, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.sem_signal` avec options par defaut.
     pub fn semSignal(self: *Builder, semaphore: Value, amount: anytype) void {
         self.semSignalOpts(semaphore, amount, .{});
     }
 
+    // `tpu.sem_signal` avec device/core/subcore ids optionnels.
     pub fn semSignalOpts(self: *Builder, semaphore: Value, amount: anytype, opts: SemSignalOpts) void {
         const a = if (@TypeOf(amount) == Value) amount else self.lift(amount);
         const dev: ?*const mlir.Value = if (opts.device_id) |d| d.inner else null;
@@ -1958,10 +2151,12 @@ pub const Builder = struct {
         }, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.barrier`: barriere de synchronisation par identifiant.
     pub fn barrier(self: *Builder, barrier_id: Value) void {
         _ = tpu.barrier(self.ctx, barrier_id.inner, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.enqueue_dma`: copie source->target signalee sur `target_semaphore` (options device/core/priorite/ordre).
     pub fn enqueueDma(self: *Builder, source: Value, target: Value, target_semaphore: Value, opts: EnqueueDmaOpts) void {
         const src_sem: ?*const mlir.Value = if (opts.source_semaphore) |s| s.inner else null;
         const dev: ?*const mlir.Value = if (opts.device_id) |d| d.inner else null;
@@ -1977,6 +2172,7 @@ pub const Builder = struct {
         }, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.wait_dma2`: attend un DMA (semaphore + src/dst pour l'ordre).
     pub fn waitDma2(self: *Builder, semaphore: Value, src: Value, dst: Value, opts: WaitDma2Opts) void {
         const dev: ?*const mlir.Value = if (opts.device_id) |d| d.inner else null;
         const core: ?*const mlir.Value = if (opts.core_id) |c_| c_.inner else null;
@@ -1987,20 +2183,24 @@ pub const Builder = struct {
         }, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.device_id`: renvoie l'identifiant du device.
     pub fn deviceId(self: *Builder) Value {
         return self.emit(tpu.device_id(self.ctx, self.loc()));
     }
 
+    // `tpu.trace_start` (niveau + message); a apparier avec `traceStop`.
     /// `tpu.trace_start` — pair with `traceStop`. Used by Pallas to mark
     /// einsum boundaries (e.g. `"nd,md->nm"`).
     pub fn traceStart(self: *Builder, level: i32, message: []const u8) void {
         _ = tpu.trace_start(self.ctx, level, message, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.trace_stop`: ferme la portee de trace ouverte par `traceStart`.
     pub fn traceStop(self: *Builder) void {
         _ = tpu.trace_stop(self.ctx, self.loc()).appendTo(self.currentBlock());
     }
 
+    // Construit un attribut `#tpu.dot_dimension_numbers<...>` pour `matmulOpts`.
     /// Build a `#tpu.dot_dimension_numbers<...>` attribute for `matmulOpts`.
     pub fn dotDimensionNumbers(
         self: *Builder,
@@ -2024,21 +2224,25 @@ pub const Builder = struct {
         );
     }
 
+    // `tpu.delay`: attente de `cycles` cycles (lift si non-Value).
     pub fn delay(self: *Builder, cycles: anytype) void {
         const c_ = if (@TypeOf(cycles) == Value) cycles else self.lift(cycles);
         _ = tpu.delay(self.ctx, c_.inner, self.loc()).appendTo(self.currentBlock());
     }
 
+    // `tpu.assume_multiple`: affirme que `src` est multiple de `multiple`.
     pub fn assumeMultiple(self: *Builder, src: Value, multiple: i32) Value {
         return self.emit(tpu.assume_multiple(self.ctx, src.inner, multiple, self.loc()));
     }
 
+    // Ouvre un `tpu.region` vide et l'empile comme portee courante.
     pub fn openRegion(self: *Builder) *mlir.Block {
         const block = mlir.Block.init(&.{}, &.{});
         self.pushBlock(block);
         return block;
     }
 
+    // Ferme un `tpu.region`: emet `tpu.yield`, depile et rattache la region au bloc courant.
     pub fn closeRegion(self: *Builder, block: *mlir.Block) void {
         _ = tpu.yield(self.ctx, &.{}, self.loc()).appendTo(block);
         self.popBlock();
@@ -2047,6 +2251,7 @@ pub const Builder = struct {
 
     // ==================== SCF regions ====================
 
+    // Ouvre un `scf.for` (bornes/pas coercés en `index`) et renvoie un `ForScope` (induction + valeurs porte'es).
     /// Open a scoped `scf.for`. `lower`/`upper`/`step` accept Values, comptime
     /// ints, or runtime Zig ints — coerced to `index`. `inits` is `.{v1, v2, ...}`.
     pub fn openFor(
@@ -2095,6 +2300,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre un `scf.if` sans resultat (bloc then) et renvoie un `IfOnlyScope`.
     pub fn openIf(self: *Builder, cond: Value) dsl.IfOnlyScope(Builder, Value) {
         const then_block = mlir.Block.init(&.{}, &.{});
         self.pushBlock(then_block);
@@ -2105,6 +2311,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre un `scf.if` avec resultats: cree les blocs then/else et renvoie un `IfScope`.
     pub fn openIfElse(
         self: *Builder,
         cond: Value,
@@ -2133,6 +2340,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre un `scf.while` avec bloc `before` (inits) et bloc `after` (resultats + condition).
     pub fn openWhile(
         self: *Builder,
         inits: anytype,
@@ -2187,6 +2395,7 @@ pub const Builder = struct {
 
     // ==================== finalization ====================
 
+    // Ajoute `func.return`, verifie et serialise le module en chaine MLIR NUL-terminated (a liberer par l'appelant).
     /// Append `func.return` with the given results, verify the module, and
     /// serialize to a NUL-terminated MLIR string owned by the kernel's
     /// allocator. Caller must `defer allocator.free(ir)`.
@@ -2203,6 +2412,7 @@ pub const Builder = struct {
         canonicalize: bool = false,
     };
 
+    // Comme `finish` avec options (`canonicalize`+cse avant serialisation).
     pub fn finishOpts(self: *Builder, results: []const Value, opts: FinishOpts) FinishError![:0]const u8 {
         const current = self.currentBlock();
         _ = func.returns(self.ctx, self.innerSlice(results), self.loc()).appendTo(current);
@@ -2235,6 +2445,7 @@ pub const Builder = struct {
         return try self.allocator.dupeZ(u8, al.written());
     }
 
+    // Emet les `func.func` `transform_N` (un par ref i/o non ignore) avec args grid+prefetch et retours i32.
     /// Emit `transform_N` stub funcs — one per non-skipped i/o ref-arg.
     /// Each takes `(i32 ×grid_dim_count, prefetch_refs...)` and returns
     /// `block_rank` i32 values per `RefArgSnapshot.transform_returns`
@@ -2312,6 +2523,7 @@ pub const Builder = struct {
     }
 };
 
+// Vrai pour les memory spaces sans windowing (HBM/ANY/SEMAPHORE): window_params vide, pas de transform_N.
 /// Memory spaces that don't support windowing (empty window_params, no transform_N).
 fn isSkippedWindowSpace(ms: MemorySpace) bool {
     return switch (ms) {
@@ -2322,24 +2534,29 @@ fn isSkippedWindowSpace(ms: MemorySpace) bool {
 
 // ==================== scope-type aliases pinned to Mosaic's Builder ====================
 
+// Alias du type `ForScope` de `common`, fixe sur le Builder Mosaic.
 pub fn ForScope(comptime N: usize) type {
     return dsl.ForScope(Builder, Value, N);
 }
 
 pub const IfOnlyScope = dsl.IfOnlyScope(Builder, Value);
 
+// Alias du type `IfScope` (avec resultats), fixe sur le Builder Mosaic.
 pub fn IfScope(comptime N: usize) type {
     return dsl.IfScope(Builder, Value, N);
 }
 
+// Alias du type `WhileScope`, fixe sur le Builder Mosaic.
 pub fn WhileScope(comptime N: usize, comptime M: usize) type {
     return dsl.WhileScope(Builder, Value, N, M);
 }
 
+// Agrege les declarations du fichier via `refAllDecls` pour forcer l'inclusion des tests.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Verifie que `rotate` emet `tpu.dynamic_rotate` avec l'amount replie en constante 3 (dimension 1).
 test "static rotate uses the current dynamic rotate operation" {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();

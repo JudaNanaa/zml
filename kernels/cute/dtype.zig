@@ -17,6 +17,8 @@ pub const DType = enum {
     f8e5m2,
     f8e8m0fnu,
 
+    // Convertit un `DType` CuTe en son type MLIR correspondant (entier ou
+    // flottant) alloué dans le contexte `ctx`. Retourne le type MLIR.
     pub fn toMlir(self: DType, ctx: *mlir.Context) *const mlir.Type {
         return switch (self) {
             .i1 => .int(ctx, .i1),
@@ -36,6 +38,7 @@ pub const DType = enum {
     }
 };
 
+// Indique si `dt` est un type flottant supporté par CuTe.
 pub fn isFloatDtype(dt: DType) bool {
     return switch (dt) {
         .f16, .bf16, .f32, .f64, .f4e2m1fn, .f8e4m3fn, .f8e5m2, .f8e8m0fnu => true,
@@ -43,6 +46,7 @@ pub fn isFloatDtype(dt: DType) bool {
     };
 }
 
+// Retourne la largeur en bits de `dt` (entier ou flottant) pour le stockage.
 pub fn dtypeBitwidth(dt: DType) usize {
     return switch (dt) {
         .i1 => 1,
@@ -54,6 +58,8 @@ pub fn dtypeBitwidth(dt: DType) usize {
     };
 }
 
+// Convertit un type MLIR `t` vers le `DType` CuTe correspondant; panique si le
+// type n'est pas un DType CuTe reconnu.
 pub fn mlirToDType(ctx: *mlir.Context, t: *const mlir.Type) DType {
     inline for (std.meta.fields(DType)) |f| {
         const dt = @field(DType, f.name);
@@ -62,6 +68,8 @@ pub fn mlirToDType(ctx: *mlir.Context, t: *const mlir.Type) DType {
     std.debug.panic("type {f} is not a CuTe DType", .{t});
 }
 
+// Test de compilation: référence toutes les déclarations publiques du module
+// pour vérifier qu'elles se compilent.
 test {
     std.testing.refAllDecls(@This());
 }

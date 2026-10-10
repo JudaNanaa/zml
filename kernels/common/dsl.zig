@@ -12,6 +12,8 @@ pub const WhileScope = control_flow.WhileScope;
 
 pub const NamedArgs = args.NamedArgs;
 
+// Test de compilation: force la référence de toutes les déclarations publiques
+// de ce module (dsl) afin de détecter les symboles cassés.
 test {
     std.testing.refAllDecls(@This());
 }

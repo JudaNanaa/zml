@@ -27,6 +27,7 @@ pub const EntryHint = ct.EntryHint;
 pub const LoadStoreHint = ct.LoadStoreHint;
 pub const PtrLoadStoreHint = ct.PtrLoadStoreHint;
 
+// Test anonyme : force l'instanciation de toutes les declarations du fichier (refAllDecls) pour verifier qu'elles compilent.
 test {
     std.testing.refAllDecls(@This());
     std.testing.refAllDecls(Builder);
@@ -43,38 +44,47 @@ pub const Value = struct {
 
     pub const Shape = stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK);
 
+    // Retourne le type MLIR sous-jacent de cette valeur (wrapper autour de mlir.Value.type_()).
     pub fn type_(self: Value) *const mlir.Type {
         return self.inner.type_();
     }
 
+    // Retourne le Builder proprietaire de cette valeur ; panique si aucun n'est attache.
     fn kern(self: Value) *Builder {
         return self.kernel orelse @panic("Value has no owning kernel; use Builder.* helpers instead");
     }
 
+    // Retourne le type `cuda_tile.tile` de la valeur (panique si ce n'est pas un tile).
     pub fn tile(self: Value) *const ct.TileType {
         return self.type_().isA(ct.TileType) orelse std.debug.panic("Value {f} is not a tile", .{self.type_()});
     }
 
+    // Vrai si le type de la valeur est un tile `cuda_tile`.
     pub fn isTile(self: Value) bool {
         return self.type_().isA(ct.TileType) != null;
     }
 
+    // Type MLIR de l'element du tile (le scalaire contenu).
     pub fn elemType(self: Value) *const mlir.Type {
         return self.tile().elementType();
     }
 
+    // Nombre de dimensions (rang) du tile.
     pub fn rank(self: Value) usize {
         return self.tile().rank();
     }
 
+    // Vrai si le tile est de rang 0 (scalaire).
     pub fn isScalar(self: Value) bool {
         return self.rank() == 0;
     }
 
+    // Taille de la dimension `i` du tile.
     pub fn dim(self: Value, i: usize) i64 {
         return self.tile().dimension(i);
     }
 
+    // Copie la forme du tile dans un BoundedArray de i64.
     pub fn shape(self: Value) Value.Shape {
         var out: Value.Shape = .empty;
         const t = self.tile();
@@ -82,6 +92,7 @@ pub const Value = struct {
         return out;
     }
 
+    // Vrai si le type elementaire est un flottant MLIR (f16/f32/bf16/...).
     pub fn isFloatElem(self: Value) bool {
         const et = self.elemType();
         inline for (std.meta.fields(mlir.FloatTypes)) |f| {
@@ -90,44 +101,52 @@ pub const Value = struct {
         return false;
     }
 
+    // Vrai si le type elementaire est un entier MLIR.
     pub fn isIntElem(self: Value) bool {
         return self.elemType().isA(mlir.IntegerType) != null;
     }
 
+    // Vrai si le type elementaire est un pointeur `cuda_tile.ptr`.
     pub fn isPtrElem(self: Value) bool {
         return self.elemType().isA(ct.PointerType) != null;
     }
 
+    // Addition elementaire : coerce les operandes puis emet `addf` (flottant) ou `addi` (entier).
     pub fn add(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.addf(l, r) else k.addi(l, r);
     }
 
+    // Soustraction elementaire : `subf` sur flottants, `subi` sur entiers, apres coercition.
     pub fn sub(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.subf(l, r) else k.subi(l, r);
     }
 
+    // Multiplication elementaire : `mulf` sur flottants, `muli` sur entiers, apres coercition.
     pub fn mul(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.mulf(l, r) else k.muli(l, r);
     }
 
+    // Division elementaire : `divf` sur flottants, `divi` signe sur entiers.
     pub fn div(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.divf(l, r) else k.divi(l, r, .signed);
     }
 
+    // Reste de division : `remf` sur flottants, `remi` signe sur entiers.
     pub fn rem(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.remf(l, r) else k.remi(l, r, .signed);
     }
 
+    // Division entiere arrondie vers +inf (plafond) via `divi` avec rounding positive_inf ; interdit sur flottants.
     pub fn cdiv(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
@@ -135,115 +154,141 @@ pub const Value = struct {
         return k.diviOpts(l, r, .{ .signedness = .signed, .rounding = .positive_inf });
     }
 
+    // Negation elementaire : `negf` sur flottants, `negi` sur entiers.
     pub fn neg(self: Value) Value {
         const k = self.kern();
         return if (self.isFloatElem()) k.negf(self) else k.negi(self);
     }
 
+    // Valeur absolue elementaire : `absf` sur flottants, `absi` sur entiers.
     pub fn abs(self: Value) Value {
         const k = self.kern();
         return if (self.isFloatElem()) k.absf(self) else k.absi(self);
     }
 
+    // ET bit a bit elementaire (`andi`) apres coercition des operandes.
     pub fn bitAnd(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.andi(l, r);
     }
 
+    // OU bit a bit elementaire (`ori`) apres coercition.
     pub fn bitOr(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.ori(l, r);
     }
 
+    // OU exclusif bit a bit elementaire (`xori`) apres coercition.
     pub fn bitXor(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.xori(l, r);
     }
 
+    // Decalage a gauche bit a bit (`shli`).
     pub fn shl(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.shli(l, r);
     }
 
+    // Decalage a droite arithmetique signe (`shri` avec signedness signe).
     pub fn shr(self: Value, rhs: anytype) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return k.shri(l, r, .signed);
     }
 
+    // Minimum elementaire entre deux valeurs (delegue a Builder.minimum).
     pub fn minimum(self: Value, rhs: anytype) Value {
         return self.kern().minimum(self, rhs);
     }
 
+    // Maximum elementaire entre deux valeurs (delegue a Builder.maximum).
     pub fn maximum(self: Value, rhs: anytype) Value {
         return self.kern().maximum(self, rhs);
     }
 
+    // Comparaison generique : `cmpf` sur flottants, `cmpi` signe sur entiers, avec le predicat donne.
     fn compare(self: Value, rhs: anytype, pred: ComparisonPredicate) Value {
         const k = self.kern();
         const l, const r = k.coerce(self, rhs);
         return if (l.isFloatElem()) k.cmpf(pred, l, r) else k.cmpi(pred, l, r, .signed);
     }
 
+    // Comparaison `less_than` (a < b).
     pub fn lt(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .less_than);
     }
+    // Comparaison `less_than_or_equal` (a <= b).
     pub fn le(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .less_than_or_equal);
     }
+    // Comparaison `greater_than` (a > b).
     pub fn gt(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .greater_than);
     }
+    // Comparaison `greater_than_or_equal` (a >= b).
     pub fn ge(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .greater_than_or_equal);
     }
+    // Comparaison d'egalite (`equal`).
     pub fn eq(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .equal);
     }
+    // Comparaison de non-egalite (`not_equal`).
     pub fn ne(self: Value, rhs: anytype) Value {
         return self.compare(rhs, .not_equal);
     }
 
+    // Convertit la valeur vers `dtype` via Builder.cast (delegue).
     pub fn to(self: Value, dtype: DType) Value {
         return self.kern().cast(self, dtype);
     }
 
+    // Change la forme du tile sans modifier les donnees (delegue a Builder.reshape).
     pub fn reshape(self: Value, shape_: []const i64) Value {
         return self.kern().reshape(self, shape_);
     }
 
+    // Diffuse le tile vers la forme cible (delegue a Builder.broadcastTo).
     pub fn broadcastTo(self: Value, shape_: []const i64) Value {
         return self.kern().broadcastTo(self, shape_);
     }
 
+    // Insere une dimension de taille 1 a l'axe `axis` (delegue a Builder.expandDims).
     pub fn expandDims(self: Value, axis: usize) Value {
         return self.kern().expandDims(self, axis);
     }
 
+    // Reordonne les dimensions du tile selon `order` (delegue a Builder.permute).
     pub fn permute(self: Value, order: []const i32) Value {
         return self.kern().permute(self, order);
     }
 
+    // Reduit le long de `axis` par somme (delegue a Builder.sum).
     pub fn sum(self: Value, axis: usize) Value {
         return self.kern().sum(self, axis);
     }
 
+    // Reduit le long de `axis` par maximum (delegue a Builder.max).
     pub fn max(self: Value, axis: usize) Value {
         return self.kern().max(self, axis);
     }
 
+    // Reduit le long de `axis` par minimum (delegue a Builder.min).
     pub fn min(self: Value, axis: usize) Value {
         return self.kern().min(self, axis);
     }
 
+    // Somme cumulative le long de `axis` (delegue a Builder.cumsum).
     pub fn cumsum(self: Value, axis: usize) Value {
         return self.kern().cumsum(self, axis);
     }
 
+    // Decale un tile de pointeurs d'un decalage scalaire/tile, en alignant les formes.
     pub fn offset(self: Value, off: anytype) Value {
         const k = self.kern();
         const o: Value = if (@TypeOf(off) == Value) off else k.lift(off);
@@ -384,20 +429,24 @@ pub const ScanOpts = struct {
     reverse: bool = false,
 };
 
+// Construit le type du scope `for` de control_flow.zig parametre par le Builder et Value du dialecte ; `N` = valeurs transportees.
 pub fn ForScope(comptime N: usize) type {
     return cf.ForScope(Builder, Value, N);
 }
 
 pub const IfOnlyScope = cf.IfOnlyScope(Builder, Value);
 
+// Construit le type du scope `if`/`else` a `N` resultats.
 pub fn IfScope(comptime N: usize) type {
     return cf.IfScope(Builder, Value, N);
 }
 
+// Construit le type du scope de boucle non structuree a `N` valeurs transportees.
 pub fn LoopScope(comptime N: usize) type {
     return cf.LoopScope(Builder, Value, N);
 }
 
+// Type du descripteur d'une reduction personnalisee : source, axe, attribut identite et fonction `combine`.
 /// A custom reduction: `combine(builder, element, accumulator, ctx)` runs on
 /// rank-0 tiles of `src`'s element type; `identity` is the element attribute
 /// the dialect requires (see `Builder.identityAttr`).
@@ -410,6 +459,7 @@ pub fn ReduceArgs(comptime CtxT: type) type {
     };
 }
 
+// Type du descripteur de scan personnalise : source, axe, sens inverse optionnel, identite et `combine`.
 pub fn ScanArgs(comptime CtxT: type) type {
     return struct {
         src: Value,
@@ -420,6 +470,7 @@ pub fn ScanArgs(comptime CtxT: type) type {
     };
 }
 
+// Type du descripteur d'une reduction variadique (plusieurs tuiles) : sources, axe, identites et `combine` multi.
 /// A reduction over several same-shaped tiles at once (argmax, an online
 /// softmax's (max, sum)): `combine(builder, elements, accumulators, ctx)`
 /// gets one rank-0 tile per source in each slice and returns the new
@@ -434,6 +485,7 @@ pub fn ReduceMultiArgs(comptime CtxT: type) type {
     };
 }
 
+// Type du descripteur d'un scan variadique multi-tuiles.
 pub fn ScanMultiArgs(comptime CtxT: type) type {
     return struct {
         srcs: []const Value,
@@ -457,6 +509,7 @@ pub const Builder = struct {
     ct_body: ?*mlir.Block = null,
     refined_args: []?Value = &.{},
 
+    // Initialise un Builder avec les parametres par defaut en deleguant a `initOpts`.
     pub fn init(
         allocator: std.mem.Allocator,
         ctx: *mlir.Context,
@@ -466,6 +519,7 @@ pub const Builder = struct {
         return initOpts(allocator, ctx, name, args, .{});
     }
 
+    // Cree un Builder, ouvre le module et declare les arguments via `declareArgsLowOpts`, en annulant en cas d'erreur.
     pub fn initOpts(
         allocator: std.mem.Allocator,
         ctx: *mlir.Context,
@@ -479,6 +533,7 @@ pub const Builder = struct {
         return b;
     }
 
+    // Cree un Builder vide : nouveau module MLIR et arene d'allocation, sans block d'entree ; appeler `declareArgs` ensuite.
     pub fn open(
         allocator: std.mem.Allocator,
         ctx: *mlir.Context,
@@ -503,10 +558,12 @@ pub const Builder = struct {
         };
     }
 
+    // Declare les arguments depuis un tuple de spec et renvoie un NamedArgs mappant chaque nom a sa Value.
     pub fn declareArgs(self: *Builder, spec: anytype) !dsl.NamedArgs(@TypeOf(spec), Value) {
         return self.declareArgsOpts(spec, .{});
     }
 
+    // Variante de `declareArgs` acceptant des `Opts` (hints) ; convertit chaque spec en ArgSpec puis declare.
     pub fn declareArgsOpts(self: *Builder, spec: anytype, opts: Opts) !dsl.NamedArgs(@TypeOf(spec), Value) {
         const Spec = @TypeOf(spec);
         const fields = @typeInfo(Spec).@"struct".fields;
@@ -538,6 +595,7 @@ pub const Builder = struct {
         return named;
     }
 
+    // Cree `cuda_tile.module`, l'op `entry` et son block d'entree ; construit les types pointeur et les `assume div_by` par argument.
     fn declareArgsLowOpts(self: *Builder, args: []const ArgSpec, opts: Opts) !void {
         std.debug.assert(self.entry_block == null);
         const ctx = self.ctx;
@@ -581,16 +639,19 @@ pub const Builder = struct {
         }
     }
 
+    // Libere le module MLIR et l'arene du Builder.
     pub fn deinit(self: *Builder) void {
         self.module.deinit();
         self.arena.deinit();
     }
 
+    // Renvoie la Value de l'argument brut `i` du block d'entree, sans raffinement `assume`.
     fn rawArg(self: *Builder, i: usize) Value {
         const eb = self.entry_block orelse @panic("Builder.arg called before declareArgs");
         return .{ .inner = eb.argument(i), .kernel = self };
     }
 
+    // Argument `i` raffine par son `assume` s'il existe ; reattache sinon le Builder courant comme proprietaire.
     /// Parameter `i`, refined by its `assume` when one was declared. The
     /// owner is re-stamped: `initOpts` fills `refined_args` through a Builder
     /// that is then moved out of its frame.
@@ -601,14 +662,17 @@ pub const Builder = struct {
         return self.rawArg(i);
     }
 
+    // Empile un block MLIR sur la pile des blocs courants (alloue dans l'arene).
     pub fn pushBlock(self: *Builder, b: *mlir.Block) void {
         self.block_stack.append(self.arena.allocator(), b) catch @panic("Builder.pushBlock OOM");
     }
 
+    // Depile le block courant.
     pub fn popBlock(self: *Builder) void {
         _ = self.block_stack.pop();
     }
 
+    // Block courant : sommet de la pile, sinon block d'entree.
     pub fn currentBlock(self: *Builder) *mlir.Block {
         if (self.block_stack.items.len > 0) {
             return self.block_stack.items[self.block_stack.items.len - 1];
@@ -616,21 +680,25 @@ pub const Builder = struct {
         return self.entry_block orelse @panic("Builder has no current block — call declareArgs first");
     }
 
+    // Convertit un slice de Value en slice de pointeurs `*const mlir.Value` (alloue dans l'arene).
     fn innerSlice(self: *Builder, values: []const Value) []const *const mlir.Value {
         const out = self.arena.allocator().alloc(*const mlir.Value, values.len) catch @panic("Builder.innerSlice OOM");
         for (values, 0..) |v, i| out[i] = v.inner;
         return out;
     }
 
+    // Convertit une Value optionnelle en pointeur MLIR optionnel (null conserve).
     fn innerOpt(v: ?Value) ?*const mlir.Value {
         return if (v) |x| x.inner else null;
     }
 
+    // Ajoute l'operation au block courant et renvoie son premier resultat comme Value.
     pub fn emit(self: *Builder, op: *mlir.Operation) Value {
         _ = op.appendTo(self.currentBlock());
         return .{ .inner = op.result(0), .kernel = self };
     }
 
+    // Ajoute l'operation au block courant et renvoie ses `n` resultats comme slice de Value.
     pub fn emitMulti(self: *Builder, op: *mlir.Operation, n: usize) []Value {
         _ = op.appendTo(self.currentBlock());
         const out = self.arena.allocator().alloc(Value, n) catch @panic("Builder.emitMulti OOM");
@@ -638,6 +706,7 @@ pub const Builder = struct {
         return out;
     }
 
+    // Valide un tuple litteral de Value a la compilation et le copie dans l'arene (utilise par les `combine`).
     pub fn yield(self: *Builder, values: anytype) []const Value {
         const T = @TypeOf(values);
         const info = @typeInfo(T);
@@ -653,10 +722,12 @@ pub const Builder = struct {
         return out;
     }
 
+    // Emplacement MLIR `unknown` associe au contexte.
     pub fn loc(self: *const Builder) *const mlir.Location {
         return .unknown(self.ctx);
     }
 
+    // Construit le type `tile<SHAPE x dtype>` ; valide la forme (puissances de deux) ; `&.{}` = scalaire.
     /// `tile<SHAPExT>`; `&.{}` for a scalar.
     pub fn tileTy(self: *const Builder, shape: []const i64, dtype: DType) *const mlir.Type {
         if (!dtypes.tileLegal(shape)) {
@@ -665,15 +736,18 @@ pub const Builder = struct {
         return ct.tileType(self.ctx, shape, dtype.toMlir(self.ctx));
     }
 
+    // Type de tile de rang 0 (scalaire) pour `dtype`.
     pub fn scalarTy(self: *const Builder, dtype: DType) *const mlir.Type {
         return self.tileTy(&.{}, dtype);
     }
 
+    // Type `tile<ptr<T>>` (rang 0) : type d'un parametre buffer.
     /// `tile<ptr<T>>` — the type of a buffer parameter.
     pub fn ptrTy(self: *const Builder, dtype: DType) *const mlir.Type {
         return self.ptrTileTy(&.{}, dtype);
     }
 
+    // Type `tile<SHAPE x ptr<T>>` ; `i4` est interdit comme pointeur (a declarer en `.i8`).
     /// `tile<SHAPExptr<T>>`. `i4` is a tile element type but not a pointee
     /// (Types.td: CudaTile_NumberType excludes Int4), so a 4-bit buffer is
     /// declared as `.i8` and `unpack`ed in the kernel.
@@ -682,23 +756,28 @@ pub const Builder = struct {
         return ct.tileType(self.ctx, shape, ct.pointerType(self.ctx, dtype.toMlir(self.ctx)));
     }
 
+    // Type du token `cuda_tile.token`.
     pub fn tokenTy(self: *const Builder) *const mlir.Type {
         return ct.tokenType(self.ctx);
     }
 
+    // Type de tile de meme forme que `v` mais d'element `elem`.
     fn tileLike(self: *const Builder, v: Value, elem: *const mlir.Type) *const mlir.Type {
         return ct.tileType(self.ctx, v.shape().constSlice(), elem);
     }
 
+    // Convertit un type elementaire MLIR en DType du DSL.
     fn mlirElemToDType(self: *const Builder, elem: *const mlir.Type) DType {
         return dtypes.mlirElemToDType(self.ctx, elem);
     }
 
+    // Type pointe d'un tile de pointeurs (panique sinon).
     fn pointee(v: Value) *const mlir.Type {
         const p = v.elemType().isA(ct.PointerType) orelse std.debug.panic("expected a pointer tile, got {f}", .{v.type_()});
         return p.pointee();
     }
 
+    // Construit l'attribut MLIR d'un scalaire (flottant ou entier) pour le dtype donne.
     fn elemAttr(self: *Builder, dtype: DType, value: anytype) *const mlir.Attribute {
         const elem = dtype.toMlir(self.ctx);
         const T = @TypeOf(value);
@@ -726,26 +805,32 @@ pub const Builder = struct {
         return ct.intElem(elem, v);
     }
 
+    // Emet une constante splat `cuda_tile.constant` remplissant un tile avec `value`.
     fn splat(self: *Builder, tile_ty: *const mlir.Type, dtype: DType, value: anytype) Value {
         return self.emit(ct.constant(self.ctx, ct.splatAttr(tile_ty, self.elemAttr(dtype, value)), tile_ty, self.loc()));
     }
 
+    // Constante scalaire (tile de rang 0) de type `dtype`.
     pub fn cst(self: *Builder, dtype: DType, value: anytype) Value {
         return self.splat(self.scalarTy(dtype), dtype, value);
     }
 
+    // Constante splat de forme `shape` et type `dtype`, remplie avec `value`.
     pub fn full(self: *Builder, shape: []const i64, value: anytype, dtype: DType) Value {
         return self.splat(self.tileTy(shape, dtype), dtype, value);
     }
 
+    // Tile de forme `shape` rempli de zeros.
     pub fn zeros(self: *Builder, shape: []const i64, dtype: DType) Value {
         return self.full(shape, 0, dtype);
     }
 
+    // Tile de forme `shape` rempli de uns.
     pub fn ones(self: *Builder, shape: []const i64, dtype: DType) Value {
         return self.full(shape, 1, dtype);
     }
 
+    // Constante dense `cuda_tile.constant` depuis un slice de scalaires Zig en row-major ; verifie le nombre d'octets.
     /// A dense constant from a slice of Zig scalars in row-major order. MLIR
     /// stores every element in whole bytes except `i1`, which it bit-packs;
     /// the slice must hold exactly that many bytes (use `full` for a splat).
@@ -755,6 +840,7 @@ pub const Builder = struct {
         return self.emit(ct.constant(self.ctx, ct.denseAttr(ty, values), ty, self.loc()));
     }
 
+    // Verifie que le slice fourni fait exactement la taille attendue pour la forme/dtype (i1 bit-package).
     fn checkDenseBytes(comptime who: []const u8, shape: []const i64, dtype: DType, values: anytype) void {
         var elems: usize = 1;
         for (shape) |d| elems *= @intCast(d);
@@ -766,15 +852,18 @@ pub const Builder = struct {
         }
     }
 
+    // Emet `cuda_tile.iota` : tile 1-D [n] contenant 0..n-1.
     pub fn iota(self: *Builder, n: i64, dtype: DType) Value {
         return self.emit(ct.iota(self.ctx, self.tileTy(&.{n}, dtype), self.loc()));
     }
 
+    // Attribut element identite requis par reduce/scan (delegue a elemAttr).
     /// The element attribute `reduce`/`scan` need as an identity.
     pub fn identityAttr(self: *Builder, dtype: DType, value: anytype) *const mlir.Attribute {
         return self.elemAttr(dtype, value);
     }
 
+    // Promeut un scalaire Zig en constante de rang 0 ; le dtype suit le type source (entiers non signes bit-castes).
     /// Lift a Zig scalar to a rank-0 constant. Dtype follows the source type;
     /// unsigned ints are bit-cast. Use `liftAs` for an explicit dtype.
     pub fn lift(self: *Builder, value: anytype) Value {
@@ -799,11 +888,13 @@ pub const Builder = struct {
         };
     }
 
+    // Promeut un scalaire Zig en constante de rang 0 avec un dtype explicite.
     pub fn liftAs(self: *Builder, value: anytype, dtype: DType) Value {
         if (@TypeOf(value) == Value) return value;
         return self.cst(dtype, value);
     }
 
+    // Promeut un litteral de comptime en constante du dtype de `ref_elem` ; sinon delegue a `lift`.
     fn liftMatching(self: *Builder, value: anytype, ref_elem: *const mlir.Type) Value {
         const T = @TypeOf(value);
         if (T == Value) return value;
@@ -813,16 +904,19 @@ pub const Builder = struct {
         };
     }
 
+    // Construit une constante scalaire du dtype de l'element de reference `ref`.
     fn constMatching(self: *Builder, value: anytype, ref: *const mlir.Type) Value {
         const elem = if (ref.isA(ct.TileType)) |t| t.elementType() else ref;
         return self.liftAs(value, self.mlirElemToDType(elem));
     }
 
+    // Diffuse un scalaire/valeur a la forme de `ref` apres l'avoir promu au bon dtype.
     pub fn broadcastLike(self: *Builder, value: anytype, ref: Value) Value {
         const v = self.liftMatching(value, ref.elemType());
         return self.expandTo(v, ref.shape().constSlice());
     }
 
+    // Aligne (reshape) puis diffuse `v` vers la forme `target`.
     fn expandTo(self: *Builder, v: Value, target: []const i64) Value {
         const cur = v.shape();
         if (std.mem.eql(i64, cur.constSlice(), target)) return v;
@@ -838,6 +932,7 @@ pub const Builder = struct {
         return self.broadcastTo(aligned, target);
     }
 
+    // Aligne deux formes par broadcasting type NumPy et renvoie les deux valeurs etendues ; panique si incompatibles.
     fn coerceShapes(self: *Builder, a: Value, b: Value) struct { Value, Value } {
         const a_sh = a.shape();
         const b_sh = b.shape();
@@ -858,6 +953,7 @@ pub const Builder = struct {
         return .{ self.expandTo(a, target.constSlice()), self.expandTo(b, target.constSlice()) };
     }
 
+    // Coerce deux operandes : promotion entiere en largeur commune et broadcasting de forme ; renvoie le couple.
     pub fn coerce(self: *Builder, a: anytype, b: anytype) struct { Value, Value } {
         const a_ref: ?*const mlir.Type = if (@TypeOf(b) == Value) b.elemType() else null;
         const b_ref: ?*const mlir.Type = if (@TypeOf(a) == Value) a.elemType() else null;
@@ -876,32 +972,39 @@ pub const Builder = struct {
         return self.coerceShapes(av, bv);
     }
 
+    // Emet `cuda_tile.get_tile_block_id` et renvoie les ids x, y, z du bloc courant.
     pub fn tileBlockId(self: *Builder) BlockId {
         const r = self.emitMulti(ct.get_tile_block_id(self.ctx, self.loc()), 3);
         return .{ .x = r[0], .y = r[1], .z = r[2] };
     }
 
+    // Emet `cuda_tile.get_num_tile_blocks` et renvoie le nombre de blocs selon x, y, z.
     pub fn numTileBlocks(self: *Builder) BlockId {
         const r = self.emitMulti(ct.get_num_tile_blocks(self.ctx, self.loc()), 3);
         return .{ .x = r[0], .y = r[1], .z = r[2] };
     }
 
+    // Emet `cuda_tile.assume` avec la contrainte `div_by<N>` sur `v`.
     pub fn assumeDivBy(self: *Builder, v: Value, n: u64) Value {
         return self.emit(ct.assume(self.ctx, v.inner, ct.divBy(self.ctx, n, null, null), self.loc()));
     }
 
+    // Emet `cuda_tile.assume div_by<N, every, along>` sur `v`.
     pub fn assumeDivByEvery(self: *Builder, v: Value, n: u64, every: i64, along: i64) Value {
         return self.emit(ct.assume(self.ctx, v.inner, ct.divBy(self.ctx, n, every, along), self.loc()));
     }
 
+    // Emet `cuda_tile.assume` imposant que `v` ait les elements listes (`same_elements`).
     pub fn assumeSameElements(self: *Builder, v: Value, values: []const i64) Value {
         return self.emit(ct.assume(self.ctx, v.inner, ct.sameElements(self.ctx, values), self.loc()));
     }
 
+    // Emet `cuda_tile.assume` bornant les elements de `v` dans [lb, ub].
     pub fn assumeBounded(self: *Builder, v: Value, lb: ?i64, ub: ?i64) Value {
         return self.emit(ct.assume(self.ctx, v.inner, ct.bounded(self.ctx, lb, ub), self.loc()));
     }
 
+    // Emet `cuda_tile.make_tensor_view` : vue dense typee sur le pointeur `base` avec forme et strides statiques.
     pub fn tensorView(self: *Builder, base: Value, shape: []const i64, strides: []const i64) Value {
         const ty = ct.tensorViewType(self.ctx, pointee(base), shape, strides);
         return self.emit(ct.make_tensor_view(self.ctx, base.inner, &.{}, &.{}, ty, self.loc()));
@@ -912,6 +1015,7 @@ pub const Builder = struct {
         dynamic: Value,
     };
 
+    // Comme `tensorView` mais avec dimensions/strides dynamiques (valeurs runtime) et statiques melangees.
     pub fn tensorViewDyn(self: *Builder, base: Value, shape: []const Dim, strides: []const Dim) Value {
         const scratch = self.arena.allocator();
         var static_shape: Value.Shape = .empty;
@@ -936,12 +1040,14 @@ pub const Builder = struct {
         return self.emit(ct.make_tensor_view(self.ctx, base.inner, dyn_shape.items, dyn_strides.items, ty, self.loc()));
     }
 
+    // Convertit un slice de i64 en i32 (alloue dans l'arene).
     fn i32Slice(self: *Builder, values: []const i64) []const i32 {
         const out = self.arena.allocator().alloc(i32, values.len) catch @panic("OOM");
         for (values, 0..) |v, i| out[i] = @intCast(v);
         return out;
     }
 
+    // Emet `cuda_tile.make_partition_view` : decoupe `tv` en blocs `tile` avec padding sur les bords irreguliers.
     /// Tiles `tv` into `tile`-shaped pieces addressed by tile-space indices.
     /// `padding` fills the ragged edge on load; stores past the edge are
     /// masked. That is why this DSL has no mask tile.
@@ -951,6 +1057,7 @@ pub const Builder = struct {
         return self.emit(ct.make_partition_view(self.ctx, tv.inner, ty, self.loc()));
     }
 
+    // Emet `cuda_tile.make_strided_view` : partition avec traversee pas-a-pas (`traversal_strides`).
     /// 13.3: like `partitionView`, stepping by `traversal_strides` elements
     /// per index instead of a whole tile.
     pub fn stridedView(self: *Builder, tv: Value, tile: []const i64, traversal_strides: []const i64, opts: PartitionOpts) Value {
@@ -959,6 +1066,7 @@ pub const Builder = struct {
         return self.emit(ct.make_strided_view(self.ctx, tv.inner, ty, self.loc()));
     }
 
+    // Emet `cuda_tile.make_gather_scatter_view` : vue dont `sparse_dim` est indexe par un tile de rang 1.
     /// 13.3: a view whose `sparse_dim` is indexed by a rank-1 tile of
     /// `tile[sparse_dim]` indices (every other index stays rank 0).
     pub fn gatherScatterView(self: *Builder, tv: Value, tile: []const i64, sparse_dim: u32, padding: ?PaddingValue) Value {
@@ -967,23 +1075,27 @@ pub const Builder = struct {
         return self.emit(ct.make_gather_scatter_view(self.ctx, tv.inner, ty, self.loc()));
     }
 
+    // Alloue `n` types scalaires i32 (types de resultats des getters de forme).
     fn i32Scalars(self: *Builder, n: usize) []const *const mlir.Type {
         const out = self.arena.allocator().alloc(*const mlir.Type, n) catch @panic("OOM");
         for (out) |*t| t.* = self.scalarTy(.i32);
         return out;
     }
 
+    // Emet `cuda_tile.get_index_space_shape` : forme de l'espace d'index d'une vue.
     pub fn indexSpaceShape(self: *Builder, view: Value) []Value {
         const n = ct.indexRankOfView(view.type_());
         return self.emitMulti(ct.get_index_space_shape(self.ctx, view.inner, self.i32Scalars(n), self.loc()), n);
     }
 
+    // Emet `cuda_tile.get_tensor_shape` : forme d'une tensor_view (valeurs runtime).
     pub fn tensorShape(self: *Builder, tv: Value) []Value {
         const t = tv.type_().isA(ct.TensorViewType) orelse std.debug.panic("expected a tensor_view, got {f}", .{tv.type_()});
         const n = t.rank();
         return self.emitMulti(ct.get_tensor_shape(self.ctx, tv.inner, self.i32Scalars(n), self.loc()), n);
     }
 
+    // Assemble les options memoire (ordering, scope, token, hints) pour une op de chargement/stockage.
     fn memOpts(self: *Builder, ordering: MemoryOrdering, scope: ?MemoryScope, token: ?Value, hints: anytype) ct.MemOpts {
         return .{
             .ordering = ordering,
@@ -993,10 +1105,12 @@ pub const Builder = struct {
         };
     }
 
+    // Charge le tile depuis une vue a l'index donne (`load_view_tko`), sans options ; renvoie le tile.
     pub fn load(self: *Builder, view: Value, index: []const Value) Value {
         return self.loadOpts(view, index, .{}).tile;
     }
 
+    // Charge depuis une vue avec options memoire ; verifie le nombre d'index et renvoie tile + token.
     pub fn loadOpts(self: *Builder, view: Value, index: []const Value, opts: LoadOpts) Loaded {
         const expected = ct.indexRankOfView(view.type_());
         if (index.len != expected) std.debug.panic("Builder.load: view takes {d} indices, got {d}", .{ expected, index.len });
@@ -1004,22 +1118,26 @@ pub const Builder = struct {
         return .{ .tile = r[0], .token = r[1] };
     }
 
+    // Stocke un tile dans une vue a l'index donne (`store_view_tko`) ; renvoie le token.
     pub fn store(self: *Builder, tile: Value, view: Value, index: []const Value) Value {
         return self.storeOpts(tile, view, index, .{});
     }
 
+    // Stocke dans une vue avec options memoire ; verifie le nombre d'index.
     pub fn storeOpts(self: *Builder, tile: Value, view: Value, index: []const Value, opts: StoreOpts) Value {
         const expected = ct.indexRankOfView(view.type_());
         if (index.len != expected) std.debug.panic("Builder.store: view takes {d} indices, got {d}", .{ expected, index.len });
         return self.emit(ct.store_view_tko(self.ctx, tile.inner, view.inner, self.innerSlice(index), self.memOpts(opts.ordering, opts.scope, opts.token, opts.hints), self.loc()));
     }
 
+    // Charge via un tile de pointeurs (`load_ptr_tko`), sans options ; renvoie le tile.
     /// Gather through a tile of pointers, dropping the token. This arm cannot
     /// use TMA; prefer views for dense access.
     pub fn loadPtr(self: *Builder, ptrs: Value) Value {
         return self.loadPtrOpts(ptrs, .{}).tile;
     }
 
+    // Charge via un tile de pointeurs avec options (mask, padding, mem) ; renvoie tile + token.
     pub fn loadPtrOpts(self: *Builder, ptrs: Value, opts: LoadPtrOpts) Loaded {
         const result_ty = self.tileLike(ptrs, pointee(ptrs));
         const mask: ?Value = if (opts.mask) |m| self.expandTo(m, ptrs.shape().constSlice()) else null;
@@ -1031,10 +1149,12 @@ pub const Builder = struct {
         return .{ .tile = r[0], .token = r[1] };
     }
 
+    // Stocke une valeur via un tile de pointeurs (`store_ptr_tko`) ; renvoie le token.
     pub fn storePtr(self: *Builder, ptrs: Value, value: Value) Value {
         return self.storePtrOpts(ptrs, value, .{});
     }
 
+    // Stocke via un tile de pointeurs avec options (mask, mem).
     pub fn storePtrOpts(self: *Builder, ptrs: Value, value: Value, opts: StorePtrOpts) Value {
         const mask: ?Value = if (opts.mask) |m| self.expandTo(m, ptrs.shape().constSlice()) else null;
         return self.emit(ct.store_ptr_tko(self.ctx, ptrs.inner, value.inner, .{
@@ -1043,36 +1163,44 @@ pub const Builder = struct {
         }, self.loc()));
     }
 
+    // Emet `cuda_tile.make_token` et renvoie le token cree.
     pub fn makeToken(self: *Builder) Value {
         return self.emit(ct.make_token(self.ctx, self.loc()));
     }
 
+    // Emet `cuda_tile.join_tokens` pour ordonner plusieurs tokens.
     pub fn joinTokens(self: *Builder, tokens: []const Value) Value {
         return self.emit(ct.join_tokens(self.ctx, self.innerSlice(tokens), self.loc()));
     }
 
+    // Emet `cuda_tile.print_tko` formatant `str` avec les tuiles `args` ; renvoie le token.
     pub fn print(self: *Builder, str: []const u8, args: []const Value) Value {
         return self.printOpts(str, args, null);
     }
 
+    // Variante de `print` acceptant un token d'ordonnancement optionnel.
     pub fn printOpts(self: *Builder, str: []const u8, args: []const Value, token: ?Value) Value {
         return self.emit(ct.print_tko(self.ctx, str, self.innerSlice(args), innerOpt(token), self.loc()));
     }
 
+    // Convertit des AtomicOpts du DSL en options atomiques du dialecte (ordering, scope, mask, token).
     fn atomicOpts(opts: AtomicOpts) ct.AtomicOpts {
         return .{ .ordering = opts.ordering, .scope = opts.scope, .mask = innerOpt(opts.mask), .token = innerOpt(opts.token) };
     }
 
+    // Emet `cuda_tile.atomic_cas_tko` (compare-and-swap) ; renvoie valeur lue + token.
     pub fn atomicCas(self: *Builder, ptrs: Value, cmp: Value, val: Value, opts: AtomicOpts) Loaded {
         const r = self.emitMulti(ct.atomic_cas_tko(self.ctx, ptrs.inner, cmp.inner, val.inner, atomicOpts(opts), self.loc()), 2);
         return .{ .tile = r[0], .token = r[1] };
     }
 
+    // Emet `cuda_tile.atomic_rmw_tko` (lecture-modification-ecriture atomique) ; renvoie valeur + token.
     pub fn atomicRmw(self: *Builder, mode: AtomicRMWMode, ptrs: Value, operand: Value, opts: AtomicOpts) Loaded {
         const r = self.emitMulti(ct.atomic_rmw_tko(self.ctx, ptrs.inner, mode, operand.inner, atomicOpts(opts), self.loc()), 2);
         return .{ .tile = r[0], .token = r[1] };
     }
 
+    // Emet `cuda_tile.atomic_red_view_tko` : reduction atomique dans une vue ; renvoie le token.
     /// 13.3: an atomic reduction into an unpadded tiled view; returns the
     /// token. `xchg` is not a reduction and the dialect rejects it.
     pub fn atomicRedView(self: *Builder, mode: AtomicRMWMode, view: Value, index: []const Value, value: Value, opts: RedViewOpts) Value {
@@ -1082,17 +1210,20 @@ pub const Builder = struct {
         }, self.loc()));
     }
 
+    // Emet `cuda_tile.alloca` : `num_elem` elements de `dtype` en tant que tile de pointeur de rang 0.
     /// 13.3: `num_elem` elements of `dtype`, as a rank-0 pointer tile.
     pub fn alloca(self: *Builder, dtype: DType, num_elem: i64, opts: AllocaOpts) Value {
         return self.emit(ct.alloca(self.ctx, num_elem, opts.alignment, opts.global, self.ptrTy(dtype), self.loc()));
     }
 
+    // Declare une globale `cuda_tile.global` splat (valeur constante) au niveau module.
     pub fn global(self: *Builder, name: []const u8, shape: []const i64, dtype: DType, value: anytype, opts: GlobalOpts) void {
         const ty = self.tileTy(shape, dtype);
         const attr = ct.splatAttr(ty, self.elemAttr(dtype, value));
         self.appendGlobal(ct.global(self.ctx, name, attr, .{ .alignment = opts.alignment, .constant = opts.constant, .visibility = opts.visibility }, self.loc()));
     }
 
+    // Declare une globale `cuda_tile.global` dense depuis un slice de scalaires Zig.
     /// A module-level dense buffer from a slice of Zig scalars (see `dense`
     /// for the byte-count rule).
     pub fn globalDense(self: *Builder, name: []const u8, shape: []const i64, dtype: DType, values: anytype, opts: GlobalOpts) void {
@@ -1101,6 +1232,7 @@ pub const Builder = struct {
         self.appendGlobal(ct.global(self.ctx, name, ct.denseAttr(ty, values), .{ .alignment = opts.alignment, .constant = opts.constant, .visibility = opts.visibility }, self.loc()));
     }
 
+    // Insere l'op globale juste avant la premiere op du corps du module (globals en tete).
     fn appendGlobal(self: *Builder, op: *mlir.Operation) void {
         const body = self.ct_body orelse @panic("Builder.global called before declareArgs");
         const first = body.firstOperation() orelse {
@@ -1110,224 +1242,293 @@ pub const Builder = struct {
         body.insertOwnedOperationBefore(first, op);
     }
 
+    // Emet `cuda_tile.get_global` : pointeur vers la globale nommee.
     pub fn getGlobal(self: *Builder, name: []const u8, dtype: DType) Value {
         return self.emit(ct.get_global(self.ctx, name, self.ptrTy(dtype), self.loc()));
     }
 
+    // Emet `cuda_tile.addf` (addition flottante) sans options explicites.
     pub fn addf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.addfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.addf` avec mode d'arrondi et flush-to-zero.
     pub fn addfOpts(self: *Builder, lhs: Value, rhs: Value, opts: FloatOpts) Value {
         return self.emit(ct.addf(self.ctx, lhs.inner, rhs.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.subf` (soustraction flottante).
     pub fn subf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.subfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.subf` avec options d'arrondi/flush.
     pub fn subfOpts(self: *Builder, lhs: Value, rhs: Value, opts: FloatOpts) Value {
         return self.emit(ct.subf(self.ctx, lhs.inner, rhs.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.mulf` (multiplication flottante).
     pub fn mulf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.mulfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.mulf` avec options d'arrondi/flush.
     pub fn mulfOpts(self: *Builder, lhs: Value, rhs: Value, opts: FloatOpts) Value {
         return self.emit(ct.mulf(self.ctx, lhs.inner, rhs.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.divf` (division flottante).
     pub fn divf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.divfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.divf` avec options d'arrondi/flush.
     pub fn divfOpts(self: *Builder, lhs: Value, rhs: Value, opts: FloatOpts) Value {
         return self.emit(ct.divf(self.ctx, lhs.inner, rhs.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.remf` (reste flottant).
     pub fn remf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(ct.remf(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // Emet `cuda_tile.negf` (negation flottante).
     pub fn negf(self: *Builder, x: Value) Value {
         return self.emit(ct.negf(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.absf` (valeur absolue flottante).
     pub fn absf(self: *Builder, x: Value) Value {
         return self.emit(ct.absf(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.fma` (a*b+acc fusionne) sans options.
     pub fn fma(self: *Builder, a: Value, b: Value, acc: Value) Value {
         return self.fmaOpts(a, b, acc, .{});
     }
+    // Emet `cuda_tile.fma` avec options d'arrondi/flush.
     pub fn fmaOpts(self: *Builder, a: Value, b: Value, acc: Value, opts: FloatOpts) Value {
         return self.emit(ct.fma(self.ctx, a.inner, b.inner, acc.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.maxf` (maximum flottant).
     pub fn maxf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.maxfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.maxf` avec propagation de NaN et flush-to-zero.
     pub fn maxfOpts(self: *Builder, lhs: Value, rhs: Value, opts: MinMaxOpts) Value {
         return self.emit(ct.maxf(self.ctx, lhs.inner, rhs.inner, opts.propagate_nan, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.minf` (minimum flottant).
     pub fn minf(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.minfOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.minf` avec propagation de NaN et flush-to-zero.
     pub fn minfOpts(self: *Builder, lhs: Value, rhs: Value, opts: MinMaxOpts) Value {
         return self.emit(ct.minf(self.ctx, lhs.inner, rhs.inner, opts.propagate_nan, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.pow` (x eleve a `exponent`).
     pub fn pow(self: *Builder, x: Value, exponent: Value) Value {
         return self.emit(ct.pow(self.ctx, x.inner, exponent.inner, self.loc()));
     }
+    // Emet `cuda_tile.atan2` (arc tangente de y/x sur le bon quadrant).
     pub fn atan2(self: *Builder, x: Value, y: Value) Value {
         return self.emit(ct.atan2(self.ctx, x.inner, y.inner, self.loc()));
     }
+    // Emet `cuda_tile.exp` (exponentielle e^x) ; mode d'arrondi par defaut.
     pub fn exp(self: *Builder, x: Value) Value {
         return self.emit(ct.exp(self.ctx, x.inner, null, self.loc()));
     }
+    // Emet `cuda_tile.exp` avec un mode d'arrondi explicite.
     /// 13.3: `exp` with an explicit rounding mode.
     pub fn expRound(self: *Builder, x: Value, rounding: RoundingMode) Value {
         return self.emit(ct.exp(self.ctx, x.inner, rounding, self.loc()));
     }
+    // Emet `cuda_tile.exp2` (2^x).
     pub fn exp2(self: *Builder, x: Value) Value {
         return self.exp2Opts(x, false);
     }
+    // Emet `cuda_tile.exp2` avec flush-to-zero parametrable.
     pub fn exp2Opts(self: *Builder, x: Value, flush_to_zero: bool) Value {
         return self.emit(ct.exp2(self.ctx, x.inner, flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.log` (logarithme neperien).
     pub fn log(self: *Builder, x: Value) Value {
         return self.emit(ct.log(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.log2` (logarithme base 2).
     pub fn log2(self: *Builder, x: Value) Value {
         return self.emit(ct.log2(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.sqrt` (racine carree) avec options par defaut.
     pub fn sqrt(self: *Builder, x: Value) Value {
         return self.sqrtOpts(x, .{});
     }
+    // Emet `cuda_tile.sqrt` avec options d'arrondi/flush.
     pub fn sqrtOpts(self: *Builder, x: Value, opts: FloatOpts) Value {
         return self.emit(ct.sqrt(self.ctx, x.inner, opts.rounding, opts.flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.rsqrt` (inverse de la racine carree).
     pub fn rsqrt(self: *Builder, x: Value) Value {
         return self.rsqrtOpts(x, false);
     }
+    // Emet `cuda_tile.rsqrt` avec flush-to-zero parametrable.
     pub fn rsqrtOpts(self: *Builder, x: Value, flush_to_zero: bool) Value {
         return self.emit(ct.rsqrt(self.ctx, x.inner, flush_to_zero, self.loc()));
     }
+    // Emet `cuda_tile.sin`.
     pub fn sin(self: *Builder, x: Value) Value {
         return self.emit(ct.sin(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.cos`.
     pub fn cos(self: *Builder, x: Value) Value {
         return self.emit(ct.cos(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.tan`.
     pub fn tan(self: *Builder, x: Value) Value {
         return self.emit(ct.tan(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.sinh` (sinus hyperbolique).
     pub fn sinh(self: *Builder, x: Value) Value {
         return self.emit(ct.sinh(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.cosh` (cosinus hyperbolique).
     pub fn cosh(self: *Builder, x: Value) Value {
         return self.emit(ct.cosh(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.tanh` (tangente hyperbolique).
     pub fn tanh(self: *Builder, x: Value) Value {
         return self.emit(ct.tanh(self.ctx, x.inner, null, self.loc()));
     }
+    // Emet `cuda_tile.tanh` avec un mode d'arrondi explicite (13.2).
     /// 13.2: `tanh` with an explicit rounding mode.
     pub fn tanhRound(self: *Builder, x: Value, rounding: RoundingMode) Value {
         return self.emit(ct.tanh(self.ctx, x.inner, rounding, self.loc()));
     }
+    // Emet `cuda_tile.ceil` (arrondi vers +inf).
     pub fn ceil(self: *Builder, x: Value) Value {
         return self.emit(ct.ceil(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.floor` (arrondi vers -inf).
     pub fn floor(self: *Builder, x: Value) Value {
         return self.emit(ct.floor(self.ctx, x.inner, self.loc()));
     }
 
+    // Emet `cuda_tile.cmpf` (comparaison flottante) avec ordre `ordered`.
     pub fn cmpf(self: *Builder, predicate: ComparisonPredicate, lhs: Value, rhs: Value) Value {
         return self.cmpfOpts(predicate, lhs, rhs, .ordered);
     }
+    // Emet `cuda_tile.cmpf` avec predicat et ordre de comparaison explicites.
     pub fn cmpfOpts(self: *Builder, predicate: ComparisonPredicate, lhs: Value, rhs: Value, ordering: ComparisonOrdering) Value {
         return self.emit(ct.cmpf(self.ctx, predicate, ordering, lhs.inner, rhs.inner, self.loc()));
     }
 
+    // Emet `cuda_tile.mmaf` : produit matriciel flottant a*b+acc (MMA).
     pub fn mmaf(self: *Builder, a: Value, b: Value, acc: Value) Value {
         return self.mmafOpts(a, b, acc, .{});
     }
+    // Emet `cuda_tile.mmaf` avec l'option `fast_acc`.
     pub fn mmafOpts(self: *Builder, a: Value, b: Value, acc: Value, opts: MmaOpts) Value {
         return self.emit(ct.mmaf(self.ctx, a.inner, b.inner, acc.inner, opts.fast_acc, self.loc()));
     }
+    // Emet `cuda_tile.mmaf_scaled` : MMA avec echelles de bloc (a_scale/b_scale) en layout logique.
     /// 13.3: block-scaled MMA. Scales are plain tiles in logical layout —
     /// `a_scale` is `[M, K/V]`, `b_scale` is `[K/V, N]` — never pre-swizzled.
     pub fn mmafScaled(self: *Builder, a: Value, b: Value, acc: Value, a_scale: Value, b_scale: Value) Value {
         return self.emit(ct.mmaf_scaled(self.ctx, a.inner, b.inner, acc.inner, a_scale.inner, b_scale.inner, self.loc()));
     }
+    // Emet `cuda_tile.mmai` : MMA entier avec signes explicites des deux operandes.
     pub fn mmai(self: *Builder, a: Value, b: Value, acc: Value, a_signedness: Signedness, b_signedness: Signedness) Value {
         return self.emit(ct.mmai(self.ctx, a.inner, b.inner, acc.inner, a_signedness, b_signedness, self.loc()));
     }
 
+    // Emet `cuda_tile.addi` (addition entiere, overflow par defaut).
     pub fn addi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.addiOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.addi` avec le mode d'overflow choisi.
     pub fn addiOpts(self: *Builder, lhs: Value, rhs: Value, opts: IntOpts) Value {
         return self.emit(ct.addi(self.ctx, lhs.inner, rhs.inner, opts.overflow, self.loc()));
     }
+    // Emet `cuda_tile.subi` (soustraction entiere).
     pub fn subi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.subiOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.subi` avec mode d'overflow.
     pub fn subiOpts(self: *Builder, lhs: Value, rhs: Value, opts: IntOpts) Value {
         return self.emit(ct.subi(self.ctx, lhs.inner, rhs.inner, opts.overflow, self.loc()));
     }
+    // Emet `cuda_tile.muli` (multiplication entiere).
     pub fn muli(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.muliOpts(lhs, rhs, .{});
     }
+    // Emet `cuda_tile.muli` avec mode d'overflow.
     pub fn muliOpts(self: *Builder, lhs: Value, rhs: Value, opts: IntOpts) Value {
         return self.emit(ct.muli(self.ctx, lhs.inner, rhs.inner, opts.overflow, self.loc()));
     }
+    // Emet `cuda_tile.mulhii` : moitie haute du produit de deux entiers.
     pub fn mulhii(self: *Builder, x: Value, y: Value) Value {
         return self.emit(ct.mulhii(self.ctx, x.inner, y.inner, self.loc()));
     }
+    // Emet `cuda_tile.divi` (division entiere) avec la signedness donnee.
     pub fn divi(self: *Builder, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.diviOpts(lhs, rhs, .{ .signedness = signedness });
     }
+    // Emet `cuda_tile.divi` avec signedness et mode d'arrondi optionnels.
     pub fn diviOpts(self: *Builder, lhs: Value, rhs: Value, opts: DivIOpts) Value {
         return self.emit(ct.divi(self.ctx, lhs.inner, rhs.inner, opts.signedness, opts.rounding, self.loc()));
     }
+    // Emet `cuda_tile.remi` (reste entier) signe ou non.
     pub fn remi(self: *Builder, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.emit(ct.remi(self.ctx, lhs.inner, rhs.inner, signedness, self.loc()));
     }
+    // Emet `cuda_tile.maxi` (maximum entier) selon la signedness.
     pub fn maxi(self: *Builder, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.emit(ct.maxi(self.ctx, lhs.inner, rhs.inner, signedness, self.loc()));
     }
+    // Emet `cuda_tile.mini` (minimum entier) selon la signedness.
     pub fn mini(self: *Builder, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.emit(ct.mini(self.ctx, lhs.inner, rhs.inner, signedness, self.loc()));
     }
+    // Emet `cuda_tile.negi` (negation entiere, overflow none).
     pub fn negi(self: *Builder, x: Value) Value {
         return self.emit(ct.negi(self.ctx, x.inner, .none, self.loc()));
     }
+    // Emet `cuda_tile.absi` (valeur absolue entiere).
     pub fn absi(self: *Builder, x: Value) Value {
         return self.emit(ct.absi(self.ctx, x.inner, self.loc()));
     }
+    // Emet `cuda_tile.shli` (decalage a gauche entier).
     pub fn shli(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(ct.shli(self.ctx, lhs.inner, rhs.inner, .none, self.loc()));
     }
+    // Emet `cuda_tile.shri` (decalage a droite entier) signe ou non.
     pub fn shri(self: *Builder, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.emit(ct.shri(self.ctx, lhs.inner, rhs.inner, signedness, self.loc()));
     }
+    // Emet `cuda_tile.andi` (ET bit a bit entier).
     pub fn andi(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(ct.andi(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // Emet `cuda_tile.ori` (OU bit a bit entier).
     pub fn ori(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(ct.ori(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // Emet `cuda_tile.xori` (OU exclusif bit a bit entier).
     pub fn xori(self: *Builder, lhs: Value, rhs: Value) Value {
         return self.emit(ct.xori(self.ctx, lhs.inner, rhs.inner, self.loc()));
     }
+    // Emet `cuda_tile.cmpi` (comparaison entiere) avec predicat et signedness.
     pub fn cmpi(self: *Builder, predicate: ComparisonPredicate, lhs: Value, rhs: Value, signedness: Signedness) Value {
         return self.emit(ct.cmpi(self.ctx, predicate, signedness, lhs.inner, rhs.inner, self.loc()));
     }
 
+    // Maximum generique : coerce puis `maxf` ou `maxi` signe selon le type elementaire.
     pub fn maximum(self: *Builder, a: anytype, b: anytype) Value {
         const l, const r = self.coerce(a, b);
         return if (l.isFloatElem()) self.maxf(l, r) else self.maxi(l, r, .signed);
     }
 
+    // Minimum generique : coerce puis `minf` ou `mini` signe.
     pub fn minimum(self: *Builder, a: anytype, b: anytype) Value {
         const l, const r = self.coerce(a, b);
         return if (l.isFloatElem()) self.minf(l, r) else self.mini(l, r, .signed);
     }
 
+    // Emet `cuda_tile.select` : choisit `t` ou `f` selon le masque `cond`.
     pub fn select(self: *Builder, cond: Value, t: Value, f: Value) Value {
         return self.emit(ct.select(self.ctx, cond.inner, t.inner, f.inner, self.loc()));
     }
 
+    // Selection type `where(cond, x, y)` avec broadcasting des trois operandes puis `select`.
     pub fn where(self: *Builder, cond: Value, x: anytype, y: anytype) Value {
         var xv, var yv = self.coerce(x, y);
         var cv = cond;
@@ -1337,56 +1538,71 @@ pub const Builder = struct {
         return self.select(cv, xv, yv);
     }
 
+    // Emet `cuda_tile.bitcast` : reinterpret les bits vers `dtype` (meme largeur).
     pub fn bitcast(self: *Builder, src: Value, dtype: DType) Value {
         return self.emit(ct.bitcast(self.ctx, src.inner, self.tileLike(src, dtype.toMlir(self.ctx)), self.loc()));
     }
+    // Emet `cuda_tile.exti` : extension entiere vers `dtype` avec signedness.
     pub fn exti(self: *Builder, src: Value, dtype: DType, signedness: Signedness) Value {
         return self.emit(ct.exti(self.ctx, src.inner, signedness, self.tileLike(src, dtype.toMlir(self.ctx)), self.loc()));
     }
+    // Emet `cuda_tile.trunci` : troncature entiere vers `dtype` (overflow none).
     pub fn trunci(self: *Builder, src: Value, dtype: DType) Value {
         return self.emit(ct.trunci(self.ctx, src.inner, self.tileLike(src, dtype.toMlir(self.ctx)), .none, self.loc()));
     }
+    // Emet `cuda_tile.ftof` : conversion flottant -> flottant, arrondi par defaut.
     pub fn ftof(self: *Builder, src: Value, dtype: DType) Value {
         return self.ftofOpts(src, dtype, .{});
     }
+    // Emet `cuda_tile.ftof` avec arrondi explicite ; defaut nearest_even (zero pour f8e8m0fnu).
     pub fn ftofOpts(self: *Builder, src: Value, dtype: DType, opts: CastOpts) Value {
         const rounding: RoundingMode = opts.rounding orelse (if (dtype == .f8e8m0fnu) .zero else .nearest_even);
         return self.emit(ct.ftof(self.ctx, src.inner, self.tileLike(src, dtype.toMlir(self.ctx)), rounding, self.loc()));
     }
+    // Emet `cuda_tile.ftoi` : flottant -> entier, arrondi vers zero.
     /// Float -> integer, truncating toward zero (the only rounding `ftoi`
     /// admits).
     pub fn ftoi(self: *Builder, src: Value, dtype: DType) Value {
         return self.ftoiOpts(src, dtype, .{});
     }
+    // Emet `cuda_tile.ftoi` avec signedness (seul arrondi admis : nearest_int_to_zero).
     pub fn ftoiOpts(self: *Builder, src: Value, dtype: DType, opts: FToIOpts) Value {
         return self.emit(ct.ftoi(self.ctx, src.inner, opts.signedness, .nearest_int_to_zero, self.tileLike(src, dtype.toMlir(self.ctx)), self.loc()));
     }
+    // Emet `cuda_tile.itof` : entier -> flottant.
     /// Integer -> float. `f8e8m0fnu` is not a legal target; go through `f32`.
     pub fn itof(self: *Builder, src: Value, dtype: DType) Value {
         return self.itofOpts(src, dtype, .{});
     }
+    // Emet `cuda_tile.itof` avec signedness/arrondi ; refuse la cible f8e8m0fnu.
     pub fn itofOpts(self: *Builder, src: Value, dtype: DType, opts: CastOpts) Value {
         if (dtype == .f8e8m0fnu) @panic("Builder.itof: the dialect refuses integer -> f8e8m0fnu; convert to .f32 first (Builder.cast does)");
         return self.emit(ct.itof(self.ctx, src.inner, opts.signedness, opts.rounding orelse .nearest_even, self.tileLike(src, dtype.toMlir(self.ctx)), self.loc()));
     }
+    // Emet `cuda_tile.int_to_ptr` : convertit un entier en pointeur vers `pointee_dtype`.
     pub fn intToPtr(self: *Builder, src: Value, pointee_dtype: DType) Value {
         return self.emit(ct.int_to_ptr(self.ctx, src.inner, self.ptrTileTy(src.shape().constSlice(), pointee_dtype), self.loc()));
     }
+    // Emet `cuda_tile.ptr_to_int` : convertit un pointeur en entier i64.
     pub fn ptrToInt(self: *Builder, src: Value) Value {
         return self.emit(ct.ptr_to_int(self.ctx, src.inner, self.tileLike(src, DType.i64.toMlir(self.ctx)), self.loc()));
     }
+    // Emet `cuda_tile.ptr_to_ptr` : change le type pointe d'un pointeur.
     pub fn ptrToPtr(self: *Builder, src: Value, pointee_dtype: DType) Value {
         return self.emit(ct.ptr_to_ptr(self.ctx, src.inner, self.ptrTileTy(src.shape().constSlice(), pointee_dtype), self.loc()));
     }
+    // Emet `cuda_tile.pack` : empaquette un tile sous-octet dans `tile<SHAPExi8>`.
     /// 13.3: a sub-byte tile packed into `tile<SHAPExi8>`.
     pub fn pack(self: *Builder, src: Value, shape: []const i64) Value {
         return self.emit(ct.pack(self.ctx, src.inner, self.tileTy(shape, .i8), self.loc()));
     }
+    // Emet `cuda_tile.unpack` : decompresse un i8 vers un tile sous-octet `dtype`.
     /// 13.3: an i8 tile unpacked into `tile<SHAPExT>` of a sub-byte `dtype`.
     pub fn unpack(self: *Builder, src: Value, shape: []const i64, dtype: DType) Value {
         return self.emit(ct.unpack(self.ctx, src.inner, self.tileTy(shape, dtype), self.loc()));
     }
 
+    // Cast numerique auto-dispatch : ftof/ftoi/itof/exti/trunci/bitcast selon les types ; entiers signes (i1 non).
     /// Numeric cast with auto-dispatch: ftof / ftoi / itof / exti / trunci /
     /// bitcast by element kind and width. Integers are signed; i1 is not.
     pub fn cast(self: *Builder, src: Value, dtype: DType) Value {
@@ -1410,19 +1626,23 @@ pub const Builder = struct {
         return self.bitcast(src, dtype);
     }
 
+    // Emet `cuda_tile.reshape` vers une nouvelle forme de meme nombre d'elements.
     pub fn reshape(self: *Builder, src: Value, shape: []const i64) Value {
         return self.emit(ct.reshape(self.ctx, src.inner, self.tileTyOf(shape, src.elemType()), self.loc()));
     }
 
+    // Type de tile de forme `shape` et element `elem`, en validant la forme.
     fn tileTyOf(self: *const Builder, shape: []const i64, elem: *const mlir.Type) *const mlir.Type {
         if (!dtypes.tileLegal(shape)) std.debug.panic("Builder: {any} is not a legal tile shape", .{shape});
         return ct.tileType(self.ctx, shape, elem);
     }
 
+    // Emet `cuda_tile.broadcast` vers la forme cible.
     pub fn broadcastTo(self: *Builder, src: Value, shape: []const i64) Value {
         return self.emit(ct.broadcast(self.ctx, src.inner, self.tileTyOf(shape, src.elemType()), self.loc()));
     }
 
+    // Insere une dimension 1 en `axis` en reshapeant la forme.
     pub fn expandDims(self: *Builder, src: Value, axis: usize) Value {
         const in_shape = src.shape();
         var out: Value.Shape = .empty;
@@ -1432,16 +1652,19 @@ pub const Builder = struct {
         return self.reshape(src, out.constSlice());
     }
 
+    // Emet `cuda_tile.cat` : concatene deux tiles le long de `dim`.
     pub fn cat(self: *Builder, lhs: Value, rhs: Value, dim: usize) Value {
         var out = lhs.shape();
         out.set(dim, out.get(dim) + rhs.dim(dim));
         return self.emit(ct.cat(self.ctx, lhs.inner, rhs.inner, @intCast(dim), self.tileTyOf(out.constSlice(), lhs.elemType()), self.loc()));
     }
 
+    // Emet `cuda_tile.extract` : extrait un sous-tile a partir d'indices dans une forme cible.
     pub fn extract(self: *Builder, src: Value, indices: []const Value, shape: []const i64) Value {
         return self.emit(ct.extract(self.ctx, src.inner, self.innerSlice(indices), self.tileTyOf(shape, src.elemType()), self.loc()));
     }
 
+    // Emet `cuda_tile.permute` : reordonne les dimensions selon `order` (i32).
     pub fn permute(self: *Builder, src: Value, order: []const i32) Value {
         const src_shape = src.shape();
         std.debug.assert(order.len == src_shape.len);
@@ -1450,15 +1673,18 @@ pub const Builder = struct {
         return self.emit(ct.permute(self.ctx, src.inner, order, self.tileTyOf(out.constSlice(), src.elemType()), self.loc()));
     }
 
+    // Transpose un tile de rang 2 (permutation {1,0}).
     pub fn transpose(self: *Builder, src: Value) Value {
         std.debug.assert(src.rank() == 2);
         return self.permute(src, &.{ 1, 0 });
     }
 
+    // Emet `cuda_tile.offset` : decale un tile de pointeurs de `off` elements.
     pub fn offset(self: *Builder, ptrs: Value, off: Value) Value {
         return self.emit(ct.offset(self.ctx, ptrs.inner, off.inner, self.loc()));
     }
 
+    // Calcule la forme resultante apres reduction sur `axis` ; verifie l'axe.
     fn reducedShape(src: Value, axis: usize) Value.Shape {
         if (axis >= src.rank()) std.debug.panic("Builder.reduce: axis {d} out of range for rank {d}", .{ axis, src.rank() });
         var out: Value.Shape = .empty;
@@ -1467,10 +1693,12 @@ pub const Builder = struct {
         return out;
     }
 
+    // Verifie que `axis` est valide pour le rang de `src` (panique sinon).
     fn checkAxis(src: Value, axis: usize) void {
         if (axis >= src.rank()) std.debug.panic("Builder.scan: axis {d} out of range for rank {d}", .{ axis, src.rank() });
     }
 
+    // Construit le block du `combine` d'une reduction : deux scalaires (element, accumulateur) puis `cuda_tile.yield`.
     fn combineBody(self: *Builder, ctx: anytype, elem: *const mlir.Type, combine: anytype) *mlir.Block {
         const scalar = ct.tileType(self.ctx, &.{}, elem);
         const body = mlir.Block.init(&.{ scalar, scalar }, &.{ self.loc(), self.loc() });
@@ -1483,18 +1711,21 @@ pub const Builder = struct {
         return body;
     }
 
+    // Emet `cuda_tile.reduce` sur `axis` avec l'identite et le body `combine` fournis.
     pub fn reduce(self: *Builder, ctx: anytype, args: ReduceArgs(@TypeOf(ctx))) Value {
         const result_ty = self.tileTyOf(reducedShape(args.src, args.axis).constSlice(), args.src.elemType());
         const body = self.combineBody(ctx, args.src.elemType(), args.combine);
         return self.emit(ct.reduce(self.ctx, &.{args.src.inner}, @intCast(args.axis), &.{args.identity}, body, &.{result_ty}, self.loc()));
     }
 
+    // Emet `cuda_tile.scan` sur `axis` (avec reverse optionnel) et le body `combine`.
     pub fn scan(self: *Builder, ctx: anytype, args: ScanArgs(@TypeOf(ctx))) Value {
         checkAxis(args.src, args.axis);
         const body = self.combineBody(ctx, args.src.elemType(), args.combine);
         return self.emit(ct.scan(self.ctx, &.{args.src.inner}, @intCast(args.axis), args.reverse, &.{args.identity}, body, &.{args.src.type_()}, self.loc()));
     }
 
+    // Construit le block `combine` variadique : paires (element, accumulateur) par source, puis `yield`.
     /// The `2N`-argument body of a variadic `reduce`/`scan`: arguments come in
     /// (element, accumulator) pairs, one pair per source.
     fn combineBodyMulti(self: *Builder, ctx: anytype, srcs: []const Value, combine: anytype) *mlir.Block {
@@ -1524,6 +1755,7 @@ pub const Builder = struct {
         return body;
     }
 
+    // Emet `cuda_tile.reduce` variadique sur plusieurs sources ; renvoie un resultat par source.
     pub fn reduceMulti(self: *Builder, ctx: anytype, args: ReduceMultiArgs(@TypeOf(ctx))) []Value {
         std.debug.assert(args.srcs.len == args.identities.len);
         const result_types = self.arena.allocator().alloc(*const mlir.Type, args.srcs.len) catch @panic("OOM");
@@ -1532,6 +1764,7 @@ pub const Builder = struct {
         return self.emitMulti(ct.reduce(self.ctx, self.innerSlice(args.srcs), @intCast(args.axis), args.identities, body, result_types, self.loc()), args.srcs.len);
     }
 
+    // Emet `cuda_tile.scan` variadique sur plusieurs sources ; renvoie un resultat par source.
     pub fn scanMulti(self: *Builder, ctx: anytype, args: ScanMultiArgs(@TypeOf(ctx))) []Value {
         std.debug.assert(args.srcs.len == args.identities.len);
         const result_types = self.arena.allocator().alloc(*const mlir.Type, args.srcs.len) catch @panic("OOM");
@@ -1545,6 +1778,7 @@ pub const Builder = struct {
 
     const ReduceKind = enum { sum, max, min, prod };
 
+    // Fonction de combinaison generique (somme/produit/max/min) selon le type elementaire.
     fn combineKind(k: *Builder, element: Value, acc: Value, kind: ReduceKind) Value {
         const is_float = element.isFloatElem();
         return switch (kind) {
@@ -1555,6 +1789,7 @@ pub const Builder = struct {
         };
     }
 
+    // Construit l'attribut identite pour une reduction de type donne (0, 1, +/-inf, min/max entier).
     fn kindIdentity(self: *Builder, src: Value, kind: ReduceKind) *const mlir.Attribute {
         const dt = self.mlirElemToDType(src.elemType());
         if (isFloatDtype(dt)) {
@@ -1576,8 +1811,10 @@ pub const Builder = struct {
         });
     }
 
+    // Reduction integree avec `combineKind` ; construit le body et appelle `reduce`.
     fn reduceKind(self: *Builder, src: Value, axis: usize, comptime kind: ReduceKind) Value {
         const combine = struct {
+            // Callback `combine` pour `reduceKind` : applique `combineKind` du kind capture sur (element, accumulateur).
             fn c(k: *Builder, element: Value, acc: Value, _: void) Value {
                 return combineKind(k, element, acc, kind);
             }
@@ -1585,21 +1822,27 @@ pub const Builder = struct {
         return self.reduce({}, .{ .src = src, .axis = axis, .identity = self.kindIdentity(src, kind), .combine = combine });
     }
 
+    // Reduction par somme sur `axis` (`cuda_tile.reduce`).
     pub fn sum(self: *Builder, src: Value, axis: usize) Value {
         return self.reduceKind(src, axis, .sum);
     }
+    // Reduction par maximum sur `axis`.
     pub fn max(self: *Builder, src: Value, axis: usize) Value {
         return self.reduceKind(src, axis, .max);
     }
+    // Reduction par minimum sur `axis`.
     pub fn min(self: *Builder, src: Value, axis: usize) Value {
         return self.reduceKind(src, axis, .min);
     }
+    // Reduction par produit sur `axis`.
     pub fn prod(self: *Builder, src: Value, axis: usize) Value {
         return self.reduceKind(src, axis, .prod);
     }
 
+    // Scan integre avec `combineKind` ; construit le body et appelle `scan`.
     fn scanKind(self: *Builder, src: Value, axis: usize, opts: ScanOpts, comptime kind: ReduceKind) Value {
         const combine = struct {
+            // Callback `combine` pour `scanKind` : applique `combineKind` du kind capture.
             fn c(k: *Builder, element: Value, acc: Value, _: void) Value {
                 return combineKind(k, element, acc, kind);
             }
@@ -1607,22 +1850,28 @@ pub const Builder = struct {
         return self.scan({}, .{ .src = src, .axis = axis, .reverse = opts.reverse, .identity = self.kindIdentity(src, kind), .combine = combine });
     }
 
+    // Somme cumulative sur `axis` (scan croissant).
     pub fn cumsum(self: *Builder, src: Value, axis: usize) Value {
         return self.scanKind(src, axis, .{}, .sum);
     }
+    // Somme cumulative avec `ScanOpts` (notamment `reverse`).
     pub fn cumsumOpts(self: *Builder, src: Value, axis: usize, opts: ScanOpts) Value {
         return self.scanKind(src, axis, opts, .sum);
     }
+    // Produit cumulatif sur `axis`.
     pub fn cumprod(self: *Builder, src: Value, axis: usize) Value {
         return self.scanKind(src, axis, .{}, .prod);
     }
+    // Maximum cumulatif sur `axis`.
     pub fn cummax(self: *Builder, src: Value, axis: usize) Value {
         return self.scanKind(src, axis, .{}, .max);
     }
+    // Minimum cumulatif sur `axis`.
     pub fn cummin(self: *Builder, src: Value, axis: usize) Value {
         return self.scanKind(src, axis, .{}, .min);
     }
 
+    // Ouvre une boucle `cuda_tile.for` [lower, upper) step, transportant `inits` ; clore avec `scope.yield`.
     /// `for iv in [lower, upper) step` carrying `inits`; close with
     /// `scope.yield(.{...})`, then read `scope.results`.
     pub fn openFor(
@@ -1676,6 +1925,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre un `cuda_tile.if` sans resultat ; le block then devient courant, `yieldThen` le ferme.
     pub fn openIf(self: *Builder, cond: Value) IfOnlyScope {
         const then_block = mlir.Block.init(&.{}, &.{});
         self.pushBlock(then_block);
@@ -1686,6 +1936,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre un `cuda_tile.if` avec N resultats et un block else ; `yieldThen`/`yieldElse` le ferment.
     pub fn openIfElse(
         self: *Builder,
         cond: Value,
@@ -1714,6 +1965,7 @@ pub const Builder = struct {
         };
     }
 
+    // Ouvre une boucle `cuda_tile.loop` non structuree transportant `inits` ; `breakWith` sort, `yield` ferme.
     /// An unstructured loop carrying `inits`; leave with `scope.breakWith`
     /// inside an `if`, and close the body with `scope.yield`.
     pub fn openLoop(self: *Builder, inits: anytype) LoopScope(tupleArity(@TypeOf(inits), "openLoop: inits")) {
@@ -1746,10 +1998,12 @@ pub const Builder = struct {
         };
     }
 
+    // Emet `cuda_tile.assert` sur `condition` avec le message donne dans le block courant.
     pub fn deviceAssert(self: *Builder, condition: Value, message: []const u8) void {
         _ = ct.assert_(self.ctx, condition.inner, message, self.loc()).appendTo(self.currentBlock());
     }
 
+    // Ajoute `cuda_tile.return`, verifie le module et serialise l'IR en chaine NUL-terminée ; `results` doit etre vide.
     /// Append `return`, verify the module, and serialize it to a NUL-terminated
     /// string owned by the kernel's allocator. `results` must be empty: an
     /// `entry` returns nothing; outputs reach the host through pointers.
@@ -1773,6 +2027,7 @@ pub const Builder = struct {
     }
 };
 
+// Cree un contexte MLIR avec le dialecte cuda_tile charge (utilitaire de test).
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -1782,12 +2037,14 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Parse l'IR fournie dans le contexte et verifie que le module resultant est valide.
 fn expectRoundTrip(ctx: *mlir.Context, ir: [:0]const u8) !void {
     const parsed = try mlir.Module.parse(ctx, ir);
     defer parsed.deinit();
     try std.testing.expect(parsed.operation().verify());
 }
 
+// Verifie qu'une entree vide produit un module valide (module/entry/assume div_by/return).
 test "empty entry round-trips" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1808,6 +2065,7 @@ test "empty entry round-trips" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test du noyau add_one (XLA) : iota, offset, load_ptr_tko, addf, store_ptr_tko et round-trip.
 test "add_one over pointer tiles matches the XLA milestone kernel" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1838,6 +2096,7 @@ test "add_one over pointer tiles matches the XLA milestone kernel" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test vector_add sur des partition views : hints sm_120, tensor/partition view, load/store_view_tko.
 test "vector_add over partition views" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1876,6 +2135,7 @@ test "vector_add over partition views" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test gemm : boucle for, partition views, mmaf et continue, avec verification du round-trip.
 test "gemm with a for loop and mmaf" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1914,6 +2174,7 @@ test "gemm with a for loop and mmaf" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test de controle de flux : if/if-else, loop+break, reduce, scan, casts, select et round-trip.
 test "if, if-else, loop with break, reduce, scan, cast, select" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1945,6 +2206,7 @@ test "if, if-else, loop with break, reduce, scan, cast, select" {
         .axis = 1,
         .identities = &.{ b.identityAttr(.f32, -std.math.inf(f64)), b.identityAttr(.i32, 0) },
         .combine = struct {
+            // Callback `combine` de l'argmax variadique : selectionne (max, index) selon la comparaison.
             fn c(k: *Builder, elements: []const Value, accs: []const Value, _: void) []const Value {
                 const better = elements[0].gt(accs[0]);
                 return k.yield(.{ k.select(better, elements[0], accs[0]), k.select(better, elements[1], accs[1]) });
@@ -2008,6 +2270,7 @@ test "if, if-else, loop with break, reduce, scan, cast, select" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test divers : globales, atomiques, print, alloca, vues dynamiques/strided/gather-scatter, tokens.
 test "atomics, print, globals, alloca, dynamic views, strided view, tokens" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -2072,6 +2335,7 @@ test "atomics, print, globals, alloca, dynamic views, strided view, tokens" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Verifie que les valeurs rendues par `Builder.init` restent valides apres le deplacement du Builder.
 test "Builder.init hands out values that outlive its frame" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -2090,6 +2354,7 @@ test "Builder.init hands out values that outlive its frame" {
     try expectRoundTrip(ctx, ir);
 }
 
+// Test exhaustif : verifie que toutes les op elementaires et de forme restantes s'assemblent et se valident.
 test "every remaining elementwise op verifies" {
     const ctx = try testContext();
     defer ctx.deinit();

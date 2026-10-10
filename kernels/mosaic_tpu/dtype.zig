@@ -14,6 +14,8 @@ pub const DType = enum {
     f8e4m3fn,
     f8e5m2,
 
+    // Convertit un `DType` Mosaic-TPU en son type MLIR correspondant (entier ou
+    // flottant) alloué dans `ctx`. Retourne le type MLIR.
     pub fn toMlir(self: DType, ctx: *mlir.Context) *const mlir.Type {
         return switch (self) {
             .i1 => .int(ctx, .i1),
@@ -31,6 +33,7 @@ pub const DType = enum {
     }
 };
 
+// Indique si `dt` est un type flottant supporté par Mosaic-TPU.
 pub fn isFloatDtype(dt: DType) bool {
     return switch (dt) {
         .f16, .bf16, .f32, .f64, .f8e4m3fn, .f8e5m2 => true,
@@ -38,6 +41,7 @@ pub fn isFloatDtype(dt: DType) bool {
     };
 }
 
+// Retourne la largeur en bits de `dt` (entier ou flottant) pour le stockage.
 pub fn dtypeBitwidth(dt: DType) usize {
     return switch (dt) {
         .i1 => 1,
@@ -48,6 +52,8 @@ pub fn dtypeBitwidth(dt: DType) usize {
     };
 }
 
+// Retourne la largeur en bits de `dt` s'il est entier; panique avec le nom du
+// type si `dt` n'est pas un entier.
 pub fn intBitwidth(dt: DType) u32 {
     return switch (dt) {
         .i1 => 1,
@@ -59,6 +65,8 @@ pub fn intBitwidth(dt: DType) u32 {
     };
 }
 
+// Convertit un type MLIR élémentaire `elem` vers le `DType` Mosaic-TPU
+// correspondant; panique si le type n'est pas reconnu.
 pub fn mlirElemToDType(ctx: *mlir.Context, elem: *const mlir.Type) DType {
     inline for (std.meta.fields(DType)) |f| {
         const dt = @field(DType, f.name);
@@ -67,6 +75,8 @@ pub fn mlirElemToDType(ctx: *mlir.Context, elem: *const mlir.Type) DType {
     @panic("element type not a recognized Mosaic-TPU DType");
 }
 
+// Test de compilation: référence toutes les déclarations publiques du module
+// pour vérifier qu'elles se compilent.
 test {
     std.testing.refAllDecls(@This());
 }

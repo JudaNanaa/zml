@@ -21,6 +21,8 @@ pub const DType = enum {
     f8e8m0fnu,
     f4e2m1fn,
 
+    // Convertit un `DType` de l'enum en son type MLIR correspondant (entier ou
+    // flottant) alloué dans le contexte `ctx`. Retourne le type MLIR.
     pub fn toMlir(self: DType, ctx: *mlir.Context) *const mlir.Type {
         return switch (self) {
             .i1 => .int(ctx, .i1),
@@ -42,6 +44,7 @@ pub const DType = enum {
     }
 };
 
+// Indique si `dt` est un type flottant (y compris les formats basse précision).
 pub fn isFloatDtype(dt: DType) bool {
     return switch (dt) {
         .f16, .bf16, .f32, .tf32, .f64, .f8e4m3fn, .f8e5m2, .f8e8m0fnu, .f4e2m1fn => true,
@@ -49,6 +52,7 @@ pub fn isFloatDtype(dt: DType) bool {
     };
 }
 
+// Retourne la largeur en bits de `dt` (entier ou flottant) pour le stockage.
 pub fn dtypeBitwidth(dt: DType) usize {
     return switch (dt) {
         .i1 => 1,
@@ -60,6 +64,8 @@ pub fn dtypeBitwidth(dt: DType) usize {
     };
 }
 
+// Retourne la largeur en bits de `dt` lorsque c'est un entier; panique avec le
+// nom du type si `dt` n'est pas un entier.
 pub fn intBitwidth(dt: DType) u32 {
     return switch (dt) {
         .i1 => 1,
@@ -72,6 +78,8 @@ pub fn intBitwidth(dt: DType) u32 {
     };
 }
 
+// Convertit un type MLIR élémentaire `elem` vers le `DType` correspondant.
+// Panique si le type n'est pas reconnu comme DType CUDA Tile IR.
 pub fn mlirElemToDType(ctx: *mlir.Context, elem: *const mlir.Type) DType {
     inline for (std.meta.fields(DType)) |f| {
         const dt = @field(DType, f.name);
@@ -80,6 +88,8 @@ pub fn mlirElemToDType(ctx: *mlir.Context, elem: *const mlir.Type) DType {
     @panic("element type not a recognized CUDA Tile IR DType");
 }
 
+// Vérifie qu'une forme de tuile est légale: chaque dimension positive et
+// puissance de deux, produit total <= 2^24. Retourne vrai si valide.
 /// SharedVerifiers.h verifyTileSize: every dimension a power of two and the
 /// tile at most 2^24 elements. Checked in Zig so the failure names the shape.
 pub fn tileLegal(shape: []const i64) bool {
@@ -91,10 +101,14 @@ pub fn tileLegal(shape: []const i64) bool {
     return elems <= (1 << 24);
 }
 
+// Test de compilation: référence toutes les déclarations publiques du module
+// pour vérifier qu'elles se compilent.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Test de `tileLegal`: accepte la tuile vide et les puissances de deux, refuse
+// la dimension non puissance de deux et le produit dépassant 2^24 éléments.
 test "tileLegal" {
     try std.testing.expect(tileLegal(&.{}));
     try std.testing.expect(tileLegal(&.{ 64, 128 }));

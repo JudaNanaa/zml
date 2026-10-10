@@ -9,6 +9,7 @@ const dsl = @import("kernels/common");
 
 pub const tupleArity = dsl.tupleArity;
 
+// Verifie qu'un tuple litteral a l'arité N et convertit ses Value en pointeurs MLIR (`*const mlir.Value`).
 fn collect(comptime ValueT: type, comptime N: usize, values: anytype, comptime what: []const u8) [N]*const mlir.Value {
     const info = @typeInfo(@TypeOf(values));
     if (info != .@"struct" or !info.@"struct".is_tuple)
@@ -24,6 +25,7 @@ fn collect(comptime ValueT: type, comptime N: usize, values: anytype, comptime w
     return buf;
 }
 
+// Pose un terminateur (`yield`/`continue`/`break`) sur `block` s'il n'en a pas, avec les valeurs collectees.
 fn terminate(comptime ValueT: type, comptime N: usize, kernel: anytype, block: *mlir.Block, comptime mnemonic: enum { yield, continue_, break_ }, values: anytype, comptime what: []const u8) void {
     if (block.terminator() != null) return;
     const buf = collect(ValueT, N, values, what);
@@ -35,6 +37,7 @@ fn terminate(comptime ValueT: type, comptime N: usize, kernel: anytype, block: *
     _ = op.appendTo(block);
 }
 
+// Retourne le type du wrapper de boucle `cuda_tile.for`, transportant N valeurs et exposant l'induction `iv`.
 /// `for %iv in (lb to ub, step) iter_values(...)`; `yield` closes it.
 pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize) type {
     return struct {
@@ -51,6 +54,7 @@ pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usiz
 
         const Self = @This();
 
+        // Emet `cuda_tile.continue` dans le block courant (dans un `if` zero-resultat) : saute le reste de l'iteration.
         /// `continue` in the current block, inside a zero-result `if`: skips
         /// the rest of the iteration and terminates that branch.
         pub fn continueWith(self: *Self, values: anytype) void {
@@ -58,6 +62,7 @@ pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usiz
             terminate(ValueT, N, k, k.currentBlock(), .continue_, values, "ForScope.continueWith");
         }
 
+        // Emet `cuda_tile.continue`, depile le corps et construit l'op `cuda_tile.for` ; remplit `results`.
         pub fn yield(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, self.body, .continue_, values, "ForScope.yield");
@@ -69,6 +74,7 @@ pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usiz
     };
 }
 
+// Retourne le type du wrapper `cuda_tile.if` sans resultat.
 pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
     return struct {
         kernel: *BuilderT,
@@ -77,6 +83,7 @@ pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
 
         const Self = @This();
 
+        // Emet `cuda_tile.yield` dans le block then, depile et construit l'op `cuda_tile.if` sans else.
         pub fn yieldThen(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, 0, k, self.then_block, .yield, values, "IfOnlyScope.yieldThen");
@@ -86,6 +93,7 @@ pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
     };
 }
 
+// Retourne le type du wrapper `cuda_tile.if`/`else` a N resultats.
 pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize) type {
     return struct {
         kernel: *BuilderT,
@@ -97,6 +105,7 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
 
         const Self = @This();
 
+        // Emet `cuda_tile.yield` dans le block then, depile et bascule dans le block else.
         pub fn yieldThen(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, self.then_block, .yield, values, "IfScope.yieldThen");
@@ -104,6 +113,7 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
             k.pushBlock(self.else_block);
         }
 
+        // Emet `cuda_tile.yield` dans le block else, construit l'op `cuda_tile.if` et remplit `results`.
         pub fn yieldElse(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, self.else_block, .yield, values, "IfScope.yieldElse");
@@ -115,6 +125,7 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
     };
 }
 
+// Retourne le type du wrapper de boucle `cuda_tile.loop` non structuree transportant N valeurs.
 /// `loop iter_values(...)`: the body ends with `continue` (`yield`) and leaves
 /// through `break` (`breakWith`, inside an `if`). `results` are the broken.
 pub fn LoopScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize) type {
@@ -128,17 +139,20 @@ pub fn LoopScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usi
 
         const Self = @This();
 
+        // Emet `cuda_tile.break` dans le block courant (termine la branche `if` englobante).
         /// `break` in the current block; terminates the enclosing `if` branch.
         pub fn breakWith(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, k.currentBlock(), .break_, values, "LoopScope.breakWith");
         }
 
+        // Emet `cuda_tile.continue` dans le block courant : passe a l'iteration suivante de la boucle.
         pub fn continueWith(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, k.currentBlock(), .continue_, values, "LoopScope.continueWith");
         }
 
+        // Emet `cuda_tile.continue`, depile le corps et construit l'op `cuda_tile.loop` ; remplit `results`.
         pub fn yield(self: *Self, values: anytype) void {
             const k = self.kernel;
             terminate(ValueT, N, k, self.body, .continue_, values, "LoopScope.yield");
@@ -150,6 +164,7 @@ pub fn LoopScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usi
     };
 }
 
+// Test anonyme : force l'instanciation de toutes les declarations du fichier.
 test {
     std.testing.refAllDecls(@This());
 }

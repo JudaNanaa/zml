@@ -9,6 +9,8 @@ const dialects = @import("mlir/dialects");
 
 const scf = dialects.scf;
 
+// Retourne, à la compilation, le nombre d'éléments du tuple littéral `T`.
+// Émet une erreur de compilation préfixée par `what` si `T` n'est pas un tuple.
 pub fn tupleArity(comptime T: type, comptime what: []const u8) comptime_int {
     const info = @typeInfo(T);
     if (info != .@"struct" or !info.@"struct".is_tuple)
@@ -16,6 +18,9 @@ pub fn tupleArity(comptime T: type, comptime what: []const u8) comptime_int {
     return info.@"struct".fields.len;
 }
 
+// Émet un `scf.yield` dans `block` à partir d'un tuple de valeurs `ValueT`.
+// Vérifie à la compilation que `values` est un tuple de `N` éléments de type
+// `ValueT` (erreurs préfixées par `what`). Effet: ajoute l'op au bloc MLIR.
 pub fn emitScfYield(
     comptime ValueT: type,
     kernel: anytype,
@@ -38,6 +43,9 @@ pub fn emitScfYield(
     _ = scf.yield(kernel.ctx, &buf, kernel.loc()).appendTo(block);
 }
 
+// Génère le type de portée d'une boucle `scf.for` transportant `N` valeurs de
+// type `ValueT`. Le type retourné expose `yield` pour clore le corps et
+// construire l'op, ses résultats étant récupérables via `results`.
 pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize) type {
     return struct {
         kernel: *BuilderT,
@@ -53,6 +61,8 @@ pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usiz
 
         const Self = @This();
 
+        // Clôt le corps de la boucle en émettant le `scf.yield`, puis crée et
+        // ajoute l'op `scf.for`; remplit `self.results` avec ses résultats.
         pub fn yield(self: *Self, values: anytype) void {
             const k = self.kernel;
             emitScfYield(ValueT, k, self.body, N, values, "ForScope.yield");
@@ -73,6 +83,8 @@ pub fn ForScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usiz
     };
 }
 
+// Génère le type de portée d'un `scf.if` sans branche `else` (aucun résultat).
+// Le type retourné expose `yieldThen` pour terminer la branche `then`.
 pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
     return struct {
         kernel: *BuilderT,
@@ -81,6 +93,8 @@ pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
 
         const Self = @This();
 
+        // Termine la branche `then` (sans résultat) en émettant un `scf.yield`
+        // vide et en construisant l'op `scf.if` associée.
         pub fn yieldThen(self: *Self, values: anytype) void {
             const k = self.kernel;
             emitScfYield(ValueT, k, self.then_block, 0, values, "IfOnlyScope.yieldThen");
@@ -98,6 +112,9 @@ pub fn IfOnlyScope(comptime BuilderT: type, comptime ValueT: type) type {
     };
 }
 
+// Génère le type de portée d'un `scf.if` avec branche `else`, transportant de
+// part et d'autre `N` valeurs de type `ValueT`. Expose `yieldThen`/`yieldElse`
+// pour terminer chaque branche; les résultats finaux sont dans `results`.
 pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize) type {
     return struct {
         kernel: *BuilderT,
@@ -109,6 +126,8 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
 
         const Self = @This();
 
+        // Termine la branche `then` en émettant son `scf.yield`, puis ouvre la
+        // branche `else` sur le bloc courant.
         pub fn yieldThen(self: *Self, values: anytype) void {
             const k = self.kernel;
             emitScfYield(ValueT, k, self.then_block, N, values, "IfScope.yieldThen");
@@ -116,6 +135,8 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
             k.pushBlock(self.else_block);
         }
 
+        // Termine la branche `else` en émettant son `scf.yield`, construit
+        // l'op `scf.if` et remplit `self.results` avec ses résultats.
         pub fn yieldElse(self: *Self, values: anytype) void {
             const k = self.kernel;
             emitScfYield(ValueT, k, self.else_block, N, values, "IfScope.yieldElse");
@@ -134,6 +155,9 @@ pub fn IfScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize
     };
 }
 
+// Génère le type de portée d'une boucle `scf.while`: `N` valeurs initiales
+// transportées vers la condition et `M` valeurs transférées vers le corps.
+// Expose `yieldBefore` (condition) et `yieldAfter` (corps).
 pub fn WhileScope(comptime BuilderT: type, comptime ValueT: type, comptime N: usize, comptime M: usize) type {
     return struct {
         kernel: *BuilderT,
@@ -147,6 +171,8 @@ pub fn WhileScope(comptime BuilderT: type, comptime ValueT: type, comptime N: us
 
         const Self = @This();
 
+        // Termine le bloc de condition: émet le `scf.condition` avec `cond` et
+        // les `M` valeurs `forwarded`, puis ouvre le bloc du corps.
         pub fn yieldBefore(self: *Self, cond: ValueT, forwarded: anytype) void {
             const info = @typeInfo(@TypeOf(forwarded));
             if (info != .@"struct" or !info.@"struct".is_tuple)
@@ -166,6 +192,8 @@ pub fn WhileScope(comptime BuilderT: type, comptime ValueT: type, comptime N: us
             for (0..M) |i| self.after_carried[i] = .{ .inner = self.after_block.argument(i), .kernel = k };
         }
 
+        // Termine le corps: émet le `scf.yield` avec `N` valeurs, construit
+        // l'op `scf.while` et remplit `self.results` avec ses résultats.
         pub fn yieldAfter(self: *Self, values: anytype) void {
             const k = self.kernel;
             emitScfYield(ValueT, k, self.after_block, N, values, "WhileScope.yieldAfter");
@@ -184,6 +212,8 @@ pub fn WhileScope(comptime BuilderT: type, comptime ValueT: type, comptime N: us
     };
 }
 
+// Test de compilation: force la référence de toutes les déclarations publiques
+// de ce module (control_flow) pour vérifier qu'elles se compilent.
 test {
     std.testing.refAllDecls(@This());
 }

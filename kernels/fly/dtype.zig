@@ -16,6 +16,8 @@ pub const DType = enum {
     f8e5m2,
     f8e5m2fnuz,
 
+    // Convertit un `DType` Fly en son type MLIR correspondant (entier ou
+    // flottant) alloué dans le contexte `ctx`. Retourne le type MLIR.
     pub fn toMlir(self: DType, ctx: *mlir.Context) *const mlir.Type {
         return switch (self) {
             .i1 => .int(ctx, .i1),
@@ -34,6 +36,7 @@ pub const DType = enum {
         };
     }
 
+    // Retourne la largeur en bits de `self` (entier ou flottant).
     pub fn bitWidth(self: DType) u32 {
         return switch (self) {
             .i1 => 1,
@@ -44,6 +47,7 @@ pub const DType = enum {
         };
     }
 
+    // Indique si `self` est un type flottant (formats basse précision inclus).
     pub fn isFloat(self: DType) bool {
         return switch (self) {
             .f16, .bf16, .f32, .f64, .f8e4m3fn, .f8e4m3fnuz, .f8e5m2, .f8e5m2fnuz => true,
@@ -51,6 +55,8 @@ pub const DType = enum {
         };
     }
 
+    // Retourne le type utilisé pour stocker `self` sur le device: `i1` devient
+    // `i8` (un prédicat occupe un octet), les autres types restent inchangés.
     /// The element type a kernel argument is stored with on device:
     /// predicates live in one byte. A copy atom over `!fly.ptr<i1>` would
     /// claim `bits / 1` elements while moving `bits / 8` bytes, so an
@@ -63,6 +69,8 @@ pub const DType = enum {
     }
 };
 
+// Inverse de `toMlir`: convertit un type MLIR `ty` vers le `DType` Fly
+// correspondant, ou retourne `null` si le type n'est pas reconnu.
 /// Inverse of `toMlir`.
 pub fn fromMlir(ctx: *mlir.Context, ty: *const mlir.Type) ?DType {
     inline for (std.meta.fields(DType)) |f| {
@@ -72,6 +80,8 @@ pub fn fromMlir(ctx: *mlir.Context, ty: *const mlir.Type) ?DType {
     return null;
 }
 
+// Test du round-trip `toMlir`/`fromMlir` pour tous les `DType`, et vérifie que
+// `storageElem` ne convertit que `i1` en `i8`.
 test "dtype types round-trip" {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();

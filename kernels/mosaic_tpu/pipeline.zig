@@ -100,6 +100,7 @@ pub const PipelineOpts = struct {
     trace_scopes: bool = true,
 };
 
+// Emule `pltpu.emit_pipeline`: cree les `BufferedRef`, alloue VMEM/semaphores, emet prologue/epilogue et le `scf.for` dans un `tpu.region` (`refs = in_refs ++ out_refs`).
 /// Emits `pltpu.emit_pipeline(body, grid=..., in_specs=..., out_specs=...)(*refs, scratches=...)`.
 /// `refs` = `in_refs ++ out_refs`. Emits into `b.currentBlock()`.
 pub fn emitPipeline(
@@ -290,6 +291,7 @@ pub const BufferedRef = struct {
     wait_out_slot: ?Value = null,
     slot: ?Value = null,
 
+    // Construit un `BufferedRef` depuis le `PipeSpec`: type effectif, buffer_count, windowing trivial et forme de bloc compacte (dims `.squeezed` retirees).
     fn create(b: *Builder, spec: PipeSpec, bt: BufferType, src: Value, spec_index: usize) BufferedRef {
         const a = b.arena.allocator();
         const buffer_type = spec.buffer_type orelse bt;
@@ -327,10 +329,12 @@ pub const BufferedRef = struct {
         };
     }
 
+    // Vrai si le buffer possede au moins un slot (`buffer_count > 0`).
     fn isBuffered(self: *const BufferedRef) bool {
         return self.buffer_count > 0;
     }
 
+    // Alloue le memref fenetre VMEM (double-buffer ou plein) et les semaphores DMA recv/send selon le `buffer_type`.
     fn allocate(self: *BufferedRef, b: *Builder) void {
         const a = b.arena.allocator();
         const vmem = MemorySpace.vmem.attribute(b.ctx);
@@ -353,6 +357,7 @@ pub const BufferedRef = struct {
         }
     }
 
+    // Ajoute les valeurs initiales des slots `scf.for` (copy_in/wait_in/copy_out/wait_out) selon le `buffer_type`.
     fn appendSlotInits(self: *BufferedRef, b: *Builder, out: *std.ArrayList(*const mlir.Value)) void {
         const c0 = b.lift(@as(i32, 0)).inner;
         switch (self.buffer_type) {
@@ -379,6 +384,7 @@ pub const BufferedRef = struct {
         }
     }
 
+    // Nombre de slots iter_args du `scf.for` pour ce `buffer_type` (1/2/4).
     fn nSlots(self: *const BufferedRef) usize {
         return switch (self.buffer_type) {
             .input => if (self.is_trivial) 1 else 2,
@@ -387,9 +393,11 @@ pub const BufferedRef = struct {
         };
     }
 
+    // Lie les arguments du corps `scf.for` aux champs de slots du buffer; renvoie l'index suivant.
     fn bindSlotsAt(self: *BufferedRef, b: *Builder, body: *mlir.Block, start: usize) usize {
         var k = start;
         const arg = struct {
+            // Helper local: prend le prochain argument de `body_` a l'index `i.*`, l'incremente et renvoie le Value.
             fn f(b_: *Builder, body_: *mlir.Block, i: *usize) Value {
                 const v: Value = .{ .inner = body_.argument(@intCast(i.*)), .kernel = b_ };
                 i.* += 1;
@@ -419,6 +427,7 @@ pub const BufferedRef = struct {
         return k;
     }
 
+    // Ajoute aux `scf.yield` les slots a propager pour ce `buffer_type`.
     fn appendSlotYields(self: *BufferedRef, b: *Builder, out: *std.ArrayList(*const mlir.Value)) void {
         _ = b;
         switch (self.buffer_type) {
@@ -443,9 +452,11 @@ pub const BufferedRef = struct {
         }
     }
 
+    // Lit les resultats du `scf.for` dans les champs de slots du buffer; renvoie l'index suivant.
     fn readbackSlots(self: *BufferedRef, b: *Builder, for_op: *mlir.Operation, start: usize) usize {
         var k = start;
         const take = struct {
+            // Helper local: prend le prochain resultat de `op` a l'index `i.*`, l'incremente et renvoie le Value.
             fn f(b_: *Builder, op: *mlir.Operation, i: *usize) Value {
                 const v: Value = .{ .inner = op.result(@intCast(i.*)), .kernel = b_ };
                 i.* += 1;
@@ -475,6 +486,7 @@ pub const BufferedRef = struct {
         return k;
     }
 
+    // Appelle l'`index_map` du spec (obligatoire hors windowing trivial) pour obtenir un `BlockIndex` par dimension.
     fn computeIndex(self: *const BufferedRef, b: *Builder, indices: []const Value) []const BlockIndex {
         if (self.spec.index_map) |im| return im(b, indices, self.spec.index_map_ctx);
         @panic("emitPipeline: index_map required for non-trivial windowing");
@@ -483,6 +495,7 @@ pub const BufferedRef = struct {
     /// Per `block_shape` dim: `{base, size?}`. `size == null` ⇒ static-full.
     /// `static_zero_start` enables prologue shortcut (Python-int 0 start folds).
     const DmaSlice = struct { base: []Value, size: []?Value };
+    // Calcule par dimension `{base, size?}` de la tranche DMA: bloc derive de l'index, `bounded_slice` (clamp OOB + `tpu.assume_multiple`), ou squeezed (index scalaire).
     fn getDmaSlice(self: *const BufferedRef, b: *Builder, indices: []const Value, static_zero_start: bool) DmaSlice {
         const a = b.arena.allocator();
         const bs = self.spec.block_shape.?;
@@ -558,6 +571,7 @@ pub const BufferedRef = struct {
         return .{ .base = base, .size = size };
     }
 
+    // Decoupe le memref source (`tpu.memref_slice`) selon la tranche DMA puis squeeze les dims retirees.
     fn sliceSrc(self: *const BufferedRef, b: *Builder, dma: DmaSlice) Value {
         const a = b.arena.allocator();
         const bs = self.spec.block_shape.?;
@@ -586,6 +600,7 @@ pub const BufferedRef = struct {
         return b.memRefSqueeze(sliced, squeezed_shape);
     }
 
+    // Decoupe la fenetre VMEM au slot donne (`[slot, 0...]`) puis squeeze la dimension slot.
     /// Slices `alloca[slot, 0…]` (non-squeezed dims) then squeezes the slot dim.
     fn sliceWindowAt(self: *const BufferedRef, b: *Builder, slot: Value, dma: DmaSlice) Value {
         const a = b.arena.allocator();
@@ -615,11 +630,13 @@ pub const BufferedRef = struct {
         return b.memRefSqueeze(sliced, squeezed_shape);
     }
 
+    // Indexe le semaphore `i` d'un tableau de semaphores (slice + squeeze) et renvoie le semaphore scalaire.
     fn semAt(b: *Builder, sem_array: Value, i: Value) Value {
         const sliced = b.memRefSlice(sem_array, &.{i}, &.{1}, &.{});
         return b.memRefSqueeze(sliced, &.{});
     }
 
+    // Renvoie la fenetre VMEM courante (slot rem) pour un buffer non trivial, sinon `window_ref`.
     fn currentRef(self: *BufferedRef, b: *Builder) Value {
         if (self.is_trivial or !self.isBuffered()) return self.window_ref;
         const slot = switch (self.buffer_type) {
@@ -641,6 +658,7 @@ pub const BufferedRef = struct {
         return b.memRefSqueeze(sliced, self.block_compact);
     }
 
+    // `copy_in` synchrone source->fenetre (region avec `tpu.enqueue_dma` + `tpu.wait_dma2`) pour un operand trivial.
     fn syncCopyIn(self: *BufferedRef, b: *Builder) void {
         const blk = mlir.Block.init(&.{}, &.{});
         b.pushBlock(blk);
@@ -652,6 +670,7 @@ pub const BufferedRef = struct {
         _ = tpu.region(b.ctx, blk, &.{}, b.loc()).appendTo(b.currentBlock());
     }
 
+    // `copy_out` synchrone fenetre->source (region enqueue/wait) pour un operand trivial.
     fn syncCopyOut(self: *BufferedRef, b: *Builder) void {
         const blk = mlir.Block.init(&.{}, &.{});
         b.pushBlock(blk);
@@ -666,6 +685,7 @@ pub const BufferedRef = struct {
     // Op order mirrors pipeline.py: copy_in/copy_out/wait_out take slot rem
     // before get_dma_slice; wait_in does it after.
 
+    // `copy_in` standard: slot cumulatif % buffer_count, tranche source et fenetre, `tpu.enqueue_dma` signale sur `sem_recvs[slot]`.
     fn defaultCopyIn(self: *BufferedRef, b: *Builder, indices: []const Value, slot_cumulative: Value, static_zero_start: bool) void {
         const slot = b.remui(slot_cumulative, b.lift(@as(i32, @intCast(self.buffer_count))));
         const dma = self.getDmaSlice(b, indices, static_zero_start);
@@ -675,6 +695,7 @@ pub const BufferedRef = struct {
         b.enqueueDma(src_sl, dst_sl, sem, .{});
     }
 
+    // `wait_in` standard: recalcule tranche et slot puis emet `tpu.wait_dma2` sur `sem_recvs[slot]`.
     fn defaultWaitIn(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         const dma = self.getDmaSlice(b, indices, false);
         const slot = b.remui(self.wait_in_slot.?, b.lift(@as(i32, @intCast(self.buffer_count))));
@@ -684,6 +705,7 @@ pub const BufferedRef = struct {
         b.waitDma2(sem, src_sl, dst_sl, .{});
     }
 
+    // `copy_out` standard (buffer_count > 1): `tpu.enqueue_dma` fenetre->source signale sur `sem_sends[slot]`.
     fn defaultCopyOut(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         if (self.buffer_count == 1) @panic("emitPipeline: single-buffered output sync_copy_out unsupported (TODO)");
         const slot = b.remui(self.copy_out_slot.?, b.lift(@as(i32, @intCast(self.buffer_count))));
@@ -695,6 +717,7 @@ pub const BufferedRef = struct {
         b.enqueueDma(src_sl, dst_sl, sem, .{});
     }
 
+    // `wait_out` standard: `tpu.wait_dma2` sur `sem_sends[slot]`; no-op si buffer_count <= 1.
     fn defaultWaitOut(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         if (self.buffer_count <= 1) return;
         const slot = b.remui(self.wait_out_slot.?, b.lift(@as(i32, @intCast(self.buffer_count))));
@@ -705,6 +728,7 @@ pub const BufferedRef = struct {
         b.waitDma2(sem, src_sl, dst_sl, .{});
     }
 
+    // `copy_in`: delegue a la strategie custom si fournie, sinon `defaultCopyIn`; no-op si windowing trivial.
     fn copyIn(self: *BufferedRef, b: *Builder, indices: []const Value, slot_cumulative: Value, static_zero_start: bool) void {
         if (self.is_trivial) return;
 
@@ -718,6 +742,7 @@ pub const BufferedRef = struct {
         self.defaultCopyIn(b, indices, slot_cumulative, static_zero_start);
     }
 
+    // `wait_in`: delegue a la strategie custom si fournie, sinon `defaultWaitIn`.
     fn waitIn(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         if (self.spec.transfer_strategy) |strategy| {
             if (strategy.wait_in) |customWaitIn| {
@@ -728,6 +753,7 @@ pub const BufferedRef = struct {
         self.defaultWaitIn(b, indices);
     }
 
+    // `copy_out`: delegue a la strategie custom si fournie, sinon `defaultCopyOut`.
     fn copyOut(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         if (self.spec.transfer_strategy) |strategy| {
             if (strategy.copy_out) |customCopyOut| {
@@ -738,6 +764,7 @@ pub const BufferedRef = struct {
         self.defaultCopyOut(b, indices);
     }
 
+    // `wait_out`: delegue a la strategie custom si fournie, sinon `defaultWaitOut`.
     fn waitOut(self: *BufferedRef, b: *Builder, indices: []const Value) void {
         if (self.spec.transfer_strategy) |strategy| {
             if (strategy.wait_out) |customWaitOut| {
@@ -748,36 +775,44 @@ pub const BufferedRef = struct {
         self.defaultWaitOut(b, indices);
     }
 
+    // Renvoie le memref source HBM de ce buffer.
     pub fn sourceRef(self: *const BufferedRef) Value {
         return self.src;
     }
 
+    // Renvoie le memref fenetre VMEM de ce buffer.
     pub fn windowRef(self: *const BufferedRef) Value {
         return self.window_ref;
     }
 
+    // Slot de `copy_in` courant: cumulatif % buffer_count.
     pub fn copyInSlot(self: *const BufferedRef, b: *Builder, slot_cumulative: Value) Value {
         return b.remui(slot_cumulative, b.lift(@as(i32, @intCast(self.buffer_count))));
     }
 
+    // Slot de `wait_in` courant: `wait_in_slot` % buffer_count.
     pub fn waitInSlot(self: *const BufferedRef, b: *Builder) Value {
         return b.remui(self.wait_in_slot.?, b.lift(@as(i32, @intCast(self.buffer_count))));
     }
 
+    // Renvoie le semaphore de reception au slot donne (`sem_recvs`).
     pub fn receiveSemaphoreAt(self: *const BufferedRef, b: *Builder, slot: Value) Value {
         return semAt(b, self.sem_recvs.?, slot);
     }
 
+    // Slot de `copy_out` courant: `copy_out_slot` % buffer_count.
     pub fn copyOutSlot(self: *const BufferedRef, b: *Builder) Value {
         const buffer_count: i32 = @intCast(self.buffer_count);
         return b.remui(self.copy_out_slot.?, b.lift(buffer_count));
     }
 
+    // Slot de `wait_out` courant: `wait_out_slot` % buffer_count.
     pub fn waitOutSlot(self: *const BufferedRef, b: *Builder) Value {
         const buffer_count: i32 = @intCast(self.buffer_count);
         return b.remui(self.wait_out_slot.?, b.lift(buffer_count));
     }
 
+    // Renvoie le semaphore d'emission au slot donne (`sem_sends`).
     pub fn sendSemaphoreAt(
         self: *const BufferedRef,
         b: *Builder,
@@ -803,6 +838,7 @@ const Scheduler = struct {
     fetch_len: usize,
     indices_len: usize,
 
+    // Initialise un `Scheduler` (etape, grille, bornes, stages) et precalcule les indices derives.
     fn init(b: *Builder, step: Value, grid: []const Value, num_steps: Value, num_stages: usize, trace_scopes: bool) Scheduler {
         if (num_stages + 1 > 8) @panic("emitPipeline: buffer_count > 7 unsupported");
         const c0 = b.lift(@as(i32, 0));
@@ -823,20 +859,25 @@ const Scheduler = struct {
         return s;
     }
 
+    // Indices de grille courants.
     fn indices(self: *Scheduler) []const Value {
         return self.indices_storage[0..self.indices_len];
     }
+    // Indices de grille precedents (`prevIndexND`).
     fn prevIndices(self: *Scheduler) []const Value {
         return self.prev_storage[0..self.indices_len];
     }
+    // Indices de grille suivants (`nextIndexND`).
     fn nextIndices(self: *Scheduler) []const Value {
         return self.next_storage[0..self.indices_len];
     }
+    // Indices de prefetch a l'avance `lookahead`, pour le scheduling des copies.
     fn fetchIndices(self: *Scheduler, lookahead: usize) []const Value {
         std.debug.assert(lookahead < self.fetch_len);
         return self.fetch_storage[lookahead][0..self.indices_len];
     }
 
+    // Recalcule prev/next et la table de prefetch a partir des indices courants.
     fn recomputeDerivedIndices(self: *Scheduler, b: *Builder) void {
         const prev = prevIndexND(b, self.indices(), self.grid);
         const next = nextIndexND(b, self.indices(), self.grid);
@@ -854,13 +895,16 @@ const Scheduler = struct {
         }
     }
 
+    // Ouvre une portee de trace nommee si `trace_scopes` est actif.
     fn namedScope(self: *Scheduler, b: *Builder, name: []const u8) void {
         if (self.trace_scopes) b.traceStart(10, name);
     }
+    // Ferme la portee de trace ouverte par `namedScope`.
     fn endScope(self: *Scheduler, b: *Builder) void {
         if (self.trace_scopes) b.traceStop();
     }
 
+    // Predicat `step < num_steps + (1 - buffer_count)` (encore dans la fenetre de prefetch).
     /// `~out_of_fetch` as `step < num_steps + (1 - buffer_count)`.
     fn notOutOfFetch(self: *Scheduler, b: *Builder, br: *const BufferedRef) Value {
         std.debug.assert(br.isBuffered());
@@ -868,10 +912,12 @@ const Scheduler = struct {
         return b.cmpi(.slt, self.step, b.addi(self.num_steps, b.lift(off)));
     }
 
+    // Predicat `step != 0`.
     fn notFirstStep(self: *Scheduler, b: *Builder) Value {
         return b.cmpi(.ne, self.step, b.lift(@as(i32, 0)));
     }
 
+    // Vrai si deux jeux d'indices donnent un `BlockIndex` different (OR des comparaisons par dimension).
     fn indicesDiffer(b: *Builder, br: *const BufferedRef, ai: []const Value, ci: []const Value) Value {
         const xa = br.computeIndex(b, ai);
         const xc = br.computeIndex(b, ci);
@@ -887,24 +933,29 @@ const Scheduler = struct {
         return acc.?;
     }
 
+    // Vrai si les indices du bloc courant different des precedents (bloc a recharger).
     fn hasChanged(self: *Scheduler, b: *Builder, br: *const BufferedRef) Value {
         std.debug.assert(br.isBuffered() and !br.is_trivial);
         return indicesDiffer(b, br, self.indices(), self.prevIndices());
     }
+    // Vrai si le bloc va changer a l'etape suivante.
     fn willChangeCurrent(self: *Scheduler, b: *Builder, br: *const BufferedRef) Value {
         std.debug.assert(br.isBuffered() and !br.is_trivial);
         return indicesDiffer(b, br, self.indices(), self.nextIndices());
     }
+    // Vrai si le bloc a charger change par rapport au prefetch precedent (au plus profond de la file).
     fn willChangeFetch(self: *Scheduler, b: *Builder, br: *const BufferedRef) Value {
         std.debug.assert(br.isBuffered() and !br.is_trivial);
         if (br.buffer_count < 2) return self.hasChanged(b, br);
         return indicesDiffer(b, br, self.fetchIndices(br.buffer_count - 2), self.fetchIndices(br.buffer_count - 1));
     }
 
+    // Incremente `slot` de 1 si `pred`, sinon le laisse inchange.
     fn advance(b: *Builder, slot: Value, pred: Value) Value {
         return b.select(pred, b.addi(slot, b.lift(@as(i32, 1))), slot);
     }
 
+    // Emet le `copy_in` de pre-remplissage (prologue) pour l'etape donnee, avant la boucle.
     fn initializeStep(self: *Scheduler, b: *Builder, br: *BufferedRef, step: usize) void {
         if ((br.buffer_type != .input and br.buffer_type != .input_output) or !br.isBuffered() or br.is_trivial) return;
         if (step + 1 >= br.buffer_count) return;
@@ -928,6 +979,7 @@ const Scheduler = struct {
         br.copy_in_slot = advance(b, br.copy_in_slot.?, pred);
     }
 
+    // Emet le `copy_in` de l'iteration courante (dans un `scf.if`) et avance le slot.
     fn copyIn(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.is_trivial) return;
         var pred = b.andi(self.willChangeFetch(b, br), self.notOutOfFetch(b, br));
@@ -945,6 +997,7 @@ const Scheduler = struct {
         br.copy_in_slot = advance(b, br.copy_in_slot.?, pred);
     }
 
+    // Emet le `wait_in` de l'iteration courante (si le bloc change ou a la premiere etape).
     fn waitIn(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.is_trivial) return;
         const pred = b.ori(self.hasChanged(b, br), self.first_step);
@@ -959,6 +1012,7 @@ const Scheduler = struct {
         }
     }
 
+    // Emet le `copy_out` de l'iteration courante (si le bloc change ou a la derniere etape) et avance le slot.
     fn copyOut(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.is_trivial) return;
         const pred = b.ori(self.willChangeCurrent(b, br), self.last_step);
@@ -974,6 +1028,7 @@ const Scheduler = struct {
         br.copy_out_slot = advance(b, br.copy_out_slot.?, pred);
     }
 
+    // Emet le `wait_out` du `copy_out` emis a l'iteration precedente.
     fn waitOut(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.is_trivial) return;
         const pred = b.andi(self.hasChanged(b, br), self.notFirstStep(b));
@@ -990,6 +1045,7 @@ const Scheduler = struct {
         br.wait_out_slot = advance(b, br.wait_out_slot.?, pred);
     }
 
+    // Epilogue: attend le dernier `wait_out` des buffers de sortie apres la boucle.
     fn finalize(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.is_trivial or (br.buffer_type != .output and br.buffer_type != .input_output)) return;
         var when = b.openIf(self.last_step);
@@ -1001,6 +1057,7 @@ const Scheduler = struct {
         }
     }
 
+    // Avance le slot `wait_in` (rotation) en fin d'iteration pour les buffers d'entree.
     fn advanceSlots(self: *Scheduler, b: *Builder, br: *BufferedRef) void {
         if (br.buffer_type != .input and br.buffer_type != .input_output) return;
         if (br.is_trivial) {
@@ -1016,6 +1073,7 @@ const Scheduler = struct {
     }
 };
 
+// `memref.alloca` (verify=false) pour une allocation VMEM/autre dans le corps.
 /// `verify = false`: `AutomaticAllocationScope` requirement is only satisfied
 /// once it's inside `func.func`; full verify at `Builder.finish`.
 pub fn memRefAlloca(b: *Builder, ty: *const mlir.Type) Value {
@@ -1027,6 +1085,7 @@ pub fn memRefAlloca(b: *Builder, ty: *const mlir.Type) Value {
     }));
 }
 
+// `tpu.sem_alloc` (verify=false) pour allouer un semaphore.
 pub fn semAllocOp(b: *Builder, ty: *const mlir.Type) Value {
     return b.emit(mlir.Operation.make(b.ctx, "tpu.sem_alloc", .{
         .results = .{ .flat = &.{ty} },
@@ -1035,18 +1094,21 @@ pub fn semAllocOp(b: *Builder, ty: *const mlir.Type) Value {
     }));
 }
 
+// Type `memref<n x !tpu.dma_semaphore, semaphore_mem>`; rang 0 si `n == null`.
 /// `pl.SemaphoreType.DMA((n,))`, or rank-0 for `n == null`.
 pub fn dmaSemRefTy(b: *Builder, n: ?usize) *const mlir.Type {
     const shape: []const i64 = if (n) |m| &.{@intCast(m)} else &.{};
     return mlir.Type.memRef(tpu.dmaSemaphoreType(b.ctx), shape, null, MemorySpace.semaphore_mem.attribute(b.ctx));
 }
 
+// Produit des bornes de grille (nombre total d'iterations).
 fn gridSize(b: *Builder, grid: []const Value) Value {
     var acc = grid[0];
     for (grid[1..]) |g| acc = b.muli(acc, g);
     return acc;
 }
 
+// Remplace par 0 les indices des dimensions de grille de taille 1 (constantes).
 fn filterIndices(b: *Builder, indices: []const Value, grid: []const Value) [4]Value {
     var out: [4]Value = undefined;
     const c0 = b.lift(@as(i32, 0));
@@ -1056,6 +1118,7 @@ fn filterIndices(b: *Builder, indices: []const Value, grid: []const Value) [4]Va
     return out;
 }
 
+// Incremente des indices multi-dim en base grille avec propagation de retenue (next).
 fn nextIndexND(b: *Builder, indices: []const Value, grid: []const Value) []const Value {
     const a = b.arena.allocator();
     const out = a.alloc(Value, indices.len) catch @panic("nextIndexND OOM");
@@ -1073,6 +1136,7 @@ fn nextIndexND(b: *Builder, indices: []const Value, grid: []const Value) []const
     return out;
 }
 
+// Decremente des indices multi-dim en base grille avec propagation d'emprunt (prev).
 fn prevIndexND(b: *Builder, indices: []const Value, grid: []const Value) []const Value {
     const a = b.arena.allocator();
     const out = a.alloc(Value, indices.len) catch @panic("prevIndexND OOM");
@@ -1091,6 +1155,7 @@ fn prevIndexND(b: *Builder, indices: []const Value, grid: []const Value) []const
     return out;
 }
 
+// Vrai si le windowing est trivial: pas de `block_shape`, ou chaque dim est `.blocked(full_dim)`.
 /// `null` block_shape, or every dim is `.blocked(full_dim)`.
 fn specHasTrivialWindowing(spec: PipeSpec) bool {
     const bs = spec.block_shape orelse return true;
@@ -1102,10 +1167,12 @@ fn specHasTrivialWindowing(spec: PipeSpec) bool {
     return true;
 }
 
+// Force l'inclusion des declarations du module via `refAllDecls`.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Verifie qu'un operand input_output trivial genere un couple enqueue/wait DMA en copy_in et un en copy_out.
 test "trivial input-output ref is copied in and out" {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -1129,6 +1196,7 @@ test "trivial input-output ref is copied in and out" {
     defer b.deinit();
 
     const noOpBody = struct {
+        // Corps no-op utilise comme `BodyFn` dans le test.
         fn call(
             _: *Builder,
             _: []const Value,

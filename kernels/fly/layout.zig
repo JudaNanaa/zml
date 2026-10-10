@@ -21,6 +21,7 @@ pub const Leaf = union(enum) {
     d: Dyn,
     none,
 
+    // Ecrit la feuille en syntaxe Fly : `42`, `?{i64 div=8}` ou `*`.
     pub fn print(self: Leaf, w: *std.Io.Writer) std.Io.Writer.Error!void {
         switch (self) {
             .s => |v| try w.print("{d}", .{v}),
@@ -41,6 +42,7 @@ pub const Leaf = union(enum) {
     }
 };
 
+// Convertit une feuille hote en attribut MLIR IntAttr (statique, dynamique ou none).
 fn leafAttr(leaf: Leaf, ctx: *mlir.Context) mlir.Error!*const attributes.IntAttr {
     return switch (leaf) {
         .s => |v| .getStatic(ctx, @intCast(v)),
@@ -63,14 +65,17 @@ pub const IntTuple = union(enum) {
     pub const dyn: IntTuple = .{ .leaf = .{ .d = .{} } };
     pub const star: IntTuple = .{ .leaf = .none };
 
+    // Construit un IntTuple a partir d'une valeur entiere statique.
     pub fn static(v: i64) IntTuple {
         return .{ .leaf = .{ .s = v } };
     }
 
+    // Construit un IntTuple dynamique avec largeur (en bits) et divisibilite.
     pub fn dynamic(width: u8, div: u32) IntTuple {
         return .{ .leaf = .{ .d = .{ .width = width, .div = div } } };
     }
 
+    // Rang du tuple : nombre de modes (1 pour une feuille).
     /// 1 for a leaf.
     pub fn rank(self: IntTuple) usize {
         return switch (self) {
@@ -79,10 +84,12 @@ pub const IntTuple = union(enum) {
         };
     }
 
+    // Vrai si le tuple est une feuille (et non un `tup`).
     pub fn isLeaf(self: IntTuple) bool {
         return self != .tup;
     }
 
+    // Retourne le i-eme element d'un tuple (la feuille elle-meme si i == 0).
     pub fn at(self: IntTuple, i: usize) IntTuple {
         return switch (self) {
             .tup => |t| t[i],
@@ -90,6 +97,7 @@ pub const IntTuple = union(enum) {
         };
     }
 
+    // Produit des extents ; null des qu'une feuille est dynamique ou `*`.
     /// Null if any leaf is dynamic or `*`.
     pub fn product(self: IntTuple) ?i64 {
         switch (self) {
@@ -106,6 +114,7 @@ pub const IntTuple = union(enum) {
         }
     }
 
+    // Vrai si toutes les feuilles sont statiques.
     pub fn isStatic(self: IntTuple) bool {
         return switch (self) {
             .leaf => |l| l == .s,
@@ -116,6 +125,7 @@ pub const IntTuple = union(enum) {
         };
     }
 
+    // Nombre de feuilles, a toute profondeur.
     /// At any depth.
     pub fn leafCount(self: IntTuple) usize {
         return switch (self) {
@@ -128,6 +138,7 @@ pub const IntTuple = union(enum) {
         };
     }
 
+    // Ecrit le tuple en syntaxe Fly : `(2,4)`, `2E1E2`.
     pub fn print(self: IntTuple, w: *std.Io.Writer) std.Io.Writer.Error!void {
         switch (self) {
             .leaf => |l| try l.print(w),
@@ -146,10 +157,12 @@ pub const IntTuple = union(enum) {
         }
     }
 
+    // Implemente `{f}` en deleguant a print.
     pub fn format(self: IntTuple, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try self.print(w);
     }
 
+    // Convertit l'IntTuple en attribut MLIR `IntTupleAttr`.
     pub fn toAttr(self: IntTuple, ctx: *mlir.Context) mlir.Error!*const attributes.IntTupleAttr {
         return switch (self) {
             .leaf => |l| .get(ctx, .{ .value = (try leafAttr(l, ctx)).attribute() }),
@@ -162,6 +175,7 @@ pub const IntTuple = union(enum) {
         };
     }
 
+    // Egalite structurelle entre deux IntTuple.
     pub fn eql(a: IntTuple, b: IntTuple) bool {
         if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
         return switch (a) {
@@ -174,12 +188,15 @@ pub const IntTuple = union(enum) {
     }
 };
 
+// Construit un IntTuple a la compilation : entiers -> feuilles statiques,
+// tuples imbriques, `null` -> `*`, IntTuple tel quel.
 /// Integers become static leaves, tuples nest, `null` is `*`, an `IntTuple`
 /// passes through: `it(.{ .{ 2, 4 }, 8 })` is `((2,4),8)`.
 pub fn it(comptime v: anytype) IntTuple {
     return comptime itImpl(v);
 }
 
+// Implementation recursive de `it` (evaluee a la compilation).
 fn itImpl(comptime v: anytype) IntTuple {
     const T = @TypeOf(v);
     if (T == IntTuple) return v;
@@ -203,34 +220,41 @@ pub const Layout = struct {
     shape: IntTuple,
     stride: IntTuple,
 
+    // Rang du layout, egal au rang de sa forme.
     pub fn rank(self: Layout) usize {
         return self.shape.rank();
     }
 
+    // Taille du layout (produit de la forme) ; null si dynamique.
     /// Null if dynamic.
     pub fn size(self: Layout) ?i64 {
         return self.shape.product();
     }
 
+    // Ecrit le layout sous la forme `forme:stride`.
     pub fn print(self: Layout, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try self.shape.print(w);
         try w.writeAll(":");
         try self.stride.print(w);
     }
 
+    // Implemente `{f}` en deleguant a print.
     pub fn format(self: Layout, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try self.print(w);
     }
 
+    // Convertit le Layout en attribut MLIR `LayoutAttr`.
     pub fn toAttr(self: Layout, ctx: *mlir.Context) mlir.Error!*const attributes.LayoutAttr {
         return .get(ctx, .{ .shape = try self.shape.toAttr(ctx), .stride = try self.stride.toAttr(ctx) });
     }
 
+    // Egalite de layout : meme forme et meme stride.
     pub fn eql(a: Layout, b: Layout) bool {
         return a.shape.eql(b.shape) and a.stride.eql(b.stride);
     }
 };
 
+// Construit un Layout `forme:stride` et verifie la congruence a la compilation.
 /// Two congruent tuples: `L(.{ 4, 8 }, .{ 1, 4 })` is `(4,8):(1,4)`.
 pub fn L(comptime shape: anytype, comptime stride: anytype) Layout {
     return comptime blk: {
@@ -241,6 +265,7 @@ pub fn L(comptime shape: anytype, comptime stride: anytype) Layout {
     };
 }
 
+// Verifie (a la compilation) que forme et stride ont la meme structure ; erreur sinon.
 fn checkCongruent(comptime a: IntTuple, comptime b: IntTuple) void {
     if (a.isLeaf() != b.isLeaf() or a.rank() != b.rank()) {
         @compileError("fly.L: shape and stride are not congruent");
@@ -250,6 +275,7 @@ fn checkCongruent(comptime a: IntTuple, comptime b: IntTuple) void {
     }
 }
 
+// Layout row-major : le dernier mode est contigu.
 /// Last mode contiguous: `rowMajor(.{ 4, 8 })` is `(4,8):(8,1)`.
 pub fn rowMajor(comptime shape: anytype) Layout {
     return comptime blk: {
@@ -261,6 +287,7 @@ pub fn rowMajor(comptime shape: anytype) Layout {
     };
 }
 
+// Layout col-major : le premier mode est contigu.
 /// First mode contiguous.
 pub fn colMajor(comptime shape: anytype) Layout {
     return comptime blk: {
@@ -272,6 +299,8 @@ pub fn colMajor(comptime shape: anytype) Layout {
     };
 }
 
+// `make_ordered_layout` replie a la compilation : l'ordre minimal recoit le
+// stride 1, puis le produit des extents precedents, et ainsi de suite.
 /// `make_ordered_layout` folded at comptime: the smallest order value gets
 /// stride 1, the next the product of the previous extents, and so on.
 /// `ordered(.{ 8, 16 }, .{ 1, 0 })` is `(8,16):(16,1)`.
@@ -288,6 +317,7 @@ pub fn ordered(comptime shape: anytype, comptime order: anytype) Layout {
     };
 }
 
+// Aplatit un ordre imbrique en liste ; refuse les elements basis.
 fn flattenOrder(comptime o: IntTuple, out: []i32, idx: *usize) void {
     switch (o) {
         .leaf => |l| {
@@ -299,6 +329,7 @@ fn flattenOrder(comptime o: IntTuple, out: []i32, idx: *usize) void {
     }
 }
 
+// Calcule les strides a partir d'un ordre aplati (mode d'ordre minimal -> stride 1).
 fn orderedFlat(comptime shape: IntTuple, comptime order: []const i32) Layout {
     comptime {
         const n = shape.leafCount();
@@ -323,6 +354,7 @@ fn orderedFlat(comptime shape: IntTuple, comptime order: []const i32) Layout {
     }
 }
 
+// Aplatit une forme statique en extents ; erreur si non statique ou basis.
 fn flattenStatic(comptime t: IntTuple, out: []i64, idx: *usize) void {
     switch (t) {
         .leaf => |l| switch (l) {
@@ -337,6 +369,7 @@ fn flattenStatic(comptime t: IntTuple, out: []i64, idx: *usize) void {
     }
 }
 
+// Reconstruit un IntTuple imbrique depuis des valeurs plates, suivant la structure `like`.
 fn unflatten(comptime like: IntTuple, values: []const i64, pos: *usize) IntTuple {
     switch (like) {
         .tup => |elems| {
@@ -359,6 +392,7 @@ pub const Tile = union(enum) {
     layout: Layout,
     modes: []const Tile,
 
+    // Ecrit la tuile : `[a|b]`, un layout, ou une simple feuille.
     pub fn print(self: Tile, w: *std.Io.Writer) std.Io.Writer.Error!void {
         switch (self) {
             .leaf => |l| try l.print(w),
@@ -374,10 +408,12 @@ pub const Tile = union(enum) {
         }
     }
 
+    // Implemente `{f}` en deleguant a print.
     pub fn format(self: Tile, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try self.print(w);
     }
 
+    // Convertit un mode (entier, layout ou sous-tuile) en attribut MLIR.
     /// One mode: an int, a layout, or a nested tile.
     fn modeAttr(self: Tile, ctx: *mlir.Context) mlir.Error!*const mlir.Attribute {
         return switch (self) {
@@ -387,6 +423,7 @@ pub const Tile = union(enum) {
         };
     }
 
+    // Convertit la Tile en attribut MLIR `TileAttr` (modes multiples ou valeur unique).
     pub fn toAttr(self: Tile, ctx: *mlir.Context) mlir.Error!*const attributes.TileAttr {
         const modes = switch (self) {
             .modes => |m| m,
@@ -398,11 +435,13 @@ pub const Tile = union(enum) {
     }
 };
 
+// Construit une Tile a la compilation depuis un entier, `null`, Layout, Tile ou tuple.
 /// `tile(.{ 128, 64 })` is `[128|64]`; `tile(.{ null, 8 })` is `[*|8]`.
 pub fn tile(comptime v: anytype) Tile {
     return comptime tileImpl(v);
 }
 
+// Implementation recursive de `tile` (evaluee a la compilation).
 fn tileImpl(comptime v: anytype) Tile {
     const T = @TypeOf(v);
     if (T == Tile) return v;
@@ -430,18 +469,22 @@ pub const Swizzle = struct {
 
     pub const trivial: Swizzle = .{ .mask = 0, .base = 0, .shift = 0 };
 
+    // Vrai si le swizzle est trivial (mask = base = shift = 0).
     pub fn isTrivial(self: Swizzle) bool {
         return self.mask == 0 and self.base == 0 and self.shift == 0;
     }
 
+    // Ecrit le swizzle sous la forme `S<mask,base,shift>`.
     pub fn print(self: Swizzle, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try w.print("S<{d},{d},{d}>", .{ self.mask, self.base, self.shift });
     }
 
+    // Implemente `{f}` en deleguant a print.
     pub fn format(self: Swizzle, w: *std.Io.Writer) std.Io.Writer.Error!void {
         try self.print(w);
     }
 
+    // Convertit le Swizzle en attribut MLIR `SwizzleAttr`.
     pub fn toAttr(self: Swizzle, ctx: *mlir.Context) mlir.Error!*const attributes.SwizzleAttr {
         return .get(ctx, .{ .mask = self.mask, .base = self.base, .shift = self.shift });
     }
@@ -451,6 +494,7 @@ pub const Swizzle = struct {
 // Tests
 // -----------------------------------------------------------------------------
 
+// Helper de test : formate `v` et compare la chaine au resultat attendu.
 fn expectPrints(expected: []const u8, v: anytype) !void {
     var buf: [1024]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
@@ -458,6 +502,7 @@ fn expectPrints(expected: []const u8, v: anytype) !void {
     try std.testing.expectEqualStrings(expected, w.buffered());
 }
 
+// Verifie l'impression Fly des tuples d'entiers (statiques, dynamiques, `*`, imbriques).
 test "int tuple literals print in fly syntax" {
     try expectPrints("42", it(42));
     try expectPrints("((2,4),8)", it(.{ .{ 2, 4 }, 8 }));
@@ -469,6 +514,7 @@ test "int tuple literals print in fly syntax" {
     try expectPrints("(1,(2,3))", it(.{ 1, .{ 2, 3 } }));
 }
 
+// Verifie l'impression des litteraux de layout (L, rowMajor, colMajor, ordered).
 test "layout literals" {
     try expectPrints("(4,8):(1,4)", L(.{ 4, 8 }, .{ 1, 4 }));
     try expectPrints("((2,4),8):((1,2),8)", L(.{ .{ 2, 4 }, 8 }, .{ .{ 1, 2 }, 8 }));
@@ -480,6 +526,7 @@ test "layout literals" {
     try expectPrints("(4,2,8):(2,1,8)", ordered(.{ 4, 2, 8 }, .{ 1, 0, 2 }));
 }
 
+// Verifie l'impression des tuiles (feuilles, layouts imbriques) et du swizzle.
 test "tiles and swizzles" {
     try expectPrints("[128|64]", tile(.{ 128, 64 }));
     try expectPrints("[*|8]", tile(.{ null, 8 }));
@@ -488,6 +535,7 @@ test "tiles and swizzles" {
     try expectPrints("S<3,3,3>", Swizzle{ .mask = 3, .base = 3, .shift = 3 });
 }
 
+// Verifie product, rank, leafCount et eql sur les IntTuple.
 test "static queries" {
     try std.testing.expectEqual(@as(?i64, 64), it(.{ .{ 2, 4 }, 8 }).product());
     try std.testing.expectEqual(@as(?i64, null), it(.{ IntTuple.dyn, 8 }).product());
@@ -497,6 +545,7 @@ test "static queries" {
     try std.testing.expect(!it(.{ 2, 4 }).eql(it(.{ 4, 2 })));
 }
 
+// Cree un contexte MLIR avec les dialectes Fly charges (helper de test).
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -506,6 +555,8 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Helper de test : le type construit depuis le modele hote doit etre egal au
+// type parse depuis le litteral imprime (les deux chemins ne doivent pas diverger).
 /// The type built from the host model must be the type the printed literal
 /// parses to: the two paths may never drift.
 fn expectBuilt(ctx: *mlir.Context, comptime T: type, comptime fmt: []const u8, value: anytype) !void {
@@ -520,6 +571,8 @@ fn expectBuilt(ctx: *mlir.Context, comptime T: type, comptime fmt: []const u8, v
     }
 }
 
+// Verifie que les types construits depuis le modele hote egalent ceux parses
+// depuis les litteraux (int_tuple, layout, tile).
 test "the host model builds the types its literals print" {
     const ctx = try testContext();
     defer ctx.deinit();
