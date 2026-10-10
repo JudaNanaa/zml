@@ -37,6 +37,8 @@ pub const Family = enum(u32) {
     trn3 = 14,
     trn3pds98 = 15,
 
+    // Convertit une famille d'instance Neuron en cible de compilation prise en charge.
+    // Déclenche unreachable pour unknown/inf1, non compilables.
     pub fn compilerTarget(self: Family) CompilerTarget {
         return switch (self) {
             .unknown, .inf1 => unreachable,
@@ -66,10 +68,12 @@ pub const Instance = struct {
     family: Family,
     size: Size,
 
+    // Renvoie la cible de compilateur de l'instance en déléguant à sa famille.
     pub fn compilerTarget(self: Instance) CompilerTarget {
         return self.family.compilerTarget();
     }
 
+    // Renvoie le nombre de cœurs par puce pour la famille d'instance.
     pub fn coresPerChip(self: Instance) !usize {
         return switch (self.family) {
             .inf1 => 4,
@@ -80,6 +84,8 @@ pub const Instance = struct {
     }
 };
 
+// Interroge le runtime NRT pour obtenir la famille et la taille de l'instance Neuron.
+// Renvoie error.Unavailable si l'appel nrt_get_instance_info échoue.
 pub fn instance() !Instance {
     var info = std.mem.zeroes(c.struct_nrt_instance_info);
     info.family = @intFromEnum(Family.unknown);
@@ -95,15 +101,18 @@ pub fn instance() !Instance {
     };
 }
 
+// Indique si le backend Neuron est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.neuron_enabled;
 }
 
+// Vérifie l'accessibilité du périphérique /dev/neuron0.
 fn hasNeuronDevice(io: std.Io) bool {
     std.Io.Dir.accessAbsolute(io, "/dev/neuron0", .{ .read = true }) catch return false;
     return true;
 }
 
+// Détecte l'exécution sur une instance Amazon EC2 via /sys/.../sys_vendor.
 fn isRunningOnEC2(io: std.Io) !bool {
     const AmazonEC2 = "Amazon EC2";
     var buffer: [AmazonEC2.len]u8 = undefined;
@@ -119,6 +128,8 @@ fn isRunningOnEC2(io: std.Io) !bool {
     );
 }
 
+// Charge le plugin PJRT Neuron sur Linux EC2 avec un périphérique Neuron présent.
+// Localise le sandbox des runfiles puis charge libzml_neuron.so.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     _ = allocator;
     if (comptime !isEnabled()) {

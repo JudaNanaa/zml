@@ -10,10 +10,13 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/metal");
 
+// Indique si le backend Metal est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.metal_enabled;
 }
 
+// Localise la toolchain Metal dans les runfiles et exporte METAL_TOOLCHAIN vers son bin.
+// Renvoie error.ToolchainNotInRunfiles si le répertoire est absent.
 fn setMetalToolchainEnv(r: anytype) !void {
     var buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const root = try r.rlocation("zml/platforms/metal/metal_toolchain", &buf) orelse
@@ -23,6 +26,8 @@ fn setMetalToolchainEnv(r: anytype) !void {
     _ = c.setenv("METAL_TOOLCHAIN", try stdx.Io.Dir.path.bufJoinZ(&bindir_z, &.{ root, "bin" }), 0);
 }
 
+// Charge le plugin PJRT Metal sur macOS après vérification de l'activation et de l'OS.
+// Configure (au mieux) la toolchain Metal puis charge libzml_metal.dylib.
 pub fn load(_: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     _ = io;
     if (comptime !isEnabled()) {

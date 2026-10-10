@@ -8,6 +8,7 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/neuron");
 
+// Ouvre un socket TCP sur 127.0.0.1 avec un port éphémère et renvoie le port obtenu.
 fn findFreeTcpPort(io: std.Io) !u16 {
     const addr: std.Io.net.IpAddress = .{ .ip4 = .{ .bytes = .{ 127, 0, 0, 1 }, .port = 0 } };
     var server = try std.Io.net.IpAddress.listen(
@@ -19,6 +20,8 @@ fn findFreeTcpPort(io: std.Io) !u16 {
     return server.socket.address.getPort();
 }
 
+// Interpose dlopen pour rediriger les bibliothèques du runtime Neuron vers leurs versions suffixées.
+// Résout les remplacements par rapport au répertoire de l'objet partagé courant.
 pub export fn zmlxneuron_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaque {
     const replacements: std.StaticStringMap([:0]const u8) = .initComptime(.{
         .{ "libnccom.so", "libnccom.so.2" },
@@ -38,8 +41,11 @@ pub export fn zmlxneuron_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaqu
     return std.c.dlopen(new_filename, @bitCast(flags));
 }
 
+// Déclaration externe de setenv (POSIX) pour définir des variables d'environnement.
 extern fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
 
+// Configure l'environnement du runtime Neuron : identifiants, niveau de log, PATH et NEURON_CC_FLAGS.
+// Choisit un port TCP libre pour NEURON_RT_ROOT_COMM_ID et préfixe PATH avec le bin du sandbox.
 fn setupNeuronEnv(io: std.Io, sandbox_path: []const u8) !void {
     const scratchpad_page_size = "1024";
 
@@ -103,6 +109,8 @@ fn setupNeuronEnv(io: std.Io, sandbox_path: []const u8) !void {
     _ = setenv("NEURON_CC_FLAGS", flags.ptr, 0);
 }
 
+// Duplique une structure PJRT_Api en respectant la taille réelle déclarée par struct_size.
+// Évite de lire au-delà de la structure source entre versions d'API différentes.
 // Duplicates a PJRT Api object while being careful about struct size differences
 fn dupePjrtApi(api: *c.PJRT_Api) c.PJRT_Api {
     var ret: c.PJRT_Api = undefined;
@@ -114,6 +122,8 @@ fn dupePjrtApi(api: *c.PJRT_Api) c.PJRT_Api {
     return ret;
 }
 
+// Charge libneuronpjrt.so, récupère GetPjrtApi et prépare l'environnement Neuron.
+// Renvoie un proxy de l'API PJRT dupliqué pour tolérer les écarts de taille de structure.
 fn getPjrtApi() !*c.PJRT_Api {
     var threaded: std.Io.Threaded = .init(std.heap.c_allocator, .{});
     defer threaded.deinit();
@@ -171,6 +181,7 @@ fn getPjrtApi() !*c.PJRT_Api {
     return &Static.proxy;
 }
 
+// Point d'entrée C exporté renvoyant l'API PJRT Neuron, ou null en cas d'échec.
 pub export fn GetPjrtApi() ?*c.PJRT_Api {
     return getPjrtApi() catch |err| {
         log.err("Failed to get PJRT API: {}", .{err});

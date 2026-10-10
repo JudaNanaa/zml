@@ -36,6 +36,7 @@ const CompilerResponse = struct {
     backend_config_b64: []const u8,
 };
 
+// Récupère l'instance Neuron et renvoie sa cible de compilateur, en paniquant en cas d'échec.
 pub fn compilerTargetFromInstance() neuron.CompilerTarget {
     const instance = neuron.instance() catch |err| {
         std.debug.panic("failed to query Neuron instance for NKI compiler target: {}", .{err});
@@ -43,6 +44,8 @@ pub fn compilerTargetFromInstance() neuron.CompilerTarget {
     return instance.compilerTarget();
 }
 
+// Compile un noyau NKI via l'outil nki-cc en écrivant une requête JSON dans un répertoire temporaire.
+// Analyse la réponse JSON et renvoie la configuration backend encodée en base64.
 pub fn compileNkiKernel(allocator: std.mem.Allocator, io: std.Io, kernel: Kernel) ![]const u8 {
     const compiler_flags = std.mem.span(std.c.getenv("NEURON_CC_FLAGS") orelse return error.MissingNeuronCompilerFlags);
     var compiler_args: std.ArrayList([]const u8) = .empty;

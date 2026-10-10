@@ -11,6 +11,8 @@ const CUDA_SUCCESS = 0;
 const CUDA_ERROR_SYSTEM_DRIVER_MISMATCH = 803;
 const CUDA_ERROR_COMPAT_NOT_SUPPORTED_ON_DEVICE = 804;
 
+// Point d'entrée de la sonde de compatibilité CUDA : initialise le driver via cuInit.
+// Renvoie un code de sortie signalant succès, incompatibilité ou autre erreur.
 pub fn main(init: std.process.Init) !u8 {
     const arena = init.arena;
     const io = init.io;

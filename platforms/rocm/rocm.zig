@@ -11,10 +11,12 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/rocm");
 
+// Indique si le backend ROCm est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.rocm_enabled;
 }
 
+// Vérifie l'existence des périphériques /dev/kfd et /dev/dri.
 fn hasRocmDevices(io: std.Io) bool {
     inline for (&.{ "/dev/kfd", "/dev/dri" }) |path| {
         std.Io.Dir.accessAbsolute(io, path, .{ .read = true }) catch return false;
@@ -22,6 +24,7 @@ fn hasRocmDevices(io: std.Io) bool {
     return true;
 }
 
+// Configure ROCM_PATH et les variables de performance HIP/rocprofiler pour ROCm.
 fn setupRocmEnv(rocm_data_dir: []const u8) !void {
     var buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     _ = c.setenv("ROCM_PATH", try stdx.Io.Dir.path.bufJoinZ(&buf, &.{rocm_data_dir}), 1); // must be zero terminated
@@ -34,6 +37,8 @@ fn setupRocmEnv(rocm_data_dir: []const u8) !void {
     _ = c.setenv("ROCPROFILER_QUEUE_INTERPOSITION", "0", 0);
 }
 
+// Charge le plugin PJRT ROCm sur Linux si les périphériques sont présents.
+// Doit être appelé depuis le thread principal à cause des destructeurs TLS de libamdhip64.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     _ = allocator;
     if (comptime !isEnabled()) {

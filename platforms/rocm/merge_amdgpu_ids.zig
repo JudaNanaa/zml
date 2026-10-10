@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// Fusionne deux fichiers d'identifiants AMDGPU en supprimant les doublons et écrit le résultat.
+// Usage attendu : merge_amdgpu_ids <primary> <secondary> <output>.
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const arena = init.arena.allocator();
@@ -40,6 +42,8 @@ pub fn main(init: std.process.Init) !void {
     try writer.flush();
 }
 
+// Lit un fichier d'identifiants AMDGPU et insère chaque entrée « device,revision » dans la table.
+// Ignore les lignes vides ou commentées et normalise les séparateurs en tabulations.
 fn parseFile(
     io: std.Io,
     cwd: std.Io.Dir,

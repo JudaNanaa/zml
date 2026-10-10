@@ -2,6 +2,8 @@ const std = @import("std");
 
 const stdx = @import("stdx");
 
+// Interpose dlopen pour rediriger les bibliothèques génériques oneAPI vers leurs versions suffixées.
+// Résout les remplacements par rapport au répertoire de l'objet partagé courant.
 pub export fn zmlxoneapi_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaque {
     const replacements: std.StaticStringMap([:0]const u8) = .initComptime(.{
         .{ "libOpenCL.so", "libOpenCL.so.1" },

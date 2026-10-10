@@ -10,10 +10,12 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/oneapi");
 
+// Indique si le backend oneAPI (GPU Intel) est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.oneapi_enabled;
 }
 
+// Vérifie la présence d'un périphérique de rendu Intel dans /dev/dri (renderD*).
 fn hasOneApiDevice(io: std.Io) bool {
     var dir = std.Io.Dir.openDirAbsolute(io, "/dev/dri", .{ .iterate = true }) catch return false;
     defer dir.close(io);
@@ -28,6 +30,7 @@ fn hasOneApiDevice(io: std.Io) bool {
     return false;
 }
 
+// Configure les variables d'environnement oneAPI/oneCCL et le pilote Level Zero alternatif.
 fn setupOneAPIEnv(driver_path: [:0]const u8) void {
     _ = c.setenv("CCL_LOG_LEVEL", c.getenv("CCL_LOG_LEVEL") orelse "error", 1);
     _ = c.setenv("CCL_ATL_TRANSPORT", "ofi", 1);
@@ -40,6 +43,8 @@ fn setupOneAPIEnv(driver_path: [:0]const u8) void {
     _ = c.setenv("ZE_ENABLE_ALT_DRIVERS", driver_path, 0);
 }
 
+// Charge le plugin PJRT oneAPI sur Linux si un périphérique Intel est détecté.
+// Configure l'environnement puis charge libzml_oneapi.so du sandbox.
 pub fn load(_: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     if (comptime !isEnabled()) {
         return error.Unavailable;

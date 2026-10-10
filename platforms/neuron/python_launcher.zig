@@ -11,6 +11,8 @@ pub const ModuleEntrypoint = struct {
     attr_name: [:0]const u8 = "main",
 };
 
+// Initialise un interpréteur Python isolé et appelle module.attr() (main par défaut).
+// Imprime la trace Python et renvoie une erreur si l'import ou l'appel échoue.
 // Run `module.attr()` inside the sandboxed Python interpreter.
 pub fn runModuleEntrypoint(init: std.process.Init, entrypoint: ModuleEntrypoint) !void {
     var config: c.PyConfig = undefined;
@@ -42,6 +44,7 @@ pub fn runModuleEntrypoint(init: std.process.Init, entrypoint: ModuleEntrypoint)
     defer c.Py_DecRef(result);
 }
 
+// Initialise l'interpréteur isolé, exécute un fichier Python relatif au binaire et appelle son main().
 // Run a Python file relative to the helper binary and call its `main()`.
 pub fn runScriptMain(init: std.process.Init, relative_script_path: []const []const u8) !void {
     const arena = init.arena;
@@ -70,6 +73,7 @@ pub fn runScriptMain(init: std.process.Init, relative_script_path: []const []con
     }
 }
 
+// Vérifie un PyStatus ; quitte le processus sur statut de sortie ou lève l'exception Python.
 fn pyStatusCheck(status: c.PyStatus) void {
     if (c.PyStatus_Exception(status) != 0) {
         if (c.PyStatus_IsExit(status) != 0) {
@@ -79,6 +83,7 @@ fn pyStatusCheck(status: c.PyStatus) void {
     }
 }
 
+// Convertit un chemin UTF-8 en chaîne large (wchar_t) terminée par NUL pour l'API Python.
 fn toPosixPathW(file_path: []const u8) error{ InvalidUtf8, NameTooLong, CodepointTooLarge }![std.posix.PATH_MAX - 1:0]c.wchar_t {
     var view = std.unicode.Utf8View.init(file_path) catch return error.InvalidUtf8;
     var it = view.iterator();
@@ -94,6 +99,8 @@ fn toPosixPathW(file_path: []const u8) error{ InvalidUtf8, NameTooLong, Codepoin
     return path_with_null;
 }
 
+// Configure l'interpréteur Python isolé (utf8, chemins stdlib/site-packages, argv).
+// Renvoie le répertoire de l'exécutable servant de base aux chemins relatifs.
 fn configureInterpreter(init: std.process.Init, config: *c.PyConfig) ![]const u8 {
     const arena = init.arena;
     const io = init.io;

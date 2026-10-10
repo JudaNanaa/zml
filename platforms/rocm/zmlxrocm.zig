@@ -2,6 +2,8 @@ const std = @import("std");
 
 const stdx = @import("stdx");
 
+// Interpose dlopen pour rediriger les bibliothèques ROCm génériques vers leurs versions suffixées.
+// Résout les remplacements par rapport au répertoire de l'objet partagé courant.
 pub export fn zmlxrocm_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaque {
     const replacements: std.StaticStringMap([:0]const u8) = .initComptime(.{
         .{ "libamdhip64.so", "libamdhip64.so.7" },
@@ -23,6 +25,7 @@ pub export fn zmlxrocm_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaque 
     return std.c.dlopen(new_filename, @bitCast(flags));
 }
 
+// Interpose fopen64 pour rediriger /opt/amdgpu/share/libdrm/amdgpu.ids vers la copie embarquée.
 pub export fn zmlxrocm_fopen64(pathname: [*c]const u8, mode: [*c]const u8) ?*std.c.FILE {
     const replacements: std.StaticStringMap([]const u8) = .initComptime(.{
         .{ "/opt/amdgpu/share/libdrm/amdgpu.ids", "../share/libdrm/amdgpu.ids" },
@@ -40,8 +43,11 @@ pub export fn zmlxrocm_fopen64(pathname: [*c]const u8, mode: [*c]const u8) ?*std
     return std.c.fopen64(new_pathname, mode);
 }
 
+// Déclaration externe de pthread_attr_setstacksize (POSIX).
 extern fn pthread_attr_setstacksize(attr: ?*anyopaque, stacksize: usize) c_int;
 
+// Interpose pthread_attr_setstacksize en imposant un plancher de 1 Mio.
+// Contourne le rejet par glibc des piles ROCclr trop petites pour le guard/TLS.
 // ROCclr asks for small helper-thread stacks: CQ_THREAD_STACK_SIZE is 256 KiB,
 // then ROCclr adds the pthread guard size before calling pthread_attr_setstacksize.
 // https://github.com/ROCm/clr/blob/1736f3eba9134a5ee4b56475acf15665f065ab05/rocclr/utils/flags.hpp#L25

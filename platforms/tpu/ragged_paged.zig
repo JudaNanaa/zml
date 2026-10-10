@@ -41,41 +41,53 @@ pub const Cfg = struct {
     sliding_window: ?i64 = null,
     vmem_limit_bytes: ?i64 = null,
 
+    // Renvoie le nombre total de têtes KV combinées (K et V empilés), soit 2 × num_kv_heads.
     // Derived shape helpers — keeps the body readable.
     pub fn numCombinedKvHeads(self: Cfg) i64 {
         return 2 * self.num_kv_heads;
     }
+    // Renvoie le nombre de têtes de requête par tête KV (GQA), quotient exact.
     pub fn numQHeadsPerKvHead(self: Cfg) i64 {
         return @divExact(self.num_q_heads, self.num_kv_heads);
     }
+    // Renvoie le nombre de têtes de requête par bloc (toutes les têtes).
     pub fn numQHeadsPerBlk(self: Cfg) i64 {
         return self.num_q_heads;
     }
+    // Renvoie le nombre de têtes KV combinées par bloc.
     pub fn numCombinedKvHeadsPerBlk(self: Cfg) i64 {
         return self.numCombinedKvHeads();
     }
+    // Renvoie le nombre de têtes KV par bloc (moitié des têtes combinées).
     pub fn numKvHeadsPerBlk(self: Cfg) i64 {
         return @divExact(self.numCombinedKvHeadsPerBlk(), 2);
     }
+    // Renvoie le nombre de requêtes par bloc (num_queries_per_block).
     pub fn numQPerBlk(self: Cfg) i64 {
         return self.num_queries_per_block;
     }
+    // Renvoie le nombre de clés par bloc, soit pages par bloc × taille de page.
     pub fn numKvPerBlk(self: Cfg) i64 {
         return self.num_kv_pages_per_block * self.page_size;
     }
+    // Renvoie le nombre de blocs de têtes, quotient des têtes de requête par bloc de têtes.
     pub fn numHeadsBlks(self: Cfg) i64 {
         return @divExact(self.num_q_heads, self.numQHeadsPerBlk());
     }
+    // Renvoie le nombre de blocs de requêtes, quotient des jetons de requête par bloc.
     pub fn numQBlks(self: Cfg) i64 {
         return @divExact(self.num_q_tokens, self.numQPerBlk());
     }
+    // Renvoie le nombre de lignes Q pour le noyau flash (requêtes × têtes par tête KV).
     pub fn flashQRows(self: Cfg) i64 {
         return self.numQPerBlk() * self.numQHeadsPerKvHead();
     }
+    // Renvoie le nombre de lignes K/V pour le noyau flash.
     pub fn flashKRows(self: Cfg) i64 {
         return self.numKvPerBlk();
     }
 
+    // Renvoie le facteur d'empaquetage KV (32 / largeur en bits), comme Pallas get_dtype_packing.
     /// Pallas's `get_dtype_packing(dtype) = 32 // bitwidth(dtype)`. Mirrors
     /// `kernel.py:get_dtype_packing` exactly.
     pub fn kvPackingFactor(self: Cfg) i64 {
@@ -86,6 +98,7 @@ pub const Cfg = struct {
             else => std.debug.panic("ragged_paged: unsupported KV dtype {s}", .{@tagName(self.kv_dtype)}),
         };
     }
+    // Renvoie le facteur d'empaquetage de Q (f32:1, f16/bf16:2), pour fold_on_2nd_minor.
     /// Same packing rule applied to `q_dtype` — used by `fold_on_2nd_minor`
     /// to decide whether to cast q to f32 before the trailing-dim reshape.
     pub fn qPackingFactor(self: Cfg) i64 {
@@ -95,20 +108,25 @@ pub const Cfg = struct {
             else => std.debug.panic("ragged_paged: unsupported Q dtype {s}", .{@tagName(self.q_dtype)}),
         };
     }
+    // Renvoie kv_load_step = max(1, packing // 2) : nombre de paires (K,V) par chargement.
     /// `kv_load_step = max(1, kv_packing // 2)` — number of (k, v) pairs the
     /// caller unpacks from a single `b` strided-load (Pallas's outer-loop step).
     pub fn kvLoadStep(self: Cfg) i64 {
         const p = self.kvPackingFactor();
         return @max(@as(i64, 1), @divFloor(p, 2));
     }
+    // Renvoie le nombre de lignes aplaties du tampon KV (pages × taille × têtes combinées).
     pub fn kvFlatRows(self: Cfg) i64 {
         return self.num_kv_pages_per_block * self.page_size * self.numCombinedKvHeadsPerBlk();
     }
+    // Renvoie le nombre de lignes aplaties en i32 (lignes KV divisées par le facteur d'empaquetage).
     pub fn kvFlatI32Rows(self: Cfg) i64 {
         return @divExact(self.kvFlatRows(), self.kvPackingFactor());
     }
 };
 
+// Stocke un tenseur (m ou l) dans une ref 3D en masquant selon l'index de ligne par groupe.
+// Le masque sélectionne les lignes dont le quotient entier est dans [start, end).
 fn maskedStoreLM(
     k: *mtt.Builder,
     ref: mtt.Value,
@@ -130,6 +148,7 @@ fn maskedStoreLM(
     k.refStoreOpts(ref, val_3d, &.{ kv_head_idx_idx, k.cIndex(0), k.cIndex(0) }, .{ .mask = mask_3d, .strides = &.{} });
 }
 
+// Stocke l'accumulateur de sortie en masquant les lignes hors de [start, end).
 /// `pltpu.store(acc_ref, val, mask=…)` — group=1 so no floor-div.
 fn maskedStoreAcc(
     k: *mtt.Builder,
@@ -147,6 +166,8 @@ fn maskedStoreAcc(
     k.refStoreOpts(ref, val, &.{ k.cIndex(0), q_head_offset_idx, k.cIndex(0) }, .{ .mask = mask, .strides = &.{} });
 }
 
+// Émet un DMA asynchrone copiant une page KV du tableau global vers le tampon double-buffer.
+// Calcule les indices de page, découpe source/destination et poste l'enqueue_dma avec sémaphore.
 /// `MultiPageAsyncCopyDescriptor.__init__` — `tpu.memref_slice → squeeze
 /// → enqueue_dma` chain that Pallas emits for one async page-copy.
 fn createKvAsyncCopyDescriptors(
@@ -184,6 +205,7 @@ fn createKvAsyncCopyDescriptors(
     k.enqueueDma(src, dst, sem, .{});
 }
 
+// Émet l'attente du DMA de page KV, avec la même découpe source/destination que le poste.
 fn waitKvDma(
     k: *mtt.Builder,
     cfg: Cfg,
@@ -220,6 +242,8 @@ fn waitKvDma(
 
 const KvPair = struct { k: mtt.Value, v: mtt.Value };
 
+// Charge un bloc de lignes avec pas : vector.load si contigu, strided_load sinon.
+// Au-delà de 128 colonnes, empile des vector.load par ligne via tpu.concatenate.
 /// Mirrors Pallas's `b_ref[b_start::b_step, :]` lowering:
 ///   - `b_step == 1` → `vector.load` (the slice is contiguous).
 ///   - `last_dim ≤ 128` and `b_step > 1` → `tpu.strided_load`.
@@ -248,6 +272,7 @@ fn loadStridedOrStack(
     return k.concatenate(rows, 0);
 }
 
+// Diffuse un tenseur 2D sur l'axe 1 vers la forme cible en concaténant des copies.
 /// Pallas's `broadcast_to_shape(arr, shape)` — emit `tpu.concatenate` of
 /// `shape[1] / arr.shape[1]` copies when expanding axis 1 (e.g.,
 /// `<flash_q, 128>` → `<flash_q, head_dim>` for `head_dim > 128`).
@@ -263,6 +288,8 @@ fn broadcastToShape(k: *mtt.Builder, arr: mtt.Value, shape: []const i64) mtt.Val
     return k.concatenate(sources, 1);
 }
 
+// Dépaquette les têtes KV (K et V) du tampon aplati selon le facteur d'empaquetage.
+// Gère les cas packing 1/2/4 et renvoie les paires (k, v) à traiter par le noyau flash.
 /// `strided_load_kv(ref, kv_head_chunk_idx * 2, num_combined_kv_heads_per_blk)`
 /// — full Pallas parity.
 ///
@@ -337,6 +364,8 @@ fn stridedLoadKv(
     return result;
 }
 
+// Exécute une étape d'attention flash (softmax en ligne) sur num_kv_per_blk clés.
+// Met à jour les accumulateurs m/l/o dans les refs scratch et écrit la sortie attendue.
 /// `flash_attention(q, k, v, ...)` — one online-softmax step over `num_kv_per_blk`
 /// keys.
 fn flashAttention(
@@ -481,6 +510,8 @@ fn flashAttention(
     maskedStoreAcc(k, a.acc_ref, out_3d, q_head_idx_idx, store_start, store_end);
 }
 
+// Émet le corps complet du noyau ragged paged attention dans le builder MLIR fourni.
+// Déclare les arguments, orchestre les boucles requêtes/KV et les DMA, puis écrit la sortie.
 /// Emit the kernel body into a pre-opened `mtt.Builder`. The factory in
 /// `zml/kernel.zig` opens the builder, calls this `run`, and finalizes the
 /// IR with `b.finishOpts(&.{}, .{ .canonicalize = true })`.
@@ -659,6 +690,7 @@ pub fn run(b: *mtt.Builder, cfg: Cfg) mtt.FinishError!void {
     k.vectorStoreAt(a.o, k.refLoad(a.acc_ref).to(cfg.q_dtype), &.{ k.cIndex(0), k.cIndex(0), k.cIndex(0) });
 }
 
+// Ouvre un builder MLIR, exécute le noyau et renvoie l'IR canonisé en chaîne terminée par NUL.
 /// Open a builder, run the kernel body, and return the canonicalized MLIR IR.
 /// Used by offline tooling (`examples/mosaic_ragged_paged`); production model
 /// code goes through `zml.kernel.mosaic_tpu.Kernel(...).emit(...)` instead.

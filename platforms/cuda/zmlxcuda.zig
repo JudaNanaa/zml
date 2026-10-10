@@ -2,6 +2,8 @@ const std = @import("std");
 
 const stdx = @import("stdx");
 
+// Interpose dlopen pour rediriger les noms génériques de bibliothèques CUDA vers leurs versions suffixées.
+// Résout les remplacements par rapport au répertoire de l'objet partagé courant.
 pub export fn zmlxcuda_dlopen(filename: [*c]const u8, flags: c_int) ?*anyopaque {
     const replacements: std.StaticStringMap([:0]const u8) = .initComptime(.{
         .{ "libcublas.so", "libcublas.so.13" },

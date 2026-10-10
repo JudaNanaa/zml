@@ -23,6 +23,8 @@ pub const Platform = enum {
     metal,
     furiosa,
 
+    // Sélectionne le premier accélérateur matériel activé à la compilation.
+    // Renvoie .cpu en dernier recours, ou une erreur si aucun backend n'est activé.
     pub fn selectFirstAcceleratorEnabled() error{Unavailable}!Platform {
         inline for (@typeInfo(Platform).@"enum".fields) |field| {
             const target: Platform = @enumFromInt(field.value);
@@ -33,12 +35,14 @@ pub const Platform = enum {
         return .cpu;
     }
 
+    // Indique si la plateforme cible est activée via son option de build.
     pub fn isEnabled(target: Platform) bool {
         return switch (target) {
             inline else => |tag| @field(platforms_options, @tagName(tag) ++ "_enabled"),
         };
     }
 
+    // Charge et renvoie l'API PJRT du backend demandé en déléguant au module de la plateforme.
     pub fn load(target: Platform, allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
         return switch (target) {
             inline else => |tag| @field(platforms, @tagName(tag)).load(allocator, io),

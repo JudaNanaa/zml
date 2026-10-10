@@ -9,10 +9,13 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/tpu");
 
+// Indique si le backend TPU est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.tpu_enabled;
 }
 
+// Détecte l'exécution sur Google Compute Engine (GCP) via le product_name DMI.
+// Évite d'interroger le serveur de métadonnées TPU hors GCP.
 /// Check if running on Google Compute Engine, because TPUs will poll the
 /// metadata server, hanging the process. So only do it on GCP.
 /// Do it using the official method at:
@@ -32,6 +35,8 @@ fn isOnGCP(io: std.Io) !bool {
     );
 }
 
+// Charge le plugin PJRT TPU sur Linux GCP avec détection de l'environnement.
+// Localise le sandbox puis charge libzml_tpu.so.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     _ = allocator;
     if (comptime !isEnabled()) {

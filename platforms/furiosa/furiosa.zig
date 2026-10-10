@@ -9,16 +9,21 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/furiosa");
 
+// Déclaration externe de setenv (POSIX) pour définir des variables d'environnement.
 extern fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
 
+// Appelle setenv et renvoie error.SetEnvFailed en cas d'échec.
 fn setEnv(name: [*:0]const u8, value: [:0]const u8, overwrite: c_int) !void {
     if (setenv(name, value, overwrite) != 0) return error.SetEnvFailed;
 }
 
+// Indique si le backend Furiosa est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.furiosa_enabled;
 }
 
+// Charge le plugin PJRT Furiosa après vérification de la plateforme (Linux x86_64).
+// Configure XLA_FURIOSA_SDK_ROOT et VISIBLE_DEVICES puis charge libzml_furiosa.so.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     if (comptime !isEnabled() or builtin.os.tag != .linux or builtin.cpu.arch != .x86_64) return error.Unavailable;
 

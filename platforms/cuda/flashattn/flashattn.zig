@@ -12,6 +12,8 @@ const runfiles = @import("runfiles");
 pub const Tensor = struct {
     inner: c.FlashattnTensor,
 
+    // Construit un descripteur Tensor flashattn en copiant dimensions, pas et type.
+    // ptr pointe vers les données ; dims et strides sont les tableaux de formes.
     pub fn init(ptr: *anyopaque, dims: []const i64, strides: []const i64, dtype: DataType) Tensor {
         const rank = dims.len;
         var ret: Tensor = .{
@@ -94,6 +96,8 @@ pub var fa2_mha_fwd: Fa2MhaFwdFunc = undefined;
 pub var fa2_mha_varlen_fwd: Fa2MhaVarlenFwdFunc = undefined;
 pub var fa3_mha_fwd: Fa3MhaFwdFunc = undefined;
 
+// Recherche le chemin de libflashattn.so dans les runfiles selon l'architecture CPU.
+// Renvoie null si l'architecture n'est pas prise en charge.
 fn findFlashattnLibrary(
     r: anytype,
     buffer: *[std.Io.Dir.max_path_bytes]u8,
@@ -106,6 +110,8 @@ fn findFlashattnLibrary(
     return try r.rlocation(candidate, buffer);
 }
 
+// Ouvre libflashattn.so et résout les symboles des noyaux FlashAttention 2 et 3.
+// Les pointeurs résolus sont stockés dans les variables globales fa2/fa3.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !void {
     _ = io;
     _ = allocator;

@@ -10,10 +10,13 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/cpu");
 
+// Indique si le backend CPU est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.cpu_enabled;
 }
 
+// Charge le plugin PJRT CPU depuis le sandbox des runfiles Bazel.
+// Renvoie error.Unavailable si le backend CPU est désactivé.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     _ = io;
     _ = allocator;

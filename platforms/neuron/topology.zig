@@ -71,15 +71,18 @@ pub const VisibleMesh = struct {
     axes_buffer: [4]Axis,
     axes_len: usize,
 
+    // Libère le tableau de placements et invalide la structure.
     pub fn deinit(self: *VisibleMesh, allocator: std.mem.Allocator) void {
         allocator.free(self.placements);
         self.* = undefined;
     }
 
+    // Renvoie la tranche des axes de topologie effectivement renseignés.
     pub fn axes(self: *const VisibleMesh) []const Axis {
         return self.axes_buffer[0..self.axes_len];
     }
 
+    // Formate le VisibleMesh (famille, taille, puces, cœurs, topologie inter-puces) pour l'affichage.
     pub fn format(self: VisibleMesh, writer: *std.Io.Writer) !void {
         try writer.print(
             "VisibleMesh(family={s} size={s} chips={d} cores_per_chip={d} inter_chip_topology=",
@@ -102,6 +105,8 @@ pub const VisibleMesh = struct {
     }
 };
 
+// Construit un VisibleMesh à partir d'identifiants de cœurs Neuron (NC).
+// Déduit les puces/cœurs, trie les placements et infère la topologie inter-puces.
 pub fn visibleMeshFromNcIds(allocator: std.mem.Allocator, nc_ids: []const usize) !VisibleMesh {
     if (nc_ids.len == 0) return error.InvalidDeviceTopology;
 
@@ -120,6 +125,7 @@ pub fn visibleMeshFromNcIds(allocator: std.mem.Allocator, nc_ids: []const usize)
     }
 
     const Sort = struct {
+        // Compare deux placements par puce puis par cœur, pour le tri croissant.
         fn lessThan(_: void, a: Placement, b: Placement) bool {
             return if (a.chip == b.chip) a.core < b.core else a.chip < b.chip;
         }
@@ -167,6 +173,7 @@ pub fn visibleMeshFromNcIds(allocator: std.mem.Allocator, nc_ids: []const usize)
     return res;
 }
 
+// Déduit la topologie du lien inter-puces (linéaire, anneau, tore 2D, etc.) selon famille et nombre de puces.
 pub fn interChipTopology(instance: neuron.Instance, chip_count: usize) InterChipTopology {
     if (chip_count == 1) return .none;
 
@@ -204,14 +211,17 @@ pub fn interChipTopology(instance: neuron.Instance, chip_count: usize) InterChip
     };
 }
 
+// Renvoie l'indice de puce d'un identifiant NC (division entière par les cœurs par puce).
 pub fn chipOf(nc_id: usize, physical_cores_per_chip: usize) usize {
     return @divFloor(nc_id, physical_cores_per_chip);
 }
 
+// Renvoie l'indice de cœur local d'un identifiant NC (modulo les cœurs par puce).
 pub fn coreOf(nc_id: usize, physical_cores_per_chip: usize) usize {
     return @mod(nc_id, physical_cores_per_chip);
 }
 
+// Ajoute un axe (fabrique, taille, géométrie) au VisibleMesh.
 fn appendAxis(self: *VisibleMesh, fabric: Fabric, size: usize, geometry: Geometry) void {
     self.axes_buffer[self.axes_len] = .{
         .fabric = fabric,

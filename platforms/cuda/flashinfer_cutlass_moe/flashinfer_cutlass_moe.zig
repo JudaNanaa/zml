@@ -44,6 +44,8 @@ pub const Api = struct {
 
 var loaded_api: ?Api = null;
 
+// Construit le nom de runfile de la bibliothèque FlashInfer CUTLASS MoE pour un SM donné.
+// Renvoie error.UnsupportedPlatform hors Linux ou sur architecture inconnue.
 fn libraryRunfile(sm: u16, buffer: []u8) ![]const u8 {
     if (comptime builtin.os.tag != .linux) return error.UnsupportedPlatform;
     const cpu_arch = comptime switch (builtin.cpu.arch) {
@@ -58,6 +60,8 @@ fn libraryRunfile(sm: u16, buffer: []u8) ![]const u8 {
     );
 }
 
+// Ouvre la bibliothèque partagée et résout tous les symboles de l'API C.
+// Vérifie la version ABI et renvoie l'API prête à l'emploi.
 fn loadApi(path: []const u8) !Api {
     var library = std.DynLib.open(path) catch |err| {
         std.log.err("Failed to open FlashInfer CUTLASS MoE library {s}: {any}", .{ path, err });
@@ -94,6 +98,8 @@ fn loadApi(path: []const u8) !Api {
     return api;
 }
 
+// Charge (une seule fois) la bibliothèque correspondant au compute capability demandé.
+// Renvoie une erreur si une autre architecture est déjà chargée ou si la version diffère.
 pub fn load(allocator: std.mem.Allocator, io: std.Io, sm: u16) !void {
     _ = allocator;
     if (loaded_api) |*api| {
@@ -121,6 +127,7 @@ pub fn load(allocator: std.mem.Allocator, io: std.Io, sm: u16) !void {
     loaded_api = api;
 }
 
+// Renvoie l'API chargée après avoir vérifié que l'architecture du périphérique est supportée.
 pub fn apiForDevice(device: i32) !*Api {
     const api = if (loaded_api) |*value| value else return error.BackendNotLoaded;
     var supported: u8 = 0;
@@ -135,6 +142,8 @@ pub fn apiForDevice(device: i32) !*Api {
     return error.UnsupportedArchitecture;
 }
 
+// Vérifie le nom de runfile généré selon l'architecture hôte et le SM.
+// S'assure aussi que load() charge correctement la bibliothèque du SM120.
 test "select host and GPU architecture-specific FlashInfer CUTLASS MoE library" {
     const test_case = &.{
         .{

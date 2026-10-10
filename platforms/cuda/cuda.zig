@@ -14,6 +14,8 @@ const nvidiaLibsPath = "/cuda/";
 
 const log = std.log.scoped(.@"zml/platforms/cuda");
 
+// Recherche le répertoire sandbox du runtime CUDA dans les runfiles.
+// Choisit le chemin selon l'architecture CPU (arm64/x86_64) et renvoie null sinon.
 fn findCudaSandbox(
     r: anytype,
     buffer: *[std.Io.Dir.max_path_bytes]u8,
@@ -26,10 +28,13 @@ fn findCudaSandbox(
     return try r.rlocation(candidate, buffer);
 }
 
+// Indique si le backend CUDA est activé à la compilation.
 pub fn isEnabled() bool {
     return platforms_options.cuda_enabled;
 }
 
+// Lance la sonde compat_probe pour savoir si CUDA Compat est nécessaire sur ce GPU.
+// Renvoie true uniquement si la sonde rapporte un succès.
 pub fn needsCudaCompat(io: std.Io, sandbox_path: []const u8) !bool {
     var buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const nvidia_compat_path = try stdx.Io.Dir.path.bufJoinZ(&buf, &.{ sandbox_path, "bin", "compat_probe" });
@@ -59,6 +64,7 @@ pub fn needsCudaCompat(io: std.Io, sandbox_path: []const u8) !bool {
     };
 }
 
+// Vérifie la présence d'un périphérique NVIDIA via /dev/nvidiactl ou /dev/dxg.
 fn hasNvidiaDevice(io: std.Io) bool {
     for (&[_][]const u8{ "/dev/nvidiactl", "/dev/dxg" }) |dev| {
         std.Io.Dir.accessAbsolute(io, dev, .{ .read = true }) catch continue;
@@ -67,17 +73,21 @@ fn hasNvidiaDevice(io: std.Io) bool {
     return false;
 }
 
+// Détecte si LD_LIBRARY_PATH contient déjà un chemin de bibliothèques CUDA.
 fn hasCudaPathInLDPath() bool {
     const ldLibraryPath = std.c.getenv("LD_LIBRARY_PATH") orelse return false;
     return std.ascii.indexOfIgnoreCase(std.mem.span(ldLibraryPath), nvidiaLibsPath) != null;
 }
 
+// Ajoute le drapeau XLA --xla_gpu_cuda_data_dir pointant sur le sandbox au XLA_FLAGS existant.
 fn setupXlaGpuCudaDirFlag(allocator: std.mem.Allocator, sandbox: []const u8) !void {
     const xla_flags = std.c.getenv("XLA_FLAGS") orelse "";
     const new_xla_flagsZ = try std.fmt.allocPrintSentinel(allocator, "{s} --xla_gpu_cuda_data_dir={s}", .{ xla_flags, sandbox }, 0);
     _ = c.setenv("XLA_FLAGS", new_xla_flagsZ, 1);
 }
 
+// Charge le plugin PJRT CUDA après vérification du backend, du périphérique et de l'OS.
+// Configure le répertoire CUDA d'XLA et précharge les bibliothèques de compatibilité si requis.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !*const pjrt.Api {
     if (comptime !isEnabled()) {
         return error.Unavailable;
