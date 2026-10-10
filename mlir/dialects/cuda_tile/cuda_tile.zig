@@ -10,14 +10,17 @@ const stdx = @import("stdx");
 
 pub const dialect_namespace = "cuda_tile";
 
+// Convertit une tranche d'octets Zig en MlirStringRef (pointeur + longueur).
 fn stringRef(s: []const u8) c.MlirStringRef {
     return .{ .data = s.ptr, .length = s.len };
 }
 
+// Reinterprete un MlirType de la C API en pointeur mlir.Type, en paniquant si le handle est nul.
 fn typeFromC(t: c.MlirType) *const mlir.Type {
     return @ptrCast(t.ptr orelse @panic("cuda_tile: null MlirType"));
 }
 
+// Reinterprete un MlirAttribute C en pointeur mlir.Attribute, en paniquant si le handle est nul.
 fn attrFromC(a: c.MlirAttribute) *const mlir.Attribute {
     return @ptrCast(a.ptr orelse @panic("cuda_tile: null MlirAttribute"));
 }
@@ -34,15 +37,18 @@ pub const PointerType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Construit le type !cuda_tile.ptr<pointee_type> via mlirCudaTilePointerTypeGet.
     pub fn get(ctx: *mlir.Context, pointee_type: *const mlir.Type) *const PointerType {
         return @ptrCast(typeFromC(c.mlirCudaTilePointerTypeGet(ctx.ptr(), pointee_type.ptr())));
     }
 
+    // Renvoie le type pointe (pointee) de ce !cuda_tile.ptr<T>.
     pub fn pointee(self: *const PointerType) *const mlir.Type {
         return typeFromC(c.mlirCudaTilePointerTypeGetPointeeType(self.ptr()));
     }
 };
 
+// Raccourci public retournant !cuda_tile.ptr<pointee_type> en mlir.Type.
 pub fn pointerType(ctx: *mlir.Context, pointee_type: *const mlir.Type) *const mlir.Type {
     return @ptrCast(PointerType.get(ctx, pointee_type));
 }
@@ -58,23 +64,28 @@ pub const TileType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Construit !cuda_tile.tile<shape x elem> via mlirCudaTileTileTypeGet (dimensions puissances de deux).
     pub fn get(ctx: *mlir.Context, shape: []const i64, elem: *const mlir.Type) *const TileType {
         return @ptrCast(typeFromC(c.mlirCudaTileTileTypeGet(ctx.ptr(), @intCast(shape.len), shape.ptr, elem.ptr())));
     }
 
+    // Type de l'element scalaire du !cuda_tile.tile.
     pub fn elementType(self: *const TileType) *const mlir.Type {
         return typeFromC(c.mlirCudaTileTileTypeGetElementType(self.ptr()));
     }
 
+    // Nombre de dimensions (rang) du !cuda_tile.tile.
     pub fn rank(self: *const TileType) usize {
         return @intCast(c.mlirCudaTileTileTypeGetRank(self.ptr()));
     }
 
+    // Taille de la dimension i du !cuda_tile.tile.
     pub fn dimension(self: *const TileType, i: usize) i64 {
         return c.mlirCudaTileTileTypeGetDimSize(self.ptr(), @intCast(i));
     }
 };
 
+// Raccourci public retournant !cuda_tile.tile<shape x elem> en mlir.Type.
 pub fn tileType(ctx: *mlir.Context, shape: []const i64, elem: *const mlir.Type) *const mlir.Type {
     return @ptrCast(TileType.get(ctx, shape, elem));
 }
@@ -89,11 +100,13 @@ pub const TokenType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Construit le type !cuda_tile.token (jeton d'ordonnancement des ops *_tko).
     pub fn get(ctx: *mlir.Context) *const TokenType {
         return @ptrCast(typeFromC(c.mlirCudaTileTokenTypeGet(ctx.ptr())));
     }
 };
 
+// Raccourci public retournant !cuda_tile.token en mlir.Type.
 pub fn tokenType(ctx: *mlir.Context) *const mlir.Type {
     return @ptrCast(TokenType.get(ctx));
 }
@@ -109,10 +122,12 @@ pub const TensorViewType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Sentinelle ? de !cuda_tile.tensor_view marquant une dimension/stride dynamique (operande).
     pub fn dynamic() i64 {
         return c.mlirCudaTileTensorViewTypeGetDynamicSize();
     }
 
+    // Construit !cuda_tile.tensor_view<elem, shape, strides> via l'API C.
     pub fn get(ctx: *mlir.Context, elem: *const mlir.Type, shape: []const i64, strides: []const i64) *const TensorViewType {
         return @ptrCast(typeFromC(c.mlirCudaTileTensorViewTypeGet(
             ctx.ptr(),
@@ -124,29 +139,35 @@ pub const TensorViewType = opaque {
         )));
     }
 
+    // Type d'element du !cuda_tile.tensor_view.
     pub fn elementType(self: *const TensorViewType) *const mlir.Type {
         return typeFromC(c.mlirCudaTileTensorViewTypeGetElementType(self.ptr()));
     }
 
+    // Rang (nombre de dimensions) du !cuda_tile.tensor_view.
     pub fn rank(self: *const TensorViewType) usize {
         return @intCast(c.mlirCudaTileTensorViewTypeGetRank(self.ptr()));
     }
 
+    // Taille de la dimension i de la vue tenseur.
     pub fn dimension(self: *const TensorViewType, i: usize) i64 {
         return c.mlirCudaTileTensorViewTypeGetDimSize(self.ptr(), @intCast(i));
     }
 
+    // Pas (stride) de la dimension i de la vue tenseur.
     pub fn stride(self: *const TensorViewType, i: usize) i64 {
         return c.mlirCudaTileTensorViewTypeGetStride(self.ptr(), @intCast(i));
     }
 };
 
+// Raccourci public construisant !cuda_tile.tensor_view<...> en mlir.Type.
 pub fn tensorViewType(ctx: *mlir.Context, elem: *const mlir.Type, shape: []const i64, strides: []const i64) *const mlir.Type {
     return @ptrCast(TensorViewType.get(ctx, elem, shape, strides));
 }
 
 const DimMap = stdx.BoundedArray(i32, mlir.ShapedType.MAX_RANK);
 
+// Complete une dim_map vide en identite [0..rank-1]; sinon copie la map fournie.
 fn identityDimMap(dim_map: []const i32, rank: usize) DimMap {
     var out: DimMap = .empty;
     if (dim_map.len > 0) {
@@ -169,6 +190,7 @@ pub const PartitionViewType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Construit !cuda_tile.partition_view<tile=(...), padding_value=..., tensor_view<...>, dim_map=[...]>; dim_map vide = identite.
     /// An empty `dim_map` is the identity; the type requires one entry per
     /// tile dimension.
     pub fn get(
@@ -190,14 +212,17 @@ pub const PartitionViewType = opaque {
         )));
     }
 
+    // Vue tenseur sous-jacente d'un !cuda_tile.partition_view.
     pub fn tensorView(self: *const PartitionViewType) *const mlir.Type {
         return typeFromC(c.mlirCudaTilePartitionViewTypeGetTensorView(self.ptr()));
     }
 
+    // Type du tile lu a travers cette partition view.
     pub fn viewTileType(self: *const PartitionViewType) *const mlir.Type {
         return typeFromC(c.mlirCudaTilePartitionViewTypeGetViewTileType(self.ptr()));
     }
 
+    // Rang de l'espace d'index de la partition view.
     pub fn viewIndexRank(self: *const PartitionViewType) usize {
         return @intCast(c.mlirCudaTilePartitionViewTypeGetViewIndexRank(self.ptr()));
     }
@@ -213,6 +238,7 @@ pub const StridedViewType = opaque {
     pub const format = M.format(c.mlirTypePrint);
     pub const isA = M.isA;
 
+    // Construit !cuda_tile.strided_view<tile=(...), strides=(...), ...> avec sa dim_map et son padding.
     pub fn get(
         ctx: *mlir.Context,
         tile_shape: []const i32,
@@ -235,10 +261,12 @@ pub const StridedViewType = opaque {
         )));
     }
 
+    // Type du tile lu a travers cette strided view.
     pub fn viewTileType(self: *const StridedViewType) *const mlir.Type {
         return typeFromC(c.mlirCudaTileStridedViewTypeGetViewTileType(self.ptr()));
     }
 
+    // Rang de l'espace d'index de la strided view.
     pub fn viewIndexRank(self: *const StridedViewType) usize {
         return @intCast(c.mlirCudaTileStridedViewTypeGetViewIndexRank(self.ptr()));
     }
@@ -254,9 +282,11 @@ pub const GatherScatterViewType = opaque {
     pub const eql = M.eql(c.mlirTypeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "gather_scatter_view";
+    // Formate le type gather_scatter_view en deleguant au formatage du mlir.Type sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.type_().format(writer);
     }
+    // Reinterprete ce type vue en mlir.Type (le handle C est le meme).
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
@@ -266,6 +296,7 @@ pub const GatherScatterViewType = opaque {
         sparseDim: u32,
         paddingValue: ?PaddingValue = null,
     };
+    // Construit !cuda_tile.gather_scatter_view<tile=(...), padding_value=..., tensor_view<...>, sparse_dim=N>, error.InvalidMlir si rejete.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaTileGatherScatterViewTypeGet(
             ctx.ptr(),
@@ -277,15 +308,19 @@ pub const GatherScatterViewType = opaque {
         );
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Renvoie l'attribut de forme du tile de cette gather/scatter view.
     pub fn getTileShape(self: *const Self) *const mlir.DenseArrayAttribute(.i32) {
         return @ptrCast(attrFromC(c.mlirCudaTileGatherScatterViewTypeGetTileShape(self.ptr())));
     }
+    // Vue tenseur sous-jacente de cette gather/scatter view.
     pub fn getTensorView(self: *const Self) *const TensorViewType {
         return @ptrCast(typeFromC(c.mlirCudaTileGatherScatterViewTypeGetTensorView(self.ptr())));
     }
+    // Dimension sparsifiee (gather/scatter) de cette vue.
     pub fn getSparseDim(self: *const Self) u32 {
         return c.mlirCudaTileGatherScatterViewTypeGetSparseDim(self.ptr());
     }
+    // Padding de cette vue, ou null s'il est absent.
     pub fn getPaddingValue(self: *const Self) ?PaddingValue {
         const attr = c.mlirCudaTileGatherScatterViewTypeGetPaddingValue(self.ptr());
         if (attr.ptr == null) return null;
@@ -294,6 +329,7 @@ pub const GatherScatterViewType = opaque {
     }
 };
 
+// Raccourci public construisant !cuda_tile.gather_scatter_view<...>; panique si la vue tenseur est invalide.
 pub fn gatherScatterViewType(
     ctx: *mlir.Context,
     tile_shape: []const i64,
@@ -312,6 +348,7 @@ pub fn gatherScatterViewType(
     return view.type_();
 }
 
+// Type du tile rendu par un chargement a travers n'importe quelle vue tilee (interface TileView).
 /// The `tile<...>` type a load through `view` yields, for any view kind —
 /// through the dialect's `TileView` type interface (`cuda_tile_capi.cc`), so
 /// the gather/scatter view, which has no getters in NVIDIA's C API, works too.
@@ -320,6 +357,7 @@ pub fn tileTypeOfView(view: *const mlir.Type) *const mlir.Type {
     return typeFromC(c.mlirCudaTileTileViewTypeGetViewTileType(view.ptr()));
 }
 
+// Rang de l'espace d'index d'une vue tilee quelconque (partition/strided/gather-scatter).
 pub fn indexRankOfView(view: *const mlir.Type) usize {
     if (!c.mlirTypeIsACudaTileTileView(view.ptr())) std.debug.panic("cuda_tile: {f} is not a tiled view", .{view});
     return @intCast(c.mlirCudaTileTileViewTypeGetViewIndexRank(view.ptr()));
@@ -328,6 +366,7 @@ pub fn indexRankOfView(view: *const mlir.Type) usize {
 // Enum attributes: built through the C getter from the tag name, so a typo is
 // a null attribute rather than a wrong case.
 
+// Construit un attribut enum du dialecte depuis son nom de tag via le getter C passe en comptime.
 fn enumAttribute(comptime getter: anytype, ctx: *mlir.Context, name: []const u8) *const mlir.Attribute {
     return attrFromC(getter(ctx.ptr(), stringRef(name)));
 }
@@ -341,6 +380,7 @@ pub const RoundingMode = enum {
     full,
     nearest_int_to_zero,
 
+    // Attribut #cuda_tile.rounding<...> correspondant a ce mode d'arrondi.
     pub fn attribute(self: RoundingMode, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileRoundingModeAttrGet, ctx, @tagName(self));
     }
@@ -350,6 +390,7 @@ pub const Signedness = enum {
     signed,
     unsigned,
 
+    // Attribut #cuda_tile.signedness<...> (signed/unsigned).
     pub fn attribute(self: Signedness, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileSignednessAttrGet, ctx, @tagName(self));
     }
@@ -361,6 +402,7 @@ pub const IntegerOverflow = enum {
     no_unsigned_wrap,
     no_wrap,
 
+    // Attribut #cuda_tile.integer_overflow<...>.
     pub fn attribute(self: IntegerOverflow, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileIntegerOverflowAttrGet, ctx, @tagName(self));
     }
@@ -370,6 +412,7 @@ pub const ComparisonOrdering = enum {
     unordered,
     ordered,
 
+    // Attribut #cuda_tile.comparison_ordering<...> (unordered/ordered).
     pub fn attribute(self: ComparisonOrdering, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileComparisonOrderingAttrGet, ctx, @tagName(self));
     }
@@ -383,6 +426,7 @@ pub const ComparisonPredicate = enum {
     greater_than,
     greater_than_or_equal,
 
+    // Attribut #cuda_tile.comparison_predicate<...> (equal, less_than, ...).
     pub fn attribute(self: ComparisonPredicate, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileComparisonPredicateAttrGet, ctx, @tagName(self));
     }
@@ -400,6 +444,7 @@ pub const AtomicRMWMode = enum {
     umin,
     xchg,
 
+    // Attribut #cuda_tile.atomic_rmw_mode<...> (and, or, add, max, ...).
     pub fn attribute(self: AtomicRMWMode, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileAtomicRMWModeAttrGet, ctx, @tagName(self));
     }
@@ -410,6 +455,7 @@ pub const MemoryScope = enum {
     device,
     sys,
 
+    // Attribut #cuda_tile.memory_scope<...> (tl_blk/device/sys).
     pub fn attribute(self: MemoryScope, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileMemoryScopeAttrGet, ctx, @tagName(self));
     }
@@ -422,6 +468,7 @@ pub const MemoryOrdering = enum {
     release,
     acq_rel,
 
+    // Attribut #cuda_tile.memory_ordering<...> (weak, relaxed, acquire, ...).
     pub fn attribute(self: MemoryOrdering, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileMemoryOrderingSemanticsAttrGet, ctx, @tagName(self));
     }
@@ -434,6 +481,7 @@ pub const PaddingValue = enum {
     pos_inf,
     neg_inf,
 
+    // Attribut #cuda_tile.padding_value<...> (zero, nan, inf, ...).
     pub fn attribute(self: PaddingValue, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTilePaddingValueAttrGet, ctx, @tagName(self));
     }
@@ -443,6 +491,7 @@ pub const SymbolVisibility = enum {
     public,
     private,
 
+    // Attribut #cuda_tile.symbol_visibility<...> (public/private).
     pub fn attribute(self: SymbolVisibility, ctx: *mlir.Context) *const mlir.Attribute {
         return enumAttribute(c.mlirCudaTileSymbolVisibilityAttrGet, ctx, @tagName(self));
     }
@@ -485,24 +534,29 @@ pub const OptimizationHintsAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "optimization_hints";
+    // Formate #cuda_tile.optimization_hints via le formatage de l'attribut MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete ce handle comme mlir.Attribute.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         value: *const mlir.DictionaryAttribute,
     };
+    // Construit #cuda_tile.optimization_hints<...> a partir d'un dictionnaire arch -> hints.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaTileOptimizationHintsAttrGet(ctx.ptr(), args.value.ptr());
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Dictionnaire de hints sous-jacent de optimization_hints.
     pub fn getValue(self: *const Self) *const mlir.DictionaryAttribute {
         return @ptrCast(attrFromC(c.mlirCudaTileOptimizationHintsAttrGetValue(self.ptr())));
     }
 };
 
+// Construit le dictionnaire de hints d'une architecture : tous les champs non nuls sauf arch, entiers en i64.
 /// The hint dictionary of one architecture: the non-null fields of `hint`
 /// but `arch`, integers as `i64` like the textual form.
 fn hintDictionary(ctx: *mlir.Context, hint: anytype) *const mlir.Attribute {
@@ -521,6 +575,7 @@ fn hintDictionary(ctx: *mlir.Context, hint: anytype) *const mlir.Attribute {
     return .dict(ctx, entries.constSlice());
 }
 
+// Construit #cuda_tile.optimization_hints a partir d'une tranche de EntryHint/LoadStoreHint/PtrLoadStoreHint.
 /// `#cuda_tile.optimization_hints` from a slice of `EntryHint`,
 /// `LoadStoreHint` or `PtrLoadStoreHint`.
 pub fn optimizationHints(ctx: *mlir.Context, hints: anytype) *const mlir.Attribute {
@@ -544,9 +599,11 @@ pub const DivByAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "div_by";
+    // Formate #cuda_tile.div_by via l'attribut MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete ce handle comme mlir.Attribute.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -555,6 +612,7 @@ pub const DivByAttr = opaque {
         every: ?i64 = null,
         along: ?i64 = null,
     };
+    // Construit #cuda_tile.div_by<divisor> ou <divisor, every E along A> (flags HasEvery/HasAlong).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaTileDivByAttrGet(
             ctx.ptr(),
@@ -566,17 +624,21 @@ pub const DivByAttr = opaque {
         );
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Diviseur de la contrainte div_by.
     pub fn getDivisor(self: *const Self) u64 {
         return c.mlirCudaTileDivByAttrGetDivisor(self.ptr());
     }
+    // Champ every de div_by, ou null s'il est absent.
     pub fn getEvery(self: *const Self) ?i64 {
         return if (c.mlirCudaTileDivByAttrHasEvery(self.ptr())) c.mlirCudaTileDivByAttrGetEvery(self.ptr()) else null;
     }
+    // Champ along de div_by, ou null s'il est absent.
     pub fn getAlong(self: *const Self) ?i64 {
         return if (c.mlirCudaTileDivByAttrHasAlong(self.ptr())) c.mlirCudaTileDivByAttrGetAlong(self.ptr()) else null;
     }
 };
 
+// Raccourci construisant #cuda_tile.div_by<...>; along vaut 0 quand seul every est fourni.
 /// `along` defaults to 0 when only `every` is given.
 pub fn divBy(ctx: *mlir.Context, divisor: u64, every: ?i64, along: ?i64) *const mlir.Attribute {
     const attr = DivByAttr.get(ctx, .{
@@ -597,24 +659,29 @@ pub const SameElementsAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "same_elements";
+    // Formate #cuda_tile.same_elements via l'attribut MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete ce handle comme mlir.Attribute.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
     pub const InitArgs = struct {
         values: []const i64,
     };
+    // Construit #cuda_tile.same_elements<[...]> depuis les tailles de groupes par dimension.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaTileSameElementsAttrGet(ctx.ptr(), @intCast(args.values.len), args.values.ptr);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Tableau dense i64 des tailles de groupes de same_elements.
     pub fn getValues(self: *const Self) *const mlir.DenseArrayAttribute(.i64) {
         return @ptrCast(attrFromC(c.mlirCudaTileSameElementsAttrGetValues(self.ptr())));
     }
 };
 
+// Raccourci construisant #cuda_tile.same_elements<[...]>.
 pub fn sameElements(ctx: *mlir.Context, values: []const i64) *const mlir.Attribute {
     const attr = SameElementsAttr.get(ctx, .{ .values = values }) catch unreachable;
     return attr.attribute();
@@ -629,9 +696,11 @@ pub const BoundedAttr = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const isA = M.isA;
     pub const mnemonic = "bounded";
+    // Formate #cuda_tile.bounded via l'attribut MLIR sous-jacent.
     pub fn format(self: *const Self, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return self.attribute().format(writer);
     }
+    // Reinterprete ce handle comme mlir.Attribute.
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
@@ -639,18 +708,22 @@ pub const BoundedAttr = opaque {
         lb: ?i64 = null,
         ub: ?i64 = null,
     };
+    // Construit #cuda_tile.bounded<lb, ub>, chaque borne etant ? si null.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
         const result = c.mlirCudaTileBoundedAttrGet(ctx.ptr(), args.lb != null, args.lb orelse 0, args.ub != null, args.ub orelse 0);
         return @ptrCast(result.ptr orelse return error.InvalidMlir);
     }
+    // Borne inferieure de bounded, ou null.
     pub fn getLb(self: *const Self) ?i64 {
         return if (c.mlirCudaTileBoundedAttrHasLb(self.ptr())) c.mlirCudaTileBoundedAttrGetLb(self.ptr()) else null;
     }
+    // Borne superieure de bounded, ou null.
     pub fn getUb(self: *const Self) ?i64 {
         return if (c.mlirCudaTileBoundedAttrHasUb(self.ptr())) c.mlirCudaTileBoundedAttrGetUb(self.ptr()) else null;
     }
 };
 
+// Raccourci construisant #cuda_tile.bounded<lb, ub>.
 pub fn bounded(ctx: *mlir.Context, lb: ?i64, ub: ?i64) *const mlir.Attribute {
     const attr = BoundedAttr.get(ctx, .{ .lb = lb, .ub = ub }) catch unreachable;
     return attr.attribute();
@@ -658,18 +731,22 @@ pub fn bounded(ctx: *mlir.Context, lb: ?i64, ub: ?i64) *const mlir.Attribute {
 
 // Constant values: DenseElementsAttr over a tile type, which is a ShapedType.
 
+// Construit un DenseElementsAttr splat (meme valeur partout) sur le type tile donne.
 pub fn splatAttr(tile_ty: *const mlir.Type, elem_attr: *const mlir.Attribute) *const mlir.Attribute {
     return attrFromC(c.mlirDenseElementsAttrSplatGet(tile_ty.ptr(), elem_attr.ptr()));
 }
 
+// Attribut entier (mlirIntegerAttrGet) d'un scalaire du type donne.
 pub fn intElem(elem_ty: *const mlir.Type, value: i64) *const mlir.Attribute {
     return attrFromC(c.mlirIntegerAttrGet(elem_ty.ptr(), value));
 }
 
+// Attribut flottant (mlirFloatAttrDoubleGet) d'un scalaire du type donne.
 pub fn floatElem(ctx: *mlir.Context, elem_ty: *const mlir.Type, value: f64) *const mlir.Attribute {
     return attrFromC(c.mlirFloatAttrDoubleGet(ctx.ptr(), elem_ty.ptr(), value));
 }
 
+// Construit un DenseElementsAttr dense sur tile_ty depuis un buffer brut d'elements.
 /// A dense `DenseElementsAttr` over `tile_ty` from a raw element buffer; the
 /// element type's bit width must be a multiple of 8.
 pub fn denseAttr(tile_ty: *const mlir.Type, values: anytype) *const mlir.Attribute {
@@ -678,6 +755,7 @@ pub fn denseAttr(tile_ty: *const mlir.Type, values: anytype) *const mlir.Attribu
 
 const MakeArgs = mlir.Operation.MakeArgs;
 
+// Prefixe un mnemonic par l'espace de noms du dialecte (cuda_tile.).
 fn opName(comptime mnemonic: []const u8) []const u8 {
     return dialect_namespace ++ "." ++ mnemonic;
 }
@@ -686,12 +764,14 @@ fn opName(comptime mnemonic: []const u8) []const u8 {
 /// slice handed to `Operation.make`.
 const Attrs = stdx.BoundedArray(mlir.NamedAttribute, 8);
 
+// Copie une liste d'attributs nommes dans le buffer Attrs (pour garder les temporaires vivants).
 fn attrsOf(list: []const mlir.NamedAttribute) Attrs {
     var attrs: Attrs = .empty;
     attrs.appendSliceAssumeCapacity(list);
     return attrs;
 }
 
+// Fabrique une operation unaire cuda_tile.<mnemonic> : un operande, resultat de meme type, attributs donnes.
 fn unary(ctx: *mlir.Context, comptime mnemonic: []const u8, source: *const mlir.Value, attrs: Attrs, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName(mnemonic), .{
         .operands = .{ .flat = &.{source} },
@@ -701,6 +781,7 @@ fn unary(ctx: *mlir.Context, comptime mnemonic: []const u8, source: *const mlir.
     });
 }
 
+// Fabrique une operation binaire cuda_tile.<mnemonic> avec lhs/rhs et resultat du type de lhs.
 fn binary(ctx: *mlir.Context, comptime mnemonic: []const u8, lhs: *const mlir.Value, rhs: *const mlir.Value, attrs: Attrs, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName(mnemonic), .{
         .operands = .{ .flat = &.{ lhs, rhs } },
@@ -710,6 +791,7 @@ fn binary(ctx: *mlir.Context, comptime mnemonic: []const u8, lhs: *const mlir.Va
     });
 }
 
+// Fabrique une operation de conversion cuda_tile.<mnemonic> (source -> result_type).
 fn convert(ctx: *mlir.Context, comptime mnemonic: []const u8, source: *const mlir.Value, result_type: *const mlir.Type, attrs: Attrs, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName(mnemonic), .{
         .operands = .{ .flat = &.{source} },
@@ -719,6 +801,7 @@ fn convert(ctx: *mlir.Context, comptime mnemonic: []const u8, source: *const mli
     });
 }
 
+// Assemble l'attribut rounding_mode et, si demande, le flag flush_to_zero.
 fn roundingAttrs(ctx: *mlir.Context, rounding: RoundingMode, flush_to_zero: bool) Attrs {
     var attrs: Attrs = .empty;
     attrs.appendAssumeCapacity(.named(ctx, "rounding_mode", rounding.attribute(ctx)));
@@ -726,18 +809,21 @@ fn roundingAttrs(ctx: *mlir.Context, rounding: RoundingMode, flush_to_zero: bool
     return attrs;
 }
 
+// Assemble l'attribut overflow sauf quand le mode est none.
 fn overflowAttrs(ctx: *mlir.Context, overflow: IntegerOverflow) Attrs {
     var attrs: Attrs = .empty;
     if (overflow != .none) attrs.appendAssumeCapacity(.named(ctx, "overflow", overflow.attribute(ctx)));
     return attrs;
 }
 
+// Assemble le flag flush_to_zero s'il est demande.
 fn ftzAttrs(ctx: *mlir.Context, flush_to_zero: bool) Attrs {
     var attrs: Attrs = .empty;
     if (flush_to_zero) attrs.appendAssumeCapacity(.named(ctx, "flush_to_zero", .unit(ctx)));
     return attrs;
 }
 
+// Type tile de forme identique mais d'element i1 (resultat des comparaisons).
 fn i1Like(ctx: *mlir.Context, v: *const mlir.Value) *const mlir.Type {
     const t = v.type_().isA(TileType) orelse std.debug.panic("cuda_tile: {f} is not a tile", .{v.type_()});
     var shape: stdx.BoundedArray(i64, mlir.ShapedType.MAX_RANK) = .empty;
@@ -745,34 +831,42 @@ fn i1Like(ctx: *mlir.Context, v: *const mlir.Value) *const mlir.Type {
     return tileType(ctx, shape.constSlice(), .int(ctx, .i1));
 }
 
+// Op cuda_tile.absf : valeur absolue flottante (unaire).
 pub fn absf(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "absf", source, .empty, location);
 }
 
+// Op cuda_tile.addf : addition flottante avec rounding_mode et flush_to_zero.
 pub fn addf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "addf", lhs, rhs, roundingAttrs(ctx, rounding, flush_to_zero), location);
 }
 
+// Op cuda_tile.subf : soustraction flottante avec arrondi.
 pub fn subf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "subf", lhs, rhs, roundingAttrs(ctx, rounding, flush_to_zero), location);
 }
 
+// Op cuda_tile.mulf : multiplication flottante avec arrondi.
 pub fn mulf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "mulf", lhs, rhs, roundingAttrs(ctx, rounding, flush_to_zero), location);
 }
 
+// Op cuda_tile.divf : division flottante avec arrondi.
 pub fn divf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "divf", lhs, rhs, roundingAttrs(ctx, rounding, flush_to_zero), location);
 }
 
+// Op cuda_tile.remf : reste flottant.
 pub fn remf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "remf", lhs, rhs, .empty, location);
 }
 
+// Op cuda_tile.negf : negation flottante.
 pub fn negf(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "negf", source, .empty, location);
 }
 
+// Op cuda_tile.fma : multiplie-additionne (lhs*rhs+acc) avec arrondi.
 pub fn fma(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, acc: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("fma"), .{
         .operands = .{ .flat = &.{ lhs, rhs, acc } },
@@ -782,6 +876,7 @@ pub fn fma(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, a
     });
 }
 
+// Assemble les flags propagate_nan et flush_to_zero de min/max.
 fn minMaxAttrs(ctx: *mlir.Context, propagate_nan: bool, flush_to_zero: bool) Attrs {
     var attrs: Attrs = .empty;
     if (propagate_nan) attrs.appendAssumeCapacity(.named(ctx, "propagate_nan", .unit(ctx)));
@@ -789,22 +884,27 @@ fn minMaxAttrs(ctx: *mlir.Context, propagate_nan: bool, flush_to_zero: bool) Att
     return attrs;
 }
 
+// Op cuda_tile.maxf : maximum flottant (options NaN et FTZ).
 pub fn maxf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, propagate_nan: bool, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "maxf", lhs, rhs, minMaxAttrs(ctx, propagate_nan, flush_to_zero), location);
 }
 
+// Op cuda_tile.minf : minimum flottant (options NaN et FTZ).
 pub fn minf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, propagate_nan: bool, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "minf", lhs, rhs, minMaxAttrs(ctx, propagate_nan, flush_to_zero), location);
 }
 
+// Op cuda_tile.fpowf : exponentiation pow(source, exponent).
 pub fn pow(ctx: *mlir.Context, source: *const mlir.Value, exponent: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "fpowf", source, exponent, .empty, location);
 }
 
+// Op cuda_tile.atan2 : arc tangente a deux arguments.
 pub fn atan2(ctx: *mlir.Context, x: *const mlir.Value, y: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "atan2", x, y, .empty, location);
 }
 
+// Op cuda_tile.exp : exponentielle; rounding_mode optionnel (defaut du dialecte).
 /// `rounding` null keeps the op's default (13.3 attribute).
 pub fn exp(ctx: *mlir.Context, source: *const mlir.Value, rounding: ?RoundingMode, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
@@ -812,46 +912,57 @@ pub fn exp(ctx: *mlir.Context, source: *const mlir.Value, rounding: ?RoundingMod
     return unary(ctx, "exp", source, attrs, location);
 }
 
+// Op cuda_tile.exp2 : 2 puissance x, avec flush_to_zero optionnel.
 pub fn exp2(ctx: *mlir.Context, source: *const mlir.Value, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "exp2", source, ftzAttrs(ctx, flush_to_zero), location);
 }
 
+// Op cuda_tile.log : logarithme naturel.
 pub fn log(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "log", source, .empty, location);
 }
 
+// Op cuda_tile.log2 : logarithme base 2.
 pub fn log2(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "log2", source, .empty, location);
 }
 
+// Op cuda_tile.sqrt : racine carree avec arrondi.
 pub fn sqrt(ctx: *mlir.Context, source: *const mlir.Value, rounding: RoundingMode, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "sqrt", source, roundingAttrs(ctx, rounding, flush_to_zero), location);
 }
 
+// Op cuda_tile.rsqrt : inverse de la racine carree, avec flush_to_zero.
 pub fn rsqrt(ctx: *mlir.Context, source: *const mlir.Value, flush_to_zero: bool, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "rsqrt", source, ftzAttrs(ctx, flush_to_zero), location);
 }
 
+// Op cuda_tile.sin : sinus.
 pub fn sin(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "sin", source, .empty, location);
 }
 
+// Op cuda_tile.cos : cosinus.
 pub fn cos(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "cos", source, .empty, location);
 }
 
+// Op cuda_tile.tan : tangente.
 pub fn tan(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "tan", source, .empty, location);
 }
 
+// Op cuda_tile.sinh : sinus hyperbolique.
 pub fn sinh(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "sinh", source, .empty, location);
 }
 
+// Op cuda_tile.cosh : cosinus hyperbolique.
 pub fn cosh(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "cosh", source, .empty, location);
 }
 
+// Op cuda_tile.tanh : tangente hyperbolique; rounding_mode limite a approx/full.
 /// `rounding` null keeps the op's default (13.2 attribute). Only `approx`
 /// and `full` are legal; the upstream verifier reports the others without
 /// failing, so they are refused here.
@@ -867,14 +978,17 @@ pub fn tanh(ctx: *mlir.Context, source: *const mlir.Value, rounding: ?RoundingMo
     return unary(ctx, "tanh", source, attrs, location);
 }
 
+// Op cuda_tile.ceil : arrondi vers le haut.
 pub fn ceil(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "ceil", source, .empty, location);
 }
 
+// Op cuda_tile.floor : arrondi vers le bas.
 pub fn floor(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "floor", source, .empty, location);
 }
 
+// Op cuda_tile.cmpf : comparaison flottante, resultat tile de i1 (predicat + ordre).
 pub fn cmpf(ctx: *mlir.Context, predicate: ComparisonPredicate, ordering: ComparisonOrdering, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("cmpf"), .{
         .operands = .{ .flat = &.{ lhs, rhs } },
@@ -887,6 +1001,7 @@ pub fn cmpf(ctx: *mlir.Context, predicate: ComparisonPredicate, ordering: Compar
     });
 }
 
+// Op cuda_tile.mmaf : produit matriciel flottant lhs@rhs + acc, flag fast_acc optionnel.
 pub fn mmaf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, acc: *const mlir.Value, fast_acc: bool, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
     if (fast_acc) attrs.appendAssumeCapacity(.named(ctx, "fast_acc", .unit(ctx)));
@@ -898,6 +1013,7 @@ pub fn mmaf(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
     });
 }
 
+// Op cuda_tile.mmaf_scaled : MMA a echelle par blocs, operandes lhs/rhs/acc + echelles lhs/rhs.
 /// Block-scaled MMA (13.3): scales are plain tiles in logical M/N/K layout.
 pub fn mmaf_scaled(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, acc: *const mlir.Value, lhs_scale: *const mlir.Value, rhs_scale: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("mmaf_scaled"), .{
@@ -907,26 +1023,32 @@ pub fn mmaf_scaled(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.
     });
 }
 
+// Op cuda_tile.absi : valeur absolue entiere.
 pub fn absi(ctx: *mlir.Context, source: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "absi", source, .empty, location);
 }
 
+// Op cuda_tile.addi : addition entiere avec attribut overflow.
 pub fn addi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "addi", lhs, rhs, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.subi : soustraction entiere avec overflow.
 pub fn subi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "subi", lhs, rhs, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.muli : multiplication entiere avec overflow.
 pub fn muli(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "muli", lhs, rhs, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.mulhii : moitie haute du produit entier.
 pub fn mulhii(ctx: *mlir.Context, x: *const mlir.Value, y: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "mulhii", x, y, .empty, location);
 }
 
+// Op cuda_tile.divi : division entiere (signedness et rounding optionnel).
 /// `rounding` null keeps the op's default (truncation).
 pub fn divi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, rounding: ?RoundingMode, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
@@ -935,34 +1057,42 @@ pub fn divi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
     return binary(ctx, "divi", lhs, rhs, attrs, location);
 }
 
+// Fabrique une op binaire entiere cuda_tile.<mnemonic> portant signedness.
 fn signedBinary(ctx: *mlir.Context, comptime mnemonic: []const u8, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, mnemonic, lhs, rhs, attrsOf(&.{.named(ctx, "signedness", signedness.attribute(ctx))}), location);
 }
 
+// Op cuda_tile.remi : reste entier signe/non signe.
 pub fn remi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, location: *const mlir.Location) *mlir.Operation {
     return signedBinary(ctx, "remi", lhs, rhs, signedness, location);
 }
 
+// Op cuda_tile.maxi : maximum entier (signe/non signe).
 pub fn maxi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, location: *const mlir.Location) *mlir.Operation {
     return signedBinary(ctx, "maxi", lhs, rhs, signedness, location);
 }
 
+// Op cuda_tile.mini : minimum entier (signe/non signe).
 pub fn mini(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, location: *const mlir.Location) *mlir.Operation {
     return signedBinary(ctx, "mini", lhs, rhs, signedness, location);
 }
 
+// Op cuda_tile.negi : negation entiere avec overflow.
 pub fn negi(ctx: *mlir.Context, source: *const mlir.Value, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return unary(ctx, "negi", source, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.shli : decalage a gauche avec overflow.
 pub fn shli(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "shli", lhs, rhs, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.shri : decalage a droite (signe/non signe).
 pub fn shri(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, signedness: Signedness, location: *const mlir.Location) *mlir.Operation {
     return signedBinary(ctx, "shri", lhs, rhs, signedness, location);
 }
 
+// Op cuda_tile.cmpi : comparaison entiere, resultat tile i1 (predicat + signedness).
 pub fn cmpi(ctx: *mlir.Context, predicate: ComparisonPredicate, signedness: Signedness, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("cmpi"), .{
         .operands = .{ .flat = &.{ lhs, rhs } },
@@ -975,6 +1105,7 @@ pub fn cmpi(ctx: *mlir.Context, predicate: ComparisonPredicate, signedness: Sign
     });
 }
 
+// Op cuda_tile.mmai : produit matriciel entier lhs@rhs + acc (signedness par operande).
 pub fn mmai(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, acc: *const mlir.Value, signedness_lhs: Signedness, signedness_rhs: Signedness, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("mmai"), .{
         .operands = .{ .flat = &.{ lhs, rhs, acc } },
@@ -987,30 +1118,37 @@ pub fn mmai(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
     });
 }
 
+// Op cuda_tile.andi : et bit a bit.
 pub fn andi(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "andi", lhs, rhs, .empty, location);
 }
 
+// Op cuda_tile.ori : ou bit a bit.
 pub fn ori(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "ori", lhs, rhs, .empty, location);
 }
 
+// Op cuda_tile.xori : ou exclusif bit a bit.
 pub fn xori(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "xori", lhs, rhs, .empty, location);
 }
 
+// Op cuda_tile.bitcast : reinterpretation des bits vers result_type.
 pub fn bitcast(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "bitcast", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.exti : extension entiere vers un type plus large (signedness).
 pub fn exti(ctx: *mlir.Context, from: *const mlir.Value, signedness: Signedness, to: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "exti", from, to, attrsOf(&.{.named(ctx, "signedness", signedness.attribute(ctx))}), location);
 }
 
+// Op cuda_tile.trunci : troncature entiere vers un type plus etroit (overflow).
 pub fn trunci(ctx: *mlir.Context, from: *const mlir.Value, to: *const mlir.Type, overflow: IntegerOverflow, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "trunci", from, to, overflowAttrs(ctx, overflow), location);
 }
 
+// Op cuda_tile.ftof : conversion flottant -> flottant ; rounding_mode optionnel (defaut nearest_even).
 /// `rounding` null keeps the op's default (nearest_even).
 pub fn ftof(ctx: *mlir.Context, from: *const mlir.Value, to: *const mlir.Type, rounding: ?RoundingMode, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
@@ -1018,6 +1156,7 @@ pub fn ftof(ctx: *mlir.Context, from: *const mlir.Value, to: *const mlir.Type, r
     return convert(ctx, "ftof", from, to, attrs, location);
 }
 
+// Op cuda_tile.ftoi : flottant -> entier (signedness + rounding_mode).
 pub fn ftoi(ctx: *mlir.Context, from: *const mlir.Value, signedness: Signedness, rounding: RoundingMode, to: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "ftoi", from, to, attrsOf(&.{
         .named(ctx, "signedness", signedness.attribute(ctx)),
@@ -1025,6 +1164,7 @@ pub fn ftoi(ctx: *mlir.Context, from: *const mlir.Value, signedness: Signedness,
     }), location);
 }
 
+// Op cuda_tile.itof : entier -> flottant (signedness + rounding_mode).
 pub fn itof(ctx: *mlir.Context, from: *const mlir.Value, signedness: Signedness, rounding: RoundingMode, to: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "itof", from, to, attrsOf(&.{
         .named(ctx, "signedness", signedness.attribute(ctx)),
@@ -1032,28 +1172,34 @@ pub fn itof(ctx: *mlir.Context, from: *const mlir.Value, signedness: Signedness,
     }), location);
 }
 
+// Op cuda_tile.int_to_ptr : entier -> pointeur.
 pub fn int_to_ptr(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "int_to_ptr", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.ptr_to_int : pointeur -> entier.
 pub fn ptr_to_int(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "ptr_to_int", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.ptr_to_ptr : conversion entre types pointeur.
 pub fn ptr_to_ptr(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "ptr_to_ptr", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.pack (13.3) : tile sous-octet -> tile i8.
 /// 13.3: sub-byte tile -> i8 tile.
 pub fn pack(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "pack", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.unpack (13.3) : tile i8 -> tile sous-octet.
 /// 13.3: i8 tile -> sub-byte tile.
 pub fn unpack(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "unpack", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.constant : materialise l'attribut value en une valeur de result_type.
 pub fn constant(ctx: *mlir.Context, value: *const mlir.Attribute, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("constant"), .{
         .results = .{ .flat = &.{result_type} },
@@ -1062,6 +1208,7 @@ pub fn constant(ctx: *mlir.Context, value: *const mlir.Attribute, result_type: *
     });
 }
 
+// Op cuda_tile.iota : suite d'entiers 0..n-1 dans le tile resultat.
 pub fn iota(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("iota"), .{
         .results = .{ .flat = &.{result_type} },
@@ -1069,14 +1216,17 @@ pub fn iota(ctx: *mlir.Context, result_type: *const mlir.Type, location: *const 
     });
 }
 
+// Op cuda_tile.reshape : changement de forme vers result_type.
 pub fn reshape(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "reshape", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.broadcast : diffusion de la source vers result_type.
 pub fn broadcast(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "broadcast", source, result_type, .empty, location);
 }
 
+// Op cuda_tile.cat : concatenation de lhs et rhs selon dim.
 pub fn cat(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, dim: i64, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("cat"), .{
         .operands = .{ .flat = &.{ lhs, rhs } },
@@ -1086,6 +1236,7 @@ pub fn cat(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, d
     });
 }
 
+// Op cuda_tile.extract : extraction d'un sous-tile via des indices (source + indices en operandes).
 pub fn extract(ctx: *mlir.Context, source: *const mlir.Value, indices: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     var operands: stdx.BoundedArray(*const mlir.Value, mlir.ShapedType.MAX_RANK + 1) = .empty;
     operands.appendAssumeCapacity(source);
@@ -1097,10 +1248,12 @@ pub fn extract(ctx: *mlir.Context, source: *const mlir.Value, indices: []const *
     });
 }
 
+// Op cuda_tile.permute : transposition selon l'attribut permutation.
 pub fn permute(ctx: *mlir.Context, source: *const mlir.Value, permutation: []const i32, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, "permute", source, result_type, attrsOf(&.{.named(ctx, "permutation", .denseArray(ctx, .i32, permutation))}), location);
 }
 
+// Op cuda_tile.select : choisit val_if_true/val_if_false selon cond.
 pub fn select(ctx: *mlir.Context, cond: *const mlir.Value, val_if_true: *const mlir.Value, val_if_false: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("select"), .{
         .operands = .{ .flat = &.{ cond, val_if_true, val_if_false } },
@@ -1109,10 +1262,12 @@ pub fn select(ctx: *mlir.Context, cond: *const mlir.Value, val_if_true: *const m
     });
 }
 
+// Op cuda_tile.offset : decale le pointeur ptr de off elements.
 pub fn offset(ctx: *mlir.Context, ptr: *const mlir.Value, off: *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return binary(ctx, "offset", ptr, off, .empty, location);
 }
 
+// Fabrique une op cuda_tile.<mnemonic> renvoyant trois tiles i32 scalaires (coordonnees de bloc).
 fn threeI32(ctx: *mlir.Context, comptime mnemonic: []const u8, location: *const mlir.Location) *mlir.Operation {
     const i32_tile = tileType(ctx, &.{}, .int(ctx, .i32));
     return mlir.Operation.make(ctx, opName(mnemonic), .{
@@ -1121,10 +1276,12 @@ fn threeI32(ctx: *mlir.Context, comptime mnemonic: []const u8, location: *const 
     });
 }
 
+// Op cuda_tile.get_tile_block_id : identifiant du bloc de tuiles courant (trois i32).
 pub fn get_tile_block_id(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return threeI32(ctx, "get_tile_block_id", location);
 }
 
+// Op cuda_tile.get_num_tile_blocks : nombre de blocs de tuiles sur les trois axes.
 pub fn get_num_tile_blocks(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return threeI32(ctx, "get_num_tile_blocks", location);
 }
@@ -1135,6 +1292,7 @@ pub const GlobalOpts = struct {
     visibility: ?SymbolVisibility = null,
 };
 
+// Op cuda_tile.global : declare un symbole global (sym_name, value, alignment/constant/visibility).
 pub fn global(ctx: *mlir.Context, name: []const u8, value: *const mlir.Attribute, opts: GlobalOpts, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
     attrs.appendAssumeCapacity(.named(ctx, "sym_name", .string(ctx, name)));
@@ -1149,6 +1307,7 @@ pub fn global(ctx: *mlir.Context, name: []const u8, value: *const mlir.Attribute
     });
 }
 
+// Op cuda_tile.get_global : reference un global par nom (flat_symbol_ref).
 pub fn get_global(ctx: *mlir.Context, name: []const u8, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("get_global"), .{
         .results = .{ .flat = &.{result_type} },
@@ -1159,6 +1318,7 @@ pub fn get_global(ctx: *mlir.Context, name: []const u8, result_type: *const mlir
     });
 }
 
+// Op cuda_tile.module @name { ... } : conteneur des entries et des globals.
 /// `cuda_tile.module @name { ... }`. `body` holds the entries and globals.
 pub fn module(ctx: *mlir.Context, name: []const u8, body: *mlir.Block, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("module"), .{
@@ -1179,6 +1339,7 @@ pub const EntryArgs = struct {
     location: *const mlir.Location,
 };
 
+// Op cuda_tile.entry @name(...) : le noyau; les arguments du bloc sont les parametres (tiles rang 0).
 /// `entry @name(...) { ... }` — the kernel. Returns nothing; results reach
 /// the host through pointer arguments.
 pub fn entry(ctx: *mlir.Context, args: EntryArgs) *mlir.Operation {
@@ -1200,6 +1361,7 @@ pub fn entry(ctx: *mlir.Context, args: EntryArgs) *mlir.Operation {
     });
 }
 
+// Fabrique une operation terminale cuda_tile.<mnemonic> (return/yield/...) avec ses operandes.
 fn terminator(ctx: *mlir.Context, comptime mnemonic: []const u8, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName(mnemonic), .{
         .operands = .{ .flat = values },
@@ -1208,22 +1370,27 @@ fn terminator(ctx: *mlir.Context, comptime mnemonic: []const u8, values: []const
     });
 }
 
+// Terminateur cuda_tile.return : quitte la fonction avec les valeurs donnees.
 pub fn return_(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return terminator(ctx, "return", values, location);
 }
 
+// Terminateur cuda_tile.yield : rend les valeurs d'un bloc if/loop.
 pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return terminator(ctx, "yield", values, location);
 }
 
+// Terminateur cuda_tile.continue : passe a l'iteration suivante (loop/for) avec les valeurs.
 pub fn continue_(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return terminator(ctx, "continue", values, location);
 }
 
+// Terminateur cuda_tile.break : sort de la boucle en rendant les valeurs.
 pub fn break_(ctx: *mlir.Context, values: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return terminator(ctx, "break", values, location);
 }
 
+// Op cuda_tile.for : boucle comptee %iv in (lb to ub, step step) portant des valeurs; region = corps.
 /// `for %iv in (%lb to %ub, step %step) iter_values(...)`. `body` takes
 /// `[iv, inits...]` and ends with `continue`.
 pub fn for_(ctx: *mlir.Context, lower: *const mlir.Value, upper: *const mlir.Value, step: *const mlir.Value, inits: []const *const mlir.Value, body: *mlir.Block, unsigned_cmp: bool, location: *const mlir.Location) *mlir.Operation {
@@ -1241,6 +1408,7 @@ pub fn for_(ctx: *mlir.Context, lower: *const mlir.Value, upper: *const mlir.Val
     return mlir.Operation.init(&state) catch @panic("Failed to create cuda_tile.for");
 }
 
+// Op cuda_tile.if : branchement conditionnel avec regions then (et else optionnelle) et resultats.
 /// `if %cond -> (types) { ... } else { ... }`. Branches end with `yield`
 /// (or `continue`/`break`/`return` when they leave the enclosing scope).
 pub fn if_(ctx: *mlir.Context, cond: *const mlir.Value, result_types: []const *const mlir.Type, then_block: *mlir.Block, else_block: ?*mlir.Block, location: *const mlir.Location) *mlir.Operation {
@@ -1256,6 +1424,7 @@ pub fn if_(ctx: *mlir.Context, cond: *const mlir.Value, result_types: []const *c
     return mlir.Operation.init(&state) catch @panic("Failed to create cuda_tile.if");
 }
 
+// Op cuda_tile.loop : boucle non structuree sur des valeurs initiales, corps termine par continue/break.
 /// An unstructured loop over `inits`; the body takes them as arguments and
 /// leaves through `continue` (next iteration) or `break` (the results).
 pub fn loop(ctx: *mlir.Context, inits: []const *const mlir.Value, result_types: []const *const mlir.Type, body: *mlir.Block, location: *const mlir.Location) *mlir.Operation {
@@ -1268,6 +1437,7 @@ pub fn loop(ctx: *mlir.Context, inits: []const *const mlir.Value, result_types: 
     });
 }
 
+// Op cuda_tile.reduce : reduction selon dim avec corps de combinaison et identites.
 /// `reduce %operands dim=D identities=[...]` — `body` takes `2N` arguments
 /// (element, accumulator per operand) and yields `N` accumulators. Results
 /// drop dimension `dim`.
@@ -1285,6 +1455,7 @@ pub fn reduce(ctx: *mlir.Context, operands: []const *const mlir.Value, dim: i32,
     });
 }
 
+// Op cuda_tile.scan : prefix-scan selon dim (option reverse), forme resultat preservee.
 /// `scan %operands dim=D reverse=R identities=[...]` — like `reduce`, but the
 /// results keep the operand shape.
 pub fn scan(ctx: *mlir.Context, operands: []const *const mlir.Value, dim: i32, reverse: bool, identities: []const *const mlir.Attribute, body: *mlir.Block, result_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
@@ -1302,6 +1473,7 @@ pub fn scan(ctx: *mlir.Context, operands: []const *const mlir.Value, dim: i32, r
     });
 }
 
+// Op cuda_tile.assert : verifie condition, sinon message message.
 pub fn assert_(ctx: *mlir.Context, condition: *const mlir.Value, message: []const u8, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("assert"), .{
         .operands = .{ .flat = &.{condition} },
@@ -1310,6 +1482,7 @@ pub fn assert_(ctx: *mlir.Context, condition: *const mlir.Value, message: []cons
     });
 }
 
+// Op cuda_tile.assume : copie raffinee de value portant le predicat donne.
 /// `%r = assume #predicate, %value` — a refined copy of `value`.
 pub fn assume(ctx: *mlir.Context, value: *const mlir.Value, predicate: *const mlir.Attribute, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("assume"), .{
@@ -1320,6 +1493,7 @@ pub fn assume(ctx: *mlir.Context, value: *const mlir.Value, predicate: *const ml
     });
 }
 
+// Op cuda_tile.make_tensor_view : construit une vue tenseur depuis une base, avec shape/strides dynamiques.
 /// `make_tensor_view %base, shape = [...], strides = [...]`. Static extents
 /// live in `result_type`; the operands fill its `?` slots in order.
 pub fn make_tensor_view(ctx: *mlir.Context, base: *const mlir.Value, dynamic_shape: []const *const mlir.Value, dynamic_strides: []const *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
@@ -1335,23 +1509,28 @@ pub fn make_tensor_view(ctx: *mlir.Context, base: *const mlir.Value, dynamic_sha
     });
 }
 
+// Fabrique cuda_tile.<mnemonic> : construit une vue tilee a partir d'une tensor_view.
 fn viewFromTensorView(ctx: *mlir.Context, comptime mnemonic: []const u8, tensor_view: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return convert(ctx, mnemonic, tensor_view, result_type, .empty, location);
 }
 
+// Op cuda_tile.make_partition_view : forme, padding et dim_map vivent dans result_type.
 /// The tile shape, padding and dim_map are all in `result_type`.
 pub fn make_partition_view(ctx: *mlir.Context, tensor_view: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return viewFromTensorView(ctx, "make_partition_view", tensor_view, result_type, location);
 }
 
+// Op cuda_tile.make_strided_view : vue tilee stridee depuis une tensor_view.
 pub fn make_strided_view(ctx: *mlir.Context, tensor_view: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return viewFromTensorView(ctx, "make_strided_view", tensor_view, result_type, location);
 }
 
+// Op cuda_tile.make_gather_scatter_view : vue gather/scatter depuis une tensor_view.
 pub fn make_gather_scatter_view(ctx: *mlir.Context, tensor_view: *const mlir.Value, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return viewFromTensorView(ctx, "make_gather_scatter_view", tensor_view, result_type, location);
 }
 
+// Op cuda_tile.get_index_space_shape : un tile entier rang 0 par dimension d'index de la vue.
 /// One rank-0 integer tile per view index dimension.
 pub fn get_index_space_shape(ctx: *mlir.Context, view: *const mlir.Value, result_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("get_index_space_shape"), .{
@@ -1361,6 +1540,7 @@ pub fn get_index_space_shape(ctx: *mlir.Context, view: *const mlir.Value, result
     });
 }
 
+// Op cuda_tile.get_tensor_shape : un tile entier rang 0 par dimension du tenseur.
 /// One rank-0 integer tile per tensor dimension.
 pub fn get_tensor_shape(ctx: *mlir.Context, tensor_view: *const mlir.Value, result_types: []const *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("get_tensor_shape"), .{
@@ -1377,6 +1557,7 @@ pub const MemOpts = struct {
     optimization_hints: ?*const mlir.Attribute = null,
 };
 
+// Assemble les attributs memoire communs (memory_ordering_semantics, memory_scope, hints).
 fn memAttrs(ctx: *mlir.Context, opts: MemOpts) Attrs {
     var attrs: Attrs = .empty;
     attrs.appendAssumeCapacity(.named(ctx, "memory_ordering_semantics", opts.ordering.attribute(ctx)));
@@ -1391,11 +1572,13 @@ const Seg = struct {
     buf: [1]*const mlir.Value = undefined,
     len: usize = 0,
 
+    // Vue des len elements du petit buffer (0 ou 1 operande optionnel).
     fn slice(self: *const Seg) []const *const mlir.Value {
         return self.buf[0..self.len];
     }
 };
 
+// Emballe un operande optionnel dans un Seg de 0 ou 1 element garde localement.
 fn optional(v: ?*const mlir.Value) Seg {
     var s: Seg = .{};
     if (v) |x| {
@@ -1411,16 +1594,19 @@ const Segments = struct {
     values: stdx.BoundedArray(*const mlir.Value, 128) = .empty,
     sizes: stdx.BoundedArray(i32, 8) = .empty,
 
+    // Ajoute un segment d'operandes et enregistre sa taille dans operandSegmentSizes.
     fn add(self: *Segments, segment: []const *const mlir.Value) void {
         self.values.appendSliceAssumeCapacity(segment);
         self.sizes.appendAssumeCapacity(@intCast(segment.len));
     }
 
+    // Construit l'attribut operandSegmentSizes (tableau i32 des tailles de segments).
     fn attr(self: *const Segments, ctx: *mlir.Context) mlir.NamedAttribute {
         return .named(ctx, "operandSegmentSizes", .denseArray(ctx, .i32, self.sizes.constSlice()));
     }
 };
 
+// Op cuda_tile.load_view_tko : charge un tile via une vue; resultats = tile + token.
 /// Two results: the tile (the view's tile type) and the token.
 pub fn load_view_tko(ctx: *mlir.Context, view: *const mlir.Value, index: []const *const mlir.Value, opts: MemOpts, location: *const mlir.Location) *mlir.Operation {
     const tok = optional(opts.token);
@@ -1441,6 +1627,7 @@ pub fn load_view_tko(ctx: *mlir.Context, view: *const mlir.Value, index: []const
     });
 }
 
+// Op cuda_tile.store_view_tko : ecrit un tile via une vue; resultat = token.
 /// One result: the token.
 pub fn store_view_tko(ctx: *mlir.Context, tile: *const mlir.Value, view: *const mlir.Value, index: []const *const mlir.Value, opts: MemOpts, location: *const mlir.Location) *mlir.Operation {
     const tok = optional(opts.token);
@@ -1467,6 +1654,7 @@ pub const LoadPtrOpts = struct {
     mem: MemOpts = .{},
 };
 
+// Op cuda_tile.load_ptr_tko : gather via un tile de pointeurs; resultats = tile + token.
 /// Gather through a tile of pointers. Two results: the loaded tile and the
 /// token. `result_type` is the pointee tile.
 pub fn load_ptr_tko(ctx: *mlir.Context, source: *const mlir.Value, result_type: *const mlir.Type, opts: LoadPtrOpts, location: *const mlir.Location) *mlir.Operation {
@@ -1493,6 +1681,7 @@ pub const StorePtrOpts = struct {
     mem: MemOpts = .{},
 };
 
+// Op cuda_tile.store_ptr_tko : scatter via un tile de pointeurs; resultat = token.
 /// Scatter through a tile of pointers. One result: the token.
 pub fn store_ptr_tko(ctx: *mlir.Context, destination: *const mlir.Value, value: *const mlir.Value, opts: StorePtrOpts, location: *const mlir.Location) *mlir.Operation {
     const mask = optional(opts.mask);
@@ -1519,6 +1708,7 @@ pub const AtomicOpts = struct {
     token: ?*const mlir.Value = null,
 };
 
+// Assemble memory_ordering_semantics et memory_scope des atomics.
 fn atomicAttrs(ctx: *mlir.Context, opts: AtomicOpts) Attrs {
     var attrs: Attrs = .empty;
     attrs.appendAssumeCapacity(.named(ctx, "memory_ordering_semantics", opts.ordering.attribute(ctx)));
@@ -1526,6 +1716,7 @@ fn atomicAttrs(ctx: *mlir.Context, opts: AtomicOpts) Attrs {
     return attrs;
 }
 
+// Op cuda_tile.atomic_cas_tko : compare-and-swap; resultats = anciennes valeurs + token.
 /// Two results: the old values and the token.
 pub fn atomic_cas_tko(ctx: *mlir.Context, pointers: *const mlir.Value, cmp: *const mlir.Value, val: *const mlir.Value, opts: AtomicOpts, location: *const mlir.Location) *mlir.Operation {
     const mask = optional(opts.mask);
@@ -1546,6 +1737,7 @@ pub fn atomic_cas_tko(ctx: *mlir.Context, pointers: *const mlir.Value, cmp: *con
     });
 }
 
+// Op cuda_tile.atomic_rmw_tko : lecture-modification-ecriture atomique (mode); resultats = anciennes valeurs + token.
 /// Two results: the old values and the token.
 pub fn atomic_rmw_tko(ctx: *mlir.Context, pointers: *const mlir.Value, mode: AtomicRMWMode, arg: *const mlir.Value, opts: AtomicOpts, location: *const mlir.Location) *mlir.Operation {
     const mask = optional(opts.mask);
@@ -1573,6 +1765,7 @@ pub const RedViewOpts = struct {
     token: ?*const mlir.Value = null,
 };
 
+// Op cuda_tile.atomic_red_view_tko (13.3) : reduction atomique via une vue; resultat = token.
 /// 13.3: an atomic reduction through an unpadded tiled view. One result:
 /// the token. `xchg` is not a reduction.
 pub fn atomic_red_view_tko(ctx: *mlir.Context, view: *const mlir.Value, index: []const *const mlir.Value, mode: AtomicRMWMode, value: *const mlir.Value, opts: RedViewOpts, location: *const mlir.Location) *mlir.Operation {
@@ -1597,6 +1790,7 @@ pub fn atomic_red_view_tko(ctx: *mlir.Context, view: *const mlir.Value, index: [
     });
 }
 
+// Op cuda_tile.alloca (13.3) : alloue num_elem elements (alignment, flag global).
 /// 13.3: `num_elem` elements of the pointee, as a rank-0 pointer tile.
 pub fn alloca(ctx: *mlir.Context, num_elem: i64, alignment: i64, is_global: bool, result_type: *const mlir.Type, location: *const mlir.Location) *mlir.Operation {
     var attrs: Attrs = .empty;
@@ -1610,6 +1804,7 @@ pub fn alloca(ctx: *mlir.Context, num_elem: i64, alignment: i64, is_global: bool
     });
 }
 
+// Op cuda_tile.make_token : cree un token d'ordonnancement neuf.
 pub fn make_token(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("make_token"), .{
         .results = .{ .flat = &.{tokenType(ctx)} },
@@ -1617,6 +1812,7 @@ pub fn make_token(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Oper
     });
 }
 
+// Op cuda_tile.join_tokens : fusionne plusieurs tokens en un seul.
 pub fn join_tokens(ctx: *mlir.Context, tokens: []const *const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     return mlir.Operation.make(ctx, opName("join_tokens"), .{
         .operands = .{ .flat = tokens },
@@ -1625,6 +1821,7 @@ pub fn join_tokens(ctx: *mlir.Context, tokens: []const *const mlir.Value, locati
     });
 }
 
+// Op cuda_tile.print_tko : printf cote device; resultat = token.
 /// Device-side printf. One result: the token.
 pub fn print_tko(ctx: *mlir.Context, str: []const u8, args: []const *const mlir.Value, token: ?*const mlir.Value, location: *const mlir.Location) *mlir.Operation {
     const tok = optional(token);
@@ -1643,10 +1840,12 @@ pub fn print_tko(ctx: *mlir.Context, str: []const u8, args: []const *const mlir.
 // Tests
 // =============================================================================
 
+// Test global : force l'instanciation de toutes les declarations publiques du module.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Cree un mlir.Context avec le dialecte cuda_tile charge, pour les tests.
 fn testContext() !*mlir.Context {
     const registry = try mlir.DialectRegistry.init();
     defer registry.deinit();
@@ -1656,6 +1855,7 @@ fn testContext() !*mlir.Context {
     return ctx;
 }
 
+// Test : types du dialecte (tile, ptr, tensor_view, partition_view, token, gather_scatter_view) construits puis re-verifies par parse.
 test "dialect registers and types round-trip" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1714,6 +1914,7 @@ test "dialect registers and types round-trip" {
     }));
 }
 
+// Test : attributs enum et de hints construits par l'API puis compares a leur forme textuelle parse.
 test "enum and hint attributes" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1764,6 +1965,7 @@ test "enum and hint attributes" {
     try std.testing.expect(typed_lower.getUb() == null);
 }
 
+// Test : construit un module add_one (load_ptr/addf/store_ptr), le verifie, l'imprime et le reparse.
 test "entry round-trip through print and parse" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1814,6 +2016,7 @@ test "entry round-trip through print and parse" {
     try std.testing.expect(parsed.operation().verify());
 }
 
+// Test : un GEMM avec partition views, boucle for, if, MMA et store, verifie apres impression/reparse.
 test "views, control flow and mma verify" {
     const ctx = try testContext();
     defer ctx.deinit();
@@ -1891,6 +2094,7 @@ test "views, control flow and mma verify" {
     try std.testing.expect(parsed.operation().verify());
 }
 
+// Test : le verificateur rejette un entry dont l'argument est un tile de rang 1.
 test "the verifier rejects what the dialect forbids" {
     const ctx = try testContext();
     defer ctx.deinit();
