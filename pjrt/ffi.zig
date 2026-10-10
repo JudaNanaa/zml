@@ -58,8 +58,10 @@ pub const MetadataExtension = extern struct {
     metadata: ?*Metadata,
 };
 
+// Genere un mixin de conversion de pointeurs entre un type opaque T et son type interne InnerT.
 fn TransmuteMixin(comptime T: type, comptime InnerT: type) type {
     return struct {
+        // Reinterprete un pointeur vers T en pointeur vers le type interne InnerT.
         pub fn to(self: anytype) switch (@TypeOf(self)) {
             *T => *InnerT,
             *const T => *const InnerT,
@@ -68,6 +70,7 @@ fn TransmuteMixin(comptime T: type, comptime InnerT: type) type {
             return @ptrCast(@alignCast(self));
         }
 
+        // Reinterprete un pointeur vers le type interne InnerT en pointeur vers T.
         pub fn from(self: anytype) switch (@TypeOf(self)) {
             *InnerT => *T,
             *const InnerT => *const T,
@@ -81,6 +84,7 @@ fn TransmuteMixin(comptime T: type, comptime InnerT: type) type {
 pub const Api = opaque {
     pub const inner = TransmuteMixin(Api, c.XLA_FFI_Api).to;
 
+    // Recupere le flux associe au contexte d'execution; panique en cas d'erreur PJRT.
     pub fn stream(self: *const Api, context: *const ExecutionContext) *pjrt.Stream {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Stream_Get_Args) = .{
             .ctx = @constCast(context.inner()),
@@ -98,6 +102,7 @@ pub const Api = opaque {
         return @ptrCast(ret.stream.?);
     }
 
+    // Alloue de la memoire d'appareil pour le contexte FFI et renvoie son pointeur.
     pub fn allocateDeviceMemory(self: *const Api, context: *const ExecutionContext, size: usize, alignment: usize) pjrt.ApiError!*anyopaque {
         var ret: pjrt.meta.Struct(c.XLA_FFI_DeviceMemory_Allocate_Args) = .{
             .ctx = @constCast(context.inner()),
@@ -118,6 +123,7 @@ pub const Api = opaque {
         return ret.data.?;
     }
 
+    // Libere un bloc de memoire d'appareil precedemment alloue.
     pub fn freeDeviceMemory(self: *const Api, context: *const ExecutionContext, data: *anyopaque, size: usize) pjrt.ApiError!void {
         var ret: pjrt.meta.Struct(c.XLA_FFI_DeviceMemory_Free_Args) = .{
             .ctx = @constCast(context.inner()),
@@ -154,6 +160,7 @@ pub const ExecutionStage = enum(c.XLA_FFI_ExecutionStage) {
 pub const ExecutionContext = opaque {
     pub const inner = TransmuteMixin(ExecutionContext, c.XLA_FFI_InvokeContext).to;
 
+    // Recupere les donnees de contexte associees au type_id indique.
     pub fn getContext(self: *const ExecutionContext, type_id: TypeId, api: *const Api) pjrt.ApiError!*anyopaque {
         var ret: c.XLA_FFI_InvokeContext_Get_Args = .{
             .struct_size = pjrt.meta.structSize(c.XLA_FFI_InvokeContext_Get_Args),
@@ -177,6 +184,7 @@ pub const ExecutionContext = opaque {
         return ret.data.?;
     }
 
+    // Renvoie l'ordinal de l'appareil associe au contexte d'execution.
     pub fn getDeviceOrdinal(self: *const ExecutionContext, api: *const Api) pjrt.ApiError!i32 {
         var ret: pjrt.meta.Struct(c.XLA_FFI_DeviceOrdinal_Get_Args) = .{
             .ctx = @constCast(self.inner()),
@@ -197,6 +205,7 @@ pub const ExecutionContext = opaque {
 
     const Task = fn (*anyopaque) void;
 
+    // Planifie l'execution d'une tache sur le pool de threads PJRT.
     pub fn scheduleTask(self: *const ExecutionContext, api: *const Api, task: *const Task, data: *anyopaque) pjrt.ApiError!void {
         var ret: pjrt.meta.Struct(c.XLA_FFI_ThreadPool_Schedule_Args) = .{
             .ctx = @constCast(self.inner()),
@@ -222,6 +231,7 @@ pub const ByteSpan = extern struct {
     ptr: [*]const u8,
     len: usize,
 
+    // Renvoie la tranche de bytes pointee par ce ByteSpan.
     pub fn slice(self: ByteSpan) []const u8 {
         return self.ptr[0..self.len];
     }
@@ -263,10 +273,12 @@ pub const Buffer = extern struct {
     rank: u64,
     _dims: [*]const i64,
 
+    // Renvoie les dimensions du tampon FFI sous forme de tranche.
     pub fn dims(self: Buffer) []const i64 {
         return self._dims[0..self.rank];
     }
 
+    // Formate le tampon FFI (dimensions, type, adresse) pour l'affichage.
     pub fn format(buffer: Buffer, writer: *std.Io.Writer) !void {
         try writer.print("FfiBuffer({any}, .{t})@0x{x}", .{ buffer.dims(), buffer.dtype, @intFromPtr(buffer.data) });
     }
@@ -283,6 +295,7 @@ pub const Args = extern struct {
         buffer = c.XLA_FFI_ArgType_BUFFER,
     };
 
+    // Renvoie la liste des tampons d'entree de cet appel.
     pub fn buffers(self: Args) []*const Buffer {
         return self.ptr[0..self.len];
     }
@@ -299,6 +312,7 @@ pub const Rets = extern struct {
         buffer = c.XLA_FFI_RetType_BUFFER,
     };
 
+    // Renvoie la liste des tampons de sortie de cet appel.
     pub fn buffers(self: Rets) []*const Buffer {
         return self.ptr[0..self.len];
     }
@@ -329,6 +343,7 @@ pub const Attrs = extern struct {
         dtype: DataType,
         value: *const anyopaque,
 
+        // Lit la valeur scalaire pointee et la convertit vers le type T demande.
         pub fn get(self: Scalar, T: type) T {
             const ptr: *const T = @ptrCast(@alignCast(self.value));
             return ptr.*;
@@ -340,17 +355,20 @@ pub const Attrs = extern struct {
         len: usize,
         data: [*]const u8,
 
+        // Renvoie le tableau d'attributs comme tranche du type T demande.
         pub fn slice(self: Array, T: type) []const T {
             const ptr: [*]const T = @ptrCast(@alignCast(self.data));
             return ptr[0..self.len];
         }
     };
 
+    // Variante de slice definie au niveau Attrs, renvoyant le tableau d'attributs en []const T.
     pub fn slice(self: Array, T: type) []const T {
         const ptr: [*]const T = @ptrCast(@alignCast(self.data));
         return ptr[0..self.len];
     }
 
+    // Renvoie l'attribut d'index donne s'il a le type attendu, sinon null.
     pub fn getByIndex(self: Attrs, comptime attr_type: AttrType, index: usize) ?*const @FieldType(Attr, @tagName(attr_type)) {
         const attr = self.ptr[0..self.len][index];
         const actual_type = self.types[index];
@@ -358,6 +376,7 @@ pub const Attrs = extern struct {
         return @ptrCast(attr);
     }
 
+    // Recherche un attribut par son nom et renvoie sa valeur si elle a le type attendu.
     pub fn getByName(self: Attrs, comptime attr_type: AttrType, name: []const u8) ?*const @FieldType(Attr, @tagName(attr_type)) {
         const names = self.names[0..self.len];
         for (0.., names) |i, attr_name| {
@@ -383,6 +402,7 @@ pub const CallFrame = extern struct {
     attrs: Attrs,
     future: ?*Future,
 
+    // Gere la phase d'enregistrement du custom call: renseigne la version XLA et indique si l'appel doit s'arreter.
     /// The registery mechanism will first call the custom call in registration mode,
     /// and expects us to indicate which version of XLA we have been compiled against.
     /// Returns true if we registered ourselves and if the caller custom call should return early.
@@ -396,6 +416,7 @@ pub const CallFrame = extern struct {
         return false;
     }
 
+    // Renvoie le flux d'execution associe a cette trame d'appel.
     pub fn stream(call_frame: CallFrame) ?*const pjrt.Stream {
         return call_frame.api.stream(call_frame.ctx);
     }
@@ -419,6 +440,7 @@ pub const ErrorCode = enum(c.XLA_FFI_Error_Code) {
     data_loss = c.XLA_FFI_Error_Code_DATA_LOSS,
     unauthenticated = c.XLA_FFI_Error_Code_UNAUTHENTICATED,
 
+    // Convertit un code d'erreur FFI en l'erreur ApiError correspondante.
     pub fn toApiError(code: ErrorCode) pjrt.ApiError {
         return switch (code) {
             .cancelled => error.Cancelled,
@@ -447,6 +469,7 @@ pub const Error = opaque {
 
     pub const ok: ?*Error = null;
 
+    // Cree une erreur FFI avec un code et un message donnes.
     pub fn create(api: *const Api, error_code: ErrorCode, message: []const u8) *Error {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Error_Create_Args) = .{
             .message = message.ptr,
@@ -455,11 +478,13 @@ pub const Error = opaque {
         return fromInner(api.inner().XLA_FFI_Error_Create.?(@ptrCast(&ret)).?);
     }
 
+    // Detruit une erreur FFI via l'API du plugin.
     pub fn destroy(err: *Error, api: *const Api) void {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Error_Destroy_Args) = .{ .@"error" = err.inner() };
         api.inner().XLA_FFI_Error_Destroy.?(@ptrCast(&ret));
     }
 
+    // Renvoie le message texte d'une erreur FFI.
     pub fn getMessage(err: *Error, api: *const Api) [:0]const u8 {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Error_GetDetails_Args) = .{
             .@"error" = err.inner(),
@@ -473,6 +498,7 @@ pub const Future = opaque {
     pub const inner = TransmuteMixin(Future, c.XLA_FFI_Future).to;
     pub const fromInner = TransmuteMixin(Future, c.XLA_FFI_Future).from;
 
+    // Cree un objet Future FFI a partir de l'API PJRT.
     pub fn create(api: *const Api) pjrt.ApiError!*Future {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Future_Create_Args) = .{};
         const result = api.inner().XLA_FFI_Future_Create.?(@ptrCast(&ret));
@@ -489,6 +515,7 @@ pub const Future = opaque {
         return fromInner(ret.future.?);
     }
 
+    // Marque le Future comme disponible (resolu).
     pub fn setAvailable(self: *Future, api: *const Api) pjrt.ApiError!void {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Future_SetAvailable_Args) = .{
             .future = self.inner(),
@@ -506,6 +533,7 @@ pub const Future = opaque {
         }
     }
 
+    // Marque le Future comme termine par une erreur.
     pub fn setError(self: *Future, api: *const Api, err: *Error) pjrt.ApiError!void {
         var ret: pjrt.meta.Struct(c.XLA_FFI_Future_SetError_Args) = .{
             .future = self.inner(),

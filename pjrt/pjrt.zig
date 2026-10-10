@@ -7,11 +7,13 @@ pub const ffi = @import("ffi.zig");
 
 const log = std.log.scoped(.pjrt);
 
+// Test agrege qui force la compilation de toutes les declarations publiques du module.
 test {
     std.testing.refAllDecls(@This());
 }
 
 pub const meta = struct {
+    // Calcule, par reflexion comptime, la taille du struct C correspondant (champ _STRUCT_SIZE).
     // We could calculate it like PJRT does, but it turns out that some of those
     // were wrong in PJRT itself [1], which gets propagated to binary plugins. In
     // order to mirror that, we just the value as computed by PJRT itself, through
@@ -30,6 +32,7 @@ pub const meta = struct {
         return @field(c, typedef_name ++ "_STRUCT_SIZE");
     }
 
+    // Construit le type externe Zig equivalent au struct C T, en injectant la valeur par defaut de struct_size.
     pub fn Struct(comptime T: type) type {
         const fields = std.meta.fields(T);
         var names: [fields.len][]const u8 = undefined;
@@ -74,6 +77,7 @@ pub const ApiError = error{
     Unauthenticated,
 };
 
+// Convertit une erreur PJRT en ApiError, journalise son message puis libere l'objet erreur.
 inline fn interpretPjrtError(api: *const Api, pjrt_error: *Error, context: []const u8) ApiError {
     defer pjrt_error.deinit(api);
     const err_code = pjrt_error.getCode(api).toApiError();
@@ -81,8 +85,10 @@ inline fn interpretPjrtError(api: *const Api, pjrt_error: *Error, context: []con
     return err_code;
 }
 
+// Genere un mixin exposant inner() qui reinterprete un pointeur opaque en *innerT.
 fn InnerMixin(comptime innerT: type) type {
     return struct {
+        // Reinterprete self (pointeur opaque) en pointeur vers le type interne concret.
         fn inner(self: anytype) *innerT {
             return @ptrCast(@alignCast(@constCast(self)));
         }
@@ -94,6 +100,7 @@ pub const Api = struct {
         major: i64,
         minor: i64,
 
+        // Formate la version PJRT sous la forme "majeur.mineur".
         pub fn format(self: Version, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.print("{d}.{d}", .{ self.major, self.minor });
         }
@@ -103,6 +110,7 @@ pub const Api = struct {
 
     inner: c.PJRT_Api,
 
+    // Charge dynamiquement le plugin PJRT depuis le chemin de bibliotheque donne et renvoie son API.
     pub fn loadFrom(library: [:0]const u8) !*const Api {
         const basename = std.Io.Dir.path.basename(library);
         log.info("Loading: {s}...", .{basename});
@@ -138,6 +146,7 @@ pub const Api = struct {
         return api;
     }
 
+    // Resout GetPjrtApi dans une bibliotheque deja ouverte et initialise le plugin PJRT.
     pub fn fromDynLib(lib: *std.DynLib) !*const Api {
         const DynGetPjrtApi = lib.lookup(*const fn () callconv(.c) *const Api, "GetPjrtApi") orelse {
             return error.MissingGetPjrtApi;
@@ -149,6 +158,7 @@ pub const Api = struct {
         return api;
     }
 
+    // Deduit le type de la structure d'arguments attendue par la methode PJRT indiquee.
     fn PJRTFnArg(comptime func: Funcs) type {
         const fti = @typeInfo(@FieldType(c.PJRT_Api, @tagName(func)));
         const fn_ptr = @typeInfo(fti.optional.child);
@@ -157,6 +167,7 @@ pub const Api = struct {
         return arg_array_type_info.pointer.child;
     }
 
+    // Renvoie le type d'arguments de la methode, enveloppe dans meta.Struct pour fournir les valeurs par defaut.
     fn PJRTFnArgWithDefault(comptime func: Funcs) type {
         const argT = PJRTFnArg(func);
         return switch (@typeInfo(argT)) {
@@ -165,6 +176,7 @@ pub const Api = struct {
         };
     }
 
+    // Invoque la methode PJRT nommee apres verification de sa presence, et propage l'eventuelle erreur.
     inline fn innerCall(self: *const Api, comptime method: Funcs, arg: *PJRTFnArg(method)) ApiError!void {
         if (@offsetOf(c.PJRT_Api, @tagName(method)) > self.inner.struct_size) {
             std.debug.panic("PJRT Api method {s} not available in this plugin", .{@tagName(method)});
@@ -180,6 +192,7 @@ pub const Api = struct {
         }
     }
 
+    // Appelle la methode PJRT nommee en passant une copie des arguments et renvoie la structure de resultat.
     inline fn call(self: *const Api, comptime method: Funcs, arg: PJRTFnArgWithDefault(method)) ApiError!PJRTFnArgWithDefault(method) {
         var ret = arg;
         try innerCall(self, method, @ptrCast(&ret));
@@ -214,6 +227,7 @@ pub const Api = struct {
         pub const Iterator = struct {
             current: ?*const c.PJRT_Extension_Base,
 
+            // Avance l'iterateur et renvoie l'extension courante typee, ou null en fin de chaine.
             pub fn next(self: *Iterator) ?Extension {
                 defer if (self.current) |cur| {
                     self.current = cur.next;
@@ -231,10 +245,12 @@ pub const Api = struct {
         };
     };
 
+    // Renvoie un iterateur sur la liste chainee d'extensions du plugin PJRT.
     pub fn extensions(self: *const Api) Extensions.Iterator {
         return .{ .current = @ptrCast(@alignCast(self.inner.extension_start)) };
     }
 
+    // Recherche et renvoie la premiere extension du type demande, sinon null.
     pub fn extension(self: *const Api, ext_type: Extensions.Type) ?Extensions.Extension {
         var it = self.extensions();
         while (it.next()) |ext| {
@@ -245,6 +261,7 @@ pub const Api = struct {
         return null;
     }
 
+    // Renvoie la version de l'API PJRT exposee par le plugin.
     pub inline fn version(self: *const Api) Version {
         return .{
             .major = @intCast(self.inner.pjrt_api_version.major_version),
@@ -252,6 +269,7 @@ pub const Api = struct {
         };
     }
 
+    // Renvoie la version StableHLO annoncee par le plugin (mise en cache), ou null si absente.
     pub fn stablehloCurrentVersion(self: *const Api) ?[]const u8 {
         const state = struct {
             var buf: [32]u8 = undefined;
@@ -271,11 +289,13 @@ pub const Api = struct {
         return state.str;
     }
 
+    // Cree un contexte d'execution PJRT reutilisable pour l'ajout de donnees utilisateur.
     pub fn createExecuteContext(api: *const Api) ApiError!*ExecuteContext {
         const ret = try api.call(.PJRT_ExecuteContext_Create, .{});
         return @ptrCast(ret.context.?);
     }
 
+    // Renvoie l'extension FFI du plugin si elle est disponible, sinon null.
     pub fn ffi(api: *const Api) ?Ffi {
         if (api.extension(.ffi)) |ext| {
             return .{ .inner = ext.ffi };
@@ -283,6 +303,7 @@ pub const Api = struct {
         return null;
     }
 
+    // Cree un profileur PJRT a partir de l'extension profiler, ou null si non supporte.
     pub fn profiler(self: *const Api, options_pb: []const u8) ApiError!?Profiler {
         if (self.extension(.profiler)) |ext| {
             return try Profiler.init(self, ext.profiler, options_pb);
@@ -291,6 +312,7 @@ pub const Api = struct {
         return null;
     }
 
+    // Recherche un attribut du plugin par son nom et renvoie sa valeur, sinon null.
     pub fn pluginAttribute(api: *const Api, key: []const u8) ?NamedValue {
         const attributes = api.pluginAttributes();
         for (attributes) |attr| {
@@ -301,6 +323,7 @@ pub const Api = struct {
         return null;
     }
 
+    // Renvoie la liste des attributs exposes par le plugin PJRT.
     pub fn pluginAttributes(api: *const Api) []const NamedValue {
         const ret = api.call(.PJRT_Plugin_Attributes, .{
             .extension_start = null,
@@ -330,6 +353,7 @@ pub const ErrorCode = enum(c.PJRT_Error_Code) {
     data_loss = c.PJRT_Error_Code_DATA_LOSS,
     unauthenticated = c.PJRT_Error_Code_UNAUTHENTICATED,
 
+    // Convertit un code d'erreur PJRT en l'erreur ApiError correspondante.
     pub fn toApiError(code: ErrorCode) ApiError {
         return switch (code) {
             .cancelled => ApiError.Cancelled,
@@ -355,12 +379,14 @@ pub const ErrorCode = enum(c.PJRT_Error_Code) {
 pub const Error = opaque {
     const inner = InnerMixin(c.PJRT_Error).inner;
 
+    // Detruit l'objet erreur PJRT et libere ses ressources.
     pub fn deinit(self: *Error, api: *const Api) void {
         _ = api.call(.PJRT_Error_Destroy, .{
             .@"error" = self.inner(),
         }) catch unreachable;
     }
 
+    // Renvoie le code d'erreur PJRT associe a cet objet erreur.
     pub fn getCode(self: *Error, api: *const Api) ErrorCode {
         const ret = api.call(.PJRT_Error_GetCode, .{
             .@"error" = self.inner(),
@@ -368,6 +394,7 @@ pub const Error = opaque {
         return @enumFromInt(ret.code);
     }
 
+    // Renvoie le message texte decrivant l'erreur PJRT.
     pub fn getMessage(self: *Error, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_Error_Message, .{
             .@"error" = self.inner(),
@@ -385,6 +412,7 @@ pub const ShapeSpec = extern struct {
 
     inner: meta.Struct(c.PJRT_ShapeSpec),
 
+    // Construit une ShapeSpec (dimensions et type d'element) pour un tampon.
     pub fn init(dims_: []const i64, bt: BufferType) ShapeSpec {
         return .{
             .inner = .{
@@ -395,10 +423,12 @@ pub const ShapeSpec = extern struct {
         };
     }
 
+    // Renvoie la liste des dimensions de la specification de forme.
     pub fn dims(self: ShapeSpec) []const i64 {
         return self.inner.dims[0..self.inner.num_dims];
     }
 
+    // Renvoie le type d'element de la specification de forme.
     pub fn bufferType(self: ShapeSpec) BufferType {
         return @enumFromInt(self.inner.element_type);
     }
@@ -414,6 +444,7 @@ pub const Client = opaque {
         mlir,
     };
 
+    // Cree un client PJRT avec les options de creation donnees et renvoie son handle.
     pub fn init(api: *const Api, create_options: []const NamedValue) ClientInitError!*Client {
         // log.info("Loaded PJRT runtime plugin: {s}", .{api.Platform});
         const ret = try api.call(.PJRT_Client_Create, .{
@@ -423,12 +454,14 @@ pub const Client = opaque {
         return @ptrCast(ret.client.?);
     }
 
+    // Detruit le client PJRT et libere ses ressources.
     pub fn deinit(self: *Client, api: *const Api) void {
         _ = api.call(.PJRT_Client_Destroy, .{
             .client = self.inner(),
         }) catch {};
     }
 
+    // Renvoie le nom de la plateforme (ex. "cuda", "cpu") du client PJRT.
     pub fn platformName(self: *const Client, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_Client_PlatformName, .{
             .client = self.inner(),
@@ -436,6 +469,7 @@ pub const Client = opaque {
         return ret.platform_name[0..ret.platform_name_size];
     }
 
+    // Renvoie tous les appareils connus du client PJRT.
     pub fn devices(self: *const Client, api: *const Api) []const *Device {
         const ret = api.call(.PJRT_Client_Devices, .{
             .client = self.inner(),
@@ -443,6 +477,7 @@ pub const Client = opaque {
         return @ptrCast(ret.devices[0..ret.num_devices]);
     }
 
+    // Renvoie les appareils adressables depuis ce processus.
     pub fn addressableDevices(self: *const Client, api: *const Api) []const *Device {
         const ret = api.call(.PJRT_Client_AddressableDevices, .{
             .client = self.inner(),
@@ -456,6 +491,7 @@ pub const Client = opaque {
         compile_options_pb: []const u8,
     };
 
+    // Compile un programme (HLO/MLIR) de facon synchrone et renvoie l'executable charge.
     pub fn compileRaw(self: *const Client, api: *const Api, args: CompileArgs) ApiError!*LoadedExecutable {
         const bytecode_format_ = @tagName(args.bytecode_format);
         const ret = try api.call(.PJRT_Client_Compile, .{
@@ -472,6 +508,7 @@ pub const Client = opaque {
         return @ptrCast(ret.executable.?);
     }
 
+    // Compile un programme de maniere asynchrone via l'io fourni et attend le resultat.
     pub fn compile(self: *const Client, api: *const Api, io: std.Io, args: CompileArgs) ApiError!*LoadedExecutable {
         var future = io.async(compileRaw, .{ self, api, args });
         return future.await(io);
@@ -490,6 +527,7 @@ pub const Client = opaque {
         },
     };
 
+    // Copie un tampon hote vers un appareil/memoire et renvoie le tampon PJRT avec son evenement.
     pub fn bufferFromHostBuffer(self: *const Client, api: *const Api, args: BufferFromHostBufferArgs) ApiError!struct { *Buffer, ?*Event } {
         const ret = try api.call(.PJRT_Client_BufferFromHostBuffer, .{
             .client = self.inner(),
@@ -511,6 +549,7 @@ pub const Client = opaque {
         };
     }
 
+    // Deserialise et charge un executable precedemment serialise depuis un client.
     pub fn deserializeAndLoad(self: *const Client, api: *const Api, bytes: []const u8) ApiError!*LoadedExecutable {
         const ret = try api.call(.PJRT_Executable_DeserializeAndLoad, .{
             .client = self.inner(),
@@ -530,12 +569,14 @@ pub const Client = opaque {
         /// which designates its default memory.
         memory: ?*const Memory = null,
         on_delete_callback: *const fn (device_buffer_ptr: ?*anyopaque, ctx: ?*anyopaque) callconv(.c) void = &struct {
+            // Callback par defaut sans effet, utilise quand l'appelant n'en fournit pas.
             fn call(_: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {}
         }.call,
         on_delete_callback_arg: ?*anyopaque = null,
         stream: ?*const Stream = null,
     };
 
+    // Cree un tampon PJRT pointant directement sur une zone memoire d'appareil fournie.
     pub fn createViewOfDeviceBuffer(self: *const Client, api: *const Api, args: CreateViewOfDeviceBufferArgs) ApiError!*Buffer {
         const layout = args.layout.toCStruct();
         const ret = try api.call(.PJRT_Client_CreateViewOfDeviceBuffer, .{
@@ -554,6 +595,7 @@ pub const Client = opaque {
         return @ptrCast(ret.buffer.?);
     }
 
+    // Renvoie les memoires adressables du client PJRT.
     pub fn addressableMemories(self: *const Client, api: *const Api) []*const Memory {
         const ret = api.call(.PJRT_Client_AddressableMemories, .{
             .client = self.inner(),
@@ -564,6 +606,7 @@ pub const Client = opaque {
         return &.{};
     }
 
+    // Enregistre une region memoire hote pour les transferts DMA.
     pub fn dmaMap(self: *const Client, api: *const Api, data: []const u8) ApiError!void {
         _ = try api.call(.PJRT_Client_DmaMap, .{
             .client = self.inner(),
@@ -572,6 +615,7 @@ pub const Client = opaque {
         });
     }
 
+    // Annule l'enregistrement DMA d'une region memoire hote.
     pub fn dmaUnmap(self: *const Client, api: *const Api, data: []const u8) ApiError!void {
         _ = try api.call(.PJRT_Client_DmaUnmap, .{
             .client = self.inner(),
@@ -585,6 +629,7 @@ pub const Client = opaque {
         memory: *const Memory,
     };
 
+    // Cree des tampons vides et un gestionnaire pour des transferts hote->appareil asynchrones.
     pub fn createBuffersForAsyncHostToDevice(self: *const Client, api: *const Api, args: CreateBuffersForAsyncHostToDeviceArgs) ApiError!*AsyncHostToDeviceTransferManager {
         const ret = try api.call(.PJRT_Client_CreateBuffersForAsyncHostToDevice, .{
             .client = self.inner(),
@@ -597,6 +642,7 @@ pub const Client = opaque {
         return @ptrCast(ret.transfer_manager.?);
     }
 
+    // Interroge l'extension layouts pour obtenir et analyser le layout memoire par defaut d'une forme.
     pub fn defaultMemoryLayout(
         self: *const Client,
         api: *const Api,
@@ -664,6 +710,7 @@ pub const Client = opaque {
         },
     };
 
+    // Cree un tampon non initialise sur un appareil ou une memoire donnes.
     pub fn createUninitializedBuffer(self: *const Client, api: *const Api, args: CreateUninitializedBufferArgs) ApiError!*Buffer {
         var layout = args.layout.toCStruct();
         const ret = try api.call(.PJRT_Client_CreateUninitializedBuffer, .{
@@ -687,10 +734,12 @@ pub const Device = opaque {
         state: *c.PJRT_Device_Attributes,
         deleter: *const fn (?*c.PJRT_Device_Attributes) callconv(.c) void,
 
+        // Libere les attributs d'appareil via le deleter fourni par PJRT.
         pub fn deinit(self: Attributes) void {
             self.deleter(self.state);
         }
 
+        // Recherche un attribut d'appareil par nom et renvoie sa valeur, sinon null.
         /// String and list values remain valid until this owner is deinitialized.
         pub fn get(self: Attributes, name: []const u8) ?NamedValue.Value {
             for (self.values) |attribute| {
@@ -700,6 +749,7 @@ pub const Device = opaque {
         }
     };
 
+    // Recupere les attributs de l'appareil et la fonction chargee de les liberer.
     pub fn attributes(self: *const Device, api: *const Api) ApiError!Attributes {
         const ret = try api.call(.PJRT_Device_GetAttributes, .{ .device = self.inner() });
 
@@ -716,6 +766,7 @@ pub const Device = opaque {
         };
     }
 
+    // Renvoie la description de l'appareil (id, type, attributs...).
     pub fn getDescription(self: *const Device, api: *const Api) *const DeviceDescription {
         const ret = api.call(.PJRT_Device_GetDescription, .{
             .device = self.inner(),
@@ -723,6 +774,7 @@ pub const Device = opaque {
         return @ptrCast(ret.device_description.?);
     }
 
+    // Indique si l'appareil est adressable depuis ce processus.
     pub fn isAddressable(self: *const Device, api: *const Api) bool {
         const ret = api.call(.PJRT_Device_IsAddressable, .{
             .device = self.inner(),
@@ -730,6 +782,7 @@ pub const Device = opaque {
         return ret.is_addressable;
     }
 
+    // Renvoie l'identifiant materiel local de l'appareil.
     pub fn localHardwareId(self: *const Device, api: *const Api) usize {
         const ret = api.call(.PJRT_Device_LocalHardwareId, .{
             .device = self.inner(),
@@ -737,6 +790,7 @@ pub const Device = opaque {
         return @intCast(ret.local_hardware_id);
     }
 
+    // Renvoie les memoires de l'appareil adressables depuis ce processus.
     pub fn addressableMemories(self: *const Device, api: *const Api) []const *Memory {
         const ret = api.call(
             .PJRT_Device_AddressableMemories,
@@ -745,6 +799,7 @@ pub const Device = opaque {
         return @ptrCast(ret.memories[0..ret.num_memories]);
     }
 
+    // Recherche, parmi les memoires adressables du client, celle du type demande.
     pub fn addressableMemory(client: *const Client, api: *const Api, kind: Memory.Kind) ?*const Memory {
         for (client.addressableMemories(api)) |mem| {
             if (mem.kind(api) == kind) {
@@ -754,6 +809,7 @@ pub const Device = opaque {
         return null;
     }
 
+    // Renvoie la memoire par defaut de l'appareil.
     pub fn defaultMemory(self: *const Device, api: *const Api) *const Memory {
         const ret = api.call(.PJRT_Device_DefaultMemory, .{
             .device = self.inner(),
@@ -787,6 +843,7 @@ pub const Device = opaque {
 
         pub const zeroes = std.mem.zeroes(MemoryStats);
 
+        // Convertit une structure C de statistiques memoire en MemoryStats Zig, en gerant les champs optionnels.
         fn fromCStruct(v: meta.Struct(c.PJRT_Device_MemoryStats_Args)) MemoryStats {
             return .{
                 .bytes_in_use = @intCast(v.bytes_in_use),
@@ -804,6 +861,7 @@ pub const Device = opaque {
         }
     };
 
+    // Recupere les statistiques d'utilisation memoire de l'appareil.
     pub fn memoryStats(self: *const Device, api: *const Api) ApiError!MemoryStats {
         const ret = try api.call(.PJRT_Device_MemoryStats, .{
             .device = self.inner(),
@@ -815,6 +873,7 @@ pub const Device = opaque {
 pub const DeviceDescription = opaque {
     const inner = InnerMixin(c.PJRT_DeviceDescription).inner;
 
+    // Renvoie l'identifiant de la description d'appareil.
     pub fn id(self: *const DeviceDescription, api: *const Api) usize {
         const ret = api.call(.PJRT_DeviceDescription_Id, .{
             .device_description = self.inner(),
@@ -822,6 +881,7 @@ pub const DeviceDescription = opaque {
         return @intCast(ret.id);
     }
 
+    // Renvoie l'index du processus proprietaire de l'appareil.
     pub fn processIndex(self: *const DeviceDescription, api: *const Api) usize {
         const ret = api.call(.PJRT_DeviceDescription_ProcessIndex, .{
             .device_description = self.inner(),
@@ -829,6 +889,7 @@ pub const DeviceDescription = opaque {
         return @intCast(ret.process_index);
     }
 
+    // Renvoie le type d'appareil (ex. "GPU", "CPU") sous forme de chaine.
     pub fn kind(self: *const DeviceDescription, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_DeviceDescription_Kind, .{
             .device_description = self.inner(),
@@ -836,6 +897,7 @@ pub const DeviceDescription = opaque {
         return ret.device_kind[0..ret.device_kind_size];
     }
 
+    // Renvoie une representation de debogage de la description d'appareil.
     pub fn debugString(self: *const DeviceDescription, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_DeviceDescription_DebugString, .{
             .device_description = self.inner(),
@@ -843,6 +905,7 @@ pub const DeviceDescription = opaque {
         return ret.debug_string[0..ret.debug_string_size];
     }
 
+    // Renvoie une representation textuelle lisible de la description d'appareil.
     pub fn toString(self: *const DeviceDescription, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_DeviceDescription_ToString, .{
             .device_description = self.inner(),
@@ -850,6 +913,7 @@ pub const DeviceDescription = opaque {
         return ret.to_string[0..ret.to_string_size];
     }
 
+    // Renvoie les attributs associes a la description d'appareil.
     pub fn attributes(self: *const DeviceDescription, api: *const Api) []const NamedValue {
         const ret = api.call(.PJRT_DeviceDescription_Attributes, .{
             .device_description = self.inner(),
@@ -860,6 +924,7 @@ pub const DeviceDescription = opaque {
         return @ptrCast(ret.attributes[0..ret.num_attributes]);
     }
 
+    // Recherche un attribut de la description d'appareil par nom, sinon null.
     pub fn attribute(self: *const DeviceDescription, api: *const Api, name: []const u8) ?NamedValue.Value {
         for (self.attributes(api)) |attr| {
             if (std.mem.eql(u8, attr.name(), name)) {
@@ -877,6 +942,7 @@ pub const SerializeResult = struct {
     handle: *anyopaque,
     deleter: *const fn (?*anyopaque) callconv(.c) void,
 
+    // Libere le tampon serialise et reinitialise le resultat.
     pub fn deinit(self: *SerializeResult) void {
         self.deleter(self.handle);
         self.bytes = &.{};
@@ -885,6 +951,7 @@ pub const SerializeResult = struct {
 };
 
 pub const ExecuteContext = opaque {
+    // Detruit le contexte d'execution PJRT.
     pub fn deinit(self: *ExecuteContext, api: *const Api) void {
         _ = api.call(.PJRT_ExecuteContext_Destroy, .{
             .context = @ptrCast(self),
@@ -895,12 +962,14 @@ pub const ExecuteContext = opaque {
 pub const Executable = opaque {
     const inner = InnerMixin(c.PJRT_Executable).inner;
 
+    // Detruit l'executable PJRT et libere ses ressources.
     pub fn deinit(self: *Executable, api: *const Api) void {
         _ = api.call(.PJRT_Executable_Destroy, .{
             .executable = self.inner(),
         }) catch unreachable;
     }
 
+    // Renvoie les proprietes d'analyse de cout de l'executable.
     pub fn costAnalysis(self: *const Executable, api: *const Api) GetCostAnalysisError![]const NamedValue {
         const ret = try api.call(.PJRT_Executable_GetCostAnalysis, .{
             .executable = self.inner(),
@@ -909,6 +978,7 @@ pub const Executable = opaque {
         return values[0..ret.num_properties];
     }
 
+    // Serialise l'executable PJRT et renvoie les octets ainsi que leur deleter.
     pub fn serialize(self: *const Executable, api: *const Api) ApiError!SerializeResult {
         const ret = try api.call(.PJRT_Executable_Serialize, .{
             .executable = self.inner(),
@@ -939,6 +1009,7 @@ pub const Executable = opaque {
         host_temp_size_in_bytes: u64,
     };
 
+    // Renvoie les statistiques memoire de compilation de l'executable.
     pub fn getCompiledMemoryStats(self: *const Executable, api: *const Api) ApiError!CompiledMemoryStats {
         const ret = try api.call(.PJRT_Executable_GetCompiledMemoryStats, .{
             .executable = self.inner(),
@@ -961,18 +1032,21 @@ pub const Executable = opaque {
 pub const LoadedExecutable = opaque {
     const inner = InnerMixin(c.PJRT_LoadedExecutable).inner;
 
+    // Detruit l'executable charge et libere ses ressources.
     pub fn deinit(self: *LoadedExecutable, api: *const Api) void {
         _ = api.call(.PJRT_LoadedExecutable_Destroy, .{
             .executable = self.inner(),
         }) catch {};
     }
 
+    // Marque l'executable charge comme supprime cote PJRT.
     pub fn delete(self: *LoadedExecutable, api: *const Api) void {
         _ = api.call(.PJRT_LoadedExecutable_Delete, .{
             .executable = self.inner(),
         }) catch unreachable;
     }
 
+    // Indique si l'executable charge a ete supprime.
     pub fn isDeleted(self: *const LoadedExecutable, api: *const Api) bool {
         const ret = api.call(.PJRT_LoadedExecutable_IsDeleted, .{
             .executable = self.inner(),
@@ -980,6 +1054,7 @@ pub const LoadedExecutable = opaque {
         return ret.is_deleted;
     }
 
+    // Renvoie les appareils adressables de l'executable charge.
     pub fn addressableDevices(self: *const LoadedExecutable, api: *const Api) []const *Device {
         const ret = api.call(.PJRT_LoadedExecutable_AddressableDevices, .{
             .executable = self.inner(),
@@ -996,6 +1071,7 @@ pub const LoadedExecutable = opaque {
         context: ?*ExecuteContext,
     };
 
+    // Lance l'execution de l'executable charge sur ses appareils avec les tampons fournis.
     pub fn execute(self: *const LoadedExecutable, api: *const Api, args: ExecuteArgs) ApiError!void {
         var options: meta.Struct(c.PJRT_ExecuteOptions) = .{
             .non_donatable_input_indices = @ptrCast(args.non_donatable_input_indices),
@@ -1013,6 +1089,7 @@ pub const LoadedExecutable = opaque {
         });
     }
 
+    // Recupere l'executable sous-jacent a partir de l'executable charge.
     pub fn executable(self: *const LoadedExecutable, api: *const Api) ApiError!*Executable {
         const ret = try api.call(.PJRT_LoadedExecutable_GetExecutable, .{
             .loaded_executable = self.inner(),
@@ -1074,6 +1151,7 @@ pub const MemoryLayout = union(MemoryLayoutType) {
     tiled: Tiled,
     strides: Strides,
 
+    // Convertit un MemoryLayout Zig en sa structure C equivalente (tiled ou strides).
     fn toCStruct(self: MemoryLayout) c.PJRT_Buffer_MemoryLayout {
         return switch (self) {
             .tiled => |v| c.PJRT_Buffer_MemoryLayout{
@@ -1108,6 +1186,7 @@ pub const MemoryLayout = union(MemoryLayoutType) {
         };
     }
 
+    // Convertit une structure C de layout memoire en MemoryLayout Zig.
     fn fromCStruct(self: c.PJRT_Buffer_MemoryLayout) MemoryLayout {
         return switch (self.type) {
             c.PJRT_Buffer_MemoryLayout_Type_Tiled => b: {
@@ -1152,6 +1231,7 @@ pub const DefaultMemoryLayout = struct {
     tile_dims_sizes_storage: [MAX_NUM_TILES]usize = undefined,
     tile_dims_sizes_len: usize = 0,
 
+    // Convertit le layout par defaut (stockage interne) en MemoryLayout tiled.
     pub fn toMemoryLayout(self: *const DefaultMemoryLayout) MemoryLayout {
         return .{
             .tiled = .{
@@ -1162,12 +1242,14 @@ pub const DefaultMemoryLayout = struct {
         };
     }
 
+    // Analyse une chaine de layout serialisee et renvoie le DefaultMemoryLayout correspondant.
     pub fn parseSerialized(serialized: []const u8) !DefaultMemoryLayout {
         var parsed: DefaultMemoryLayout = .{};
         try parseSerializedInto(serialized, &parsed);
         return parsed;
     }
 
+    // Remplit out avec le layout decode depuis la chaine serialisee (dimensions et tuiles).
     fn parseSerializedInto(serialized: []const u8, out: *DefaultMemoryLayout) !void {
         out.* = .{};
         const raw = std.mem.trim(u8, serialized, " \t\n\r\x00");
@@ -1224,6 +1306,7 @@ pub const DefaultMemoryLayout = struct {
         }
     }
 
+    // Analyse un jeton texte en i64 apres suppression des espaces, ou echoue si vide.
     fn parseI64Token(token_raw: []const u8) !i64 {
         const token = std.mem.trim(u8, token_raw, " \t\n\r");
         if (token.len == 0) return error.InvalidLayoutString;
@@ -1241,12 +1324,14 @@ pub const HostBufferSemantics = enum(c.PJRT_HostBufferSemantics) {
 pub const Buffer = opaque {
     const inner = InnerMixin(c.PJRT_Buffer).inner;
 
+    // Detruit le tampon PJRT et libere ses ressources.
     pub fn deinit(self: *Buffer, api: *const Api) void {
         _ = api.call(.PJRT_Buffer_Destroy, .{
             .buffer = self.inner(),
         }) catch unreachable;
     }
 
+    // Renvoie l'appareil sur lequel reside le tampon.
     pub fn device(self: *const Buffer, api: *const Api) ApiError!*Device {
         const ret = try api.call(.PJRT_Buffer_Device, .{
             .buffer = self.inner(),
@@ -1254,12 +1339,14 @@ pub const Buffer = opaque {
         return @ptrCast(ret.device.?);
     }
 
+    // Supprime le tampon PJRT.
     pub fn delete(self: *Buffer, api: *const Api) void {
         _ = api.call(.PJRT_Buffer_Delete, .{
             .buffer = self.inner(),
         }) catch unreachable;
     }
 
+    // Indique si le tampon a ete supprime.
     pub fn isDeleted(self: *const Buffer, api: *const Api) bool {
         const ret = api.call(.PJRT_Buffer_IsDeleted, .{
             .buffer = self.inner(),
@@ -1267,6 +1354,7 @@ pub const Buffer = opaque {
         return ret.is_deleted;
     }
 
+    // Indique si le tampon reside sur le CPU.
     pub fn isOnCpu(self: *const Buffer, api: *const Api) bool {
         const ret = api.call(.PJRT_Buffer_IsOnCpu, .{
             .buffer = self.inner(),
@@ -1274,6 +1362,7 @@ pub const Buffer = opaque {
         return ret.is_on_cpu;
     }
 
+    // Copie le tampon vers un tampon hote et renvoie l'evenement de transfert eventuel.
     pub fn toHostBuffer(self: *const Buffer, api: *const Api, dst: []u8) ApiError!?*Event {
         const ret = try api.call(.PJRT_Buffer_ToHostBuffer, .{
             .src = self.inner(),
@@ -1283,6 +1372,7 @@ pub const Buffer = opaque {
         return @ptrCast(ret.event);
     }
 
+    // Renvoie le type d'element du tampon.
     pub fn elementType(self: *const Buffer, api: *const Api) BufferType {
         const ret = api.call(.PJRT_Buffer_ElementType, .{
             .buffer = self.inner(),
@@ -1290,6 +1380,7 @@ pub const Buffer = opaque {
         return @enumFromInt(ret.type);
     }
 
+    // Renvoie les dimensions (padded) du tampon.
     pub fn dimensions(self: *const Buffer, api: *const Api) []const i64 {
         const ret = api.call(.PJRT_Buffer_Dimensions, .{
             .buffer = self.inner(),
@@ -1300,6 +1391,7 @@ pub const Buffer = opaque {
         return ret.dims[0..ret.num_dims];
     }
 
+    // Renvoie les dimensions non paddees du tampon.
     pub fn unpaddedDimensions(self: *const Buffer, api: *const Api) ApiError![]const i64 {
         const ret = try api.call(.PJRT_Buffer_UnpaddedDimensions, .{
             .buffer = self.inner(),
@@ -1307,6 +1399,7 @@ pub const Buffer = opaque {
         return ret.unpadded_dims[0..ret.num_dims];
     }
 
+    // Renvoie la taille occupee par le tampon sur l'appareil, en octets.
     pub fn onDeviceSizeInBytes(self: *const Buffer, api: *const Api) ApiError!usize {
         const ret = try api.call(.PJRT_Buffer_OnDeviceSizeInBytes, .{
             .buffer = self.inner(),
@@ -1314,6 +1407,7 @@ pub const Buffer = opaque {
         return @intCast(ret.on_device_size_in_bytes);
     }
 
+    // Copie le tampon vers un autre appareil et renvoie le nouveau tampon.
     pub fn copyToDevice(self: *const Buffer, api: *const Api, dst_device: *Device) ApiError!*Buffer {
         const ret = try api.call(.PJRT_Buffer_CopyToDevice, .{
             .buffer = self.inner(),
@@ -1322,6 +1416,7 @@ pub const Buffer = opaque {
         return @ptrCast(ret.dst_buffer.?);
     }
 
+    // Renvoie l'evenement signalant que le tampon est pret.
     pub fn readyEvent(self: *const Buffer, api: *const Api) *Event {
         const ret = api.call(.PJRT_Buffer_ReadyEvent, .{
             .buffer = self.inner(),
@@ -1329,6 +1424,7 @@ pub const Buffer = opaque {
         return @ptrCast(ret.event.?);
     }
 
+    // Renvoie le pointeur opaque vers la memoire d'appareil du tampon.
     pub fn opaqueDeviceMemoryDataPointer(self: *const Buffer, api: *const Api) ApiError!*anyopaque {
         const ret = try api.call(.PJRT_Buffer_OpaqueDeviceMemoryDataPointer, .{
             .buffer = self.inner(),
@@ -1339,6 +1435,7 @@ pub const Buffer = opaque {
         };
     }
 
+    // Copie une plage brute du tampon vers l'hote et renvoie l'evenement eventuel.
     pub fn copyRawToHost(self: *const Buffer, api: *const Api, dst: []u8, offset: i64) ApiError!?*Event {
         const ret = try api.call(.PJRT_Buffer_CopyRawToHost, .{
             .buffer = self.inner(),
@@ -1349,6 +1446,7 @@ pub const Buffer = opaque {
         return @ptrCast(ret.event);
     }
 
+    // Copie le tampon vers une autre memoire et renvoie le nouveau tampon.
     pub fn copyToMemory(self: *const Buffer, api: *const Api, dst_memory: *const Memory) ApiError!*Buffer {
         const ret = try api.call(.PJRT_Buffer_CopyToMemory, .{
             .buffer = self.inner(),
@@ -1357,6 +1455,7 @@ pub const Buffer = opaque {
         return @ptrCast(ret.dst_buffer);
     }
 
+    // Renvoie la memoire dans laquelle reside le tampon.
     pub fn memory(self: *const Buffer, api: *const Api) *const Memory {
         const ret = api.call(.PJRT_Buffer_Memory, .{
             .buffer = self.inner(),
@@ -1364,18 +1463,21 @@ pub const Buffer = opaque {
         return @ptrCast(ret.memory);
     }
 
+    // Incremente le compteur de references externes du tampon.
     pub fn increaseExternalReferenceCount(self: *const Buffer, api: *const Api) ApiError!void {
         _ = try api.call(.PJRT_Buffer_IncreaseExternalReferenceCount, .{
             .buffer = self.inner(),
         });
     }
 
+    // Decremente le compteur de references externes du tampon.
     pub fn decreaseExternalReferenceCount(self: *const Buffer, api: *const Api) ApiError!void {
         _ = try api.call(.PJRT_Buffer_DecreaseExternalReferenceCount, .{
             .buffer = self.inner(),
         });
     }
 
+    // Renvoie le layout memoire du tampon.
     pub fn memoryLayout(self: *const Buffer, api: *const Api) ApiError!MemoryLayout {
         const ret = try api.call(.PJRT_Buffer_GetMemoryLayout, .{ .buffer = self.inner() });
         return .fromCStruct(ret.layout);
@@ -1385,12 +1487,14 @@ pub const Buffer = opaque {
 pub const Event = opaque {
     const inner = InnerMixin(c.PJRT_Event).inner;
 
+    // Detruit l'evenement PJRT.
     pub fn deinit(self: *Event, api: *const Api) void {
         _ = api.call(.PJRT_Event_Destroy, .{
             .event = self.inner(),
         }) catch unreachable;
     }
 
+    // Indique si l'evenement est pret.
     pub fn isReady(self: *const Event, api: *const Api) bool {
         const ret = api.call(.PJRT_Event_IsReady, .{
             .event = self.inner(),
@@ -1398,6 +1502,7 @@ pub const Event = opaque {
         return ret.is_ready;
     }
 
+    // Renvoie l'erreur associee a l'evenement, ou null s'il n'y en a pas.
     pub fn getEventError(self: *const Event, api: *const Api) ?*Error {
         var args: meta.Struct(c.PJRT_Event_Error_Args) = .{
             .event = self.inner(),
@@ -1406,6 +1511,7 @@ pub const Event = opaque {
         return @ptrCast(result);
     }
 
+    // Attend (bloquant) que l'evenement soit pret, en utilisant l'io fourni pour le reveil.
     pub fn await(self: *Event, api: *const Api, io: std.Io) ApiError!void {
         if (self.isReady(api)) {
             const err = self.getEventError(api) orelse return;
@@ -1419,6 +1525,7 @@ pub const Event = opaque {
         };
         var ctx: Ctx = .{ .io = io };
         try self.onReady(api, Ctx, struct {
+            // Callback invoque quand l'evenement est pret: enregistre l'erreur et reveille l'attente.
             fn call(err: ?*Error, ctx_: *Ctx) void {
                 ctx_.err = err;
                 ctx_.event.set(ctx_.io);
@@ -1429,16 +1536,19 @@ pub const Event = opaque {
         if (ctx.err) |err| return interpretPjrtError(api, err, "PJRT_Event_OnReady");
     }
 
+    // Attend l'evenement via l'appel PJRT bloquant PJRT_Event_Await.
     pub fn awaitRaw(self: *const Event, api: *const Api) ApiError!void {
         _ = try api.call(.PJRT_Event_Await, .{
             .event = self.inner(),
         });
     }
 
+    // Enregistre un callback appele lorsque l'evenement est pret, avec un argument utilisateur type.
     pub fn onReady(self: *Event, api: *const Api, comptime T: type, func: fn (err: ?*Error, user_arg: *T) void, user_arg: *T) ApiError!void {
         _ = try api.call(.PJRT_Event_OnReady, .{
             .event = self.inner(),
             .callback = @ptrCast(&struct {
+                // Callback C-transforme qui reconstitue l'argument type et delegue au callback utilisateur.
                 fn call(err: ?*Error, user_arg_: ?*anyopaque) callconv(.c) void {
                     func(err, @ptrCast(@alignCast(user_arg_.?)));
                 }
@@ -1454,6 +1564,7 @@ pub const Memory = opaque {
         host_pinned,
         host_unpinned,
 
+        // Renvoie le nom PJRT ("device", "pinned_host", "unpinned_host") du type de memoire.
         pub fn pjrtName(k: Kind) []const u8 {
             return switch (k) {
                 .device => "device",
@@ -1465,11 +1576,13 @@ pub const Memory = opaque {
 
     const inner = InnerMixin(c.PJRT_Memory).inner;
 
+    // Renvoie l'identifiant de la memoire.
     pub fn id(self: *const Memory, api: *const Api) usize {
         const ret = api.call(.PJRT_Memory_Id, .{ .memory = self.inner() }) catch unreachable;
         return @intCast(ret.id);
     }
 
+    // Renvoie le type de memoire en le deduisant de la taille du nom renvoye.
     pub fn kind(self: *const Memory, api: *const Api) Kind {
         const ret = api.call(.PJRT_Memory_Kind, .{ .memory = self.inner() }) catch unreachable;
         return switch (ret.kind_size) {
@@ -1480,11 +1593,13 @@ pub const Memory = opaque {
         };
     }
 
+    // Renvoie le nom brut du type de memoire fourni par PJRT.
     pub fn kind_(self: *const Memory, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_Memory_Kind, .{ .memory = self.inner() }) catch unreachable;
         return ret.kind[0..ret.kind_size];
     }
 
+    // Renvoie l'identifiant numerique du type de memoire.
     pub fn kindId(self: *const Memory, api: *const Api) u32 {
         const ret = api.call(.PJRT_Memory_Kind_Id, .{
             .memory = self.inner(),
@@ -1492,6 +1607,7 @@ pub const Memory = opaque {
         return @bitCast(ret.kind_id);
     }
 
+    // Renvoie une representation de debogage de la memoire.
     pub fn debugString(self: *const Memory, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_Memory_DebugString, .{
             .memory = self.inner(),
@@ -1502,6 +1618,7 @@ pub const Memory = opaque {
         return &.{};
     }
 
+    // Renvoie une representation textuelle de la memoire.
     pub fn toString(self: *const Memory, api: *const Api) []const u8 {
         const ret = api.call(.PJRT_Memory_ToString, .{
             .memory = self.inner(),
@@ -1512,6 +1629,7 @@ pub const Memory = opaque {
         return &.{};
     }
 
+    // Renvoie les appareils pouvant adresser cette memoire.
     pub fn addressableByDevices(self: *const Memory, api: *const Api) []const *Device {
         const ret = api.call(.PJRT_Memory_AddressableByDevices, .{
             .memory = self.inner(),
@@ -1526,12 +1644,14 @@ pub const Memory = opaque {
 pub const AsyncHostToDeviceTransferManager = opaque {
     const inner = InnerMixin(c.PJRT_AsyncHostToDeviceTransferManager).inner;
 
+    // Detruit le gestionnaire de transferts asynchrones.
     pub fn deinit(self: *AsyncHostToDeviceTransferManager, api: *const Api) void {
         _ = api.call(.PJRT_AsyncHostToDeviceTransferManager_Destroy, .{
             .transfer_manager = self.inner(),
         }) catch unreachable;
     }
 
+    // Envoie un bloc de donnees hote vers le tampon d'appareil indexe et renvoie l'evenement.
     pub fn transferData(self: *AsyncHostToDeviceTransferManager, api: *const Api, buffer_index: usize, data: []const u8, offset: i64, is_last_transfer: bool) ApiError!*Event {
         const ret = try api.call(.PJRT_AsyncHostToDeviceTransferManager_TransferData, .{
             .transfer_manager = self.inner(),
@@ -1544,6 +1664,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         return @ptrCast(ret.done_with_h2d_transfer.?);
     }
 
+    // Recupere le tampon d'appareil associe a l'index apres transfert.
     pub fn retrieveBuffer(self: *AsyncHostToDeviceTransferManager, api: *const Api, buffer_index: usize) ApiError!*Buffer {
         const ret = try api.call(.PJRT_AsyncHostToDeviceTransferManager_RetrieveBuffer, .{
             .transfer_manager = self.inner(),
@@ -1552,6 +1673,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         return @ptrCast(ret.buffer_out.?);
     }
 
+    // Renvoie l'appareil cible du gestionnaire de transferts.
     pub fn device(self: *AsyncHostToDeviceTransferManager, api: *const Api) ApiError!*Device {
         const ret = try api.call(.PJRT_AsyncHostToDeviceTransferManager_Device, .{
             .transfer_manager = self.inner(),
@@ -1559,6 +1681,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         return @ptrCast(ret.device_out.?);
     }
 
+    // Renvoie le nombre de tampons geres par le gestionnaire.
     pub fn bufferCount(self: *AsyncHostToDeviceTransferManager, api: *const Api) ApiError!usize {
         const ret = try api.call(.PJRT_AsyncHostToDeviceTransferManager_BufferCount, .{
             .transfer_manager = self.inner(),
@@ -1566,6 +1689,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         return ret.buffer_count;
     }
 
+    // Renvoie la taille en octets du tampon d'appareil indexe.
     pub fn bufferSize(self: *AsyncHostToDeviceTransferManager, api: *const Api, buffer_index: usize) ApiError!usize {
         const ret = try api.call(.PJRT_AsyncHostToDeviceTransferManager_BufferSize, .{
             .transfer_manager = self.inner(),
@@ -1574,6 +1698,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         return ret.buffer_size;
     }
 
+    // Associe une erreur a un tampon de transfert.
     pub fn setBufferError(self: *AsyncHostToDeviceTransferManager, api: *const Api, buffer_index: usize, error_code: c.PJRT_Error_Code, error_message: []const u8) ApiError!void {
         _ = try api.call(.PJRT_AsyncHostToDeviceTransferManager_SetBufferError, .{
             .transfer_manager = self.inner(),
@@ -1584,6 +1709,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
         });
     }
 
+    // Ajoute des metadonnees nommees au transfert.
     pub fn addMetadata(self: *AsyncHostToDeviceTransferManager, api: *const Api, transfer_metadata: []const NamedValue) ApiError!void {
         _ = try api.call(.PJRT_AsyncHostToDeviceTransferManager_AddMetadata, .{
             .transfer_manager = self.inner(),
@@ -1616,14 +1742,17 @@ pub const NamedValue = extern struct {
         bool: bool,
     };
 
+    // Renvoie le type (Kind) de la valeur nommee.
     pub fn kind(self: NamedValue) Kind {
         return @enumFromInt(self.inner.type);
     }
 
+    // Renvoie le nom de la valeur nommee.
     pub fn name(self: NamedValue) []const u8 {
         return self.inner.name[0..self.inner.name_size];
     }
 
+    // Renvoie la valeur de la valeur nommee, typee selon son Kind.
     pub fn value(self: NamedValue) Value {
         return switch (self.kind()) {
             .string => .{ .string = self.inner.unnamed_0.string_value[0..self.inner.value_size] },
@@ -1634,6 +1763,7 @@ pub const NamedValue = extern struct {
         };
     }
 
+    // Construit une valeur nommee du type Kind donne, avec son nom et sa valeur.
     pub fn init(comptime kind_: Kind, name_: []const u8, value_: std.meta.fieldInfo(Value, kind_).type) NamedValue {
         return .{
             .inner = .{
@@ -1657,6 +1787,7 @@ pub const NamedValue = extern struct {
         };
     }
 
+    // Formate la valeur nommee (nom et contenu) pour l'affichage.
     pub fn format(self: NamedValue, writer: *std.Io.Writer) !void {
         try writer.print("{s}{{ .name = {s},", .{ @typeName(NamedValue), self.name() });
         switch (self.value()) {
@@ -1677,6 +1808,7 @@ pub const Ffi = extern struct {
         type_id: i64,
         user_data: *anyopaque,
 
+        // Convertit les donnees utilisateur Zig en structure C attendue par PJRT.
         fn toCStruct(self: UserData) c.PJRT_FFI_UserData {
             return .{
                 .type_id = self.type_id,
@@ -1690,6 +1822,7 @@ pub const Ffi = extern struct {
         serialize: ?*const fn () callconv(.c) void = null,
         deserialize: ?*const fn () callconv(.c) void = null,
 
+        // Convertit la description de type Zig en structure C PJRT_FFI_Type_Info.
         pub fn toCStruct(self: TypeInfo) c.PJRT_FFI_Type_Info {
             return .{
                 .deleter = @ptrCast(self.deleter),
@@ -1699,6 +1832,7 @@ pub const Ffi = extern struct {
         }
     };
 
+    // Enregistre un handler de custom call FFI pour une cible et une plateforme donnees.
     // todo : support all missing handlers available in GPU plugin extension: handler_instantiate, handler_prepare, handler_initialize
     // introduced by https://github.com/openxla/xla/commit/ef85a7bcc308313492ebc50295a8a08b4e51b8f5
     pub fn register(
@@ -1725,6 +1859,7 @@ pub const Ffi = extern struct {
         }
     }
 
+    // Enregistre un type FFI et renvoie l'identifiant unique attribue par le plugin.
     pub fn registerTypeId(self: *const Ffi, api: *const Api, type_name: []const u8, type_info: ?*const c.PJRT_FFI_Type_Info) ApiError!ffi.TypeId {
         var ret: meta.Struct(c.PJRT_FFI_Type_Register_Args) = .{
             .type_name = type_name.ptr,
@@ -1741,6 +1876,7 @@ pub const Ffi = extern struct {
         return .{ .type_id = ret.type_id };
     }
 
+    // Attache des donnees utilisateur a un contexte d'execution via l'extension FFI.
     pub fn addUserData(self: *const Ffi, api: *const Api, context: *ExecuteContext, user_data: UserData) ApiError!void {
         var ret: meta.Struct(c.PJRT_FFI_UserData_Add_Args) = .{
             .context = @ptrCast(context),
@@ -1760,6 +1896,7 @@ pub const Profiler = struct {
     api: *const c.PLUGIN_Profiler_Api,
     inner: *c.PLUGIN_Profiler,
 
+    // Cree un profileur PJRT a partir de l'extension et des options fournies.
     pub fn init(api_: *const Api, prof_ext: *const c.PJRT_Profiler_Extension, options_pb: []const u8) ApiError!Profiler {
         var args: c.PLUGIN_Profiler_Create_Args = .{
             .struct_size = meta.structSize(c.PLUGIN_Profiler_Create_Args),
@@ -1781,6 +1918,7 @@ pub const Profiler = struct {
         };
     }
 
+    // Demarre la collecte de donnees du profileur.
     pub fn start(self: *Profiler) ApiError!void {
         var args: c.PLUGIN_Profiler_Start_Args = .{
             .struct_size = meta.structSize(c.PLUGIN_Profiler_Start_Args),
@@ -1793,6 +1931,7 @@ pub const Profiler = struct {
         }
     }
 
+    // Arrete la collecte de donnees du profileur.
     pub fn stop(self: *Profiler) ApiError!void {
         var args: c.PLUGIN_Profiler_Stop_Args = .{
             .struct_size = meta.structSize(c.PLUGIN_Profiler_Stop_Args),
@@ -1805,6 +1944,7 @@ pub const Profiler = struct {
         }
     }
 
+    // Recupere les donnees de profilage collectees et les copie dans un tampon alloue.
     pub fn collectData(self: *Profiler, allocator: std.mem.Allocator) ![]u8 {
         var args: c.PLUGIN_Profiler_CollectData_Args = .{
             .struct_size = meta.structSize(c.PLUGIN_Profiler_CollectData_Args),

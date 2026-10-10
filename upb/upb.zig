@@ -2,6 +2,7 @@ const std = @import("std");
 
 const c = @import("c");
 
+// Symbole factice reference par les MiniTables upb generees, pour eviter leur elagage par l'editeur de liens.
 export fn _upb_MiniTable_StrongReference_dont_copy_me__upb_internal_use_only(mt: *c.upb_MiniTable) callconv(.c) void {
     const unused: *volatile c.upb_MiniTable = mt;
     _ = &unused;
@@ -37,22 +38,27 @@ pub const ParseError = error{
     Unknown,
 } || std.mem.Allocator.Error;
 
+// Clone en profondeur un message protobuf dans l'arene donnee, ou renvoie OutOfMemory.
 pub fn deepClone(comptime UpbType: type, arena: *c.upb_Arena, msg: *const UpbType) std.mem.Allocator.Error!*UpbType {
     return @ptrCast(c.upb_Message_DeepClone(@ptrCast(msg), Minitable(UpbType), arena) orelse return std.mem.Allocator.Error.OutOfMemory);
 }
 
+// Clone superficiellement un message protobuf dans l'arene donnee, ou renvoie OutOfMemory.
 pub fn shallowClone(comptime UpbType: type, arena: *c.upb_Arena, msg: *const UpbType) std.mem.Allocator.Error!*UpbType {
     return @ptrCast(c.upb_Message_ShallowClone(@ptrCast(msg), Minitable(UpbType), arena) orelse return std.mem.Allocator.Error.OutOfMemory);
 }
 
+// Convertit une tranche optionnelle en upb_StringView (vide si absente).
 pub fn stringView(data: ?[]const u8) c.upb_StringView {
     return if (data) |d| c.upb_StringView_FromDataAndSize(d.ptr, d.len) else .{ .data = null, .size = 0 };
 }
 
+// Convertit un upb_StringView en tranche optionnelle, ou null si le pointeur est nul.
 pub fn slice(sv: c.upb_StringView) ?[]const u8 {
     return if (sv.data) |d| d[0..sv.size] else null;
 }
 
+// Extrait le nom du message protobuf depuis le nom de type Zig (suffixe apres ".struct_").
 fn ProtoName(comptime UpbType: type) []const u8 {
     const needle = ".struct_";
     const type_name = @typeName(UpbType);
@@ -60,6 +66,7 @@ fn ProtoName(comptime UpbType: type) []const u8 {
     return type_name[idx + needle.len ..];
 }
 
+// Localise, par essais successifs, le symbole MiniTable C correspondant au type upb genere.
 fn Minitable(comptime UpbType: type) *const c.upb_MiniTable {
     const field_name = comptime blk: {
         const name = ProtoName(UpbType);
@@ -76,6 +83,7 @@ fn Minitable(comptime UpbType: type) *const c.upb_MiniTable {
     return &@field(c, field_name);
 }
 
+// Serialise un message protobuf avec les options donnees et renvoie les octets produits.
 pub fn serializeEx(ptr: anytype, arena: *c.upb_Arena, opts: SerializeOptions) SerializeError![]const u8 {
     var buf: [*c]u8 = undefined;
     var size: usize = undefined;
@@ -88,10 +96,12 @@ pub fn serializeEx(ptr: anytype, arena: *c.upb_Arena, opts: SerializeOptions) Se
     };
 }
 
+// Serialise un message protobuf avec les options par defaut.
 pub fn serialize(ptr: anytype, arena: *c.upb_Arena) SerializeError![]const u8 {
     return try serializeEx(ptr, arena, .{});
 }
 
+// Deserialise un buffer protobuf dans un nouveau message avec les options donnees.
 pub fn parseEx(comptime UpbType: type, arena: *c.upb_Arena, data: []const u8, opts: ParseOptions) ParseError!*UpbType {
     const obj = try new(UpbType, arena);
     return switch (c.upb_Decode(@ptrCast(@constCast(data)), data.len, @ptrCast(@alignCast(obj)), Minitable(UpbType), null, @bitCast(opts), arena)) {
@@ -105,10 +115,12 @@ pub fn parseEx(comptime UpbType: type, arena: *c.upb_Arena, data: []const u8, op
     };
 }
 
+// Deserialise un buffer protobuf avec les options par defaut.
 pub fn parse(comptime UpbType: type, arena: *c.upb_Arena, data: []const u8) ParseError!*UpbType {
     return parseEx(UpbType, arena, data, .{});
 }
 
+// Alloue et initialise un nouveau message protobuf du type donne dans l'arene.
 pub fn new(comptime UpbType: type, arena: *c.upb_Arena) std.mem.Allocator.Error!*UpbType {
     const new_fn = @field(c, ProtoName(UpbType) ++ "_new");
     return @ptrCast(new_fn(arena) orelse return std.mem.Allocator.Error.OutOfMemory);
@@ -118,6 +130,7 @@ pub const Allocator = struct {
     upb_alloc: c.upb_alloc,
     allocator: std.mem.Allocator,
 
+    // Initialise l'adaptateur d'allocateur upb adosse a un Allocator Zig.
     pub fn init(allocator: std.mem.Allocator) Allocator {
         return .{
             .upb_alloc = .{
@@ -127,10 +140,12 @@ pub const Allocator = struct {
         };
     }
 
+    // Renvoie le pointeur vers le upb_alloc embarque, a passer aux API C.
     pub fn inner(self: *Allocator) *c.upb_alloc {
         return &self.upb_alloc;
     }
 
+    // Implementation C d'allocation, liberation et reallocation utilisee par upb.
     fn alloc_impl(alloc: [*c]c.upb_alloc, ptr: ?*anyopaque, oldsize: usize, size: usize, actual_size: [*c]usize) callconv(.c) ?*anyopaque {
         const PointerAlignedSlice = [*c]align(@alignOf(*anyopaque)) u8;
         const upb_alloc: *c.upb_alloc = alloc orelse return null;

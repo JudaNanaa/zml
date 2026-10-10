@@ -13,6 +13,7 @@ const init_array_section = switch (builtin.object_format) {
 };
 
 export const _bazel_runfiles_init linksection(init_array_section) = &struct {
+    // Fonction d'initialisation executee au chargement de l'objet: construit le runfiles global depuis les variables d'environnement.
     fn call(argc: c_int, argv: [*c][*:0]u8, envp: [*:null]?[*:0]u8) callconv(.c) void {
         _ = argc;
         _ = envp;
@@ -31,6 +32,7 @@ export const _bazel_runfiles_init linksection(init_array_section) = &struct {
     }
 }.call;
 
+// Renvoie un accesseur runfiles restreint au depot source indique.
 pub fn runfiles(source_repository: []const u8) !bazel_runfiles.Runfiles.WithSourceRepo {
     return runfiles_global.withSourceRepo(source_repository);
 }
