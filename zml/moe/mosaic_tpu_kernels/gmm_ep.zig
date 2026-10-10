@@ -5,14 +5,17 @@ const mtt = @import("kernels/mosaic_tpu/builder");
 const pipeline = mtt.pipeline;
 const mtt_kernel = zml.kernel.mosaic_tpu;
 
+// Division entière arrondie vers le haut pour des entiers positifs.
 fn cdiv(x: i64, y: i64) i64 {
     return @divFloor(x + y - 1, y);
 }
 
+// Aligne x sur le prochain multiple de y.
 fn alignTo(x: i64, y: i64) i64 {
     return cdiv(x, y) * y;
 }
 
+// Modulo i32 toujours positif (signe du diviseur).
 fn floorModI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     const c0 = b.lift(@as(i32, 0));
     const r = b.remsi(x, y);
@@ -21,6 +24,7 @@ fn floorModI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     return b.select(b.andi(r_neg, r_nz), b.addi(r, y), r);
 }
 
+// Division i32 plancher avec un diviseur positif.
 fn floorDivPosI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     const c0 = b.lift(@as(i32, 0));
     const c1 = b.lift(@as(i32, 1));
@@ -34,6 +38,7 @@ fn floorDivPosI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     return b.select(b.andi(sign_not_pos, rem_nz), b.subi(q, c1), q);
 }
 
+// Division i32 plafond avec un diviseur positif.
 fn ceilDivPosI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     return b.divsi(b.addi(x, b.subi(y, b.lift(@as(i32, 1)))), y);
 }
@@ -60,6 +65,7 @@ pub const Cfg = struct {
     size_lhs_sublane: i64 = 8,
     fuse_act: FuseAct = .none,
 
+    // Taille de sortie de l'axe N avant activation fusionnée.
     pub fn outSizeN(self: Cfg) i64 {
         return switch (self.fuse_act) {
             .none => self.size_n,
@@ -67,6 +73,7 @@ pub const Cfg = struct {
         };
     }
 
+    // Taille N alignée sur 128 (silu/gelu sont déjà alignés).
     pub fn alignedN(self: Cfg) i64 {
         return switch (self.fuse_act) {
             .none => alignTo(self.outSizeN(), 128),
@@ -74,6 +81,7 @@ pub const Cfg = struct {
         };
     }
 
+    // Largeur de tuile N des poids rhs (doublée pour silu/gelu).
     pub fn rhsTileN(self: Cfg) i64 {
         return switch (self.fuse_act) {
             .none => self.tile_n,
@@ -81,11 +89,13 @@ pub const Cfg = struct {
         };
     }
 
+    // Nombre maximal de groupes M, tuile de bord incluse.
     pub fn maxNumGm(self: Cfg) i64 {
         return self.size_group + cdiv(self.size_m, self.tile_m) - 1;
     }
 };
 
+// Vérifie la cohérence de la configuration du GMM groupé.
 fn validateConfig(cfg: Cfg) void {
     std.debug.assert(cfg.size_group <= cfg.size_lhs_group);
     std.debug.assert(cfg.size_m > 0);
@@ -119,6 +129,7 @@ const PipeCtx = struct {
     num_gm: mtt.Value,
 };
 
+// Crée une référence mémoire sur une fenêtre du pipeline.
 fn winRef(b: *mtt.Builder, rw: pipeline.RefWindow, shape: []const i64) mtt.Value {
     const buf = rw.buf.?;
     const slot = rw.slot orelse return buf;
@@ -136,10 +147,12 @@ fn winRef(b: *mtt.Builder, rw: pipeline.RefWindow, shape: []const i64) mtt.Value
     return b.memRefSqueeze(sliced, shape);
 }
 
+// Charge une valeur scalaire de métadonnées à l'index donné.
 fn metaLoad(b: *mtt.Builder, ref: mtt.Value, idx: mtt.Value) mtt.Value {
     return b.scalarLoad(ref, &.{b.toIndex(idx)});
 }
 
+// Mappe un bloc pipeline vers la tranche de lignes lhs (entrée).
 fn lhsIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     const ctx: *PipeCtx = @ptrCast(@alignCast(ctx_opaque.?));
     const cfg = ctx.cfg;
@@ -160,6 +173,7 @@ fn lhsIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopa
     return out;
 }
 
+// Mappe un bloc pipeline vers le groupe d'expert des poids rhs.
 fn rhsIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     const ctx: *PipeCtx = @ptrCast(@alignCast(ctx_opaque.?));
     const group_id = metaLoad(b, ctx.meta.group_id, indices[1]);
@@ -170,6 +184,7 @@ fn rhsIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopa
     return out;
 }
 
+// Mappe un bloc pipeline vers la tranche de lignes de sortie.
 fn outIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     const ctx: *PipeCtx = @ptrCast(@alignCast(ctx_opaque.?));
     const cfg = ctx.cfg;
@@ -196,6 +211,7 @@ fn outIndexMap(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopa
     return out;
 }
 
+// Convertit des indices 1D en indices 3D pour les index maps.
 fn indices1DTo3D(b: *mtt.Builder, indices: []const mtt.Value) []const mtt.Value {
     const out = b.arena.allocator().alloc(mtt.Value, 3) catch @panic("gmm_ep indices1DTo3D OOM");
     out[0] = b.lift(@as(i32, 0));
@@ -204,18 +220,22 @@ fn indices1DTo3D(b: *mtt.Builder, indices: []const mtt.Value) []const mtt.Value 
     return out;
 }
 
+// Variante 1D de lhsIndexMap.
 fn lhsIndexMap1D(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     return lhsIndexMap(b, indices1DTo3D(b, indices), ctx_opaque);
 }
 
+// Variante 1D de rhsIndexMap.
 fn rhsIndexMap1D(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     return rhsIndexMap(b, indices1DTo3D(b, indices), ctx_opaque);
 }
 
+// Variante 1D de outIndexMap.
 fn outIndexMap1D(b: *mtt.Builder, indices: []const mtt.Value, ctx_opaque: ?*anyopaque) []const pipeline.BlockIndex {
     return outIndexMap(b, indices1DTo3D(b, indices), ctx_opaque);
 }
 
+// Précalcule les métadonnées (group_id et offsets M) par tuile.
 fn fillMetadata(b: *mtt.Builder, cfg: Cfg, a: anytype) mtt.Value {
     const c0 = b.lift(@as(i32, 0));
     const c1 = b.lift(@as(i32, 1));
@@ -264,6 +284,7 @@ fn fillMetadata(b: *mtt.Builder, cfg: Cfg, a: anytype) mtt.Value {
     return outer.results[0];
 }
 
+// Produit matriciel tuilé par colonnes de 128 sur le MXU.
 fn matmulByMxuColumns(b: *mtt.Builder, cfg: Cfg, lhs: mtt.Value, rhs: mtt.Value, cols: i64) mtt.Value {
     if (cfg.tile_k > cfg.size_k) {
         std.debug.assert(cdiv(cfg.size_k, cfg.tile_k) == 1);
@@ -348,6 +369,7 @@ fn matmulByMxuColumns(b: *mtt.Builder, cfg: Cfg, lhs: mtt.Value, rhs: mtt.Value,
     return b.concatenate(group_parts, 1);
 }
 
+// Approxime GELU par la formule tanh cubique.
 fn geluApprox(b: *mtt.Builder, x: mtt.Value, shape: []const i64) mtt.Value {
     const x2 = b.mulf(x, x);
     const x3 = b.mulf(x2, x);
@@ -359,16 +381,19 @@ fn geluApprox(b: *mtt.Builder, x: mtt.Value, shape: []const i64) mtt.Value {
     );
 }
 
+// Renvoie le type d'accumulation (f32).
 fn cfgAccDtype() mtt.DType {
     return .f32;
 }
 
+// Applique l'activation SiLU.
 fn silu(b: *mtt.Builder, x: mtt.Value, shape: []const i64) mtt.Value {
     const one = b.splat(@as(f32, 1.0), shape, cfgAccDtype());
     const denom = b.addf(one, b.exp(b.negf(x)));
     return b.divf(x, denom);
 }
 
+// Applique l'activation fusionnée (aucune, silu ou gelu) à l'accumulateur.
 fn applyFuseAct(b: *mtt.Builder, cfg: Cfg, acc: mtt.Value) mtt.Value {
     return switch (cfg.fuse_act) {
         .none => acc,
@@ -386,6 +411,7 @@ fn applyFuseAct(b: *mtt.Builder, cfg: Cfg, acc: mtt.Value) mtt.Value {
     };
 }
 
+// Corps du noyau : charge les tuiles, fait le matmul et écrit la sortie.
 fn innerBody(
     b: *mtt.Builder,
     indices: []const mtt.Value,
@@ -489,6 +515,7 @@ fn innerBody(
     b.traceStop();
 }
 
+// Variante 1D du corps du noyau.
 fn innerBody1D(
     b: *mtt.Builder,
     indices: []const mtt.Value,
@@ -499,6 +526,7 @@ fn innerBody1D(
     try innerBody(b, indices1DTo3D(b, indices), refs, scratches, ctx_opaque);
 }
 
+// Émet le noyau GMM groupé par expert pour TPU.
 pub fn run(b: *mtt.Builder, cfg: Cfg) mtt.FinishError!void {
     validateConfig(cfg);
 

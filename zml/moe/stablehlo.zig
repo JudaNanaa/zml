@@ -7,6 +7,7 @@ const zml = @import("../zml.zig");
 const Tensor = zml.Tensor;
 const Shape = zml.Shape;
 
+// Applique l'activation demandée (dont les variantes SwiGLU, GeGLU et SiLU).
 pub fn activate(x: Tensor, activation: zml.moe.Activation) Tensor {
     return switch (activation) {
         .silu => x.silu(),
@@ -42,6 +43,7 @@ pub fn activate(x: Tensor, activation: zml.moe.Activation) Tensor {
     };
 }
 
+// Approximation précise de GELU via erfc, identique à celle utilisée par JAX.
 /// More precise GELU approximation than the default Zig implementation, which is
 /// based on tanh. This is the same approximation used in JAX.
 pub fn gelu(x: Tensor) Tensor {
@@ -52,6 +54,7 @@ pub fn gelu(x: Tensor) Tensor {
     return xf.mul(cdf).convert(x.dtype());
 }
 
+// Étend les échelles de quantification à la forme complète des poids.
 fn expandScales(scales: Tensor, shape: Shape) Tensor {
     if (scales.count() == 1) return scales.asScalar().convert(.f32).broad(shape.withDtype(.f32));
     stdx.debug.assert(scales.rank() == shape.rank(), "reference scale rank must match weights", .{});
@@ -66,6 +69,7 @@ fn expandScales(scales: Tensor, shape: Shape) Tensor {
     return result.withTags(shape.tags());
 }
 
+// Déquantifie un tenseur linéaire en FP32 à partir de ses échelles.
 pub fn dequantize(linear: zml.nn.Linear) Tensor {
     var weight = linear.weight;
     const q = linear.quantization orelse return weight.convert(.f32);
@@ -82,6 +86,7 @@ pub fn dequantize(linear: zml.nn.Linear) Tensor {
 
 // E2M1 round-to-nearest, ties-to-even expressed independently of native
 // float-to-FP4 lowering. Even encoding indices win midpoint ties.
+// Arrondit en E2M1 au plus proche, égalités vers le pair encodage pair.
 fn roundFp4(x: Tensor) Tensor {
     const magnitude = x.abs();
     var rounded = Tensor.scalar(6, .f32).broad(x.shape());
@@ -96,6 +101,7 @@ fn roundFp4(x: Tensor) Tensor {
 
 // Quantize and dequantize activation groups using tensor math, independently of
 // Triton's quantizer. The return value is the represented value in FP32.
+// Quantifie puis déquantifie les activations pour la référence en FP32.
 fn roundedInput(x: Tensor, linear: zml.nn.Linear, opts: Options, dtype: zml.DataType) Tensor {
     if (opts.input_quantization == .none) return x.convert(dtype).convert(.f32);
     const q = linear.quantization orelse return x.convert(dtype).convert(.f32);
@@ -132,6 +138,7 @@ fn roundedInput(x: Tensor, linear: zml.nn.Linear, opts: Options, dtype: zml.Data
         .convert(output_dtype).convert(.f32).mul(broad).reshape(x.shape().withDtype(.f32));
 }
 
+// Projette les activations sur le poids de l'expert sélectionné.
 fn project(x: Tensor, linear: zml.nn.Linear, ids: Tensor, opts: Options, dtype: zml.DataType) Tensor {
     const weight = dequantize(linear).withTags(.{ .expert, .out, .in });
     const selected = weight.gather(.{ .expert = ids }, .{});
@@ -156,6 +163,7 @@ pub const Options = struct {
     routing_weight_placement: @import("fused_experts.zig").RoutingWeightPlacement = .after_down,
 };
 
+// Implémentation de référence du MoE sans noyau dédié.
 pub fn reference(input: Tensor, topk_ids: Tensor, topk_weights: Tensor, gate_up: zml.nn.Linear, down: zml.nn.Linear, opts: Options) Tensor {
     stdx.debug.assert(input.rank() == 3 and topk_ids.rank() == 3 and topk_weights.rank() == 3, "reference expects rank-three input and routing tensors", .{});
     stdx.debug.assert(topk_ids.dtype() == .i32, "reference expects i32 expert ids", .{});
@@ -183,6 +191,7 @@ pub fn reference(input: Tensor, topk_ids: Tensor, topk_weights: Tensor, gate_up:
         .sum(.topk).squeeze(.topk).convert(input.dtype());
 }
 
+// Point d'entrée de référence compatible avec les autres backends MoE.
 pub fn fusedExperts(input: Tensor, ids: Tensor, weights: Tensor, gate_up: zml.nn.Linear, down: zml.nn.Linear, opts: zml.moe.Options) Tensor {
     return reference(input, ids, weights, gate_up, down, .{
         .activation = opts.activation,
@@ -191,8 +200,10 @@ pub fn fusedExperts(input: Tensor, ids: Tensor, weights: Tensor, gate_up: zml.nn
     });
 }
 
+// Vérifie l'arrondi des milieux vers les indices d'encodage pairs en E2M1.
 test "MoE compliance: FP4 midpoint rounding" {
     const Local = struct {
+        // Applique roundFp4 au tenseur de test.
         fn call(x: Tensor) Tensor {
             return roundFp4(x);
         }

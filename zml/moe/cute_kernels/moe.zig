@@ -26,6 +26,7 @@ pub const Inputs = struct {
     ids: zml.Tensor,
 };
 
+// Valide que les dimensions correspondent à la géométrie des experts DeepSeek V4.1.
 /// The kernels are tuned for the DeepSeek V4.1 expert geometry, shared by the
 /// main MoE and the D-Spark drafter. Expert count and top-k are parameters.
 pub fn validateShapes(hidden: i64, intermediate: i64) void {
@@ -33,6 +34,7 @@ pub fn validateShapes(hidden: i64, intermediate: i64) void {
     stdx.debug.assert(intermediate == 2304, "cute_mxfp4 backend expects intermediate dimension to be 2304, got {}", .{intermediate});
 }
 
+// Indique si le routage est direct (un groupe par route) pour un seul jeton.
 /// Route each token/top-k pair to its own one-row group instead of grouping
 /// routes by expert. A token's top-k experts are distinct, so for a single
 /// token grouping cannot share any weight tile and only adds the routing
@@ -41,6 +43,7 @@ fn isDirect(tokens: i64) bool {
     return tokens == 1;
 }
 
+// Choisit la tuile N du GEMM selon le nombre de routes par expert.
 /// GEMM tile N, which is also the routed expert-group size. Wider tiles
 /// reuse each weight tile across more routes but pad more rows per expert,
 /// so they only pay off once experts receive tens of routes.
@@ -59,6 +62,7 @@ fn tileN(tokens: i64, experts: i64, topk: i64) i64 {
     return 32;
 }
 
+// Retourne le nombre de CTA persistants, un par SM.
 /// One persistent CTA per SM. Each CTA needs the full 227 KiB of shared
 /// memory, so launching more CTAs than SMs (e.g. 160 on a 152-SM GB300)
 /// runs the surplus as a second wave and nearly doubles the GEMM time.
@@ -69,6 +73,7 @@ fn persistentCtas() i64 {
     return if (attribute.int64 > 0) attribute.int64 else 148;
 }
 
+// Borne supérieure du nombre de groupes d'experts de taille `group`.
 /// Upper bound on the number of `group`-row expert groups for all routes.
 fn capacity(tokens: i64, topk: i64, experts: i64, group: i64) i64 {
     return @divTrunc(tokens * topk + group - 1, group) + experts - 1;
@@ -88,6 +93,7 @@ const Routing = struct {
     schedule: zml.Tensor,
 };
 
+// Calcule le routage des routes vers les lignes physiques du GEMM groupé.
 fn route(tokens: i64, hidden: i64, intermediate: i64, experts: i64, topk: i64, n: i64, direct: bool, ids: zml.Tensor) Routing {
     const routes = tokens * topk;
     const flat_ids = ids.convert(.i32).reshape(.{routes});
@@ -107,11 +113,13 @@ fn route(tokens: i64, hidden: i64, intermediate: i64, experts: i64, topk: i64, n
     return .{ .groups = groups, .route_map = schedule.route_map, .route_inverse = schedule.route_inverse, .schedule = schedule.schedule };
 }
 
+// Produit la sortie [tokens, hidden] BF16 de la couche MoE.
 /// `[tokens, hidden]` BF16 output of the MoE layer.
 pub fn forward(tokens: i64, hidden: i64, intermediate: i64, experts: i64, topk: i64, swiglu_limit: f32, a: Inputs) zml.Tensor {
     return forwardWithTile(tokens, hidden, intermediate, experts, topk, swiglu_limit, a, null);
 }
 
+// Comme `forward`, mais avec une tuile N explicite pour le réglage.
 /// `forward` with an explicit GEMM tile N, for tuning. `null` selects it from
 /// the batch size.
 pub fn forwardWithTile(tokens: i64, hidden: i64, intermediate: i64, experts: i64, topk: i64, swiglu_limit: f32, a: Inputs, tile_n: ?i64) zml.Tensor {
@@ -167,6 +175,7 @@ pub fn forwardWithTile(tokens: i64, hidden: i64, intermediate: i64, experts: i64
     });
 }
 
+// Test de collecte : référence les noyaux de routage et persistants.
 test {
     _ = boundary;
     _ = persistent;

@@ -43,6 +43,7 @@ pub const Tile = struct {
     /// prefill tiles keep just that instead of two full C stages.
     c_bytes: ?i64 = null,
 
+    // Construit le plan de tuilage (Tile) pour la largeur N demandée.
     pub fn of(comptime n: i64) Tile {
         return switch (n) {
             8 => .{
@@ -135,11 +136,13 @@ pub const Tile = struct {
         };
     }
 
+    // Nombre de lignes routées traitées par passe d'épilogue : une par voie de warp.
     /// Routed rows an epilogue pass handles: one per warp lane.
     pub fn chunkRows(self: Tile) i64 {
         return @min(self.n, 32);
     }
 
+    // Nombre de passes d'épilogue nécessaires pour couvrir la largeur de tuile.
     /// Epilogue passes over the tile width.
     pub fn chunks(self: Tile) usize {
         return @intCast(@divExact(self.n, self.chunkRows()));
@@ -148,20 +151,26 @@ pub const Tile = struct {
     const a_stage_bytes = 128 * 128;
     const sf_stage_bytes = 512;
 
+    // Taille en octets d'une tuile B (N lignes x 128 colonnes) dans un étage.
     fn bStageBytes(self: Tile) i64 {
         return self.n * 128;
     }
 
+    // Nombre d'éléments d'une tuile d'accumulateur C (128 x N).
     fn cStageElements(self: Tile) i64 {
         return 128 * self.n;
     }
 
+    // Octets TMA d'un étage A/B : A FP4 décompressé, la tuile B FP8
+    // et les deux atomes d'échelle de 512 octets.
     /// TMA bytes landing in one A/B stage: unpacked FP4 A is counted as
     /// 128x128 nibbles, then the FP8 B tile and both 512-byte scale atoms.
     fn transactionBytes(self: Tile) u32 {
         return @intCast(8192 + self.bStageBytes() + 2 * sf_stage_bytes);
     }
 
+    // Décrit les champs de la mémoire partagée sous forme de chaînes
+    // 'nom:taille:offset' attendues par l'allocation CuTe.
     fn fields(self: Tile, b: *B) []const []const u8 {
         const arena = b.arena.allocator();
         const s: i64 = @intCast(self.stages);
@@ -251,6 +260,7 @@ pub const Config = struct {
     /// active-count sections and `route_inverse` are not read.
     direct: bool = false,
 
+    // Nombre de lignes stockées par groupe dans les opérandes routés : une tuile N entière.
     /// Rows stored per group in the routed operands: one whole N tile, of
     /// which direct routing fills only the first. A tensor map whose row mode
     /// had extent one would lose that mode altogether — the TMA atom infers a
@@ -259,6 +269,7 @@ pub const Config = struct {
         return self.n;
     }
 
+    // Nombre total de lignes routées : groupes multipliés par les lignes par groupe.
     pub fn routedRows(self: Config) i64 {
         return self.groups * self.groupRows();
     }
@@ -298,6 +309,8 @@ pub const Inputs = struct {
     input_scale: zml.Tensor,
 };
 
+// Projection « up » avec épilogue SwiGLU + MXFP8 : renvoie les activations FP8
+// et leurs échelles prêtes pour le GEMM « down ».
 /// Up projection with the SwiGLU + MXFP8 epilogue: the routed FP8 rows
 /// `[groups * n, m / 2]` and their 128x4 scales `[groups, m / 64 * 128]`,
 /// ready for the down GEMM. `routing_weights` is `[routes]` FP32.
@@ -319,6 +332,7 @@ pub fn upQuantized(cfg: Config, a: Inputs, route_inverse: zml.Tensor, routing_we
     return .{ .q = result.q, .s = result.s };
 }
 
+// Projection « down » écrivant un résultat BF16 [routes, m] dans l'ordre des routes.
 /// Down projection storing FP32 `[routes, m]` in token/top-k order.
 pub fn downRows(cfg: Config, a: Inputs, route_inverse: zml.Tensor) zml.Tensor {
     std.debug.assert(cfg.epilogue == .route_rows);
@@ -332,14 +346,17 @@ pub fn downRows(cfg: Config, a: Inputs, route_inverse: zml.Tensor) zml.Tensor {
     }, .{ .output = .init(.{ cfg.routes, cfg.m }, .bf16) }, .{ .cfg = cfg, .scalars = &.{ cfg.m, cfg.n, cfg.k, cfg.groups, cfg.experts } }).output;
 }
 
+// Spécification d'argument MLIR typé pour l'ABI du noyau.
 fn typed(type_: *const mlir.Type) struct { mlir_type: cute.ArgSpec.MlirTypeSpec } {
     return .{ .mlir_type = .{ .type_ = type_ } };
 }
 
+// Comme typed(), mais marque l'argument comme constante de grille.
 fn gridTyped(type_: *const mlir.Type) struct { mlir_type: cute.ArgSpec.MlirTypeSpec } {
     return .{ .mlir_type = .{ .type_ = type_, .grid_constant = true } };
 }
 
+// Nom de symbole du noyau selon l'épilogue, pour distinguer les deux projections dans les profils.
 /// The two projections share this kernel but get distinct symbols, so a
 /// profile shows them as separate rows instead of one merged entry.
 fn deviceName(comptime epilogue: Epilogue) [:0]const u8 {
@@ -349,6 +366,7 @@ fn deviceName(comptime epilogue: Epilogue) [:0]const u8 {
     };
 }
 
+// Point d'entrée du programme CuTe : choisit la tuile et l'épilogue à la compilation.
 fn buildProgram(b: *B, cfg: Config) cute.FinishError!void {
     return switch (cfg.n) {
         inline 8, 16, 32, 64, 128 => |n| switch (cfg.epilogue) {
@@ -358,6 +376,7 @@ fn buildProgram(b: *B, cfg: Config) cute.FinishError!void {
     };
 }
 
+// Regroupe les types et layouts partagés entre l'ABI du device et le lancement hôte.
 /// Types and layouts shared by the device ABI and the host launch.
 fn Layouts(comptime tile: Tile) type {
     return struct {
@@ -365,12 +384,15 @@ fn Layouts(comptime tile: Tile) type {
         const stages = tile.stages;
         const ab_swizzle: B.Swizzle = .{ .bits = 3, .base = 4, .shift = 3 };
 
+        // Layout des coordonnées globales de A (M, K, experts).
         fn aCoord(b: *B, cfg: Config) cute.LayoutSpec {
             return b.layoutSpec(.{ cfg.m, cfg.k, cfg.experts }, .{ b.basis(1, 1, .{1}), b.basis(1, 1, .{0}), b.basis(1, 1, .{2}) });
         }
+        // Layout des coordonnées globales de B (lignes de groupe, K, groupes).
         fn bCoord(b: *B, cfg: Config) cute.LayoutSpec {
             return b.layoutSpec(.{ cfg.groupRows(), cfg.k, cfg.groups }, .{ b.basis(1, 1, .{1}), b.basis(1, 1, .{0}), b.basis(1, 1, .{2}) });
         }
+        // Layout des coordonnées des tenseurs d'échelle SFA/SFB (atomes 32x4).
         fn sfCoord(b: *B) cute.LayoutSpec {
             return b.layoutSpec(
                 .{ .{ .{ 32, 4 }, cute.AlgebraToken.dynamic }, .{ .{ 32, 4 }, cute.AlgebraToken.dynamic }, .{ 1, cute.AlgebraToken.dynamic } },
@@ -381,40 +403,49 @@ fn Layouts(comptime tile: Tile) type {
                 },
             );
         }
+        // Base globale de la tuile A utilisée par l'atome TMA (128x128).
         fn aBasis(b: *B) cute.LayoutSpec {
             return b.layoutSpec(.{ 128, 128, 1 }, .{ b.basis(1, 1, .{1}), b.basis(1, 1, .{0}), b.basis(1, 1, .{2}) });
         }
+        // Base globale de la tuile B utilisée par l'atome TMA (128xN).
         fn bBasis(b: *B) cute.LayoutSpec {
             return b.layoutSpec(.{ 128, n, 1 }, .{ b.basis(1, 1, .{1}), b.basis(1, 1, .{0}), b.basis(1, 1, .{2}) });
         }
+        // Base globale des tuiles d'échelle, avec l'atome 32x4 replié.
         fn sfBasis(b: *B) cute.LayoutSpec {
             return b.layoutSpec(
                 .{ .{ 2, 4, 32 }, 1, 1, 1 },
                 .{ .{ b.basis(1, 1, .{ 1, 0, 1 }), b.basis(1, 1, .{ 1, 0, 0 }), b.basis(1, 1, .{ 0, 0, 0 }) }, b.basis(1, 1, .{ 1, 0 }), b.basis(1, 1, .{ 1, 1 }), b.basis(1, 1, .{ 1, 2 }) },
             );
         }
+        // Configuration de l'atome TMA chargeant A, avec décompression des nibbles FP4.
         fn tmaA(b: *B, cfg: Config) cute.TmaConfig {
             return .{ .dtype = .f4e2m1fn, .copy_bits = 65536, .global_basis = aBasis(b), .coordinate_layout = aCoord(b, cfg), .coordinate_rank = 3, .format = .u4_unpack_u8 };
         }
+        // Configuration de l'atome TMA chargeant B en FP8.
         fn tmaB(b: *B, cfg: Config) cute.TmaConfig {
             return .{ .dtype = .f8e4m3fn, .copy_bits = @intCast(tile.bStageBytes() * 8), .global_basis = bBasis(b), .coordinate_layout = bCoord(b, cfg), .coordinate_rank = 3 };
         }
+        // Configuration de l'atome TMA chargeant les échelles E8M0.
         fn tmaSf(b: *B) cute.TmaConfig {
             return .{ .dtype = .f8e8m0fnu, .copy_bits = 4096, .global_basis = sfBasis(b), .coordinate_layout = sfCoord(b), .coordinate_rank = 4, .format = .u16 };
         }
         // Shared-memory layouts, in the same element units as Python.
+        // Layout de A en mémoire partagée, éventuellement étagé (ring A/B).
         fn aSmem(b: *B, comptime staged: bool) cute.LayoutSpec {
             return if (staged)
                 b.layoutSpec(.{ .{ 128, 32 }, 1, 4, stages }, .{ .{ 128, 1 }, 0, 32, Tile.a_stage_bytes })
             else
                 b.layoutSpec(.{ .{ 128, 32 }, 1, 4 }, .{ .{ 128, 1 }, 0, 32 });
         }
+        // Layout de B en mémoire partagée, éventuellement étagé.
         fn bSmem(b: *B, comptime staged: bool) cute.LayoutSpec {
             return if (staged)
                 b.layoutSpec(.{ .{ n, 32 }, 1, 4, stages }, .{ .{ 128, 1 }, 0, 32, tile.bStageBytes() })
             else
                 b.layoutSpec(.{ .{ n, 32 }, 1, 4 }, .{ .{ 128, 1 }, 0, 32 });
         }
+        // Layout des échelles en mémoire partagée, éventuellement étagé.
         fn sfSmem(b: *B, comptime staged: bool) cute.LayoutSpec {
             return if (staged)
                 b.layoutSpec(.{ .{ .{ .{ 32, 4 }, 1 }, .{ 32, 1 } }, 1, 4, stages }, .{ .{ .{ .{ 16, 4 }, 0 }, .{ 0, 0 } }, 0, 1, Tile.sf_stage_bytes })
@@ -433,6 +464,7 @@ const EpilogueTypes = struct {
     s: *const mlir.Type,
     rows: *const mlir.Type,
 
+    // Construit les memrefs device des opérandes d'épilogue indexés par route.
     fn of(b: *B, cfg: Config) EpilogueTypes {
         const activations = @divExact(cfg.m, 2);
         return .{
@@ -447,6 +479,8 @@ const EpilogueTypes = struct {
     }
 };
 
+// Émet le noyau device puis la fonction hôte de lancement
+// pour une tuile et un épilogue donnés.
 fn buildTiledProgram(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue: Epilogue) cute.FinishError!void {
     @setEvalBranchQuota(20_000);
     std.debug.assert(@rem(cfg.m, 128) == 0);
@@ -581,6 +615,8 @@ fn buildTiledProgram(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue:
     b.endFunction(null);
 }
 
+// Positions des arguments hôtes : opérandes de la boucle principale,
+// entrées/sorties d'épilogue, puis les scalaires de forme.
 /// Host argument positions: the five mainloop operands, the epilogue's
 /// extra inputs and outputs, then the five problem-shape scalars.
 fn HostArgs(comptime epilogue: Epilogue) type {
@@ -608,6 +644,8 @@ fn HostArgs(comptime epilogue: Epilogue) type {
     };
 }
 
+// Construit les tenseurs complets en mémoire partagée par étage ;
+// les vues par étage en sont des tranches.
 /// Complete staged shared-memory tensors, as Python's `PipelineTmaUmma`
 /// consumers see them.  Per-stage views are slices of these.
 fn stagedOperands(b: *B, comptime tile: Tile, storage: StageStorage) StagedOperands {
@@ -627,6 +665,7 @@ fn stagedOperands(b: *B, comptime tile: Tile, storage: StageStorage) StagedOpera
     return .{ .a = a_full, .b = b_full, .sfa = sfa_full, .sfb = sfb_full };
 }
 
+// Sélectionne par slicing les tampons de l'étage courant et les barrières associées.
 fn stageBuffersAt(b: *B, comptime tile: Tile, storage: StageStorage, stage_index: V) StageBuffers {
     const L = Layouts(tile);
     // Keep the shared operands as staged tensors and select the current stage
@@ -660,6 +699,7 @@ fn stageBuffersAt(b: *B, comptime tile: Tile, storage: StageStorage, stage_index
     };
 }
 
+// Émet les quatre transactions TMA qui remplissent un étage de la boucle principale.
 /// Issue the four transactions that fill one mainloop stage. The caller is
 /// already restricted to the TMA warp; one elected lane owns the mbarrier
 /// arrival.
@@ -748,6 +788,7 @@ fn issueTmaStage(
     b.copy(b.setTmaBarrier(exec_sfb, stage.load_barrier), .{sfb_source}, .{stage.sfb_destination}, null);
 }
 
+// Pointeur vers la barrière mbarrier d'un étage donné, à partir de sa base.
 fn barrierAt(b: *B, base: V, stage: V) V {
     return b.addOffsetTyped(
         base,
@@ -783,12 +824,14 @@ const DirectRoutes = struct {
     expert_ids: cute.View,
     routes: usize,
 
+    // Compte les routes valides (expert >= 0) détenues par ce rang.
     fn count(self: DirectRoutes, b: *B) V {
         var valid = b.cst(.i32, 0);
         for (0..self.routes) |r| valid = valid.add(self.expertAt(b, r).ge(0).to(.i32));
         return valid;
     }
 
+    // Indice de route de la k-ième route valide.
     /// Route of the `k`-th valid route.
     fn nth(self: DirectRoutes, b: *B, k: V) V {
         var seen = b.cst(.i32, 0);
@@ -801,11 +844,14 @@ const DirectRoutes = struct {
         return route;
     }
 
+    // Identifiant d'expert associé à la route r.
     fn expertAt(self: DirectRoutes, b: *B, r: usize) V {
         return self.expert_ids.get(.{b.cst(.i32, @as(i32, @intCast(r)))}, .i32);
     }
 };
 
+// Décode l'état du planificateur persistant (M, N, groupe, validité)
+// pour l'index linéaire courant.
 fn persistentWorkAt(
     b: *B,
     linear: V,
@@ -834,6 +880,7 @@ fn persistentWorkAt(
     };
 }
 
+// Avance l'état du planificateur vers la tuile suivante et incrémente le compteur exécuté.
 fn advancePersistentWork(
     b: *B,
     linear: V,
@@ -848,6 +895,8 @@ fn advancePersistentWork(
     return persistentWorkAt(b, linear.add(persistent_clusters), executed.add(1), active, tiles_m, div_m, div_n, direct);
 }
 
+// Équivalent de PipelineState.advance() : conserve index et phase
+// comme valeurs portées par la boucle.
 /// Equivalent to CUTLASS PipelineState.advance().  Keep the index and phase
 /// as explicit loop-carried SSA values instead of recovering them with
 /// division/remainder; the generated CuTe program then has the same circular
@@ -862,6 +911,7 @@ fn advancePipeline(b: *B, index: V, phase: V, comptime stages: usize) PipelinePo
     return .{ .index = next_index, .phase = next_phase.results[0] };
 }
 
+// Attend la barrière avec sa parité si le compteur n'a pas encore atteint la limite.
 fn peekBarrierIfRemaining(b: *B, base: V, count: V, limit: usize, state: PipelinePosition) V {
     var peek = b.openIfElse(count.lt(limit), .{cute.DType.i1.toMlir(b.ctx)});
     peek.yieldThen(.{b.mbarrierWaitParity(barrierAt(b, base, state.index), state.phase)});
@@ -869,6 +919,7 @@ fn peekBarrierIfRemaining(b: *B, base: V, count: V, limit: usize, state: Pipelin
     return peek.results[0];
 }
 
+// Pointeur TMEM vers l'étage d'accumulateur donné, décalé d'une largeur de tuile.
 fn accumulatorTmemAt(b: *B, comptime tile: Tile, tmem: V, stage: V) V {
     // The stage offset is a whole tile width, which `cute.add_offset` needs to
     // know: it derives the result alignment from what it knows of the offset.
@@ -879,6 +930,8 @@ fn accumulatorTmemAt(b: *B, comptime tile: Tile, tmem: V, stage: V) V {
     ).value();
 }
 
+// Pointeur typé vers shared_base + byte_offset, en conservant
+// l'alignement implicite laissé par l'offset.
 /// `cute.add_offset` infers the alignment a pointer keeps as the gcd of the
 /// base alignment and the offset, and `cute.recast_iter` may not change it, so
 /// the field's own alignment has to be what the offset leaves.
@@ -899,12 +952,14 @@ fn sharedPointerAt(
     return b.recastPointer(byte_ptr, dtype, .smem, moved);
 }
 
+// Alignement de shared_base + byte_offset, tel qu'alloué par la mémoire partagée.
 /// Alignment of `shared_base + byte_offset`, which the shared storage is
 /// allocated with.
 fn movedAlignment(comptime byte_offset: i64) u64 {
     return offsetAlignment(1024, byte_offset, 1);
 }
 
+// Alignement résultant d'un add_offset : gcd de l'alignement de base et de l'offset.
 /// `cute.add_offset` keeps the gcd of the operand alignment and the offset,
 /// and the op's result type has to say so.
 fn offsetAlignment(base_bytes: u64, offset_elements: i64, element_bytes: u64) u64 {
@@ -913,6 +968,7 @@ fn offsetAlignment(base_bytes: u64, offset_elements: i64, element_bytes: u64) u6
     return @max(std.math.gcd(base_bytes, moved), element_bytes);
 }
 
+// Boucle producteur TMA (warp 5) : parcourt les tuiles persistantes et remplit le ring A/B.
 /// Warp 5 runs independently over every persistent output tile.  Keep the
 /// producer index and phase as loop-carried values across tiles, exactly like
 /// CUTLASS PipelineState.  Only the per-tile count is reset to zero.
@@ -1031,14 +1087,17 @@ fn runTmaProducer(
     }
 }
 
+// Alias de type pour un tuple de longueur fixe connue à la compilation.
 fn Tuple(comptime T: type, comptime len: usize) type {
     return std.meta.Tuple(&([_]type{T} ** len));
 }
 
+// Nombre de champs d'un type tuple.
 fn arity(comptime T: type) usize {
     return @typeInfo(T).@"struct".fields.len;
 }
 
+// Types MLIR des valeurs d'un tuple, tels qu'attendus par openWhile.
 /// The MLIR types of a tuple of values, as `openWhile` expects them.
 fn typesOf(values: anytype) Tuple(*const mlir.Type, arity(@TypeOf(values))) {
     const len = comptime arity(@TypeOf(values));
@@ -1047,6 +1106,7 @@ fn typesOf(values: anytype) Tuple(*const mlir.Type, arity(@TypeOf(values))) {
     return out;
 }
 
+// Convertit un tableau porté par la boucle en tuple, pour yieldBefore.
 /// Forward a whole loop-carried array, as `yieldBefore` expects a tuple.
 fn tupleOf(array: anytype) Tuple(@TypeOf(array[0]), array.len) {
     var out: Tuple(@TypeOf(array[0]), array.len) = undefined;
@@ -1071,6 +1131,7 @@ const Mxfp4Mainloop = struct {
     sfa_target: V,
     sfb_target: V,
 
+    // Copie les échelles SFA/SFB de la mémoire partagée vers TMEM pour cet étage.
     pub fn copyScales(self: Mxfp4Mainloop, builder: *B) void {
         builder.copy(self.sfa_copy, .{self.sfa_source}, .{self.sfa_target}, null);
         builder.copy(self.sfb_copy, .{self.sfb_source}, .{self.sfb_target}, null);
@@ -1095,6 +1156,8 @@ const StagedMxfp4Mainloop = struct {
     /// MMA tile N: accumulator columns per stage.
     n: i64,
 
+    // Découpe les descripteurs de la boucle principale à l'étage courant
+    // et construit les objets MMA associés.
     pub fn atStage(self: StagedMxfp4Mainloop, b: *B, index: V, accumulator_tmem: V) Mxfp4Mainloop {
         const all = cute.AlgebraToken.all;
         const a = b.sliceTyped(
@@ -1152,6 +1215,8 @@ const StagedMxfp4Mainloop = struct {
     }
 };
 
+// Construit les descripteurs pipeline-wide (fragments A/B, partitions S2T)
+// à partir des tenseurs étagés complets.
 /// Build the same pipeline-wide descriptors as Python's
 /// `Sm100BlockScaledPersistentDenseGemmKernel`: `make_fragment_A/B` and the
 /// S2T partitions see the complete staged tensors.  `atStage` performs the
@@ -1234,10 +1299,12 @@ fn makeMxfp4StagedMainloop(
     };
 }
 
+// Alloue et formate une chaîne dans l'arène du builder (types MLIR textuels).
 fn fmt(b: *B, comptime format: []const u8, args: anytype) []const u8 {
     return std.fmt.allocPrint(b.arena.allocator(), format, args) catch @panic("OOM");
 }
 
+// Boucle consommatrice MMA (warp 4) : vide le ring A/B dans l'un des deux étages d'accumulateur.
 /// Warp 4 drains the A/B ring into one of two independent accumulator stages.
 fn runMmaConsumer(
     b: *B,
@@ -1392,6 +1459,7 @@ fn runMmaConsumer(
     );
 }
 
+// Enveloppe une valeur du builder en vue CuTe.
 fn view(b: *B, value: V) cute.View {
     return .{ .inner = value.inner, .kernel = b };
 }
@@ -1411,6 +1479,8 @@ const EpilogueOperands = struct {
     swiglu_limit: f32 = 10.0,
 };
 
+// Boucle d'épilogue (warps 0-3) : draine chaque étage TMEM vers
+// les registres puis écrit la tuile selon l'épilogue.
 /// Warps 0-3 drain each TMEM accumulator stage into registers, release it to
 /// the MMA warp, then write the tile out according to `epilogue`.
 fn runEpilogue(
@@ -1523,6 +1593,8 @@ fn runEpilogue(
     dealloc_warp.yieldThen(.{});
 }
 
+// Exposant E8M0 de l'échelle MX (puissance de deux) pour un maximum
+// de bloc, et son inverse.
 /// E8M0 exponent of the power-of-two MX scale for a block maximum, rounded
 /// up so that `maximum / scale <= 448`, and the matching inverse scale.
 fn mxScale(b: *B, maximum: V) struct { exponent: V, inverse: V } {
@@ -1541,6 +1613,8 @@ const RoutedLanes = struct {
     weight: ?V,
 };
 
+// Données de routage par ligne d'un groupe d'experts, réparties sur un warp
+// (une ligne par voie) et indexées par shuffleIdx.
 fn routedLanes(b: *B, comptime tile: Tile, operands: EpilogueOperands, group: V, comptime chunk: usize) RoutedLanes {
     // Only the up projection applies routing weights.
     const weights = operands.routing_weights;
@@ -1563,6 +1637,8 @@ fn routedLanes(b: *B, comptime tile: Tile, operands: EpilogueOperands, group: V,
     return .{ .count = count, .route = route, .weight = weight };
 }
 
+// Épilogue fused_epilogue : calcule la SwiGLU par ligne routée,
+// la quantifie en MXFP8 et écrit les activations q et les échelles s.
 /// Python `fused_epilogue`: thread `t` owns output row `128 * tile_m + t`
 /// of the interleaved projection, so even threads hold a gate and their odd
 /// neighbour the matching up value. Each even thread computes one SwiGLU
@@ -1585,6 +1661,8 @@ fn storeTileSwiglu(b: *B, comptime tile: Tile, storage: StageStorage, operands: 
 
 const swiglu_chunk = 8;
 
+// Traite les live premières lignes de storeTileSwiglu,
+// en sautant les blocs de remplissage si skip_padding est vrai.
 /// The first `live` rows of `storeTileSwiglu`; with `skip_padding`, chunks
 /// of rows past `count` are skipped.
 fn swigluRows(b: *B, comptime tile: Tile, storage: StageStorage, operands: EpilogueOperands, routed: RoutedLanes, tile_m: V, group: V, columns: []const V, comptime live: usize, comptime skip_padding: bool, comptime chunk: usize) void {
@@ -1681,6 +1759,8 @@ fn swigluRows(b: *B, comptime tile: Tile, storage: StageStorage, operands: Epilo
     scale_lane.yieldThen(.{});
 }
 
+// Épilogue down_epilogue : stocke chaque ligne routée valide
+// à sa route, dans l'ordre token/top-k.
 /// Python `down_epilogue`: store each live routed row at its token/top-k
 /// route, so the final reduction reads rows in route order.
 fn storeTileRows(b: *B, comptime tile: Tile, operands: EpilogueOperands, routed: RoutedLanes, tile_m: V, columns: []const V, comptime chunk: usize) void {
@@ -1699,6 +1779,8 @@ fn storeTileRows(b: *B, comptime tile: Tile, operands: EpilogueOperands, routed:
     }
 }
 
+// Construit le corps device : mémoire partagée, partitions TMA,
+// puis les rôles warps 4/5 et épilogue.
 fn buildUmmaDevice(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue: Epilogue, d: anytype) void {
     const L = Layouts(tile);
     const n = tile.n;
@@ -1894,6 +1976,8 @@ fn buildUmmaDevice(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue: E
     epilogue_warps.yieldThen(.{});
 }
 
+// Construit et lance le noyau depuis la fonction hôte :
+// tenseurs, atomes TMA et configuration de grille.
 fn buildHostLaunch(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue: Epilogue) cute.FinishError!void {
     const L = Layouts(tile);
     const host_arg = HostArgs(epilogue);
@@ -1994,6 +2078,7 @@ fn buildHostLaunch(b: *B, cfg: Config, comptime tile: Tile, comptime epilogue: E
     b.returnHostStatus(b.cudaResultStatus(launch));
 }
 
+// Vérifie que le lancement hôte est émis pour chaque largeur de tuile.
 test "MXFP4 GEMM programs emit their host launch for every tile width" {
     inline for (.{ 8, 16, 32 }) |n| {
         inline for (.{ .{ UpQuantized, Epilogue.swiglu_mxfp8, 4608, 5120 }, .{ DownRows, Epilogue.route_rows, 5120, 2304 } }) |program| {

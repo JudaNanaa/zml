@@ -20,6 +20,7 @@ pub const Config = struct {
     /// Scale SwiGLU before FP8 quantization, or scale the down result before reduction.
     routing_weight_placement: zml.moe.triton.RoutingWeightPlacement = .before_down,
 
+    // Valide les dimensions et le routage de la configuration MXFP4.
     pub fn validate(c: Config) !void {
         if (c.tokens <= 0 or
             c.experts <= 0 or
@@ -51,6 +52,7 @@ pub const Inputs = struct {
     s2: zml.Tensor,
 };
 
+// Valide les formes et types des tenseurs d'entrée.
 pub fn validateInputs(c: Config, a: Inputs) !void {
     if (a.s1.rank() != 3 or a.s2.rank() != 3) return error.InvalidInputShape;
     if (a.s1.dim(2) < @divTrunc(c.hidden, 32) or
@@ -72,6 +74,7 @@ pub fn validateInputs(c: Config, a: Inputs) !void {
 const bn = 16;
 const bk = 512;
 
+// Borne supérieure du nombre de tuiles d'experts nécessaires.
 /// Computes an upper bound on the number of expert tiles needed.
 /// When there is only one token, reserve a single tile per selected expert.
 fn tiles(c: Config) i64 {
@@ -79,15 +82,18 @@ fn tiles(c: Config) i64 {
     return @min(c.tokens * c.topk, @divTrunc(c.tokens * c.topk + c.experts * (bn - 1) + bn - 1, bn));
 }
 
+// Renvoie la puissance de deux immédiatement supérieure ou égale.
 /// Returns the next power of two.
 fn pow2(x: i64) i64 {
     return @intCast(std.math.ceilPowerOfTwo(u64, @intCast(x)) catch unreachable);
 }
 
+// Nombre de lignes d'activations traitées par programme de quantification.
 fn quantRows(c: Config) i64 {
     return if (c.tokens >= 16) 16 else 1;
 }
 
+// Choisit le nombre de colonnes par CTA pour la réduction finale.
 fn combineBlock(c: Config) i64 {
     // Keep at least 512 CTAs before increasing per-CTA reduction work.
     const elements = c.tokens * c.hidden;
@@ -96,14 +102,17 @@ fn combineBlock(c: Config) i64 {
     return 256;
 }
 
+// Crée un tenseur d'indices 0..n en i32.
 fn ar(b: *B, n: i64) V {
     return b.arange(0, n, .i32);
 }
 
+// Crée un scalaire i32 constant.
 fn ci(b: *B, n: i64) V {
     return b.liftAs(n, .i32);
 }
 
+// Charge un tenseur avec masque et valeur par défaut.
 fn ld(b: *B, p: V, mask: V, dt: tri.DType, other: i64) V {
     return b.loadOpts(p, .{ .mask = mask, .other = if (p.isTensor()) b.full(p.shape().constSlice(), other, dt) else b.liftAs(other, dt) });
 }
@@ -133,6 +142,7 @@ const GateUp = tri.Kernel(GemmConfig, .{ .name = "mxfp4_triton_up", .inputs = &.
 const Down = tri.Kernel(GemmConfig, .{ .name = "mxfp4_triton_down", .inputs = &.{ "mid", "ms", "w", "ws", "ids", "sched" }, .outputs = &.{"d"}, .run = down });
 const Combine = tri.Kernel(Config, .{ .name = "mxfp4_triton_combine", .inputs = &.{ "d", "ids", "perm", "rw" }, .outputs = &.{"y"}, .run = combine });
 
+// Calcule le routage MXFP4 utilisé par les GEMM persistants CuTe.
 /// MXFP4 routing for the CuTe backend (`zml/moe/cute_mxfp4.zig`), whose
 /// persistent GEMMs consume it. It reuses this backend's `route` and
 /// `schedule` kernels with `group`-row expert groups (the CuTe GEMM tile N)
@@ -188,6 +198,7 @@ pub fn scheduleForCute(c: Config, ids: zml.Tensor, capacity: i64, group: i64) st
     return .{ .route_inverse = s.map, .route_map = s.perm, .schedule = s.sched };
 }
 
+// Exécute le MoE MXFP4 complet via les noyaux Triton.
 pub fn forward(c: Config, a: Inputs) zml.Tensor {
     c.validate() catch @panic("Invalid MXFP4 MoE configuration");
     validateInputs(c, a) catch @panic("Invalid MXFP4 tensor layout");
@@ -275,6 +286,7 @@ pub fn forward(c: Config, a: Inputs) zml.Tensor {
     ).y;
 }
 
+// Quantifie un bloc de valeurs en FP8 par groupes de 32.
 fn quant32(b: *B, x: V) struct { q: V, s: V } {
     const rows = x.shape().constSlice()[0];
     const cols = x.shape().constSlice()[1];
@@ -286,6 +298,7 @@ fn quant32(b: *B, x: V) struct { q: V, s: V } {
     return .{ .q = b.reshape(q, &.{ rows, cols }), .s = b.reshape(bits, &.{ rows, groups }) };
 }
 
+// Noyau de quantification des activations en FP8 par groupes de 32.
 fn quantInput(b: *B, c: Config) tri.FinishError!void {
     const a = try b.declareArgs(.{ .x = .{ .ptr = .bf16 }, .q = .{ .ptr = .f8e4m3fn }, .s = .{ .ptr = .i8 } });
     const rows = b.programId(.x).mul(quantRows(c)).add(ar(b, quantRows(c)));
@@ -300,6 +313,7 @@ fn quantInput(b: *B, c: Config) tri.FinishError!void {
     b.storeOpts(a.s.addPtr(scale_offsets), q.s, .{ .mask = mask });
 }
 
+// Noyau de comptage et positionnement des routes par expert (scan).
 fn route(b: *B, c: Config) tri.FinishError!void {
     const a = try b.declareArgs(.{ .ids = .{ .ptr = .i32 }, .counts = .{ .ptr = .i32 }, .pos = .{ .ptr = .i32 } });
     const e = b.programId(.x);
@@ -313,6 +327,7 @@ fn route(b: *B, c: Config) tri.FinishError!void {
 const route_block = 1024;
 const atomic_route_threshold = 6 * 2048;
 
+// Noyau de routage par incrément atomique, pour les grands lots.
 /// Routing for large batches, used by `scheduleForCute`.
 /// Each route takes the next free slot of its expert with an atomic
 /// increment of `counts` (zero-initialized through `zeros`). Slots within an
@@ -328,6 +343,7 @@ fn routeAtomic(b: *B, c: Config) tri.FinishError!void {
     b.storeOpts(a.pos.addPtr(p), slot, .{ .mask = valid });
 }
 
+// Noyau de planification : table des routes, permutation et groupes.
 fn scheduleGroups(b: *B, cfg: ScheduleConfig) tri.FinishError!void {
     const c = cfg.moe;
     const nt = cfg.capacity;
@@ -355,16 +371,19 @@ fn scheduleGroups(b: *B, cfg: ScheduleConfig) tri.FinishError!void {
     b.storeOpts(a.sched.addPtr(nt).addPtr(tile), counts.gather(safe, 0).sub(pos).minimum(group), .{ .mask = live.bitAnd(row.eq(0)) });
 }
 
+// Noyau GEMM de la projection gate_up avec épilogue SwiGLU.
 fn gateUp(b: *B, c: GemmConfig) tri.FinishError!void {
     return gemm(b, c.moe, .gate_up, c.scale_stride);
 }
 
+// Noyau GEMM de la projection down.
 fn down(b: *B, c: GemmConfig) tri.FinishError!void {
     return gemm(b, c.moe, .down, c.scale_stride);
 }
 
 const Projection = enum { gate_up, down };
 
+// Émet le GEMM groupé MXFP4 (gate_up ou down) via le DSL Triton.
 fn gemm(b: *B, c: Config, comptime projection: Projection, scale_stride: i64) tri.FinishError!void {
     const is_up = projection == .gate_up;
     const a = if (is_up) try b.declareArgs(.{ .q = .{ .ptr = .f8e4m3fn }, .s = .{ .ptr = .i8 }, .w = .{ .ptr = .i8 }, .ws = .{ .ptr = .i8 }, .ids = .{ .ptr = .i32 }, .rw = .{ .ptr = .f32 }, .map = .{ .ptr = .i32 }, .sched = .{ .ptr = .i32 }, .mid = .{ .ptr = .f8e4m3fn }, .ms = .{ .ptr = .i8 } }) else try b.declareArgs(.{ .q = .{ .ptr = .f8e4m3fn }, .s = .{ .ptr = .i8 }, .w = .{ .ptr = .i8 }, .ws = .{ .ptr = .i8 }, .ids = .{ .ptr = .i32 }, .sched = .{ .ptr = .i32 }, .d = .{ .ptr = .bf16 } });
@@ -438,10 +457,12 @@ fn gemm(b: *B, c: Config, comptime projection: Projection, scale_stride: i64) tr
     live.yieldThen(.{});
 }
 
+// Noyau de réduction des routes avec la taille de tuile par défaut.
 fn combine(b: *B, c: Config) tri.FinishError!void {
     return combineWithBn(b, c, bn);
 }
 
+// Noyau de réduction des routes pour une tuile N donnée.
 fn combineWithBn(b: *B, c: Config, tile_n: i64) tri.FinishError!void {
     const a = try b.declareArgs(.{ .d = .{ .ptr = .bf16 }, .ids = .{ .ptr = .i32 }, .perm = .{ .ptr = .i32 }, .rw = .{ .ptr = .f32 }, .y = .{ .ptr = .bf16 } });
     const t = b.programId(.x);

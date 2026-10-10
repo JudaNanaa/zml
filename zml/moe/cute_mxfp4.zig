@@ -8,18 +8,21 @@ pub const kernels = @import("cute_kernels/moe.zig");
 
 // `moe.zig`'s `refAllDecls` reaches this file but not its imports, so the
 // kernel emit tests are only collected if `kernels` is referenced here.
+// Collecte les tests des noyaux CuTe en les référençant.
 test {
     _ = kernels;
 }
 
 pub const Parameters = triton_mxfp4.Parameters;
 
+// Indique si le backend CuTe MXFP4 est disponible (CUDA compute capability 10.x).
 pub fn isAvailable(platform: *const zml.Platform) bool {
     if (platform.target != .cuda) return false;
     const cc = zml.platform.cuda.computeCapability(platform) orelse return false;
     return cc.major == 10;
 }
 
+// Vérifie que les options du MoE sont compatibles avec le backend CuTe MXFP4.
 pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.activation == .swiglu, "cute_mxfp4 backend only accepts swiglu activation, got {}", .{opts.activation});
     stdx.debug.assert(opts.activation.swiglu.limit != null, "cute_mxfp4 backend requires swiglu limit to be set", .{});
@@ -27,6 +30,7 @@ pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.activation.swiglu.scale == null, "cute_mxfp4 backend requires swiglu scale to be null", .{});
 }
 
+// Applique les experts fusionnés en MXFP4 via les GEMM persistants CuTe de Blackwell.
 pub fn fusedExperts(
     input: zml.Tensor,
     ids: zml.Tensor,
@@ -88,6 +92,7 @@ const Context = struct {
     swiglu_limit: f32,
     expert_parallel: bool,
 
+    // Construit le graphe du MoE pour CuTe : routage, quantisation et réductions.
     fn body(self: Context, _: zml.Shape) zml.Tensor {
         const experts = self.w1.dim(.expert);
         const hidden = self.w2.dim(1);

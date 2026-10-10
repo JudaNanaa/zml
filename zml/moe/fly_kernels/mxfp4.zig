@@ -5,6 +5,7 @@ const fly = zml.kernel.fly;
 const Value = fly.Value;
 const Builder = fly.Builder;
 
+// Émet l'appel au noyau MXFP4 Fly (GEMV ou MFMA) selon la configuration.
 /// The caller owns route localization, activation and reduction.
 /// `expert_ids` contains local bank indices, including -1 for remote experts.
 /// Sorted routes must contain a real prefix followed by padding per expert.
@@ -50,6 +51,7 @@ pub fn call(
     return callMfma(input, weight, scales, sorted_ids, expert_ids, padded_count, output, topk, naive, block_m);
 }
 
+// Émet le noyau MFMA MXFP4 pour les lots de routes plus larges.
 fn callMfma(input: Tensor, weight: Tensor, scales: Tensor, sorted_ids: Tensor, expert_ids: Tensor, padded_count: Tensor, output: zml.Shape, topk: usize, naive: bool, block_m: usize) Tensor {
     const n = weight.dim(1);
     const k = input.dim(1);
@@ -112,6 +114,7 @@ const Kernel = zml.kernel.fly.Kernel(Config, .{
     .run = run,
 });
 
+// Noyau MFMA : boucle K, fragments A/B et accumulation par route.
 fn run(b: *Builder, cfg: Config) fly.FinishError!void {
     const args = Kernel.args(b);
     const zero = b.constant(.i32, 0);
@@ -250,10 +253,12 @@ fn run(b: *Builder, cfg: Config) fly.FinishError!void {
     block.yieldThen(.{});
 }
 
+// Renvoie la route associée à une ligne, ou -1 si elle est hors capacité.
 fn routeForRow(b: *Builder, sorted: Value, block: Value, start: Value, row: Value, naive: bool) Value {
     return if (naive) row.cmp(.eq, 0).select(block.to(.i32), b.constant(.i32, -1)) else sorted.at(start.add(row));
 }
 
+// Écrit une colonne du résultat pour une route donnée.
 fn storeRow(b: *Builder, output: Value, sorted: Value, block: Value, start: Value, row: Value, col: Value, value: Value, cfg: Config) void {
     const route = routeForRow(b, sorted, block, start, row, cfg.naive != 0);
     var valid = b.openIf(route.cmp(.ge, 0).bitAnd(route.cmp(.lt, cfg.routes)));
@@ -261,6 +266,7 @@ fn storeRow(b: *Builder, output: Value, sorted: Value, block: Value, start: Valu
     valid.yieldThen(.{});
 }
 
+// Crée une vue vectorielle de n éléments à un décalage donné.
 fn vectorView(tensor: Value, offset: Value, comptime n: i64) Value {
     return tensor.emitIter().addOffset(offset).view(fly.L(n, 1));
 }
@@ -285,6 +291,7 @@ const TileLoader = struct {
     out_n: Value,
     k_lane: Value,
 
+    // Charge une tuile d'activations et de poids dans la mémoire partagée.
     fn load(self: TileLoader, b: *Builder, k: Value, write_base: Value) struct { words: Value, scale: Value } {
         self.storeActivation(b, self.a_base, self.a_valid, k, self.a_store.add(write_base));
         var second = b.openIf(self.second_active);
@@ -298,6 +305,7 @@ const TileLoader = struct {
         return .{ .words = words, .scale = scale.cmp(.eq, 255).select(b.constant(.i32, 0x7fc00000), finite).bitcast(.f32) };
     }
 
+    // Charge et stocke un fragment d'activations, ou des zéros si invalide.
     fn storeActivation(self: TileLoader, b: *Builder, base: Value, valid: Value, k: Value, destination: Value) void {
         const zeros = b.constant(.i64, 0).splat(2);
         var guarded = b.openIfElse(valid, .{zeros.type_()});
@@ -308,6 +316,7 @@ const TileLoader = struct {
     }
 };
 
+// Décode un mot de poids MXFP4 en BF16 avec application de l'échelle.
 fn decodeWeight(b: *Builder, word: Value, scale: Value) Value {
     const lo = b.constant(.i32, 0x44403800);
     const hi = b.constant(.i32, 0x54504c48);
@@ -333,6 +342,7 @@ const Gemv = struct {
     // expose independent outputs without paying for a full wave reduction per row.
     const Config = struct { rows: usize, lanes: usize, unroll: usize };
 
+    // Émet le GEMV MXFP4 pour un petit nombre de routes.
     /// One local expert ID per original route; negative/out-of-bank IDs write zero.
     fn call(x: Tensor, weight: Tensor, scales: Tensor, ids: Tensor, output: zml.Shape, topk: usize) Tensor {
         const cfg: Gemv.Config = if (weight.dim(1) == 4608)
@@ -389,6 +399,7 @@ const Gemv = struct {
         .run = Gemv.run,
     });
 
+    // Noyau GEMV : décodage des poids, produits scalaires et réduction.
     fn run(b: *Builder, cfg: EmitConfig) fly.FinishError!void {
         const args = Gemv.Kernel.args(b);
         const block = b.blockId(.x).to(.i64);
@@ -454,6 +465,7 @@ const Gemv = struct {
         store.yieldThen(.{});
     }
 
+    // Décode un octet d'échelle E8M0 en f32 (NaN pour 255).
     fn decodeScale(b: *Builder, byte: Value) Value {
         const scale = byte.toUnsigned(.i32);
         const finite = scale.cmp(.eq, 0).select(b.constant(.i32, 0x00400000), scale.shl(23));

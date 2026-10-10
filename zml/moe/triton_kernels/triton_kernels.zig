@@ -15,6 +15,7 @@ const DType = tri.DType;
 
 const log = std.log.scoped(.@"zml/moe/triton_kernels");
 
+// Arrondit vers le bas à un multiple de 16 (garde les strides alignés).
 /// Floor to a multiple of 16 — matches the Python `(v // 16) * 16` guards
 /// that keep dynamic strides aligned for tt.load/store.
 fn blockFloor16(v: Value) Value {
@@ -41,6 +42,7 @@ pub const PerTokenGroupQuantFp8 = struct {
         .outputs = &.{ "y_q", "y_s" },
         .run = run,
     });
+    // Noyau de quantification FP8 par groupes de jetons.
     fn run(b: *Builder, cfg: Cfg) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .y_ptr = .{ .ptr = cfg.input_dtype },
@@ -144,6 +146,7 @@ pub const PerTokenGroupQuantFp8 = struct {
 // write_zeros_to_output — helper called by FusedMoe
 // =============================================================================
 
+// Écrit une tuile de zéros pour les blocs sans expert assigné (-1).
 /// Direct port of Python `write_zeros_to_output`. Stores a masked zero-tile
 /// for blocks whose expert is `-1` (no expert assigned). `stride_cn` is
 /// hardcoded to 1 (contiguous last dim), so the N-axis offset is just
@@ -219,6 +222,7 @@ pub const FusedMoe = struct {
         .outputs = &.{"c"},
         .run = run,
     });
+    // Noyau GEMM routé MoE : boucle K et épilogues de quantification.
     fn run(b: *Builder, cfg: Cfg) tri.FinishError!void {
         const fp8_block_size: usize = if (cfg.quant_scheme == .fp8_block32) 32 else 128;
         if ((cfg.quant_scheme == .fp8_block128 or cfg.quant_scheme == .fp8_block32) and cfg.block_size_k != fp8_block_size) {
@@ -572,6 +576,7 @@ pub const FusedMoe = struct {
     }
 };
 
+// Vérifie l'émission des échelles flottantes et E8M0 de la quantification FP8.
 test "FP8 activation quantization emits float and E8M0 scales" {
     for ([_]zml.Quantization.Scheme{ .mxfp8, .fp8_per_channel, .fp8_per_tensor, .fp8_block128, .fp8_block32 }) |scheme| {
         for ([_]DType{ .bf16, .f32 }) |input_dtype| {
@@ -590,6 +595,7 @@ test "FP8 activation quantization emits float and E8M0 scales" {
     }
 }
 
+// Vérifie que FusedMoe émet chaque chemin d'échelle FP8 et MXFP4.
 test "FusedMoe emits each FP8 and MXFP4 scaling path" {
     const allocator = std.testing.allocator;
     const schemes = [_]?zml.Quantization.Scheme{ null, .mxfp4, .mxfp8, .fp8_per_tensor, .fp8_per_channel, .fp8_block128, .fp8_block32 };
@@ -655,6 +661,7 @@ pub const MoeAlignBlockSize = struct {
         .outputs = &.{ "sorted_token_ids", "expert_ids", "num_tokens_post_pad", "cumsum" },
         .run = run,
     });
+    // Noyau d'alignement des blocs d'experts : histogramme, cumsum et affectation.
     fn run(b: *Builder, cfg: Cfg) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .topk_ids_ptr = .{ .ptr = .i32 },
@@ -780,6 +787,7 @@ pub const CountAndSortExpertTokens = struct {
         .outputs = &.{ "sorted_token_ids", "cumsum" },
         .run = run,
     });
+    // Noyau de comptage et tri : place chaque route via un compteur atomique.
     fn run(b: *Builder, cfg: Cfg) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .topk_ids_ptr = .{ .ptr = .i32 },

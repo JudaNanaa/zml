@@ -16,6 +16,7 @@ const kernels = @import("triton_kernels/triton_kernels.zig");
 
 const log = std.log.scoped(.@"zml/moe/triton");
 
+// Ajuste le nombre d'étapes du pipeline selon la mémoire partagée disponible (ROCm).
 fn numStages(config: shared.LaunchConfig) i32 {
     const platform = zml.Compiler.current().platform;
     if (platform.target != .rocm) return config.num_stages;
@@ -32,6 +33,7 @@ fn numStages(config: shared.LaunchConfig) i32 {
     return stages;
 }
 
+// Émet l'appel au noyau Triton FusedMoe et renvoie sa sortie.
 pub fn call(opts: shared.GemmOptions) Tensor {
     // Native FP4 tensors expose logical K; the Triton operand is byte-packed.
     const weight = if (opts.quant_scheme == .mxfp4 and opts.weight.dtype() == .f4e2m1)
@@ -144,6 +146,7 @@ pub fn call(opts: shared.GemmOptions) Tensor {
     ).c;
 }
 
+// Prépare le routage (tri et remplissage des jetons) pour le GEMM MoE.
 pub fn prepareRouting(topk_ids: Tensor, num_experts: i64, block_size_m: i64) shared.Routing {
     stdx.debug.assert(block_size_m > 0 and @mod(block_size_m, 16) == 0, "routing block size must be a positive multiple of 16, got {}", .{block_size_m});
     const ids = topk_ids.withTags(.{ .token, .topk }).convert(.i32);
@@ -176,6 +179,7 @@ pub fn prepareRouting(topk_ids: Tensor, num_experts: i64, block_size_m: i64) sha
     };
 }
 
+// Génère les tables de tri des jetons par expert via les noyaux Triton.
 fn alignBlockSize(topk_ids: Tensor, num_experts: i64, block_size_m: i64) struct { Tensor, Tensor, Tensor } {
     const topk_ids_ = topk_ids.withTags(.{ .token, .topk }).convert(.i32);
     const num_tokens = topk_ids_.dim(.token);
@@ -272,6 +276,7 @@ fn alignBlockSize(topk_ids: Tensor, num_experts: i64, block_size_m: i64) struct 
     return .{ sorted_token_ids, expert_ids, num_tokens_post_padded };
 }
 
+// Prépare les activations d'entrée avec quantification FP8 optionnelle.
 pub fn prepareInput(x: Tensor, scheme: ?zml.Quantization.Scheme, output_dtype: zml.DataType, quantize: bool) struct { Tensor, ?Tensor } {
     if (quantize) {
         if (scheme) |scheme_| {
@@ -284,6 +289,7 @@ pub fn prepareInput(x: Tensor, scheme: ?zml.Quantization.Scheme, output_dtype: z
     return .{ x.convert(.bf16), null };
 }
 
+// Quantifie une matrice d'activations en FP8 par groupes avec échelles.
 fn quantizeFp8Input(x: Tensor, scheme: zml.Quantization.Scheme, output_dtype: DataType) struct { Tensor, Tensor } {
     const group_size: i64, const scale_dtype: DataType, const absmax_epsilon: f32 = switch (scheme) {
         .mxfp8 => .{ 32, .u8, 1e-10 },

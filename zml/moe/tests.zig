@@ -23,12 +23,14 @@ const Case = struct {
     intermediate: i64 = 128,
     experts: i64 = 8,
 
+    // Compile la fonction MoE pour un cas donné et renvoie l'exécutable.
     pub fn compile(c: Case, allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform) !zml.Exe {
         std.debug.assert(c.backend.isAvailable(platform));
         const x: Tensor = .init(.{ .b = c.batch, .s = c.tokens, .d = c.width }, c.activation_dtype);
         return platform.compileFn(allocator, io, forward, .{ x, c }, .{});
     }
 
+    // Exécute le cas et compare la sortie au résultat de référence.
     pub fn check(c: Case, allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, exe: *const zml.Exe) !void {
         const x: Tensor = .init(.{ .b = c.batch, .s = c.tokens, .d = c.width }, c.activation_dtype);
 
@@ -65,6 +67,7 @@ const Case = struct {
     }
 };
 
+// Génère un tenseur reproductible selon un motif déterministe simple.
 /// Generate a reproducible Tensor with a simple pattern.
 ///
 /// Generate as many elements as the shape requires, with this formula:
@@ -78,6 +81,7 @@ fn generateDeterministicTensor(shape: Shape, multiplier: i64, divisor: f64) Tens
         .convert(.f32).scale(1 / divisor).reshape(shape.withDtype(.f32));
 }
 
+// Génère un tenseur de valeurs FP4 exactement représentables.
 /// Select exactly representable FP4 values with distinct even/odd sequences.
 fn generateFp4Tensor(shape: Shape, multiplier: i64) Tensor {
     const values = Tensor.constantTensor(.init(.{ .value = 16 }, .f32), std.mem.sliceAsBytes(&[_]f32{
@@ -94,6 +98,7 @@ fn generateFp4Tensor(shape: Shape, multiplier: i64) Tensor {
     return values.gather(.{ .value = indices }, .{}).convert(.f4e2m1).reshape(shape.withDtype(.f4e2m1));
 }
 
+// Crée un Linear de test reproductible, éventuellement quantifié et biaisé.
 /// Create a Linear fixture with a reproducible pattern, optionally quantized and biased.
 fn linear(shape: Shape, scheme: ?zml.Quantization.Scheme, bias: bool, multiplier: i64) zml.nn.Linear {
     const fixture_bias = if (bias) generateDeterministicTensor(shape.remove(2), 3, 32).convert(shape.dtype()) else null;
@@ -143,6 +148,7 @@ const ExpertFixture = struct {
     down: zml.nn.Linear,
 };
 
+// Construit la paire gate_up/down canonique d'un cas de test.
 /// Canonical weights use logical dimensions, concatenated gate/up, and plain scales.
 fn makeExpertFixture(c: Case) ExpertFixture {
     const projection_width: i64 = switch (c.activation) {
@@ -155,6 +161,7 @@ fn makeExpertFixture(c: Case) ExpertFixture {
     };
 }
 
+// Entrelace les moitiés gate/up sur l'axe de sortie.
 /// Interleave the gate/up halves of the output axis: [E, 2, N/2, K] -> [E, N/2, 2, K].
 fn interleave(tensor: Tensor) Tensor {
     const tags = tensor.shape().tags();
@@ -164,6 +171,7 @@ fn interleave(tensor: Tensor) Tensor {
         .merge(.{ .out = .{ .mid, .projection } }).withTags(tags);
 }
 
+// Applique le swizzle des échelles de blocs Blackwell (layout 128x4).
 /// Blackwell block scales: [E, N/128, 4, 32, K/4, 4] ->
 /// [E, N/128, K/4, 32, 4, 4], retaining the declared [E, N, K] shape.
 fn swizzleScales(scales: Tensor) Tensor {
@@ -171,11 +179,13 @@ fn swizzleScales(scales: Tensor) Tensor {
         .transpose(.{ 0, 1, 4, 3, 2, 5 }).reshape(scales.shape());
 }
 
+// Empaquette deux valeurs FP4 par octet.
 fn packFp4Bytes(weight: Tensor) Tensor {
     std.debug.assert(weight.dtype() == .f4e2m1);
     return weight.reshape(weight.shape().setDim(2, @divExact(weight.dim(2), 2)).append(.{ .nibble = 2 })).bitCast(.u8);
 }
 
+// Réordonne et entrelace les poids gate_up selon le layout attendu.
 fn prepareGateUp(tensor: Tensor, layout: zml.moe.ExpertsLayout) Tensor {
     const ordered = switch (layout.gate_up_order) {
         .gate_up => tensor,
@@ -190,6 +200,7 @@ fn prepareGateUp(tensor: Tensor, layout: zml.moe.ExpertsLayout) Tensor {
     };
 }
 
+// Adapte une copie des projections au stockage et au layout du backend.
 /// Adapt a copy of both projections to the backend's storage and layout contract.
 fn prepareForBackend(canonical: ExpertFixture, backend: zml.moe.Backend) ExpertFixture {
     var prepared = canonical;
@@ -229,6 +240,7 @@ fn prepareForBackend(canonical: ExpertFixture, backend: zml.moe.Backend) ExpertF
 
 const Outputs = struct { actual: Tensor, expected: Tensor };
 
+// Exécute le MoE testé et la référence StableHLO, puis renvoie les deux sorties.
 /// Forward a fixture through the MoE implementation under test, and also through the StableHLO
 /// reference implementation. Return both outputs for comparison.
 fn forward(input: Tensor, c: Case) Outputs {
@@ -315,11 +327,13 @@ const Matrix = struct {
     biases: []const bool = &.{false},
     shapes: []const FixtureShape = &fixture_shapes,
 
+    // Compte le nombre total de cas de la matrice.
     pub fn count(self: Matrix) usize {
         return self.formats.len * self.activations.len * self.quantize_inputs.len *
             self.placements.len * self.biases.len * self.shapes.len;
     }
 
+    // Construit le cas à l'index donné (les formes varient le plus vite).
     /// Shapes vary fastest, matching the nested loops in the backend tests.
     pub fn caseAt(self: Matrix, backend: zml.moe.Backend, index: usize) Case {
         std.debug.assert(index < self.count());
@@ -383,6 +397,7 @@ const Result = struct {
 const Pipeline = struct {
     platform: *const zml.Platform,
 
+    // Énumère les cas et les pousse dans la file, ou les marque comme ignorés.
     fn generateCases(self: *const Pipeline, io: std.Io, backend: zml.moe.Backend, matrix: Matrix, case_queue: *std.Io.Queue(CaseJob), results: []?Result) std.Io.Cancelable!void {
         defer case_queue.close(io);
         const available = backend.isAvailable(self.platform);
@@ -402,6 +417,7 @@ const Pipeline = struct {
         }
     }
 
+    // Travailleur : compile les cas de la file et pousse les exécutables.
     fn compileExecutablesWorker(self: *const Pipeline, io: std.Io, allocator: std.mem.Allocator, case_queue: *std.Io.Queue(CaseJob), executable_queue: *std.Io.Queue(ExecutableJob), results: []?Result) std.Io.Cancelable!void {
         while (true) {
             const job = case_queue.getOne(io) catch |err| return switch (err) {
@@ -424,6 +440,7 @@ const Pipeline = struct {
         }
     }
 
+    // Travailleur : exécute et vérifie les cas compilés.
     fn runTestCaseWorker(self: *const Pipeline, io: std.Io, allocator: std.mem.Allocator, executable_queue: *std.Io.Queue(ExecutableJob), results: []?Result) std.Io.Cancelable!void {
         while (true) {
             var compiled = executable_queue.getOne(io) catch |err| return switch (err) {
@@ -441,6 +458,7 @@ const Pipeline = struct {
         }
     }
 
+    // Lance le pipeline producteurs/consommateurs puis rapporte les résultats.
     fn run(self: *const Pipeline, io: std.Io, allocator: std.mem.Allocator, backend: zml.moe.Backend, matrix: Matrix, options: Options) !void {
         var arena: std.heap.ArenaAllocator = .init(allocator);
         defer arena.deinit();
@@ -481,6 +499,7 @@ const Pipeline = struct {
         try report(results);
     }
 
+    // Rapporte les cas en échec et renvoie une erreur si nécessaire.
     fn report(results: []const ?Result) !void {
         var failed: usize = 0;
         for (results, 0..) |result, index| {
@@ -499,6 +518,7 @@ const Pipeline = struct {
     }
 };
 
+// Matrice de compatibilité du backend Triton sur toutes les options.
 test "Triton compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -522,6 +542,7 @@ test "Triton compatibility matrix" {
     }, .{});
 }
 
+// Vérifie que les paliers de lancement Triton tiennent en mémoire partagée (ROCm).
 test "Triton MoE prefill launch buckets fit shared memory" {
     const platform = zml.testing.env();
     if (!zml.moe.Backend.triton.isAvailable(platform) or platform.target != .rocm) return error.SkipZigTest;
@@ -540,6 +561,7 @@ test "Triton MoE prefill launch buckets fit shared memory" {
     }
 }
 
+// Matrice de compatibilité du backend FlashInfer CUTLASS.
 test "FlashInfer compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -552,6 +574,7 @@ test "FlashInfer compatibility matrix" {
     }, .{});
 }
 
+// Matrice de compatibilité du backend Triton MXFP4 spécialisé.
 test "specialized Triton MXFP4 compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -566,6 +589,7 @@ test "specialized Triton MXFP4 compatibility matrix" {
     }, .{});
 }
 
+// Matrice de compatibilité du backend CuTe MXFP4 spécialisé.
 test "specialized CuTe MXFP4 compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -580,6 +604,7 @@ test "specialized CuTe MXFP4 compatibility matrix" {
     }, .{});
 }
 
+// Matrice de compatibilité du backend Fly.
 test "Fly compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -595,6 +620,7 @@ test "Fly compatibility matrix" {
     }, .{});
 }
 
+// Matrice de compatibilité du backend Metal.
 test "Metal compatibility matrix" {
     const platform = zml.testing.env();
 
@@ -617,6 +643,7 @@ test "Metal compatibility matrix" {
     }, .{});
 }
 
+// Matrice de compatibilité du backend Mosaic TPU.
 test "Mosaic TPU compatibility matrix" {
     const platform = zml.testing.env();
 

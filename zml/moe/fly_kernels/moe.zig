@@ -9,6 +9,7 @@ const Builder = fly.Builder;
 
 pub const Parameters = shared.Parameters;
 
+// Indique si les noyaux Fly MXFP4 peuvent traiter cette configuration.
 pub fn supports(opts: shared.FusedExpertsArgs) bool {
     if (opts.hidden_states.dtype() != .bf16 or opts.gate_up.quantizationScheme() != .mxfp4 or
         opts.down.quantizationScheme() != .mxfp4 or opts.gate_up.bias != null or opts.down.bias != null or
@@ -38,11 +39,13 @@ pub fn supports(opts: shared.FusedExpertsArgs) bool {
     return routes > 0 and routes <= std.math.maxInt(i32) / 5120;
 }
 
+// Prépare les activations d'entrée pour Fly (BF16 sans échelle).
 pub fn prepareInput(x: Tensor, scheme: ?zml.Quantization.Scheme, _: zml.DataType, _: bool) struct { Tensor, ?Tensor } {
     std.debug.assert(scheme == .mxfp4);
     return .{ x.convert(.bf16), null };
 }
 
+// Émet l'appel au noyau Fly MXFP4.
 pub fn call(opts: shared.GemmOptions) zml.Tensor {
     zml.stdx.debug.assert(opts.quant_scheme == .mxfp4 and opts.bias == null and opts.routing_weights == null and opts.input_scale == null, "Fly MoE requires MXFP4 weights, BF16 activations and routing weights before the down projection", .{});
     const weight = if (opts.weight.dtype() == .f4e2m1)
@@ -52,6 +55,7 @@ pub fn call(opts: shared.GemmOptions) zml.Tensor {
     return mxfp4.call(opts.input, weight, opts.weight_scale.?.bitCast(.u8), opts.routing.sorted_token_ids, opts.expert_ids, opts.routing.num_tokens_post_padded, opts.output_shape, opts.top_k, opts.routing.naive_block_assignment, opts.launch_config.block_size_m);
 }
 
+// Prépare le routage (tri et remplissage) pour les noyaux Fly.
 pub fn prepareRouting(topk_ids: Tensor, num_experts: i64, block_size_m: i64) shared.Routing {
     std.debug.assert(num_experts > 0 and num_experts <= 512);
     std.debug.assert(block_size_m > 0 and block_size_m <= 128 and @mod(block_size_m, 16) == 0);
@@ -100,6 +104,7 @@ const Align = struct {
         cumsum: Tensor,
     };
 
+    // Vérifie que les formes et types conviennent au noyau d'alignement.
     fn supports(ids: Tensor, sorted: Tensor, experts: Tensor, total: Tensor, cumsum: Tensor, block_size: i64) bool {
         for ([_]Tensor{ ids, sorted, experts, total, cumsum }) |tensor| {
             if (tensor.rank() != 1 or tensor.dtype() != .i32) return false;
@@ -116,6 +121,7 @@ const Align = struct {
             experts.dim(0) == @divTrunc(sorted.dim(0), block_size);
     }
 
+    // Aligne les jetons par blocs d'experts et produit les tables de tri.
     /// All four outputs alias their corresponding input buffers. Invalid expert IDs
     /// are ignored, and all unused expert blocks are marked -1. Prefix ends in LDS
     /// let each thread find its output block's expert without scanning every expert.
@@ -154,6 +160,7 @@ const Align = struct {
         .run = run,
     });
 
+    // Noyau d'alignement : histogramme, préfixes et bornes des blocs d'experts.
     fn run(b: *Builder, cfg: Config) fly.FinishError!void {
         const args = Kernel.args(b);
         const tid = b.threadId(.x);
@@ -236,6 +243,7 @@ const Sort = struct {
         cumsum: Tensor,
     };
 
+    // Vérifie que les formes et types conviennent au noyau de tri.
     fn supports(ids: Tensor, sorted_token_ids: Tensor, cumsum: Tensor) bool {
         return ids.rank() == 1 and sorted_token_ids.rank() == 1 and cumsum.rank() == 1 and
             ids.dtype() == .i32 and sorted_token_ids.dtype() == .i32 and cumsum.dtype() == .i32 and
@@ -243,6 +251,7 @@ const Sort = struct {
             ids.dim(0) <= std.math.maxInt(i32) and sorted_token_ids.dim(0) >= ids.dim(0);
     }
 
+    // Trie les routes par expert via un curseur atomique par expert.
     /// cumsum contains one starting offset per expert followed by the total padded
     /// capacity. Each valid route atomically advances its expert's cursor; ordering
     /// within an expert is unspecified. Invalid expert IDs leave both buffers alone.
@@ -274,6 +283,7 @@ const Sort = struct {
         .run = run,
     });
 
+    // Noyau de comptage et tri : place chaque route dans son segment d'expert.
     fn run(b: *Builder, cfg: Config) fly.FinishError!void {
         const args = Kernel.args(b);
         const start = b.blockId(.x).to(.i64).mul(256).add(b.threadId(.x).to(.i64));

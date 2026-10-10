@@ -20,6 +20,7 @@ pub const Options = struct {
     /// obtain the first valid GEMM2 index.
     gemm2_tactic: i32,
 
+    // Construit les options du backend à partir des options globales du MoE.
     pub fn fromGlobalOptions(opts: zml.moe.Options) Options {
         return .{
             .workspace_query_device = 0,
@@ -31,6 +32,7 @@ pub const Options = struct {
     }
 };
 
+// Vérifie que les options sont compatibles avec FlashInfer CUTLASS.
 pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(!opts.quantize_input, "Optional FP8 input quantization requires the Triton MoE backend", .{});
     stdx.debug.assert(opts.routing_weight_placement == .after_down, "Non-Triton MoE backends require routing weights after the down projection", .{});
@@ -98,6 +100,7 @@ pub const Runners = struct {
     runners: [std.meta.fields(Variant).len][max_num_devices]?DeviceRunner =
         @splat(@splat(null)),
 
+// Détruit tous les runners FlashInfer enregistrés.
     pub fn deinit(self: *Runners) void {
         for (&self.runners) |*variant_runners| {
             for (variant_runners) |device_runner| {
@@ -108,6 +111,7 @@ pub const Runners = struct {
         }
     }
 
+// Récupère ou crée le runner pour un appareil et une variante donnés.
     fn ensureRunner(self: *Runners, device: i32, variant: Variant) !DeviceRunner {
         if (device < 0 or device >= max_num_devices) return error.UnsupportedDevice;
 
@@ -128,6 +132,7 @@ pub const Runners = struct {
     }
 };
 
+// Vérifie un statut FlashInfer et le convertit en erreur Zig.
 fn checkStatus(api: *const fi_cutlass_moe.Api, status: fi_cutlass_moe.Status) !void {
     if (status == fi_cutlass_moe.c.ZML_FI_CUTLASS_MOE_STATUS_SUCCESS) return;
     if (api.lastError()) |message| {
@@ -146,6 +151,7 @@ fn checkStatus(api: *const fi_cutlass_moe.Api, status: fi_cutlass_moe.Status) !v
     };
 }
 
+// Construit les options de création du runner pour une variante donnée.
 fn runnerOptions(device: i32, variant: Variant) fi_cutlass_moe.RunnerOptions {
     var options = std.mem.zeroes(fi_cutlass_moe.RunnerOptions);
     options.struct_size = @sizeOf(fi_cutlass_moe.RunnerOptions);
@@ -160,17 +166,20 @@ fn runnerOptions(device: i32, variant: Variant) fi_cutlass_moe.RunnerOptions {
     return options;
 }
 
+// Récupère les runners à partir de l'adresse stockée dans les attributs.
 fn runnersFromAttributes(attributes: Attributes) !*Runners {
     if (attributes.runners == 0) return error.RunnersNotLoaded;
     return @ptrFromInt(attributes.runners);
 }
 
+// Récupère les runners depuis l'état de la plateforme courante.
 fn currentRunners() !*Runners {
     const platform = zml.Compiler.current().platform;
     const runners = platform.state.cuda.fi_cutlass_moe_runners;
     return runners orelse error.RunnersNotLoaded;
 }
 
+// Convertit une activation ZML en code d'activation CUTLASS.
 fn cutlassActivation(activation: zml.moe.Activation) i32 {
     return switch (activation) {
         .gelu => fi_cutlass_moe.c.ZML_FI_CUTLASS_MOE_ACTIVATION_GELU,
@@ -183,6 +192,7 @@ fn cutlassActivation(activation: zml.moe.Activation) i32 {
     };
 }
 
+// Construit le contexte FlashInfer à partir des attributs du noyau.
 fn makeContext(attributes: Attributes) fi_cutlass_moe.Context {
     var context = std.mem.zeroes(fi_cutlass_moe.Context);
     context.struct_size = @sizeOf(fi_cutlass_moe.Context);
@@ -200,6 +210,7 @@ fn makeContext(attributes: Attributes) fi_cutlass_moe.Context {
     return context;
 }
 
+// Appel FFI du MoE routé NVFP4 (préparation des tampons et exécution).
 fn ffiCallNvfp4(
     call_frame: *zml.pjrt.ffi.CallFrame,
     input: zml.pjrtx.TensorToCustomCallBuffer(Input),
@@ -257,6 +268,7 @@ const routedNvfp4Call = zml.ops.CustomCall(Input, Output, Attributes, ffiCallNvf
     .has_side_effect = false,
 });
 
+// Appel FFI du MoE routé BF16 x BF16.
 fn ffiCallBf16(
     call_frame: *zml.pjrt.ffi.CallFrame,
     input: zml.pjrtx.TensorToCustomCallBuffer(Bf16Input),
@@ -303,6 +315,7 @@ const routedBf16Call = zml.ops.CustomCall(Bf16Input, Output, Attributes, ffiCall
     .has_side_effect = false,
 });
 
+// Renvoie la compute capability CUDA si elle est prise en charge.
 fn computeCapability(platform: *const zml.Platform) !u16 {
     const cc = zml.platform.cuda.computeCapability(platform) orelse return error.UnsupportedPlatform;
     return switch (cc.sm()) {
@@ -311,6 +324,7 @@ fn computeCapability(platform: *const zml.Platform) !u16 {
     };
 }
 
+// Charge la bibliothèque FlashInfer et initialise les runners.
 pub fn load(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -328,6 +342,7 @@ pub fn load(
     return error.UnsupportedPlatform;
 }
 
+// Enregistre les appels personnalisés NVFP4 et BF16 auprès de la plateforme.
 pub fn register(platform: *const zml.Platform) !void {
     if (comptime platforms.isEnabled(.cuda)) {
         try routedNvfp4Call.register(platform);
@@ -337,6 +352,7 @@ pub fn register(platform: *const zml.Platform) !void {
     return error.UnsupportedPlatform;
 }
 
+// Indique si le backend FlashInfer CUTLASS est disponible.
 pub fn isAvailable(platform: *const zml.Platform) bool {
     if (platform.target != .cuda) return false;
     if (platform.state.cuda.fi_cutlass_moe_runners == null) return false;
@@ -344,6 +360,7 @@ pub fn isAvailable(platform: *const zml.Platform) bool {
     return true;
 }
 
+// Indique si l'architecture prend en charge le chemin NVFP4.
 pub fn isNvfp4Supported(platform: *const zml.Platform) bool {
     if (platform.state.cuda.fi_cutlass_moe_runners == null) return false;
     const compute_capability = computeCapability(platform) catch return false;
@@ -353,6 +370,7 @@ pub fn isNvfp4Supported(platform: *const zml.Platform) bool {
     };
 }
 
+// Renvoie le nombre de tactiques GEMM disponibles pour la variante.
 pub fn tacticCounts(
     platform: *const zml.Platform,
     device: i32,
@@ -369,10 +387,12 @@ pub fn tacticCounts(
     return .{ .gemm1 = gemm1, .gemm2 = gemm2 };
 }
 
+// Arrondit une valeur au multiple supérieur de l'alignement.
 fn roundUp(value: i64, alignment: i64) i64 {
     return @divTrunc(value + alignment - 1, alignment) * alignment;
 }
 
+// Forme attendue des échelles de blocs de fc1 (layout FlashInfer).
 pub fn fc1BlockScaleShape(
     num_experts: i64,
     hidden_size: i64,
@@ -389,6 +409,7 @@ pub fn fc1BlockScaleShape(
     );
 }
 
+// Forme attendue des échelles de blocs de fc2 (layout FlashInfer).
 pub fn fc2BlockScaleShape(
     num_experts: i64,
     hidden_size: i64,
@@ -400,11 +421,13 @@ pub fn fc2BlockScaleShape(
     );
 }
 
+// Vérifie qu'une échelle est globale ou par expert.
 fn isGlobalOrPerExpertScale(tensor: zml.Tensor, num_experts: i64) bool {
     return tensor.dtype() == .f32 and
         (tensor.rank() == 0 or (tensor.rank() == 1 and tensor.dim(0) == num_experts));
 }
 
+// Valide les entrées NVFP4 et construit les attributs du noyau.
 fn validateInputs(
     hidden_states: zml.Tensor,
     fc1_weights: zml.Tensor,
@@ -501,6 +524,7 @@ fn validateInputs(
     };
 }
 
+// Applique les experts fusionnés routés en NVFP4 via FlashInfer CUTLASS.
 /// Routed NVFP4 CUTLASS MoE. Weights are logical E2M1 tensors in [expert, output, input] order.
 /// Block scales must use FlashInfer nvfp4_block_scale_interleave layout
 /// BF16 activations are dynamically quantized to NVFP4 by the fused runner before each expert GEMM.
@@ -571,6 +595,7 @@ pub fn fusedExpertsNvfp4(
     return result.output;
 }
 
+// Applique les experts fusionnés routés en BF16 x BF16 (Hopper/Blackwell).
 /// Routed BF16 x BF16 CUTLASS MoE [expert, output, input] weights.
 /// Non-quantized FlashInfer path used on Hopper and Blackwell
 pub fn fusedExpertsBf16(
@@ -668,6 +693,7 @@ pub fn fusedExpertsBf16(
     return result.output;
 }
 
+// Point d'entrée du backend FlashInfer CUTLASS (NVFP4 ou BF16).
 pub fn fusedExperts(
     input: zml.Tensor,
     topk_ids: zml.Tensor,
@@ -715,6 +741,7 @@ pub fn fusedExperts(
                     gemm2_tactic: i32,
                     workspace_query_device: i32,
 
+                    // Exécute la variante NVFP4 avec parallélisme d'experts et réduit le résultat.
                     fn body(
                         self: @This(),
                         _: zml.Shape,
@@ -814,6 +841,7 @@ pub fn fusedExperts(
                 gemm2_tactic: i32,
                 workspace_query_device: i32,
 
+                // Exécute la variante BF16 avec parallélisme d'experts et réduit le résultat.
                 fn body(
                     self: @This(),
                     _: zml.Shape,

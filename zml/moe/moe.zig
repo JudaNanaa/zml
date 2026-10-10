@@ -18,6 +18,7 @@ pub const ProjectionLayout = fused_experts.ProjectionLayout;
 
 const log = std.log.scoped(.@"zml/moe");
 
+// Collecte les tests des sous-modules MoE.
 test {
     std.testing.refAllDecls(@This());
     _ = @import("tests.zig");
@@ -86,6 +87,7 @@ pub const Backend = enum {
     mosaic_tpu,
     metal,
 
+// Choisit automatiquement le backend selon la plateforme et le schéma de quantification.
     pub fn auto(platform: *const zml.Platform, scheme: ?zml.Quantization.Scheme, dtype: zml.DataType) !Backend {
         // Keep the dtype as an argument because non scheme-specific backends may depend on it later
         _ = dtype;
@@ -133,6 +135,7 @@ pub const Backend = enum {
         };
     }
 
+// Indique si le backend est disponible sur la plateforme donnée.
     pub fn isAvailable(backend: Backend, platform: *const zml.Platform) bool {
         return switch (backend) {
             .stablehlo => true,
@@ -153,6 +156,7 @@ pub const Backend = enum {
     }
 
     /// The layout contract the expert weights must have for a given backend with scheme
+// Renvoie la disposition des poids attendue par le backend pour un schéma donné.
     pub fn expertsLayout(backend: Backend, scheme: ?zml.Quantization.Scheme) !ExpertsLayout {
         return switch (backend) {
             .stablehlo => .{ .gate_up = .concatenated, .packing = .plain },
@@ -167,6 +171,7 @@ pub const Backend = enum {
         };
     }
 
+// Enregistre auprès de la plateforme les noyaux requis par le backend.
     pub fn register(backend: Backend, platform: *zml.Platform) !void {
         return switch (backend) {
             .stablehlo => {},
@@ -187,6 +192,7 @@ pub const Options = struct {
     routing_weight_placement: fused_experts.RoutingWeightPlacement,
 };
 
+// Applique la couche MoE avec le backend demandé.
 /// Routing IDs and weights have shape { b, s, topk }; input has shape { b, s, d }.
 pub fn forwardMoe(
     input: zml.Tensor,
@@ -208,6 +214,7 @@ pub fn forwardMoe(
     };
 }
 
+// Dépaquette les poids FP4 d'un tenseur linéaire le cas échéant.
 pub fn unpackedWeight(linear: zml.nn.Linear) zml.Tensor {
     const quantization = linear.quantization orelse return linear.weight;
     return if (zml.nn.isPackedFp4(quantization.scheme, linear.weight.dtype()))
@@ -216,6 +223,7 @@ pub fn unpackedWeight(linear: zml.nn.Linear) zml.Tensor {
         linear.weight;
 }
 
+// Applique l'activation aux sorties gate_up selon la disposition des projections.
 pub fn applyActivation(input: zml.Tensor, activation: zml.moe.Activation, layout: ProjectionLayout) zml.Tensor {
     const x = input.convert(.f32);
     return switch (activation) {

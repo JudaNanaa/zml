@@ -4,12 +4,14 @@ const stdx = @import("stdx");
 const zml = @import("../zml.zig");
 pub const kernels = @import("triton_kernels/mxfp4.zig");
 
+// Indique si le backend Triton MXFP4 est disponible (CUDA compute capability 10.x).
 pub fn isAvailable(platform: *const zml.Platform) bool {
     if (platform.target != .cuda) return false;
     const cc = zml.platform.cuda.computeCapability(platform) orelse return false;
     return cc.major == 10;
 }
 
+// Vérifie que les options du MoE sont compatibles avec le backend Triton MXFP4.
 pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.activation == .swiglu, "cute_mxfp4 backend only accepts swiglu activation, got {}", .{opts.activation});
     stdx.debug.assert(opts.activation.swiglu.limit != null, "cute_mxfp4 backend requires swiglu limit to be set", .{});
@@ -17,6 +19,7 @@ pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.activation.swiglu.scale == null, "cute_mxfp4 backend requires swiglu scale to be null", .{});
 }
 
+// Applique les experts fusionnés en MXFP4 via les noyaux Triton.
 /// Row-major MXFP4 E2M1 weights and linear E8M0 block32 scales.
 /// BF16 activations are quantized on the GPU to FP8 with per-32 E8M0 scales.
 pub fn fusedExperts(
@@ -76,6 +79,7 @@ const Context = struct {
     routing_weight_placement: zml.moe.triton.RoutingWeightPlacement,
     expert_parallel: bool,
 
+    // Construit le graphe du MoE : routage, quantisation et réductions.
     fn body(self: Context, _: zml.Shape) zml.Tensor {
         const experts = self.w1.dim(.expert);
         const hidden = self.w2.dim(1);

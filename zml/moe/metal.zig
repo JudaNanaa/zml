@@ -15,6 +15,7 @@ pub const Options = struct {
     w2_global_scale: ?Tensor = null,
 };
 
+// Vérifie que les options sont compatibles avec le backend Metal.
 fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(!opts.quantize_input, "Optional FP8 input quantization requires the Triton MoE backend", .{});
     stdx.debug.assert(opts.routing_weight_placement == .after_down, "Non-Triton MoE backends require routing weights after the down projection", .{});
@@ -22,6 +23,7 @@ fn validateOptions(opts: zml.moe.Options) void {
 
 const QuantMode = enum { none, fp8, nvfp4 };
 
+// Détermine le mode de quantification à partir du type des poids.
 fn quantMode(dtype: zml.DataType) QuantMode {
     return switch (dtype) {
         .bf16, .f16, .f32 => .none,
@@ -31,6 +33,7 @@ fn quantMode(dtype: zml.DataType) QuantMode {
     };
 }
 
+// Émet un appel personnalisé Metal pour le GEMM MoE selon le mode de quantification.
 fn moeGemm(
     x_rows: Tensor,
     w: Tensor,
@@ -47,6 +50,7 @@ fn moeGemm(
     };
 }
 
+// Applique l'échelle globale gate_up au résultat du GEMM.
 fn applyGateUpGlobalScale(output: Tensor, global_scale: ?Tensor, expert_ids: Tensor) Tensor {
     const scale = global_scale orelse return output;
     stdx.debug.assert(scale.dtype() == .f32, "metal backend expected gate_up scale data type to be f32, got {}", .{scale.dtype()});
@@ -60,6 +64,7 @@ fn applyGateUpGlobalScale(output: Tensor, global_scale: ?Tensor, expert_ids: Ten
     return output.convert(.f32).mul(expanded).convert(output.dtype());
 }
 
+// Applique l'échelle globale down au résultat du GEMM.
 fn applyDownGlobalScale(output: Tensor, global_scale: ?Tensor, expert_ids: Tensor) Tensor {
     const scale = global_scale orelse return output;
     stdx.debug.assert(scale.dtype() == .f32, "metal backend expected down scale data type to be f32, got {}", .{scale.dtype()});
@@ -71,6 +76,7 @@ fn applyDownGlobalScale(output: Tensor, global_scale: ?Tensor, expert_ids: Tenso
     return output.convert(.f32).mul(selected).convert(output.dtype());
 }
 
+// Applique les experts fusionnés du MoE via Metal.
 pub fn fusedExperts(
     input: zml.Tensor,
     topk_ids: zml.Tensor,
@@ -109,6 +115,7 @@ pub fn fusedExperts(
     );
 }
 
+// Implémentation bas niveau de fusedExperts pour le backend Metal.
 pub fn fusedExpertsImpl(
     hidden_states: Tensor,
     gate_up: Tensor,

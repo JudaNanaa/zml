@@ -46,6 +46,7 @@ const Combine = cute.Program(CombineConfig, .{
 const quantize_kernel_name = "mxfp4_cute_grouped_quantize_kernel";
 const combine_kernel_name = "mxfp4_cute_combine_kernel";
 
+// Lance un noyau frontière en transmettant les pointeurs de tampons, avec PDL.
 /// Host launch of a boundary kernel: forward the buffer pointers, with PDL.
 fn launchBoundary(b: *B, kernel_name: [:0]const u8, grid: [3]i32, args: anytype) cute.FinishError!void {
     const one = b.cst(.i32, 1);
@@ -61,6 +62,7 @@ fn launchBoundary(b: *B, kernel_name: [:0]const u8, grid: [3]i32, args: anytype)
     b.returnHostStatus(b.cudaResultStatus(launch));
 }
 
+// Quantifie chaque jeton puis l'éparpille vers les lignes physiques du routage.
 /// Quantize each token once, then scatter it to the physical rows assigned by
 /// the routing. Scale bytes use the 128x4 layout consumed by the SM100
 /// block-scaled MMA scale-factor tensor map.
@@ -77,6 +79,7 @@ pub fn groupedQuantize(x: zml.Tensor, route_map: zml.Tensor, cfg: GroupedQuantCo
     return .{ .q = result.q, .s = result.s };
 }
 
+// Choisit le nombre de colonnes par CTA pour amortir le coût de lancement.
 /// Amortize launch overhead for large prefills while retaining enough CTAs
 /// to saturate the GPU for decode and small batches.
 pub fn combineColumns(tokens: i64, hidden: i64) i64 {
@@ -88,6 +91,7 @@ pub fn combineColumns(tokens: i64, hidden: i64) i64 {
     return 256;
 }
 
+// Somme les lignes de routes [tokens*topk, hidden] en BF16 par jeton.
 /// Sum the `[tokens * topk, hidden]` BF16 route rows of each token into BF16.
 /// Routing weights were already applied before the down projection.
 /// `routes` is negative for routes this rank does not compute (expert
@@ -100,6 +104,7 @@ pub fn combine(d: zml.Tensor, routes: zml.Tensor, cfg: CombineConfig) zml.Tensor
     ).y;
 }
 
+// Programme hôte/noyau de quantification par groupes (quatre valeurs par mot).
 /// Python `prepare_input_vector`: each thread quantizes four consecutive
 /// values and stores them as one packed word, so eight lanes cover one
 /// 32-value MX block.
@@ -123,6 +128,7 @@ fn groupedQuantizeProgram(b: *B, cfg: GroupedQuantConfig) cute.FinishError!void 
     b.endFunction(null);
 }
 
+// Noyau de quantification MX par groupes et écriture des échelles swizzlées.
 fn groupedQuantizeKernel(b: *B, cfg: GroupedQuantConfig) cute.FinishError!void {
     std.debug.assert(@rem(cfg.hidden, 4 * 128) == 0);
     const a = try b.declareArgs(.{
@@ -175,6 +181,7 @@ fn groupedQuantizeKernel(b: *B, cfg: GroupedQuantConfig) cute.FinishError!void {
     b.launchDependents();
 }
 
+// Programme hôte/noyau de la réduction top-k des lignes de routes.
 /// Each thread owns two adjacent BF16 columns, read and written as one
 /// 32-bit word: a warp then moves a full 128-byte line per access.
 fn combineProgram(b: *B, cfg: CombineConfig) cute.FinishError!void {
@@ -197,6 +204,7 @@ fn combineProgram(b: *B, cfg: CombineConfig) cute.FinishError!void {
     b.endFunction(null);
 }
 
+// Noyau de réduction des routes avec masque des experts non calculés.
 fn combineKernel(b: *B, cfg: CombineConfig) cute.FinishError!void {
     const pairs = @divExact(cfg.hidden, 2);
     const a = try b.declareArgs(.{
@@ -236,6 +244,7 @@ fn combineKernel(b: *B, cfg: CombineConfig) cute.FinishError!void {
     b.launchDependents();
 }
 
+// Vérifie l'émission des noyaux frontière CuTe pour decode et préfill.
 test "MXFP4 CuTe boundary kernels emit for decode and prefill batches" {
     inline for (.{ @as(i64, 1), 6, 96, 16_384 }) |tokens| {
         const quant_ir = try GroupedQuantize.emit(std.testing.allocator, .{

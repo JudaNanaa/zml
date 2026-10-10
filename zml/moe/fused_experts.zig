@@ -12,10 +12,12 @@ const callFusedMoe = triton.call;
 
 const log = std.log.scoped(.@"zml/moe/fused_experts");
 
+// Test de référence : collecte toutes les déclarations de ce fichier.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Applique les experts fusionnés du MoE avec le backend Triton ou Fly.
 pub fn fusedExperts(
     input: zml.Tensor,
     topk_ids: zml.Tensor,
@@ -55,6 +57,7 @@ pub fn fusedExperts(
             args: FusedExpertsArgs,
             global_num_experts: i64,
 
+            // Exécute la variante avec parallélisme d'experts et réduit le résultat.
             fn call(self: @This(), _: zml.Shape) zml.Tensor {
                 const local_args = self.args;
                 const local_num_experts = local_args.gate_up.weight.dim(.expert);
@@ -98,6 +101,7 @@ pub const FusedExpertsArgs = struct {
     routing_weight_placement: RoutingWeightPlacement,
 };
 
+// Implémentation commune des experts fusionnés pour Triton et Fly.
 pub fn fusedExpertsImpl(opts: FusedExpertsArgs, comptime backend: zml.moe.Backend) Tensor {
     const Impl = switch (backend) {
         .fly => fly,
@@ -220,11 +224,13 @@ pub fn fusedExpertsImpl(opts: FusedExpertsArgs, comptime backend: zml.moe.Backen
     return output.reshape(.{ .b = b, .token = s, .out = down.dim(.out) });
 }
 
+// Vérifie que SwiGLU calcule en FP32 pour des entrées BF16 concaténées et entrelacées.
 test "SwiGLU uses FP32 math for concatenated and interleaved BF16 inputs" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
     const platform = zml.testing.env();
     const Local = struct {
+        // Applique l'activation demandée au tenseur de test.
         fn forward(x: Tensor, layout: ProjectionLayout, activation: zml.moe.Activation) Tensor {
             return zml.moe.applyActivation(x, activation, layout);
         }
@@ -274,6 +280,7 @@ pub const GemmOptions = struct {
     output_shape: Shape,
 };
 
+// Vérifie le GEMM routé FP8 avec biais contre des poids déquantifiés.
 test "FP8 routed GEMM with bias matches dequantized weights" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
@@ -283,6 +290,7 @@ test "FP8 routed GEMM with bias matches dequantized weights" {
     const Local = struct {
         const Outputs = struct { actual: Tensor, expected: Tensor };
 
+        // Étend les échelles de blocs à la forme complète des poids.
         fn expandScales(scales: Tensor, shape: Shape) Tensor {
             var expanded = scales.convert(.f32);
             for (0..shape.rank()) |axis| {
@@ -295,6 +303,7 @@ test "FP8 routed GEMM with bias matches dequantized weights" {
             return expanded.withTags(shape.tags());
         }
 
+        // Calcule la sortie réelle et la sortie de référence déquantifiée.
         fn forward(x: Tensor, w: Tensor, scales: Tensor, ids: Tensor, weights: Tensor, bias: Tensor, scheme: zml.Quantization.Scheme, mx_native: bool, quantize_input: bool) Outputs {
             const weight = w.convert(.f8e4m3fn);
             var input = x;
@@ -402,12 +411,14 @@ test "FP8 routed GEMM with bias matches dequantized weights" {
     }
 }
 
+// Vérifie les layouts BF16 et MXFP4, le biais et le placement des poids de routage.
 test "fused experts support BF16 and MXFP4 layouts, bias, and routing weights" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
     const platform = zml.testing.env();
     if (platform.target != .cuda) return error.SkipZigTest;
     const Local = struct {
+        // Construit un MoE synthétique et renvoie sa sortie.
         fn forward(x: Tensor, layout: ProjectionLayout, placement: RoutingWeightPlacement, storage_dtype: DataType) Tensor {
             const fp4 = storage_dtype != .bf16;
             const columns = Tensor.arange(.{ .end = 256 }, .i32).withTags(.{.dout});
@@ -529,6 +540,7 @@ const launch_configs = [_]struct { tokens: i64, config: LaunchConfig }{
     .{ .tokens = 4096, .config = .{ .block_size_m = 128, .block_size_n = 256, .block_size_k = 64, .group_size_m = 16, .num_warps = 8, .num_stages = 4 } },
 };
 
+// Choisit la configuration de lancement la plus proche du nombre de jetons.
 fn launchConfigForTokens(num_tokens: i64) LaunchConfig {
     var best = launch_configs[0];
     for (launch_configs[1..]) |candidate| {
@@ -540,6 +552,7 @@ fn launchConfigForTokens(num_tokens: i64) LaunchConfig {
     return best.config;
 }
 
+// Vérifie que la configuration choisie correspond au palier de jetons le plus proche.
 test "MoE launch config selects the nearest token bucket" {
     try std.testing.expectEqualDeep(launchConfigForTokens(4), launchConfigForTokens(6));
     try std.testing.expectEqualDeep(launchConfigForTokens(8), launchConfigForTokens(7));

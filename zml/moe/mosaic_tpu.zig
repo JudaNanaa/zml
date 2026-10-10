@@ -22,6 +22,7 @@ pub const Options = struct {
     w2_bias: ?Tensor = null,
 };
 
+// Vérifie que les options sont compatibles avec le backend Mosaic TPU.
 fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(!opts.quantize_input, "Optional FP8 input quantization requires the Triton MoE backend", .{});
     stdx.debug.assert(opts.routing_weight_placement == .after_down, "Non-Triton MoE backends require routing weights after the down projection", .{});
@@ -30,6 +31,7 @@ fn validateOptions(opts: zml.moe.Options) void {
     //if (opts.w1_scale != null or opts.w2_scale != null) return error.UnsupportedQuantization;
 }
 
+// Valide les types et les formes des entrées du MoE sur TPU.
 fn validateInputs(hidden: Tensor, gate_up: Tensor, down: Tensor, weights: Tensor, ids: Tensor) !void {
     switch (hidden.dtype()) {
         .bf16, .f16, .f32 => {},
@@ -56,12 +58,14 @@ fn validateInputs(hidden: Tensor, gate_up: Tensor, down: Tensor, weights: Tensor
     if (gate_up.dim(.expert) != down.dim(.expert)) return error.InvalidShape;
 }
 
+// Avertit une seule fois qu'une projection sera transposée à l'exécution.
 fn warningTranspose(flag: *std.atomic.Value(bool), projection_name: []const u8, expected_shape: []const u8) void {
     if (!flag.swap(true, .monotonic)) {
         log.warn("{s} MoE weights are transposed at runtime; weights must be loaded with the correct shape {s} to avoid the transpose at runtime.", .{ projection_name, expected_shape });
     }
 }
 
+// Normalise les poids gate_up en [expert, in, out], en transposant si besoin.
 fn canonicalizeGateUp(w1: Tensor, hidden_size: i64) !Tensor {
     if (w1.rank() != 3) return error.InvalidShape;
 
@@ -73,6 +77,7 @@ fn canonicalizeGateUp(w1: Tensor, hidden_size: i64) !Tensor {
     return error.InvalidShape;
 }
 
+// Normalise les poids down en [expert, mid, out], en transposant si besoin.
 fn canonicalizeDown(w2: Tensor, hidden_size: i64, gate_up_out: i64) !Tensor {
     if (w2.rank() != 3) return error.InvalidShape;
 
@@ -85,6 +90,7 @@ fn canonicalizeDown(w2: Tensor, hidden_size: i64, gate_up_out: i64) !Tensor {
     return error.InvalidShape;
 }
 
+// Compte le nombre de routes par expert (histogramme).
 fn histogramCounts(ids: Tensor, num_bins: i64) Tensor {
     const zeros = Tensor.zeroes(.init(.{ .expert = num_bins }, .i32));
     const ones = Tensor.constant(.{ .i32 = 1 }).broad(ids.shape().withDtype(.i32));
@@ -98,6 +104,7 @@ fn histogramCounts(ids: Tensor, num_bins: i64) Tensor {
     );
 }
 
+// Aligne et rembourre les lignes triées par groupes d'experts.
 fn alignSortedRowsByGroup(rows: Tensor, expert_ids_sorted: Tensor, group_sizes: Tensor, tile_m: i64) struct {
     rows: Tensor,
     group_sizes: Tensor,
@@ -138,6 +145,7 @@ fn alignSortedRowsByGroup(rows: Tensor, expert_ids_sorted: Tensor, group_sizes: 
     };
 }
 
+// Permute un petit lot de jetons pour le regroupement par expert.
 fn permuteSmallBatch(hidden: Tensor, sorted_route: Tensor, topk: i64) Tensor {
     const num_tokens = hidden.dim(.token);
     const num_routes = num_tokens * topk;
@@ -159,6 +167,7 @@ fn permuteSmallBatch(hidden: Tensor, sorted_route: Tensor, topk: i64) Tensor {
     return onehot.dot(hidden.rename(.{ .token = .token_src }), .token_src).rename(.{ .route = .token });
 }
 
+// Convertit un type de données ZML en type Mosaic TPU pour le GMM.
 fn gmmDType(dtype: zml.DataType) mtt.DType {
     return switch (zml.kernel.mosaic_tpu.from(dtype)) {
         .bf16 => .bf16,
@@ -168,6 +177,7 @@ fn gmmDType(dtype: zml.DataType) mtt.DType {
     };
 }
 
+// Appelle le noyau GMM groupé par expert sur TPU.
 pub fn callGmmEp(
     lhs: Tensor,
     rhs_k_n: Tensor,
@@ -223,6 +233,7 @@ pub fn callGmmEp(
     return out.slice(.out, .{ .end = out_n });
 }
 
+// Applique les experts fusionnés du MoE sur TPU.
 pub fn fusedExperts(
     input: zml.Tensor,
     topk_ids: zml.Tensor,
@@ -254,6 +265,7 @@ pub fn fusedExperts(
                 down_scales: ?zml.Tensor,
                 bias_down: ?zml.Tensor,
 
+                // Exécute la variante avec parallélisme d'experts et réduit le résultat.
                 fn body(self: @This(), _: zml.Shape) zml.Tensor {
                     const local_num_experts = self.weights_gate_up.dim(.expert);
                     const partition_id = zml.ops.partitionId().convert(.i32);
@@ -320,6 +332,7 @@ pub fn fusedExperts(
     );
 }
 
+// Implémentation bas niveau de fusedExperts pour le backend Mosaic TPU.
 pub fn fusedExpertsImpl(
     hidden_states: Tensor,
     w1: Tensor,
