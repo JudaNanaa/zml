@@ -14,6 +14,8 @@ state: *const data.SystemState,
 device_id: u16,
 process_table: *ProcessTable = undefined,
 
+// Dessine la page de detail de l'appareil selectionne en deleguant au rendu
+// specifique (GPU, Neuron ou TPU) selon le tag de l'union `DeviceInfo`.
 pub fn draw(self: *const Detail, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 80;
     const id = self.device_id;

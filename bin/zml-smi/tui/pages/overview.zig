@@ -26,6 +26,8 @@ process_table: ?*ProcessTable = null, // maybe null if we decide not to print th
 viewing_device: *?u16 = undefined,
 use_braille: bool = false,
 
+// Construit la vue d'ensemble: alloue et initialise une `DeviceCard` par
+// appareil et memorise etat, tableau de processus et appareil affiche.
 pub fn init(allocator: std.mem.Allocator, state: *const data.SystemState, process_table: ?*ProcessTable, viewing_device: *?u16) !Overview {
     const count = state.deviceCount();
     const cards = try allocator.alloc(DeviceCard, count);
@@ -43,10 +45,13 @@ pub fn init(allocator: std.mem.Allocator, state: *const data.SystemState, proces
     };
 }
 
+// Libere le tableau des cartes d'appareils.
 pub fn deinit(self: *Overview, allocator: std.mem.Allocator) void {
     allocator.free(self.device_cards);
 }
 
+// Dessine la banniere compacte (logo centre au-dessus des infos hote) pour
+// les terminaux etroits.
 fn drawNarrowBanner(self: *const Overview, ctx: vxfw.DrawContext, content_w: u16) !vxfw.Surface {
     const logo: Logo = .{ .image = image_cache.global.get("logo") };
     const info_lines: InfoLines = .{ .state = self.state };
@@ -59,6 +64,8 @@ fn drawNarrowBanner(self: *const Overview, ctx: vxfw.DrawContext, content_w: u16
     return ui.widget(&layout).draw(ui.fixedWidth(ctx, content_w));
 }
 
+// Dessine la banniere large (bloc logo a cote des infos hote) pour les
+// terminaux larges, en calculant les largeurs et la hauteur du bandeau.
 fn drawWideBanner(self: *const Overview, ctx: vxfw.DrawContext, content_w: u16) !vxfw.Surface {
     const logo: Logo = .{ .image = image_cache.global.get("logo") };
     const info_lines: InfoLines = .{ .state = self.state };
@@ -75,6 +82,9 @@ fn drawWideBanner(self: *const Overview, ctx: vxfw.DrawContext, content_w: u16) 
     return sized_banner.draw(ui.fixedWidth(ctx, content_w));
 }
 
+// Compose la surface d'ensemble: banniere, grille des appareils puis
+// tableau de processus optionnel, en choisissant la mise en page etroite ou
+// large selon la largeur disponible.
 pub fn draw(self: *Overview, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 80;
     const narrow = w < narrow_breakpoint;

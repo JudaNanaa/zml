@@ -13,6 +13,8 @@ const base_path = "/sys/devices/virtual/neuron_device";
 
 pub const UtilAtomic = std.atomic.Value(u64);
 
+// Initialise le runtime Neuron, cree un device par coeur NC, remplit les infos
+// initiales, lance les collecteurs par coeur et la collecte des processus.
 pub fn start(collector: *Collector) !void {
     const nrt = try collector.arena.create(Nrt);
     nrt.* = try Nrt.init(collector.arena, collector.io);
@@ -100,26 +102,32 @@ const Device = struct {
     nc_per_device: u32 = 1,
     util_src: *const UtilAtomic,
 
+    // Retourne le dernier pourcentage d'utilisation du coeur, lu atomiquement.
     pub fn utilPercent(self: Device) !u64 {
         return self.util_src.load(.acquire);
     }
 
+    // Construit dans l'arene le chemin sysfs d'une sous-entree du device Neuron.
     fn devicePath(self: Device, sub_path: []const u8) ![]const u8 {
         return std.fmt.allocPrint(self.arena.allocator(), base_path ++ "/neuron{d}/{s}", .{ self.device_idx, sub_path });
     }
 
+    // Construit dans l'arene le chemin sysfs d'une sous-entree d'un coeur Neuron.
     fn corePath(self: Device, sub_path: []const u8) ![]const u8 {
         return std.fmt.allocPrint(self.arena.allocator(), base_path ++ "/neuron{d}/neuron_core{d}/{s}", .{ self.device_idx, self.core_idx, sub_path });
     }
 
+    // Lit le nom d'architecture du device depuis sysfs.
     fn name(self: Device, allocator: std.mem.Allocator) ![]const u8 {
         return sysfs.readString(allocator, self.io, try self.devicePath("info/architecture/device_name"));
     }
 
+    // Lit la valeur d'une sous-entree memoire du coeur depuis sysfs.
     fn readCoreMem(self: Device, comptime subdir: []const u8) !u64 {
         return sysfs.readInt(self.arena.allocator(), self.io, try self.corePath("stats/memory_usage/device_mem/" ++ subdir ++ "/total"));
     }
 
+    // Retourne la memoire totale du device selon son type, ou NrtUnavailable si inconnue.
     pub fn memTotal(self: Device) !u64 {
         if (self.mem_per_device == 0) {
             return error.NrtUnavailable;
@@ -127,6 +135,7 @@ const Device = struct {
         return self.mem_per_device;
     }
 
+    // Somme la memoire utilisee sur tous les coeurs du device (RAM partagee).
     // Sysfs-based metrics — RAM is shared across cores, so sum all cores on the device.
     pub fn memUsed(self: Device) !u64 {
         var total: u64 = 0;
@@ -138,46 +147,57 @@ const Device = struct {
         return total;
     }
 
+    // Retourne la memoire occupee par les tenseurs sur le coeur.
     pub fn tensors(self: Device) !u64 {
         return self.readCoreMem("tensors");
     }
 
+    // Retourne la memoire occupee par les constantes sur le coeur.
     pub fn constants(self: Device) !u64 {
         return self.readCoreMem("constants");
     }
 
+    // Retourne la memoire occupee par le code du modele sur le coeur.
     pub fn modelCode(self: Device) !u64 {
         return self.readCoreMem("model_code");
     }
 
+    // Retourne la memoire du scratchpad partage du modele.
     pub fn sharedScratchpad(self: Device) !u64 {
         return self.readCoreMem("model_shared_scratchpad");
     }
 
+    // Retourne la memoire du scratchpad non partage.
     pub fn nonsharedScratchpad(self: Device) !u64 {
         return self.readCoreMem("nonshared_scratchpad");
     }
 
+    // Retourne la memoire occupee par le runtime sur le coeur.
     pub fn runtime(self: Device) !u64 {
         return self.readCoreMem("runtime_memory");
     }
 
+    // Retourne la memoire occupee par le pilote sur le coeur.
     pub fn driver(self: Device) !u64 {
         return self.readCoreMem("driver_memory");
     }
 
+    // Retourne la memoire occupee par les anneaux DMA.
     pub fn dmaRings(self: Device) !u64 {
         return self.readCoreMem("dma_rings");
     }
 
+    // Retourne la memoire occupee par les collectifs.
     pub fn collectives(self: Device) !u64 {
         return self.readCoreMem("collectives");
     }
 
+    // Retourne la memoire occupee par les notifications.
     pub fn notifications(self: Device) !u64 {
         return self.readCoreMem("notifications");
     }
 
+    // Retourne la memoire du coeur non classee dans les autres categories.
     pub fn uncategorized(self: Device) !u64 {
         return self.readCoreMem("uncategorized");
     }

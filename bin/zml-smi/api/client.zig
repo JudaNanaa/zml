@@ -5,6 +5,8 @@ const pi = smi_info.process_info;
 const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.ArrayList(pi.ProcessInfo));
 const Collector = @import("zml-smi/collector").Collector;
 
+// Parcourt les variantes de l'union `DeviceInfo`; si `device` correspond au
+// tag de la variante, marque ses deux tampons (front/back) comme distants.
 fn setRemote(device: *DeviceInfo) void {
     inline for (@typeInfo(DeviceInfo).@"union".fields) |field| {
         if (device.* == @field(smi_info.device_info.Target, field.name)) {
@@ -14,6 +16,8 @@ fn setRemote(device: *DeviceInfo) void {
     }
 }
 
+// Enregistre plusieurs hôtes distants: decoupe `hosts` sur les virgules et
+// appelle addHost pour chacun, en journalisant les erreurs sans interrompre.
 pub fn addRemotes(collector: *Collector, hosts: []const u8) !void {
     var it = std.mem.splitScalar(u8, hosts, ',');
     while (it.next()) |host| {
@@ -23,6 +27,9 @@ pub fn addRemotes(collector: *Collector, hosts: []const u8) !void {
     }
 }
 
+// Recupere une fois les metriques d'un hote distant via HTTP, decode ses
+// appareils et processus, les enregistre comme distants puis lance le polling
+// periodique de cet hote.
 fn addHost(collector: *Collector, host: []const u8) !void {
     const body = try httpGet(collector.gpa, collector.io, host);
     defer collector.gpa.free(body);
@@ -66,6 +73,9 @@ fn addHost(collector: *Collector, host: []const u8) !void {
     try collector.spawnPoll(pollOnce, .{ poll_arena, collector.gpa, collector.io, url, devices.items, processes, dev_offset, str_arenas });
 }
 
+// Callback de polling periodique d'un hote distant: re-fetch `/metrics`,
+// met a jour les tampons arriere des appareils et reconstruit la liste des
+// processus distants, puis bascule les double-buffers.
 fn pollOnce(poll_arena: *std.heap.ArenaAllocator, gpa: std.mem.Allocator, io: std.Io, host: []const u8, devices: []const *DeviceInfo, processes: *ProcessDoubleBuffer, dev_offset: u16, str_arenas: [2]*std.heap.ArenaAllocator) void {
     _ = poll_arena.reset(.retain_capacity);
 
@@ -109,6 +119,9 @@ fn pollOnce(poll_arena: *std.heap.ArenaAllocator, gpa: std.mem.Allocator, io: st
     processes.swap();
 }
 
+// Valide le schema de `host` (http/https), ajoute `/metrics` et effectue un
+// GET HTTP; retourne le corps alloue par l'appelant (erreur si URL invalide ou
+// statut different de 200).
 fn httpGet(allocator: std.mem.Allocator, io: std.Io, host: []const u8) ![]const u8 {
     if (!std.mem.startsWith(u8, host, "http://") and !std.mem.startsWith(u8, host, "https://")) {
         std.log.err("remote host must start with http:// or https://: {s}", .{host});

@@ -38,6 +38,8 @@ const Fns = struct {
     nvmlSystemGetDriverVersion: *const @TypeOf(c.nvmlSystemGetDriverVersion),
 };
 
+// Charge dynamiquement libnvidia-ml, resout les symboles NVML
+// et initialise la bibliotheque ; retourne un handle Nvml ou NvmlUnavailable.
 pub fn init() Error!Nvml {
     var dynlib: std.DynLib = .{ .inner = .{
         .handle = std.c.dlopen("libnvidia-ml.so.1", .{ .LAZY = true, .GLOBAL = true, .NODELETE = true }) orelse
@@ -51,12 +53,14 @@ pub fn init() Error!Nvml {
     return .{ .lib = fns };
 }
 
+// Retourne le handle NVML de la GPU identifiee par son index.
 pub fn handleByIndex(self: Nvml, device_id: u32) Error!c.nvmlDevice_t {
     var handle: c.nvmlDevice_t = undefined;
     try check(self.lib.nvmlDeviceGetHandleByIndex_v2(device_id, &handle));
     return handle;
 }
 
+// Retourne le nombre de GPU NVML detectees.
 pub fn deviceCount(self: Nvml) Error!u32 {
     var count: c_uint = 0;
     try check(self.lib.nvmlDeviceGetCount_v2(&count));
@@ -65,95 +69,111 @@ pub fn deviceCount(self: Nvml) Error!u32 {
 
 pub const name_buf_len = c.NVML_DEVICE_NAME_V2_BUFFER_SIZE;
 
+// Ecrit le nom de la GPU dans buf et le retourne comme tranche sentinelle.
 pub fn name(self: Nvml, handle: c.nvmlDevice_t, buf: *[c.NVML_DEVICE_NAME_V2_BUFFER_SIZE]u8) Error![:0]const u8 {
     try check(self.lib.nvmlDeviceGetName(handle, buf, buf.len));
     return std.mem.span(@as([*c]const u8, @ptrCast(buf)));
 }
 
+// Retourne la consommation electrique instantanee de la GPU en milliwatts.
 pub fn powerUsage(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var power_mw: c_uint = 0;
     try check(self.lib.nvmlDeviceGetPowerUsage(handle, &power_mw));
     return power_mw;
 }
 
+// Retourne la temperature du capteur GPU en degres Celsius.
 pub fn temperature(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var temp: c_uint = 0;
     try check(self.lib.nvmlDeviceGetTemperature(handle, c.NVML_TEMPERATURE_GPU, &temp));
     return temp;
 }
 
+// Retourne le taux d'utilisation du coeur GPU en pourcentage.
 pub fn utilizationGpu(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var util: c.nvmlUtilization_t = undefined;
     try check(self.lib.nvmlDeviceGetUtilizationRates(handle, &util));
     return util.gpu;
 }
 
+// Retourne la frequence actuelle de l'horloge graphique en MHz.
 pub fn clockGraphics(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var clock: c_uint = 0;
     try check(self.lib.nvmlDeviceGetClockInfo(handle, c.NVML_CLOCK_GRAPHICS, &clock));
     return clock;
 }
 
+// Retourne la frequence actuelle de l'horloge des multiprocesseurs (SM) en MHz.
 pub fn clockSm(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var clock: c_uint = 0;
     try check(self.lib.nvmlDeviceGetClockInfo(handle, c.NVML_CLOCK_SM, &clock));
     return clock;
 }
 
+// Retourne la frequence actuelle de l'horloge memoire en MHz.
 pub fn clockMem(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var clock: c_uint = 0;
     try check(self.lib.nvmlDeviceGetClockInfo(handle, c.NVML_CLOCK_MEM, &clock));
     return clock;
 }
 
+// Retourne la frequence maximale de l'horloge graphique en MHz.
 pub fn maxClockGraphics(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var clock: c_uint = 0;
     try check(self.lib.nvmlDeviceGetMaxClockInfo(handle, c.NVML_CLOCK_GRAPHICS, &clock));
     return clock;
 }
 
+// Retourne la frequence maximale de l'horloge memoire en MHz.
 pub fn maxClockMem(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var clock: c_uint = 0;
     try check(self.lib.nvmlDeviceGetMaxClockInfo(handle, c.NVML_CLOCK_MEM, &clock));
     return clock;
 }
 
+// Retourne la memoire GPU totale en octets.
 pub fn memTotal(self: Nvml, handle: c.nvmlDevice_t) Error!u64 {
     var mem: c.nvmlMemory_t = undefined;
     try check(self.lib.nvmlDeviceGetMemoryInfo(handle, &mem));
     return @intCast(mem.total);
 }
 
+// Retourne la memoire GPU utilisee en octets.
 pub fn memUsed(self: Nvml, handle: c.nvmlDevice_t) Error!u64 {
     var mem: c.nvmlMemory_t = undefined;
     try check(self.lib.nvmlDeviceGetMemoryInfo(handle, &mem));
     return @intCast(mem.used);
 }
 
+// Retourne la vitesse du ventilateur en pourcentage.
 pub fn fanSpeed(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var speed: c_uint = 0;
     try check(self.lib.nvmlDeviceGetFanSpeed(handle, &speed));
     return speed;
 }
 
+// Retourne la limite de puissance appliquee en milliwatts.
 pub fn powerLimit(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var limit: c_uint = 0;
     try check(self.lib.nvmlDeviceGetEnforcedPowerLimit(handle, &limit));
     return limit;
 }
 
+// Retourne le debit PCIe sortant (TX) en Ko/s.
 pub fn pcieTxKBps(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var value: c_uint = 0;
     try check(self.lib.nvmlDeviceGetPcieThroughput(handle, c.NVML_PCIE_UTIL_TX_BYTES, &value));
     return value;
 }
 
+// Retourne le debit PCIe entrant (RX) en Ko/s.
 pub fn pcieRxKBps(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var value: c_uint = 0;
     try check(self.lib.nvmlDeviceGetPcieThroughput(handle, c.NVML_PCIE_UTIL_RX_BYTES, &value));
     return value;
 }
 
+// Retourne le taux d'utilisation de l'encodeur video en pourcentage.
 pub fn encoderUtil(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var util: c_uint = 0;
     var sampling: c_uint = 0;
@@ -161,6 +181,7 @@ pub fn encoderUtil(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     return util;
 }
 
+// Retourne le taux d'utilisation du decodeur video en pourcentage.
 pub fn decoderUtil(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var util: c_uint = 0;
     var sampling: c_uint = 0;
@@ -168,43 +189,51 @@ pub fn decoderUtil(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     return util;
 }
 
+// Retourne la generation actuelle du lien PCIe.
 pub fn pcieLinkGen(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var gen: c_uint = 0;
     try check(self.lib.nvmlDeviceGetCurrPcieLinkGeneration(handle, &gen));
     return gen;
 }
 
+// Retourne la largeur actuelle du lien PCIe en voies.
 pub fn pcieLinkWidth(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var width: c_uint = 0;
     try check(self.lib.nvmlDeviceGetCurrPcieLinkWidth(handle, &width));
     return width;
 }
 
+// Retourne la vitesse actuelle du lien PCIe en Mo/s.
 pub fn pcieSpeed(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var speed: c_uint = 0;
     try check(self.lib.nvmlDeviceGetPcieSpeed(handle, &speed));
     return speed;
 }
 
+// Ecrit la version du pilote NVIDIA dans buf et la retourne comme tranche sentinelle.
 pub fn driverVersion(self: Nvml, buf: *[c.NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE]u8) Error![:0]const u8 {
     try check(self.lib.nvmlSystemGetDriverVersion(buf, buf.len));
     return std.mem.span(@as([*c]const u8, @ptrCast(buf)));
 }
 
+// Extrait le numero majeur d'une version de pilote CUDA encodee par NVML.
 pub fn cudaDriverVersionMajor(v: c_int) c_int {
     return @divTrunc(v, 1000);
 }
 
+// Extrait le numero mineur d'une version de pilote CUDA encodee par NVML.
 pub fn cudaDriverVersionMinor(v: c_int) c_int {
     return @divTrunc(@mod(v, 1000), 10);
 }
 
+// Retourne la version du pilote CUDA encodee comme entier NVML.
 pub fn cudaDriverVersion(self: Nvml) Error!c_int {
     var version: c_int = 0;
     try check(self.lib.nvmlSystemGetCudaDriverVersion_v2(&version));
     return version;
 }
 
+// Retourne la largeur du bus memoire GPU en bits.
 pub fn memBusWidth(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
     var width: c_uint = 0;
     try check(self.lib.nvmlDeviceGetMemoryBusWidth(handle, &width));
@@ -213,11 +242,13 @@ pub fn memBusWidth(self: Nvml, handle: c.nvmlDevice_t) Error!c_uint {
 
 const max_query = 4096;
 
+// Valide un compteur renvoye par NVML : renvoie null s'il est nul ou superieur a max_query.
 fn sizedCount(count: c_uint) ?c_uint {
     if (count == 0 or count > max_query) return null;
     return count;
 }
 
+// Interroge les processus de calcul actifs sur la GPU ; alloue et renvoie leur tableau.
 pub fn computeRunningProcesses(self: Nvml, allocator: std.mem.Allocator, handle: c.nvmlDevice_t) (Error || error{OutOfMemory})![]c.nvmlProcessInfo_t {
     var count: c_uint = 0;
     const ret = self.lib.nvmlDeviceGetComputeRunningProcesses_v3(handle, &count, null);
@@ -234,6 +265,7 @@ pub fn computeRunningProcesses(self: Nvml, allocator: std.mem.Allocator, handle:
     return infos;
 }
 
+// Interroge les processus graphiques actifs sur la GPU ; alloue et renvoie leur tableau.
 pub fn graphicsRunningProcesses(self: Nvml, allocator: std.mem.Allocator, handle: c.nvmlDevice_t) (Error || error{OutOfMemory})![]const c.nvmlProcessInfo_t {
     var count: c_uint = 0;
     const ret = self.lib.nvmlDeviceGetGraphicsRunningProcesses_v3(handle, &count, null);
@@ -253,6 +285,7 @@ pub fn graphicsRunningProcesses(self: Nvml, allocator: std.mem.Allocator, handle
     return infos;
 }
 
+// Interroge les echantillons d'utilisation par processus depuis last_seen ; alloue et renvoie leur tableau.
 pub fn processUtilization(self: Nvml, allocator: std.mem.Allocator, handle: c.nvmlDevice_t, last_seen: u64) (Error || error{OutOfMemory})![]const c.nvmlProcessUtilizationSample_t {
     var count: c_uint = 0;
     const ret = self.lib.nvmlDeviceGetProcessUtilization(handle, null, &count, last_seen);
@@ -308,6 +341,7 @@ pub const ReturnError = error{
     error_unknown,
 };
 
+// Convertit un code retour NVML en erreur Zig ; ne fait rien si le code vaut NVML_SUCCESS.
 fn check(ret: c_uint) Error!void {
     if (ret == c.NVML_SUCCESS) {
         return;

@@ -19,6 +19,8 @@ value_label_style: vaxis.Cell.Style = theme.value_style,
 border_style: vaxis.Cell.Style = theme.border_style,
 padding: vxfw.Padding.PadValues = .{ .left = 1, .right = 1, .top = 1, .bottom = 1 },
 
+// Dessine une bordure autour de l'enfant puis superpose en haut le titre,
+// l'icone image et le libelle de valeur en preservant les enfants existants.
 pub fn draw(self: *const TitledBorder, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const pad: vxfw.Padding = .{
         .child = self.child,

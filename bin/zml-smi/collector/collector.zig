@@ -15,6 +15,8 @@ pub const Collector = struct {
     io: std.Io,
     poll_only: bool,
 
+    // Construit un `Collector` a partir des allocateurs, du `io` et des options
+    // (intervalle de polling, mode poll-only).
     pub fn init(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, options: struct { poll_interval_ms: u16, poll_only: bool = false }) Collector {
         return .{
             .arena = arena,
@@ -25,6 +27,8 @@ pub const Collector = struct {
         };
     }
 
+    // Alloue un `DeviceInfo` dans l'arene du collecteur, l'ajoute a la liste des
+    // appareils et retourne son pointeur.
     pub fn addDevice(self: *Collector, initial: DeviceInfo) !*DeviceInfo {
         const info = try self.arena.create(DeviceInfo);
         info.* = initial;
@@ -33,6 +37,8 @@ pub const Collector = struct {
         return info;
     }
 
+    // Cree et enregistre une liste de processus double-buffer (deux listes vides)
+    // allouee dans l'arene du collecteur; retourne son pointeur.
     pub fn createProcessList(self: *Collector) !*ProcessDoubleBuffer {
         const list = try self.arena.create(ProcessDoubleBuffer);
         list.* = .{ .values = .{ .empty, .empty } };
@@ -41,6 +47,8 @@ pub const Collector = struct {
         return list;
     }
 
+    // Cree et enregistre une arene de polling liee au gpa, utilisee pour les
+    // allocations temporaires d'un cycle de collecte; retourne son pointeur.
     pub fn createPollArena(self: *Collector) !*std.heap.ArenaAllocator {
         const poll_arena = try self.arena.create(std.heap.ArenaAllocator);
         poll_arena.* = std.heap.ArenaAllocator.init(self.gpa);
@@ -49,12 +57,16 @@ pub const Collector = struct {
         return poll_arena;
     }
 
+    // Execute `pollOnce` une premiere fois, puis, hors mode poll-only, lance une
+    // tache worker qui rappelle `pollOnce` a intervalle regulier jusqu'a l'arret.
     pub fn spawnPoll(self: *Collector, comptime pollOnce: anytype, args: std.meta.ArgsTuple(@TypeOf(pollOnce))) !void {
         @call(.auto, pollOnce, args);
         if (self.poll_only) return;
 
         const Args = std.meta.ArgsTuple(@TypeOf(pollOnce));
         try self.worker.spawn(self.io, struct {
+            // Corps de la tache worker: boucle tant que le worker tourne, appelle
+            // `pollOnce` puis dort le temps restant de l'intervalle de polling.
             fn f(io: std.Io, w: *const Worker, a: Args) void {
                 const interval: std.Io.Duration = .fromMilliseconds(w.poll_interval_ms);
                 while (w.isRunning()) {
@@ -71,6 +83,8 @@ pub const Collector = struct {
         }.f, .{ self.io, &self.worker, args });
     }
 
+    // Ferme le collecteur: arrete le worker puis detruit les appareils, listes de
+    // processus et arenes de polling qu'il possede.
     pub fn deinit(self: *Collector) void {
         self.worker.shutdown(self.io);
 

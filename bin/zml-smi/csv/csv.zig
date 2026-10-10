@@ -2,6 +2,9 @@ const std = @import("std");
 const smi_info = @import("zml-smi/info");
 const DeviceInfo = smi_info.device_info.DeviceInfo;
 
+// Ecrit les appareils au format CSV: une section par type d'appareil, avec
+// une ligne d'en-tete (index, type puis champs) suivie d'une ligne par
+// appareil de ce type.
 pub fn write(writer: *std.Io.Writer, devices: []const *DeviceInfo) !void {
     inline for (@typeInfo(DeviceInfo).@"union".fields) |tp| {
         const tag = @field(smi_info.Target, tp.name);
@@ -35,6 +38,8 @@ pub fn write(writer: *std.Io.Writer, devices: []const *DeviceInfo) !void {
     }
 }
 
+// Ecrit une valeur de champ en CSV: deverrouille les optionnels, ecrit le
+// texte des pointeurs et formate les scalaires; recurse pour les optionnels.
 fn writeValue(writer: *std.Io.Writer, field: anytype) !void {
     if (@typeInfo(@TypeOf(field)) == .optional) {
         if (field) |v| return writeValue(writer, v);

@@ -7,10 +7,13 @@ pub var global: ImageCache = .{};
 
 map: std.StringHashMapUnmanaged(vaxis.Image) = .empty,
 
+// Libere la table des images en cache.
 pub fn deinit(self: *ImageCache, allocator: std.mem.Allocator) void {
     self.map.deinit(allocator);
 }
 
+// Decode une image PNG en memoire et la stocke dans le cache sous `key`;
+// ignore silencieusement les echecs de chargement ou d'insertion.
 pub fn load(
     self: *ImageCache,
     vx: *vaxis.Vaxis,
@@ -23,6 +26,8 @@ pub fn load(
     self.map.put(allocator, key, image) catch return;
 }
 
+// Charge dans le cache toutes les images embarquees (logo et logos des
+// vendeurs GPU).
 pub fn loadAll(self: *ImageCache, vx: *vaxis.Vaxis, allocator: std.mem.Allocator, writer: *std.Io.Writer) void {
     self.load(vx, allocator, writer, "logo", @embedFile("assets/logo.png"));
     self.load(vx, allocator, writer, "gpu_cuda", @embedFile("assets/nvidia.png"));
@@ -32,6 +37,7 @@ pub fn loadAll(self: *ImageCache, vx: *vaxis.Vaxis, allocator: std.mem.Allocator
     self.load(vx, allocator, writer, "gpu_tpu", @embedFile("assets/tpu.png"));
 }
 
+// Retourne l'image en cache associee a `key`, ou null si absente.
 pub fn get(self: *const ImageCache, key: []const u8) ?vaxis.Image {
     return self.map.get(key);
 }

@@ -19,6 +19,8 @@ pub const Server = struct {
     tcp: std.Io.net.Server,
     connection_group: std.Io.Group = .init,
 
+    // Initialise le serveur API: ouvre un ecoute TCP IPv4 sur 0.0.0.0:`port` et
+    // construit la structure `Server` avec ses listes d'appareils et de processus.
     pub fn init(allocator: std.mem.Allocator, io: std.Io, port: u16, devices: []const *DeviceInfo, process_lists: []const *const ProcessDoubleBuffer, enricher: *ProcessEnricher) !Server {
         const address: std.Io.net.IpAddress = .{ .ip4 = .{
             .bytes = .{ 0, 0, 0, 0 },
@@ -37,6 +39,8 @@ pub const Server = struct {
         };
     }
 
+    // Point d'entree du serveur API: l'initialise, logue et abandonne en cas
+    // d'echec, puis le fait servir jusqu'a l'arret (deinit automatique).
     pub fn run(allocator: std.mem.Allocator, io: std.Io, port: u16, devices: []const *DeviceInfo, process_lists: []const *const ProcessDoubleBuffer, enricher: *ProcessEnricher) void {
         var self = init(allocator, io, port, devices, process_lists, enricher) catch |err| {
             std.log.err("api server failed to start: {s}", .{@errorName(err)});
@@ -46,11 +50,15 @@ pub const Server = struct {
         self.serve();
     }
 
+    // Libere le serveur: attend la fin des connexions en cours puis ferme le
+    // socket d'ecoute TCP.
     pub fn deinit(self: *Server) void {
         self.connection_group.await(self.io) catch {};
         self.tcp.deinit(self.io);
     }
 
+    // Boucle d'acceptation des connexions; chaque client est traite en
+    // concurrence via `onConnection`, et toute erreur met fin a la boucle.
     pub fn serve(self: *Server) void {
         while (true) {
             const stream = self.tcp.accept(self.io) catch break;
@@ -58,11 +66,15 @@ pub const Server = struct {
         }
     }
 
+    // Gestionnaire d'une connexion acceptee: ferme le flux en sortie et delegue
+    // le traitement HTTP a handleConn en ignorant les erreurs de protocole.
     fn onConnection(self: *Server, stream: std.Io.net.Stream) std.Io.Cancelable!void {
         defer stream.close(self.io);
         self.handleConn(stream) catch {};
     }
 
+    // Boucle serveur HTTP/1.1 d'une connexion: collecte les processus de toutes
+    // les listes, les enrichit, puis repond 200 en JSON avec l'en-tete CORS.
     fn handleConn(self: *Server, stream: std.Io.net.Stream) !void {
         var read_buf: [8192]u8 = undefined;
         var reader = stream.reader(self.io, &read_buf);

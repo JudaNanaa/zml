@@ -8,6 +8,7 @@ const Collector = @import("zml-smi/collector").Collector;
 const poll_metrics = @import("zml-smi/info").poll_metrics;
 const process = @import("process.zig");
 
+// Demarre la collecte AMD SMI : cree un Device par GPU, publie les infos et lance les polls.
 pub fn start(collector: *Collector) !void {
     const amdsmi = try collector.arena.create(AmdSmi);
     amdsmi.* = try AmdSmi.init(collector.arena);
@@ -35,10 +36,12 @@ const Device = struct {
     amdsmi: *const AmdSmi,
     handle: AmdSmi.Handle,
 
+    // Construit un Device pour l'index donne en resolvant son handle AMD SMI.
     pub fn open(amdsmi: *const AmdSmi, index: u32) !Device {
         return .{ .amdsmi = amdsmi, .handle = try amdsmi.handleByIndex(index) };
     }
 
+    // Recupere le nom commercial du GPU et le duplique dans `arena`.
     fn name(self: Device, arena: std.mem.Allocator) ![]const u8 {
         var buf: [AmdSmi.name_buf_len]u8 = undefined;
         const slice = try self.amdsmi.name(self.handle, &buf);
@@ -46,18 +49,21 @@ const Device = struct {
         return try arena.dupe(u8, slice);
     }
 
+    // Recupere la version du pilote et la duplique dans `arena`.
     fn driverVersion(self: Device, arena: std.mem.Allocator) ![]const u8 {
         var buf: [AmdSmi.driver_version_buf_len]u8 = undefined;
         const slice = try self.amdsmi.driverVersion(self.handle, &buf);
         return try arena.dupe(u8, slice);
     }
 
+    // Recupere la puissance du GPU en mW (watts amdsmi multiplies par 1000).
     // Power
     pub fn powerUsage(self: Device) !u64 {
         const pw = try self.amdsmi.powerUsage(self.handle);
         return @as(u64, pw) * 1000;
     }
 
+    // Recupere la limite de puissance en mW ; error.not_supported si non renseignee.
     pub fn powerLimit(self: Device) !u64 {
         const limit = try self.amdsmi.powerLimit(self.handle);
         if (limit == std.math.maxInt(u32)) {
@@ -67,52 +73,63 @@ const Device = struct {
         return @as(u64, limit) / 1000;
     }
 
+    // Recupere la temperature du GPU en degres Celsius.
     // Thermal
     pub fn temperature(self: Device) !u64 {
         const temp = try self.amdsmi.temperature(self.handle);
         return @intCast(temp);
     }
 
+    // Recupere la vitesse du ventilateur en pourcentage (valeur brute ramenee sur 255).
     pub fn fanSpeed(self: Device) !u64 {
         const speed = try self.amdsmi.fanSpeed(self.handle);
         return @intCast(@divTrunc(speed * 100, 255));
     }
 
+    // Recupere le taux d'occupation graphique en pourcentage.
     // Utilization
     pub fn gpuUtil(self: Device) !u64 {
         return try self.amdsmi.gpuUtil(self.handle);
     }
 
+    // Recupere la frequence graphique actuelle en MHz.
     // Clocks
     pub fn clockGraphics(self: Device) !u64 {
         return try self.amdsmi.clockGraphics(self.handle);
     }
 
+    // Recupere la frequence du SoC en MHz.
     pub fn clockSoc(self: Device) !u64 {
         return try self.amdsmi.clockSoc(self.handle);
     }
 
+    // Recupere la frequence memoire en MHz.
     pub fn clockMem(self: Device) !u64 {
         return try self.amdsmi.clockMem(self.handle);
     }
 
+    // Recupere la frequence graphique maximale en MHz.
     pub fn maxClockGraphics(self: Device) !u64 {
         return try self.amdsmi.maxClockGraphics(self.handle);
     }
 
+    // Recupere la frequence memoire maximale en MHz.
     pub fn maxClockMem(self: Device) !u64 {
         return try self.amdsmi.maxClockMem(self.handle);
     }
 
+    // Recupere la VRAM utilisee en octets.
     // Memory
     pub fn memUsed(self: Device) !u64 {
         return self.amdsmi.memUsed(self.handle);
     }
 
+    // Recupere la VRAM totale en octets.
     pub fn memTotal(self: Device) !u64 {
         return self.amdsmi.memTotal(self.handle);
     }
 
+    // Recupere la bande passante PCIe (Mo/s) ; error.not_supported si non renseignee.
     // PCIe
     pub fn pcieBandwidth(self: Device) !u64 {
         const bw = try self.amdsmi.pcieBandwidth(self.handle);
@@ -123,10 +140,12 @@ const Device = struct {
         return bw;
     }
 
+    // Recupere la generation PCIe du lien.
     pub fn pcieLinkGen(self: Device) !u64 {
         return try self.amdsmi.pcieLinkGen(self.handle);
     }
 
+    // Recupere la largeur du lien PCIe (nombre de voies).
     pub fn pcieLinkWidth(self: Device) !u64 {
         return try self.amdsmi.pcieWidth(self.handle);
     }

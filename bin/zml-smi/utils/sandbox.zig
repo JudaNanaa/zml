@@ -12,6 +12,9 @@ const init_array_section = switch (builtin.object_format) {
 };
 
 export const _ linksection(init_array_section) = &struct {
+    // Hook de constructeur (section .init_array) execute au chargement: calcule
+    // le chemin de l'executable et initialise les runfiles Bazel avec l'allocateur C,
+    // en s'appuyant sur RUNFILES_DIR ou le manifeste.
     fn call(argc: c_int, argv: [*c][*:0]u8, envp: [*:null]?[*:0]u8) callconv(.c) void {
         _ = argc;
         _ = argv;
@@ -37,6 +40,8 @@ export const _ linksection(init_array_section) = &struct {
     }
 }.call;
 
+// Retourne le chemin, dans les runfiles, du repertoire de donnees `sandbox`,
+// ou null si introuvable; le resultat est ecrit dans `buf`.
 pub fn path(buf: *[std.Io.Dir.max_path_bytes]u8) ?[]const u8 {
     const with_repo = runfiles_global.withSourceRepo(bazel_builtin.current_repository);
 

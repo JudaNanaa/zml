@@ -43,6 +43,9 @@ pub const ChartEntry = struct {
     chart_height: u16 = 3,
 };
 
+// Dessine la carte dans une bordure titree (image et libelle optionnels), le
+// contenu etant fourni par drawContent; la bordure est mise en evidence si la
+// carte est surlignee.
 pub fn draw(self: *const MetricCard, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const bstyle: vaxis.Cell.Style = if (self.highlighted)
         .{ .fg = theme.accent, .bold = true }
@@ -59,6 +62,8 @@ pub fn draw(self: *const MetricCard, ctx: vxfw.DrawContext) std.mem.Allocator.Er
     return tb.draw(ctx);
 }
 
+// Calcule la largeur maximale (en cellules) du champ `field` parmi les
+// entrees, en ignorant les optionnels nuls.
 fn maxFieldWidth(ctx: vxfw.DrawContext, entries: anytype, comptime field: []const u8) u16 {
     var max_w: u16 = 0;
     for (entries) |entry| {
@@ -69,6 +74,8 @@ fn maxFieldWidth(ctx: vxfw.DrawContext, entries: anytype, comptime field: []cons
     return max_w;
 }
 
+// Assemble le contenu de la carte: mini-graphes braille, jauges et lignes
+// "label: valeur", empiles verticalement, puis retourne la surface.
 fn drawContent(self: *const MetricCard, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const inner_w = ctx.max.width orelse 40;
 

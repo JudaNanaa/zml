@@ -6,6 +6,8 @@ const ui = @import("lib/ui.zig");
 const image_cache = @import("image_cache.zig");
 const Overview = @import("pages/overview.zig");
 
+// Redimensionne l'ecran vaxis et le tampon precedent sans effacer le contenu
+// du terminal, en appliquant la methode de largeur unicode.
 fn silentResize(vx: *vaxis.Vaxis, allocator: std.mem.Allocator, winsize: vaxis.Winsize) !void {
     vx.screen.deinit(allocator);
     vx.screen = try vaxis.Screen.init(allocator, winsize);
@@ -14,6 +16,9 @@ fn silentResize(vx: *vaxis.Vaxis, allocator: std.mem.Allocator, winsize: vaxis.W
     vx.screen_last = try vaxis.AllocatingScreen.init(allocator, winsize.cols, winsize.rows);
 }
 
+// Affiche une fois la vue d'ensemble hors TUI (mode impression): initialise
+// le terminal, detecte les capacites, charge les images, dessine la surface
+// puis l'ecrit avec prettyPrint.
 pub fn run(allocator: std.mem.Allocator, io: std.Io, state: *data.SystemState) !void {
     var tty = try vaxis.Tty.init(io);
     defer tty.deinit();

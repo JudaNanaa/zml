@@ -20,6 +20,8 @@ else
 
 pub const history_len: usize = 500;
 
+// Construit un type de tampon circulaire de capacite fixe pour des valeurs
+// `T`, exposant `push` et `sliceLast` pour l'historique des metriques.
 pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
     return struct {
         const Self = @This();
@@ -28,6 +30,8 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
         head: usize = 0,
         len: usize = 0,
 
+        // Ajoute `value` en tete du tampon circulaire, fait avancer la tete et
+        // incremente la longueur jusqu'a la capacite.
         pub fn push(self: *Self, value: T) void {
             self.buf[self.head] = value;
             self.head = (self.head + 1) % capacity;
@@ -36,6 +40,8 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             }
         }
 
+        // Retourne les `n` dernieres valeurs dans l'ordre chronologique, allouees
+        // dans `arena` (vide si l'historique est vide).
         pub fn sliceLast(self: *const Self, arena: std.mem.Allocator, n: usize) std.mem.Allocator.Error![]const T {
             const count = @min(n, self.len);
             if (count == 0) {
@@ -57,6 +63,8 @@ pub const HistoryBuffers = struct {
     temp: []RingBuffer(u64, history_len) = &.{},
     power: []RingBuffer(u64, history_len) = &.{},
 
+    // Alloue `count` tampons circulaires pour chaque serie (utilisation, memoire,
+    // temperature, puissance) et les remet a zero.
     pub fn init(allocator: std.mem.Allocator, count: usize) !HistoryBuffers {
         const h: HistoryBuffers = .{
             .util = try allocator.alloc(RingBuffer(u64, history_len), count),
@@ -73,6 +81,7 @@ pub const HistoryBuffers = struct {
         return h;
     }
 
+    // Libere les quatre series de tampons circulaires.
     pub fn deinit(self: *HistoryBuffers, allocator: std.mem.Allocator) void {
         allocator.free(self.util);
         allocator.free(self.mem_util);
@@ -105,6 +114,8 @@ pub const SystemState = struct {
         io: std.Io,
     };
 
+    // Construit l'etat TUI `SystemState` depuis `Config`, en allouant
+    // l'historique dimensionne par le nombre d'appareils.
     pub fn init(cfg: Config) !SystemState {
         return .{
             .devices = cfg.devices,
@@ -120,14 +131,19 @@ pub const SystemState = struct {
         };
     }
 
+    // Libere l'historique de l'etat TUI.
     pub fn deinit(self: *SystemState, allocator: std.mem.Allocator) void {
         self.history.deinit(allocator);
     }
 
+    // Retourne le nombre d'appareils suivis.
     pub fn deviceCount(self: *const SystemState) usize {
         return self.devices.len;
     }
 
+    // Enregistre un point d'historique par appareil (utilisation, memoire,
+    // temperature, puissance); la temperature et la puissance ne sont renseignees
+    // que pour les GPU, les autres types poussant 0.
     pub fn recordHistory(self: *SystemState) void {
         for (0..self.deviceCount()) |i| {
             switch (self.devices[i].*) {

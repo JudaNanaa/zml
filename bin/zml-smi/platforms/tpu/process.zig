@@ -5,15 +5,19 @@ const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.Ar
 const DeviceInfo = smi_info.device_info.DeviceInfo;
 const Collector = @import("zml-smi/collector").Collector;
 
+// Enregistre la collecte periodique des processus TPU aupres du collecteur.
 pub fn init(collector: *Collector, devices_per_chip: u32, device_infos: []*DeviceInfo, list: *ProcessDoubleBuffer, dev_offset: u16) !void {
     try collector.spawnPoll(pollOnce, .{ collector.gpa, collector.io, list, devices_per_chip, device_infos, dev_offset });
 }
 
+// Scanne /proc, met a jour le tampon arriere des processus puis bascule le double buffer.
 fn pollOnce(allocator: std.mem.Allocator, io: std.Io, list: *ProcessDoubleBuffer, devices_per_chip: u32, device_infos: []*DeviceInfo, dev_offset: u16) void {
     scan(allocator, io, list.back(), devices_per_chip, device_infos, dev_offset);
     list.swap();
 }
 
+// Parcourt /proc, inspecte les descripteurs de fichiers de chaque PID et
+// rattache les processus utilisant un device TPU.
 fn scan(allocator: std.mem.Allocator, io: std.Io, back: *std.ArrayList(pi.ProcessInfo), devices_per_chip: u32, infos: []*DeviceInfo, dev_offset: u16) void {
     back.clearRetainingCapacity();
 
@@ -60,6 +64,7 @@ fn scan(allocator: std.mem.Allocator, io: std.Io, back: *std.ArrayList(pi.Proces
     }
 }
 
+// Extrait l'index de puce TPU d'un lien (/dev/accelN ou /dev/vfio/N), ou null sinon.
 fn parseChipIndex(target: []const u8) ?u32 {
     if (std.mem.startsWith(u8, target, "/dev/accel")) {
         return std.fmt.parseInt(u32, target["/dev/accel".len..], 10) catch null;

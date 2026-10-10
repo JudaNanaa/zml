@@ -14,6 +14,8 @@ const Binding = struct {
     desc: []const u8,
 };
 
+// Dessine la ligne d'etat en bas de l'ecran: raccourcis clavier contextuels
+// selon que l'on soit en vue detaillee ou en vue d'ensemble.
 pub fn draw(self: *const StatusLine, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 80;
 

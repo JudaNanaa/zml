@@ -19,16 +19,21 @@ const ScrollState = struct {
     row: i17 = 0,
     col: i17 = 0,
 
+    // Remet le defilement (ligne et colonne) a zero.
     pub fn reset(self: *ScrollState) void {
         self.row = 0;
         self.col = 0;
     }
 
+    // Decale le defilement de (dr, dc) en bornant chaque composante a une valeur
+    // positive ou nulle.
     pub fn scrollBy(self: *ScrollState, dr: i17, dc: i17) void {
         self.row = @max(0, self.row + dr);
         self.col = @max(0, self.col + dc);
     }
 
+    // Borne le defilement pour qu'il ne depasse pas le contenu moins la
+    // fenetre visible, en lignes et colonnes.
     pub fn clamp(self: *ScrollState, content_h: u16, viewport_h: u16, content_w: u16, viewport_w: u16) void {
         const max_row: i17 = @max(0, @as(i17, content_h) - @as(i17, viewport_h));
         const max_col: i17 = @max(0, @as(i17, content_w) - @as(i17, viewport_w));
@@ -48,12 +53,17 @@ const Model = struct {
     process_table: ProcessTable = .{},
     overview: Overview = undefined,
 
+    // Libere le tableau de processus, la vue d'ensemble et le cache global
+    // d'images du modele.
     fn deinit(self: *Model) void {
         self.process_table.deinit(self.allocator);
         self.overview.deinit(self.allocator);
         image_cache.global.deinit(self.allocator);
     }
 
+    // Gere les evenements TUI: initialisation (vue d'ensemble, cache d'images,
+    // premier tick), tick (enregistrement d'historique et redraw), touches
+    // (quitter, retour/navigation, bascule braille) et molette de souris.
     pub fn handleEvent(self: *Model, ctx: *vxfw.EventContext, event: vxfw.Event) anyerror!void {
         switch (event) {
             .init => {
@@ -108,6 +118,8 @@ const Model = struct {
         }
     }
 
+    // Dessine le contenu (detail ou vue d'ensemble) avec le defilement courant,
+    // ajoute la ligne d'etat en bas et compose la surface a l'ecran.
     pub fn draw(self: *Model, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
         const screen = ctx.max.size();
         const content_w = @max(screen.width, min_width);
@@ -151,6 +163,8 @@ const Model = struct {
     }
 };
 
+// Lance l'application TUI: initialise l'application vxfw et le modele, puis
+// execute la boucle d'evenements.
 pub fn run(allocator: std.mem.Allocator, io: std.Io, state: *data.SystemState) !void {
     var app = try vxfw.App.init(allocator, io);
     defer app.deinit();

@@ -12,6 +12,8 @@ const DeltaState = struct {
     prev_timestamp: ?std.Io.Timestamp = null,
 };
 
+// Prepare l'etat de calcul des utilisations, effectue eventuellement deux
+// passes de warmup, puis lance la collecte periodique des processus Neuron.
 pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, nrt: *const Nrt, nc_per_device: u32, util_buf: []UtilAtomic, dev_offset: u16, warmup: bool) !void {
     if (nrt.handles.len == 0) return;
     const delta_states = try collector.arena.alloc(DeltaState, util_buf.len);
@@ -27,6 +29,8 @@ pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, nrt: *const Nrt, 
     try collector.spawnPoll(pollOnce, args);
 }
 
+// Parcourt les applications de chaque device, cumule les compteurs temps par
+// coeur et met a jour le pourcentage d'utilisation NC via les deltas entre passes.
 fn pollOnce(allocator: std.mem.Allocator, io: std.Io, list: *ProcessDoubleBuffer, nrt: *const Nrt, nc_per_device: u32, util_buf: []UtilAtomic, dev_offset: u16, delta_states: []DeltaState) void {
     const back = list.back();
 

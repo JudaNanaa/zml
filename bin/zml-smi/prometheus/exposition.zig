@@ -44,6 +44,8 @@ const host_metrics = .{
     .{ .field = "uptime_seconds", .metric = "zml_host_uptime_seconds", .help = "System uptime in seconds" },
 };
 
+// Ecrit l'exposition Prometheus complete: metadonnees des appareils, toutes
+// les metriques par appareil puis les metriques de l'hote.
 pub fn write(writer: *std.Io.Writer, devices: []const *DeviceInfo, host: *const HostInfo) !void {
     try writer.writeAll("# HELP zml_device_info Device metadata\n");
     try writer.writeAll("# TYPE zml_device_info gauge\n");
@@ -83,6 +85,9 @@ pub fn write(writer: *std.Io.Writer, devices: []const *DeviceInfo, host: *const 
     try writeHostMetrics(writer, host.front().*);
 }
 
+// Pour chaque metrique du tableau, ecrit une seule fois les lignes HELP/TYPE
+// puis un echantillon par appareil possedant le champ; separe les metriques par
+// une ligne vide.
 fn writeAllDeviceMetrics(
     writer: *std.Io.Writer,
     comptime metrics: anytype,
@@ -120,6 +125,8 @@ fn writeAllDeviceMetrics(
     }
 }
 
+// Ecrit pour chaque metrique de l'hote presente dans `val` ses lignes
+// HELP/TYPE puis sa valeur.
 fn writeHostMetrics(writer: *std.Io.Writer, val: anytype) !void {
     inline for (host_metrics) |m| {
         if (@field(val, m.field)) |raw| {
@@ -130,6 +137,8 @@ fn writeHostMetrics(writer: *std.Io.Writer, val: anytype) !void {
     }
 }
 
+// Formate la valeur brute d'une metrique: utilise la fonction `fmt` de la
+// metrique si elle existe, sinon writeValue par defaut.
 fn fmtValue(comptime m: anytype, writer: *std.Io.Writer, raw: anytype) !void {
     if (@hasField(@TypeOf(m), "fmt")) {
         try m.fmt(writer, raw);
@@ -138,6 +147,8 @@ fn fmtValue(comptime m: anytype, writer: *std.Io.Writer, raw: anytype) !void {
     }
 }
 
+// Ecrit une valeur de metrique selon son type: flottants a deux decimales,
+// pointeurs en texte, autres entiers.
 fn writeValue(writer: *std.Io.Writer, val: anytype) std.Io.Writer.Error!void {
     switch (@typeInfo(@TypeOf(val))) {
         .float, .comptime_float => try writer.print("{d:.2}", .{val}),
@@ -146,12 +157,16 @@ fn writeValue(writer: *std.Io.Writer, val: anytype) std.Io.Writer.Error!void {
     }
 }
 
+// Formate des milliwatts en watts avec trois decimales.
 fn fmtMilliwattsAsWatts(writer: *std.Io.Writer, val: u64) std.Io.Writer.Error!void {
     try writer.print("{d}.{d:0>3}", .{ val / 1000, val % 1000 });
 }
 
+// Retourne une fonction de formatage qui multiplie la valeur par `scale`
+// avant de l'ecrire (conversion d'unites Prometheus).
 fn fmtScaled(comptime scale: u64) fn (*std.Io.Writer, u64) std.Io.Writer.Error!void {
     return struct {
+        // Formatage retourne par fmtScaled: ecrit `val * scale`.
         fn f(writer: *std.Io.Writer, val: u64) std.Io.Writer.Error!void {
             try writer.print("{d}", .{val * scale});
         }

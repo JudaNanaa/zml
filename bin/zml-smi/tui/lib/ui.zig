@@ -2,6 +2,9 @@ const std = @import("std");
 const vaxis = @import("vaxis");
 const vxfw = vaxis.vxfw;
 
+// Transforme un pointeur dont le type possede une methode `draw` (et
+// eventuellement `handleEvent`) en `vxfw.Widget`; les fonctions internes
+// reconvertissent `userdata` vers le bon type.
 /// Creates a vxfw.Widget from any pointer whose type has a `draw` method
 /// (and optionally a `handleEvent` method).
 pub fn widget(ptr: anytype) vxfw.Widget {
@@ -10,12 +13,16 @@ pub fn widget(ptr: anytype) vxfw.Widget {
     return .{
         .userdata = @ptrCast(@constCast(ptr)),
         .drawFn = struct {
+            // Fonction de dessin du widget: reconvertit `userdata` en `*T` et appelle
+            // `self.draw(ctx)`.
             fn f(p: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
                 const self: *T = @ptrCast(@alignCast(p));
                 return self.draw(ctx);
             }
         }.f,
         .eventHandler = if (@hasDecl(T, "handleEvent")) struct {
+            // Gestionnaire d'evenements du widget: reconvertit `userdata` en `*T` et
+            // appelle `self.handleEvent(ctx, event)`.
             fn f(p: *anyopaque, ctx: *vxfw.EventContext, event: vxfw.Event) anyerror!void {
                 const self: *T = @ptrCast(@alignCast(p));
                 return self.handleEvent(ctx, event);
@@ -24,6 +31,8 @@ pub fn widget(ptr: anytype) vxfw.Widget {
     };
 }
 
+// Cree un `vxfw.Widget` dont le dessin appelle une fonction specifique
+// `drawFn` (utile pour les motifs non standards comme drawContent).
 /// Creates a vxfw.Widget that calls a specific draw function (for non-standard widget patterns
 /// like MetricCard.drawContent or Chart.drawContent).
 pub fn drawWidget(ptr: anytype, comptime drawFn: anytype) vxfw.Widget {
@@ -32,6 +41,7 @@ pub fn drawWidget(ptr: anytype, comptime drawFn: anytype) vxfw.Widget {
     return .{
         .userdata = @ptrCast(@constCast(ptr)),
         .drawFn = struct {
+            // Fonction de dessin du widget de `drawWidget`: appelle `drawFn(self, ctx)`.
             fn f(p: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
                 const self: *T = @ptrCast(@alignCast(p));
                 return @call(.auto, drawFn, .{ self, ctx });
@@ -42,16 +52,20 @@ pub fn drawWidget(ptr: anytype, comptime drawFn: anytype) vxfw.Widget {
 
 // ── DrawContext constraint helpers ──────────────────────────────────
 
+// Retourne un contexte de dessin avec min = max = {w, h} (taille exacte).
 /// min = max = {w, h} — exact size.
 pub fn fixedSize(ctx: vxfw.DrawContext, w: u16, h: u16) vxfw.DrawContext {
     return ctx.withConstraints(.{ .width = w, .height = h }, .{ .width = w, .height = h });
 }
 
+// Retourne un contexte de dessin de largeur fixee `w`, hauteur non bornee.
 /// Width fixed (min = max = w), height unbounded.
 pub fn fixedWidth(ctx: vxfw.DrawContext, w: u16) vxfw.DrawContext {
     return ctx.withConstraints(.{ .width = w }, .{ .width = w, .height = null });
 }
 
+// Retourne un contexte de dessin borne par max = {w, h}, avec min par
+// defaut.
 /// max = {w, h}, min = default — bounded but unconstrained from below.
 pub fn maxSize(ctx: vxfw.DrawContext, w: u16, h: u16) vxfw.DrawContext {
     return ctx.withConstraints(.{}, .{ .width = w, .height = h });
@@ -59,6 +73,8 @@ pub fn maxSize(ctx: vxfw.DrawContext, w: u16, h: u16) vxfw.DrawContext {
 
 // ── Drawing helpers ────────────────────────────────────────────────
 
+// Dessine une texture enrichie sur une seule ligne (pas de retour a la
+// ligne, debordement coupe) limitee a `max_w` colonnes.
 /// Draw a single-line RichText with softwrap=false, overflow=clip, max width.
 pub fn drawRichLine(ctx: vxfw.DrawContext, segments: []const vaxis.Cell.Segment, max_w: u16) std.mem.Allocator.Error!vxfw.Surface {
     const rich: vxfw.RichText = .{
@@ -74,6 +90,9 @@ pub const ImageCellSize = struct {
     rows: u16,
 };
 
+// Calcule le nombre de colonnes/lignes de cellule pour une image mise a
+// l'echelle de `target_rows` en conservant le ratio, d'apres la taille en
+// pixels des cellules du terminal.
 /// Compute the cell dimensions for an image scaled to a target row count,
 /// maintaining aspect ratio based on the terminal's cell pixel size.
 pub fn imageCellSize(img: vaxis.Image, target_rows: u16, cell_size: vxfw.Size) ImageCellSize {

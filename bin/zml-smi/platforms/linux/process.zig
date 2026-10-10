@@ -10,6 +10,8 @@ pub const ProcessEnricher = struct {
     prev_ticks: std.AutoHashMapUnmanaged(u32, u64) = .{},
     prev_total_ticks: u64 = 0,
 
+    // Initialise l'enrichisseur : arene, table des ticks precedents par PID et
+    // ticks CPU totaux de reference.
     pub fn init(gpa: std.mem.Allocator, io: std.Io) !ProcessEnricher {
         var arena = std.heap.ArenaAllocator.init(gpa);
         errdefer arena.deinit();
@@ -27,11 +29,14 @@ pub const ProcessEnricher = struct {
         return enricher;
     }
 
+    // Libere la table des ticks et l'arene de l'enrichisseur.
     pub fn deinit(self: *ProcessEnricher) void {
         self.prev_ticks.deinit(self.gpa);
         self.arena.deinit();
     }
 
+    // Complete chaque processus avec UID, nom d'utilisateur, RSS, ligne de commande
+    // et pourcentage CPU calcule par delta entre deux releves.
     pub fn enrich(self: *ProcessEnricher, io: std.Io, procs: []ProcessInfo) void {
         _ = self.arena.reset(.retain_capacity);
         const alloc = self.arena.allocator();
@@ -73,6 +78,7 @@ pub const ProcessEnricher = struct {
     }
 };
 
+// Resout le nom d'utilisateur associe a un UID, duplique dans l'allocateur fourni.
 fn lookupUsername(allocator: std.mem.Allocator, uid: u32) ![]const u8 {
     const pw = std.c.getpwuid(uid) orelse return error.NoUser;
     const name = std.mem.span(pw.name orelse return error.NoName);
@@ -80,6 +86,7 @@ fn lookupUsername(allocator: std.mem.Allocator, uid: u32) ![]const u8 {
     return try allocator.dupe(u8, name);
 }
 
+// Extrait utime + stime du fichier /proc/{pid}/stat, ou null si illisible.
 /// Extract utime + stime from /proc/{pid}/stat.
 fn readProcTicks(allocator: std.mem.Allocator, io: std.Io, pid: u32) ?u64 {
     const path = std.fmt.allocPrint(allocator, "/proc/{d}/stat", .{pid}) catch return null;
@@ -91,6 +98,8 @@ fn readProcTicks(allocator: std.mem.Allocator, io: std.Io, pid: u32) ?u64 {
     return sysfs.nthTokenInt(rest, 11) + sysfs.nthTokenInt(rest, 12);
 }
 
+// Lit /proc/{pid}/cmdline, remplace les octets nuls par des espaces
+// et supprime les espaces finaux.
 fn readCmdline(allocator: std.mem.Allocator, io: std.Io, path: []const u8) ![]const u8 {
     const data = try sysfs.readFirstLine(allocator, io, path);
 
@@ -103,6 +112,7 @@ fn readCmdline(allocator: std.mem.Allocator, io: std.Io, path: []const u8) ![]co
     return std.mem.trimEnd(u8, data, &std.ascii.whitespace);
 }
 
+// Lit et somme tous les compteurs de temps CPU de /proc/stat (0 si illisible).
 fn readTotalCpuTicks(allocator: std.mem.Allocator, io: std.Io) u64 {
     const data = sysfs.readFirstLine(allocator, io, "/proc/stat") catch return 0;
 

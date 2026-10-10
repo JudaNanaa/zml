@@ -3,6 +3,8 @@ const vaxis = @import("vaxis");
 const Color = vaxis.Cell.Color;
 const Style = vaxis.Cell.Style;
 
+// Retourne une couleur sur un degrade vert -> jaune -> rouge en fonction d'un
+// pourcentage (0-100).
 /// Returns a color on a green → yellow → red gradient based on percentage (0-100).
 pub fn colorForPercent(pct: u8) Color {
     if (pct <= 50) {
@@ -20,6 +22,8 @@ pub fn colorForPercent(pct: u8) Color {
     }
 }
 
+// Retourne une couleur pour une temperature, en projetant la plage 20-100 C
+// sur le degrade de colorForPercent.
 /// Returns a color for temperature (20-100°C range).
 pub fn colorForTemp(temp_c: u16) Color {
     if (temp_c <= 20) {

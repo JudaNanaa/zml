@@ -26,10 +26,14 @@ scroll_bars: vxfw.ScrollBars = .{
 },
 merged: std.ArrayList(ProcessInfo) = .empty,
 
+// Libere la liste fusionnee des processus.
 pub fn deinit(self: *ProcessTable, allocator: std.mem.Allocator) void {
     self.merged.deinit(allocator);
 }
 
+// Reconstruit la liste des processus (filtree par appareil si demande),
+// l'enrichit des informations hote, la trie par memoire appareil decroissante
+// et met a jour la hauteur/le nombre d'elements du defilement.
 pub fn prepare(self: *ProcessTable, state: *data.SystemState, device_id: ?u16) void {
     self.scroll_bars.scroll_view.children.builder.userdata = self;
     self.merged.clearRetainingCapacity();
@@ -53,6 +57,8 @@ pub fn prepare(self: *ProcessTable, state: *data.SystemState, device_id: ?u16) v
 
     // Sort by dev_mem descending
     std.sort.insertion(ProcessInfo, self.merged.items, {}, struct {
+        // Comparateur de tri: ordonne par memoire appareil (`dev_mem_kib`)
+        // decroissante.
         fn cmp(_: void, a: ProcessInfo, b: ProcessInfo) bool {
             return (a.dev_mem_kib orelse 0) > (b.dev_mem_kib orelse 0);
         }
@@ -63,11 +69,14 @@ pub fn prepare(self: *ProcessTable, state: *data.SystemState, device_id: ?u16) v
     self.scroll_bars.scroll_view.item_count = count;
 }
 
+// Remet le defilement et le curseur du tableau a zero.
 pub fn resetScroll(self: *ProcessTable) void {
     self.scroll_bars.scroll_view.scroll = .{};
     self.scroll_bars.scroll_view.cursor = 0;
 }
 
+// Dessine le tableau des processus dans une bordure titree: une ligne
+// d'en-tete puis les lignes defilantes (ou un message si aucun processus).
 pub fn draw(self: *ProcessTable, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 80;
     const row_count = self.merged.items.len;
@@ -101,6 +110,8 @@ pub fn draw(self: *ProcessTable, ctx: vxfw.DrawContext) std.mem.Allocator.Error!
     return tb.draw(ui.fixedWidth(ctx, w));
 }
 
+// Fabrique le widget d'une ligne de processus pour la vue defilante;
+// retourne null si l'index est hors bornes.
 /// Builds only data rows (no header) for the scroll view.
 fn buildRow(ptr: *const anyopaque, idx: usize, _: usize) ?vxfw.Widget {
     const self: *ProcessTable = @ptrCast(@alignCast(@constCast(ptr)));
@@ -135,11 +146,15 @@ const header_segs = blk: {
     };
 };
 
+// Formate une valeur dans une colonne en appliquant d'abord le format de
+// valeur puis le format de colonne (largeur/alignement).
 /// Format a value into a column: col(arena, col_fmt.pid, "{d}", .{pid})
 fn col(arena: std.mem.Allocator, comptime column: []const u8, comptime fmt: []const u8, args: anytype) std.mem.Allocator.Error![]const u8 {
     return std.fmt.allocPrint(arena, column, .{try std.fmt.allocPrint(arena, fmt, args)});
 }
 
+// Dessine une ligne de processus: PID, utilisateur, appareil, utilisation,
+// memoire appareil, CPU, memoire hote et nom de commande.
 fn drawProcessRow(ptr: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const info: *const ProcessInfo = @ptrCast(@alignCast(ptr));
     const val: vaxis.Style = .{ .fg = theme.text_primary };
@@ -168,6 +183,8 @@ fn drawProcessRow(ptr: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Erro
     ));
 }
 
+// Formate une quantite de Kio en "G"/"M"/"K" avec une decimale pour les
+// ordres de grandeur Go et Mo.
 fn fmtMem(arena: std.mem.Allocator, kib: u64) std.mem.Allocator.Error![]const u8 {
     if (kib >= 1024 * 1024) {
         const whole = kib / (1024 * 1024);

@@ -37,6 +37,8 @@ const PrivateFns = struct {
     nds_get_nc_counter: *const @TypeOf(c.nds_get_nc_counter),
 };
 
+// Ouvre la bibliotheque Neuron dans le sandbox, resout les symboles publics et
+// prives, ouvre chaque device disponible et retourne l'etat Nrt.
 pub fn init(allocator: std.mem.Allocator, io: std.Io) !Nrt {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sandbox_path = sandbox.path(&path_buf) orelse {
@@ -94,10 +96,13 @@ pub fn init(allocator: std.mem.Allocator, io: std.Io) !Nrt {
     };
 }
 
+// Retourne le nombre de devices Neuron ouverts.
 pub fn deviceCount(self: Nrt) u32 {
     return @intCast(self.handles.len);
 }
 
+// Retourne le tableau des applications s'executant sur un device
+// (pointeur et compteur alloues par la bibliotheque).
 pub fn allAppsInfo(self: Nrt, dev: *c.ndl_device_t) Error!struct { ptr: ?[*]AppInfo, count: usize } {
     var info: ?[*]AppInfo = null;
     var count: usize = 0;
@@ -107,6 +112,7 @@ pub fn allAppsInfo(self: Nrt, dev: *c.ndl_device_t) Error!struct { ptr: ?[*]AppI
     return .{ .ptr = info, .count = count };
 }
 
+// Ouvre une instance NDS pour le PID donne sur un device et retourne son handle.
 pub fn ndsOpen(self: Nrt, dev: *c.ndl_device_t, pid: c.pid_t) Error!*c.nds_instance_t {
     var inst: ?*c.nds_instance_t = null;
     if (self.private_lib.nds_open(dev, pid, &inst) != 0) {
@@ -115,10 +121,12 @@ pub fn ndsOpen(self: Nrt, dev: *c.ndl_device_t, pid: c.pid_t) Error!*c.nds_insta
     return inst orelse error.nrt_error;
 }
 
+// Ferme une instance NDS precedemment ouverte.
 pub fn ndsClose(self: Nrt, inst: *c.nds_instance_t) void {
     _ = self.private_lib.nds_close(inst);
 }
 
+// Lit la valeur d'un compteur NC pour un index de coeur sur une instance NDS.
 pub fn ncCounter(self: Nrt, inst: *c.nds_instance_t, pnc_index: c_int, counter_index: u32) Error!u64 {
     var value: u64 = 0;
     if (self.private_lib.nds_get_nc_counter(inst, pnc_index, counter_index, &value) != 0) {
@@ -129,6 +137,7 @@ pub fn ncCounter(self: Nrt, inst: *c.nds_instance_t, pnc_index: c_int, counter_i
 
 pub const version_buf_len = c.RT_VERSION_DETAIL_LEN;
 
+// Ecrit la version detaillee du runtime Neuron dans buf et la retourne comme tranche sentinelle.
 pub fn version(self: Nrt, buf: *[version_buf_len]u8) Error![:0]const u8 {
     var ver: c.nrt_version_t = std.mem.zeroes(c.nrt_version_t);
     if (self.lib.nrt_get_version(&ver, @sizeOf(c.nrt_version_t)) != 0) {
@@ -138,6 +147,7 @@ pub fn version(self: Nrt, buf: *[version_buf_len]u8) Error![:0]const u8 {
     return std.mem.span(@as([*c]const u8, @ptrCast(buf)));
 }
 
+// Retourne le nombre total de coeurs Neuron (NC) disponibles.
 pub fn totalNcCount(self: Nrt) Error!u32 {
     var count: u32 = 0;
     if (self.lib.nrt_get_total_nc_count(&count) != 0) {
@@ -146,14 +156,18 @@ pub fn totalNcCount(self: Nrt) Error!u32 {
     return count;
 }
 
+// Retourne la taille HBM du device en octets.
 pub fn hbmSize(dev: *c.ndl_device_t) usize {
     return dev.hbm_size;
 }
 
+// Retourne le type de device Neuron (inf1, inf2/trn1, trn2, trn3...).
 pub fn deviceType(dev: *c.ndl_device_t) DeviceType {
     return @enumFromInt(dev.device_type);
 }
 
+// Resout les symboles prives de la bibliotheque Neuron en parcourant sa
+// table de symboles ELF depuis la base memoire mappee.
 fn resolveFromElf(handle: *anyopaque, io: std.Io, comptime known_sym: [:0]const u8) !PrivateFns {
     const fields = std.meta.fields(PrivateFns);
 
@@ -227,4 +241,6 @@ const DlInfo = extern struct {
     dli_saddr: ?*anyopaque,
 };
 
+// Declaration de dladdr : resout le nom de fichier et l'adresse de base
+// d'une bibliotheque a partir d'un symbole.
 extern fn dladdr(addr: *anyopaque, info: *DlInfo) c_int;

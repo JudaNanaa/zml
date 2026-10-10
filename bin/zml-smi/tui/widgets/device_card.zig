@@ -17,6 +17,8 @@ state: *const data.SystemState = undefined,
 use_braille: bool = false,
 viewing_device: *?u16 = undefined,
 
+// Gere la souris sur la carte: clic gauche pour ouvrir la vue detaillee,
+// survol pour surligner (curseur pointer) et sortie pour retablir l'etat.
 pub fn handleEvent(self: *DeviceCard, ctx: *vxfw.EventContext, event: vxfw.Event) anyerror!void {
     switch (event) {
         .mouse => |mouse| {
@@ -39,6 +41,9 @@ pub fn handleEvent(self: *DeviceCard, ctx: *vxfw.EventContext, event: vxfw.Event
     }
 }
 
+// Construit et dessine la carte d'un appareil: titre (type, nom, pilote),
+// suffixes temperature/puissance/memoire selon le type, et utilise/memoire
+// affichees en jauges ou mini-graphes selon le mode braille.
 pub fn draw(self: *DeviceCard, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const i = self.device_id;
     const dev = self.state.devices[i];

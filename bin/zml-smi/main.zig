@@ -77,6 +77,9 @@ const device_backends = switch (builtin.os.tag) {
     else => unreachable,
 };
 
+// Point d'entree: lit les options CLI, detecte les backends, initialise
+// collecteur, infos hote et enrichisseur, demarre les backends et serveurs puis
+// dispatch vers le mode choisi (prometheus, api, csv, json, TUI ou statique).
 pub fn main(init: std.process.Init) !void {
     const gpa = init.gpa;
     const arena = init.arena.allocator();
@@ -169,6 +172,9 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
+// Detecte les cibles materielle disponibles en sondant les noeuds de
+// peripheriques et sysfs (CUDA, ROCm, oneAPI, Neuron, TPU) selon l'OS/arch;
+// retourne l'ensemble des cibles trouvees.
 fn detect(allocator: std.mem.Allocator, io: std.Io) smi_info.Targets {
     if (comptime builtin.os.tag == .macos) {
         return .{};
@@ -215,11 +221,15 @@ fn detect(allocator: std.mem.Allocator, io: std.Io) smi_info.Targets {
     return targets;
 }
 
+// Indique si le chemin `path` existe et est accessible en lecture (presence
+// d'un noeud de peripherique).
 fn hasDevice(io: std.Io, path: []const u8) bool {
     std.Io.Dir.accessAbsolute(io, path, .{ .read = true }) catch return false;
     return true;
 }
 
+// Cherche un noeud de rendu DRM dans /dev/dri dont l'ID vendeur PCI lu dans
+// sysfs correspond a `pci_vendor_id`; retourne true si trouve.
 fn hasDrmRenderDevice(allocator: std.mem.Allocator, io: std.Io, comptime pci_vendor_id: []const u8) bool {
     var dir = std.Io.Dir.openDirAbsolute(io, "/dev/dri", .{ .iterate = true }) catch return false;
     defer dir.close(io);

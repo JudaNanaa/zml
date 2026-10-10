@@ -4,6 +4,8 @@ const pi = @import("zml-smi/info").process_info;
 
 pub const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.ArrayList(pi.ProcessInfo));
 
+// Rafraichit la liste des processus GPU : collecte les processus de calcul et
+// graphiques par device puis met a jour l'utilisation SM depuis les echantillons NVML.
 pub fn pollOnce(allocator: std.mem.Allocator, list: *ProcessDoubleBuffer, nvml: *const Nvml, dev_offset: u16, device_count: u32, last_seen_ts: []u64) void {
     const back = list.back();
 
@@ -43,6 +45,8 @@ pub fn pollOnce(allocator: std.mem.Allocator, list: *ProcessDoubleBuffer, nvml: 
     list.swap();
 }
 
+// Ajoute au tampon les processus d'une requete NVML en associant PID, index de
+// device et memoire utilisee (en Kio).
 fn collectFromQuery(allocator: std.mem.Allocator, back: *std.ArrayList(pi.ProcessInfo), dev_idx: u16, procs: []const Nvml.ProcessInfo_t) void {
     for (procs) |gp| {
         back.append(allocator, .{

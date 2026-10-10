@@ -5,6 +5,7 @@ const pi = @import("zml-smi/info").process_info;
 const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.ArrayList(pi.ProcessInfo));
 const Collector = @import("zml-smi/collector").Collector;
 
+// Initialise le suivi des processus oneAPI : capture un etat de reference puis lance le poll.
 pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, oneapi: *OneApi, dev_offset: u16) !void {
     const state = try collector.arena.create(Monitor.ProcessPrevious);
     state.* = .{};
@@ -19,6 +20,7 @@ pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, oneapi: *OneApi, 
     try collector.spawnPoll(pollOnce, .{ collector.gpa, collector.arena, collector.io, list, oneapi, dev_offset, state });
 }
 
+// Collecte l'usage par processus, calcule les deltas moteurs et publie la nouvelle liste.
 fn pollOnce(allocator: std.mem.Allocator, arena: std.mem.Allocator, io: std.Io, list: *ProcessDoubleBuffer, oneapi: *OneApi, dev_offset: u16, state: *Monitor.ProcessPrevious) void {
     const back = list.back();
     back.clearRetainingCapacity();

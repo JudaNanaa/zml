@@ -11,6 +11,8 @@ pub const Server = struct {
     tcp: std.Io.net.Server,
     connection_group: std.Io.Group = .init,
 
+    // Initialise le serveur Prometheus: parse `listen`, ouvre un ecoute TCP
+    // reutilisable et construit la structure `Server`.
     pub fn init(io: std.Io, listen: []const u8, devices: []const *DeviceInfo, host: *const HostInfo) !Server {
         const address = try std.Io.net.IpAddress.parseLiteral(listen);
         var tcp = try address.listen(io, .{ .reuse_address = true });
@@ -24,6 +26,8 @@ pub const Server = struct {
         };
     }
 
+    // Point d'entree du serveur Prometheus: l'initialise, logue et abandonne en
+    // cas d'echec, puis le fait servir jusqu'a l'arret (deinit automatique).
     pub fn run(io: std.Io, listen: []const u8, devices: []const *DeviceInfo, host_info: *const HostInfo) void {
         var self = init(io, listen, devices, host_info) catch |err| {
             std.log.err("prometheus server failed to start: {s}", .{@errorName(err)});
@@ -33,11 +37,15 @@ pub const Server = struct {
         self.serve();
     }
 
+    // Libere le serveur: attend la fin des connexions puis ferme le socket
+    // d'ecoute TCP.
     pub fn deinit(self: *Server) void {
         self.connection_group.await(self.io) catch {};
         self.tcp.deinit(self.io);
     }
 
+    // Boucle d'acceptation des connexions; chaque client est traite en
+    // concurrence via `onConnection`.
     pub fn serve(self: *Server) void {
         while (true) {
             const stream = self.tcp.accept(self.io) catch break;
@@ -45,11 +53,15 @@ pub const Server = struct {
         }
     }
 
+    // Gestionnaire d'une connexion acceptee: ferme le flux en sortie et delegue
+    // le traitement HTTP a handleConn en ignorant ses erreurs.
     fn onConnection(self: *Server, stream: std.Io.net.Stream) std.Io.Cancelable!void {
         defer stream.close(self.io);
         self.handleConn(stream) catch {};
     }
 
+    // Boucle serveur HTTP d'une connexion: refuse les methodes autres que GET
+    // (405), sinon repond 200 en text/plain avec l'exposition Prometheus.
     fn handleConn(self: *Server, stream: std.Io.net.Stream) !void {
         var read_buf: [8192]u8 = undefined;
         var reader = stream.reader(self.io, &read_buf);

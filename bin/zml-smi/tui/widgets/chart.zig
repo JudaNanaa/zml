@@ -23,6 +23,8 @@ y_unit: []const u8 = "%",
 chart_height: u16 = 6,
 tui_refresh_rate: u16,
 
+// Dessine le graphique entoure d'une bordure titree, le contenu etant
+// construit par drawContent.
 pub fn draw(self: *const Chart, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const tb: TitledBorder = .{
         .child = ui.drawWidget(self, drawContent),
@@ -32,6 +34,9 @@ pub fn draw(self: *const Chart, ctx: vxfw.DrawContext) std.mem.Allocator.Error!v
     return tb.draw(ctx);
 }
 
+// Construit le contenu du graphique: libelles de l'axe Y, aire de donnees
+// en braille, axe X avec reperes et libelles temporels, puis eventuelle ligne
+// d'information.
 fn drawContent(self: *const Chart, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const max_w = ctx.max.width orelse 40;
     const content_h: u16 = self.chart_height + x_axis_h + time_labels_h + info_line_h;
@@ -117,6 +122,8 @@ fn drawContent(self: *const Chart, ctx: vxfw.DrawContext) std.mem.Allocator.Erro
     return surface;
 }
 
+// Ecrit `text` cellule par cellule (en respectant les sequences UTF-8) a
+// partir de (col, row) avec le style donne.
 fn writeStr(surface: *vxfw.Surface, col: u16, row: u16, text: []const u8, style: vaxis.Cell.Style) void {
     var c = col;
     var i: usize = 0;
@@ -132,6 +139,7 @@ fn writeStr(surface: *vxfw.Surface, col: u16, row: u16, text: []const u8, style:
     }
 }
 
+// Formate un age en secondes en "-{m}m" au-dela de 120 s, sinon "-{s}s".
 fn fmtTime(arena: std.mem.Allocator, seconds: u16) std.mem.Allocator.Error![]const u8 {
     if (seconds >= 120) {
         return std.fmt.allocPrint(arena, "-{d}m", .{seconds / 60});

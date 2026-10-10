@@ -32,6 +32,9 @@ const Entry = struct {
     value: []const u8,
 };
 
+// Dessine les lignes d'information de l'hote (version de zml-smi, hostname,
+// noyau, CPU, coeurs, memoire, uptime, load, nombre d'appareils), avec les
+// valeurs alignees a droite.
 pub fn draw(self: *const InfoLines, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 80;
     const host = self.state.host.front().*;
@@ -98,6 +101,8 @@ pub fn draw(self: *const InfoLines, ctx: vxfw.DrawContext) std.mem.Allocator.Err
     return sb.finish(.{ .width = w, .height = total_h }, ui.widget(self));
 }
 
+// Formate une duree en secondes sous la forme "{d}d {d}h {d}m", en omettant
+// les unites de poids nul.
 fn formatUptime(arena: std.mem.Allocator, seconds: u64) std.mem.Allocator.Error![]const u8 {
     const days = seconds / 86400;
     const hours = (seconds % 86400) / 3600;

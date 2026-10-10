@@ -21,6 +21,8 @@ pub const dot_bits = [4][2]u8{
     .{ 0x40, 0x80 }, // row 3
 };
 
+// Dessine le graphique braille dans une surface de largeur ctx.max.width et
+// de hauteur self.height.
 pub fn draw(self: *const BrailleChart, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const w = ctx.max.width orelse 40;
     var surface = try vxfw.Surface.init(ctx.arena, ui.widget(self), .{ .width = w, .height = self.height });
@@ -28,6 +30,9 @@ pub fn draw(self: *const BrailleChart, ctx: vxfw.DrawContext) std.mem.Allocator.
     return surface;
 }
 
+// Rend les donnees braille dans une surface existante a l'offset
+// (col_offset, row_offset) et sur la largeur `w`; chaque caractere braille
+// encode une grille de 2x4 points colores selon la valeur.
 /// Render braille data into an existing surface at the given offset.
 pub fn renderTo(self: *const BrailleChart, arena: std.mem.Allocator, surface: *vxfw.Surface, col_offset: u16, row_offset: u16, w: u16) std.mem.Allocator.Error!void {
     const h = self.height;

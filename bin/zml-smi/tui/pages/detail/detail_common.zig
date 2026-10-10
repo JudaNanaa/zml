@@ -9,6 +9,8 @@ const compose = @import("../../lib/compose.zig");
 const Chart = @import("../../widgets/chart.zig");
 const ColumnLayout = @import("../../widgets/column_layout.zig");
 
+// Construit le texte d'en-tete "Device {id}: {name}" avec le style d'en-tete,
+// sans retour a la ligne et avec debordement coupe; alloue via l'arene.
 pub fn headerText(arena: std.mem.Allocator, id: u16, name: []const u8) std.mem.Allocator.Error!vxfw.Text {
     return .{
         .text = try std.fmt.allocPrint(arena, "Device {d}: {s}", .{ id, name }),
@@ -18,6 +20,9 @@ pub fn headerText(arena: std.mem.Allocator, id: u16, name: []const u8) std.mem.A
     };
 }
 
+// Construit un `Chart` pre-rempli avec l'historique normalise de l'appareil
+// `id` et les valeurs/options par defaut fournies (titre, libelle, bornes,
+// unite).
 /// Creates a Chart pre-filled with history data and standard defaults.
 pub fn historyChart(
     ctx: vxfw.DrawContext,
@@ -46,6 +51,9 @@ pub fn historyChart(
     };
 }
 
+// Dessine une mise en page de page (`ColumnLayout`) avec les marges standard
+// (haut=1, gauche/droite=2) dans une surface pleine largeur, en remplacant le
+// widget final par `parent_widget`.
 /// Draws a page-level layout with standard margin (top=1, left/right=2) inside a full-width surface.
 pub fn pageFrame(ctx: vxfw.DrawContext, layout: ColumnLayout, w: u16, parent_widget: vxfw.Widget) std.mem.Allocator.Error!vxfw.Surface {
     const padded = try compose.pad(ctx.arena, ui.widget(&layout), .{ .top = 1, .left = 2, .right = 2 });

@@ -13,6 +13,9 @@ image: vaxis.Image,
 /// If null, uses max constraint height (or 1 if unbounded).
 rows: ?u16 = null,
 
+// Dessine l'image a `rows` lignes (ou la hauteur max disponible) en conservant
+// le ratio, et renvoie une surface contenant une cellule image dimensionnee en
+// lignes et colonnes; surface vide si l'image est nulle.
 pub fn draw(self: *const Image, ctx: vxfw.DrawContext) Allocator.Error!vxfw.Surface {
     const target_rows = self.rows orelse ctx.max.height orelse 1;
     if (target_rows == 0 or self.image.width == 0 or self.image.height == 0) {
@@ -47,6 +50,8 @@ pub fn draw(self: *const Image, ctx: vxfw.DrawContext) Allocator.Error!vxfw.Surf
     return surf;
 }
 
+// Test unitaire du widget Image: verifie le calcul de taille (lignes et
+// colonnes) et la presence de la cellule image pour une image 100x50 a 5 lignes.
 test Image {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -79,6 +84,8 @@ test Image {
     try std.testing.expectEqual(@as(?u16, 20), size.cols);
 }
 
+// Test qui force l'instanciation/reference de toutes les declarations du
+// module (detecte les erreurs de compilation a l'usage).
 test "refAllDecls" {
     std.testing.refAllDecls(@This());
 }

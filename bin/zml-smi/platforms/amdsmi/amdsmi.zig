@@ -32,6 +32,7 @@ const Fns = struct {
     amdsmi_get_gpu_driver_info: *const @TypeOf(c.amdsmi_get_gpu_driver_info),
 };
 
+// Charge dynamiquement libamd_smi, initialise la bibliotheque et collecte les handles GPU.
 pub fn init(allocator: std.mem.Allocator) !AmdSmi {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sandbox_path = sandbox.path(&path_buf) orelse return error.AmdSmiUnavailable;
@@ -76,6 +77,7 @@ pub fn init(allocator: std.mem.Allocator) !AmdSmi {
     return .{ .lib = fns, .gpu_handles = try handle_list.toOwnedSlice(allocator) };
 }
 
+// Renvoie le handle GPU pour l'index donne ; error.not_found si hors limites.
 pub fn handleByIndex(self: AmdSmi, device_id: u32) Error!Handle {
     if (device_id >= self.gpu_handles.len) {
         return error.not_found;
@@ -83,12 +85,14 @@ pub fn handleByIndex(self: AmdSmi, device_id: u32) Error!Handle {
     return self.gpu_handles[device_id];
 }
 
+// Renvoie le nombre de GPU AMD detectes.
 pub fn deviceCount(self: AmdSmi) u32 {
     return @intCast(self.gpu_handles.len);
 }
 
 pub const name_buf_len = c.AMDSMI_MAX_STRING_LENGTH;
 
+// Lit le nom commercial du GPU et copie la chaine C-zero dans `buf`.
 pub fn name(self: AmdSmi, handle: Handle, buf: *[c.AMDSMI_MAX_STRING_LENGTH]u8) Error![:0]const u8 {
     var info: c.amdsmi_asic_info_t = undefined;
     try check(self.lib.amdsmi_get_gpu_asic_info(handle, &info));
@@ -96,6 +100,7 @@ pub fn name(self: AmdSmi, handle: Handle, buf: *[c.AMDSMI_MAX_STRING_LENGTH]u8) 
     return std.mem.span(@as([*c]const u8, @ptrCast(buf)));
 }
 
+// Lit la puissance courante (socket) du GPU en watts ; error.not_supported si absente.
 pub fn powerUsage(self: AmdSmi, handle: Handle) Error!u32 {
     var metrics: c.amdsmi_gpu_metrics_t = undefined;
     try check(self.lib.amdsmi_get_gpu_metrics_info(handle, &metrics));
@@ -109,90 +114,105 @@ pub fn powerUsage(self: AmdSmi, handle: Handle) Error!u32 {
     return error.not_supported;
 }
 
+// Lit la limite de puissance du GPU en milliwatts.
 pub fn powerLimit(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_power_info_t = undefined;
     try check(self.lib.amdsmi_get_power_info(handle, &info));
     return info.power_limit;
 }
 
+// Lit la temperature de bord (EDGE) du GPU en degres Celsius.
 pub fn temperature(self: AmdSmi, handle: Handle) Error!i64 {
     var temp: i64 = 0;
     try check(self.lib.amdsmi_get_temp_metric(handle, c.AMDSMI_TEMPERATURE_TYPE_EDGE, c.AMDSMI_TEMP_CURRENT, &temp));
     return temp;
 }
 
+// Lit la vitesse du ventilateur du GPU (valeur brute).
 pub fn fanSpeed(self: AmdSmi, handle: Handle) Error!i64 {
     var speed: i64 = 0;
     try check(self.lib.amdsmi_get_gpu_fan_speed(handle, @as(u32, 0), &speed));
     return speed;
 }
 
+// Lit le taux d'activite du moteur graphique en pourcentage.
 pub fn gpuUtil(self: AmdSmi, handle: Handle) Error!u32 {
     var usage: c.amdsmi_engine_usage_t = undefined;
     try check(self.lib.amdsmi_get_gpu_activity(handle, &usage));
     return usage.gfx_activity;
 }
 
+// Lit la frequence systeme (graphique) actuelle en MHz.
 pub fn clockGraphics(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_clk_info_t = undefined;
     try check(self.lib.amdsmi_get_clock_info(handle, c.AMDSMI_CLK_TYPE_SYS, &info));
     return info.clk;
 }
 
+// Lit la frequence systeme (graphique) maximale en MHz.
 pub fn maxClockGraphics(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_clk_info_t = undefined;
     try check(self.lib.amdsmi_get_clock_info(handle, c.AMDSMI_CLK_TYPE_SYS, &info));
     return info.max_clk;
 }
 
+// Lit la frequence memoire actuelle en MHz.
 pub fn clockMem(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_clk_info_t = undefined;
     try check(self.lib.amdsmi_get_clock_info(handle, c.AMDSMI_CLK_TYPE_MEM, &info));
     return info.clk;
 }
 
+// Lit la frequence memoire maximale en MHz.
 pub fn maxClockMem(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_clk_info_t = undefined;
     try check(self.lib.amdsmi_get_clock_info(handle, c.AMDSMI_CLK_TYPE_MEM, &info));
     return info.max_clk;
 }
 
+// Lit la frequence du SoC actuelle en MHz.
 pub fn clockSoc(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_clk_info_t = undefined;
     try check(self.lib.amdsmi_get_clock_info(handle, c.AMDSMI_CLK_TYPE_SOC, &info));
     return info.clk;
 }
 
+// Lit la memoire VRAM totale du GPU en octets.
 pub fn memTotal(self: AmdSmi, handle: Handle) Error!u64 {
     var total: u64 = 0;
     try check(self.lib.amdsmi_get_gpu_memory_total(handle, c.AMDSMI_MEM_TYPE_VRAM, &total));
     return total;
 }
 
+// Lit la memoire VRAM utilisee du GPU en octets.
 pub fn memUsed(self: AmdSmi, handle: Handle) Error!u64 {
     var used: u64 = 0;
     try check(self.lib.amdsmi_get_gpu_memory_usage(handle, c.AMDSMI_MEM_TYPE_VRAM, &used));
     return used;
 }
 
+// Lit la largeur du lien PCIe (nombre de voies).
 pub fn pcieWidth(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_pcie_info_t = undefined;
     try check(self.lib.amdsmi_get_pcie_info(handle, &info));
     return @intCast(info.pcie_metric.pcie_width);
 }
 
+// Lit la bande passante PCIe (Mo/s) rapportee par la bibliotheque.
 pub fn pcieBandwidth(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_pcie_info_t = undefined;
     try check(self.lib.amdsmi_get_pcie_info(handle, &info));
     return info.pcie_metric.pcie_bandwidth;
 }
 
+// Lit la version d'interface PCIe (generation du lien).
 pub fn pcieLinkGen(self: AmdSmi, handle: Handle) Error!u32 {
     var info: c.amdsmi_pcie_info_t = undefined;
     try check(self.lib.amdsmi_get_pcie_info(handle, &info));
     return info.pcie_static.pcie_interface_version;
 }
 
+// Lit l'identifiant BDF du GPU sous forme d'entier.
 pub fn bdfId(self: AmdSmi, handle: Handle) Error!u64 {
     var bdf_id: u64 = 0;
     try check(self.lib.amdsmi_get_gpu_bdf_id(handle, &bdf_id));
@@ -201,6 +221,7 @@ pub fn bdfId(self: AmdSmi, handle: Handle) Error!u64 {
 
 pub const driver_version_buf_len = @typeInfo(@TypeOf(@as(c.amdsmi_driver_info_t, undefined).driver_version)).array.len;
 
+// Lit la version du pilote GPU et copie la chaine C-zero dans `buf`.
 pub fn driverVersion(self: AmdSmi, handle: Handle, buf: *[driver_version_buf_len]u8) Error![:0]const u8 {
     var info: c.amdsmi_driver_info_t = std.mem.zeroes(c.amdsmi_driver_info_t);
     try check(self.lib.amdsmi_get_gpu_driver_info(handle, &info));
@@ -208,6 +229,7 @@ pub fn driverVersion(self: AmdSmi, handle: Handle, buf: *[driver_version_buf_len
     return std.mem.span(@as([*c]const u8, @ptrCast(buf)));
 }
 
+// Recupere la liste des processus utilisant le GPU (allouee dans `allocator`).
 pub fn processList(self: AmdSmi, allocator: std.mem.Allocator, handle: Handle) (Error || error{OutOfMemory})![]const ProcInfo {
     var count: u32 = 0;
     try check(self.lib.amdsmi_get_gpu_process_list(handle, &count, null));
@@ -255,6 +277,7 @@ pub const ReturnError = error{
     unknown_error,
 };
 
+// Convertit un code de statut amdsmi en erreur Zig ; succes si le retour est OK.
 fn check(ret: c.amdsmi_status_t) Error!void {
     if (ret == c.AMDSMI_STATUS_SUCCESS) {
         return;

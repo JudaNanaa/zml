@@ -19,6 +19,8 @@ suffix_reserve: u16 = 0,
 
 pub const sep_w: u16 = 3; // "   " before suffix
 
+// Dessine une jauge sur une ligne: libelle alinea, bloc rempli avec degrade
+// de couleur, pourcentage colore et suffixe aligne a droite.
 pub fn draw(self: *const Gauge, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const max_w = ctx.max.width orelse 30;
     const width: u16 = @max(ctx.min.width, max_w);

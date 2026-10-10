@@ -9,6 +9,8 @@ const MetricCard = @import("../../widgets/metric_card.zig");
 const ProcessTable = @import("../../widgets/process_table.zig");
 const common = @import("detail_common.zig");
 
+// Dessine la page de detail Neuron: en-tete, graphiques d'utilisation et de
+// memoire, carte de repartition HBM et tableau des processus.
 pub fn draw(
     state: *const data.SystemState,
     process_table: *ProcessTable,
@@ -49,6 +51,7 @@ pub fn draw(
 
     // ── HBM Breakdown ───────────────────────────────────────
     const fmt_mb = struct {
+        // Formate un nombre d'octets optionnel en " {d} MB" via utils.bytesToMb.
         fn f(arena: std.mem.Allocator, val: ?u64) std.mem.Allocator.Error![]const u8 {
             return std.fmt.allocPrint(arena, " {d} MB", .{utils.bytesToMb(val)});
         }

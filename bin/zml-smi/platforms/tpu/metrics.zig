@@ -9,6 +9,8 @@ const tpu_process = @import("process.zig");
 
 const address = "localhost:8431";
 
+// Detecte les puces TPU PCI, cree un device par TPU, remplit les infos
+// initiales et lance la collecte des metriques et des processus.
 pub fn start(collector: *Collector) !void {
     const chip = scanPciChips(collector.arena, collector.io) orelse return error.TpuUnavailable;
     const device_count = chip.chip_count * chip.devices_per_chip;
@@ -32,6 +34,7 @@ pub fn start(collector: *Collector) !void {
 
 const MetricKind = enum { int, double };
 
+// Reinterroge memoire et utilisation de tous les TPU puis publie les valeurs dans le double buffer.
 fn pollAllDevices(devs: []*DeviceInfo) void {
     var mem_used: [tpuinfo.max_devices]?u64 = undefined;
     var mem_total: [tpuinfo.max_devices]?u64 = undefined;
@@ -58,6 +61,8 @@ fn pollAllDevices(devs: []*DeviceInfo) void {
     }
 }
 
+// Interroge une metrique TPU (entiere ou flottante), remplit le tableau out
+// par id de device et met a null en cas d'echec.
 fn queryRaw(metric_name: [:0]const u8, comptime kind: MetricKind, out: []?u64) void {
     var ids: [tpuinfo.max_devices]c_longlong = undefined;
     switch (kind) {
@@ -117,6 +122,8 @@ const chip_table = [_]ChipEntry{
     .{ .device_id = "0x0076", .name = "TPU7x", .devices_per_chip = 2 },
 };
 
+// Parcourt /sys/bus/pci/devices pour identifier les puces TPU Google
+// et retourne leurs infos, ou null si aucune.
 fn scanPciChips(allocator: std.mem.Allocator, io: std.Io) ?ChipInfo {
     var pci_dir = std.Io.Dir.openDir(.cwd(), io, pci_base, .{ .iterate = true }) catch return null;
     defer pci_dir.close(io);
@@ -162,6 +169,7 @@ fn scanPciChips(allocator: std.mem.Allocator, io: std.Io) ?ChipInfo {
     return null;
 }
 
+// Lit un fichier sysfs PCI sous /sys/bus/pci/devices/{slot}/{file}.
 fn readSysfs(allocator: std.mem.Allocator, io: std.Io, slot: []const u8, file: []const u8) ![]const u8 {
     const path = try std.fmt.allocPrint(allocator, pci_base ++ "/{s}/{s}", .{ slot, file });
     return sysfs.readString(allocator, io, path);

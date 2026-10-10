@@ -8,6 +8,8 @@ const ColumnLayout = @import("../../widgets/column_layout.zig");
 const ProcessTable = @import("../../widgets/process_table.zig");
 const common = @import("detail_common.zig");
 
+// Dessine la page de detail TPU: en-tete, graphiques de duty cycle et de
+// memoire, puis tableau des processus.
 pub fn draw(
     state: *const data.SystemState,
     process_table: *ProcessTable,

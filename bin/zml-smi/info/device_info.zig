@@ -16,6 +16,8 @@ pub const DeviceInfo = union(Target) {
     neuron: DoubleBuffer(NeuronInfo),
     tpu: DoubleBuffer(TpuInfo),
 
+    // Indique si l'appareil est distant, en lisant le drapeau `remote` du tampon
+    // front de la variante active de l'union.
     pub fn isRemote(self: *const DeviceInfo) bool {
         switch (self.*) {
             inline else => |*db| return db.front().remote,

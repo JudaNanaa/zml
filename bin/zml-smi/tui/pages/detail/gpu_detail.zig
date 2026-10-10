@@ -10,6 +10,9 @@ const MetricCard = @import("../../widgets/metric_card.zig");
 const ProcessTable = @import("../../widgets/process_table.zig");
 const common = @import("detail_common.zig");
 
+// Dessine la page de detail GPU complete: en-tete (nom, version pilote et
+// CUDA), graphiques d'utilisation, memoire, temperature et puissance, cartes
+// horloges et PCIe, puis le tableau des processus.
 pub fn draw(
     state: *const data.SystemState,
     process_table: *ProcessTable,
@@ -137,16 +140,22 @@ pub fn draw(
     }, w, parent_widget);
 }
 
+// Formate une paire d'horloges "courant / max MHz", ou " N/A" si les deux
+// valeurs sont absentes.
 fn formatClockPair(arena: std.mem.Allocator, current: ?u64, max: ?u64) std.mem.Allocator.Error![]const u8 {
     if (current == null and max == null) return " N/A";
     return std.fmt.allocPrint(arena, " {d} / {d} MHz", .{ current orelse 0, max orelse 0 });
 }
 
+// Formate un lien PCIe "Gen{gen} x{largeur}", ou " N/A" si les deux valeurs
+// sont absentes.
 fn formatPcieLink(arena: std.mem.Allocator, gen: ?u64, width: ?u64) std.mem.Allocator.Error![]const u8 {
     if (gen == null and width == null) return " N/A";
     return std.fmt.allocPrint(arena, " Gen{d} x{d}", .{ gen orelse 0, width orelse 0 });
 }
 
+// Formate un debit (en Ko/s) en Go/s, Mo/s ou Ko/s selon l'ordre de grandeur,
+// avec une decimale.
 fn formatBandwidth(arena: std.mem.Allocator, kbps: u64) std.mem.Allocator.Error![]const u8 {
     if (kbps >= 1_000_000) {
         const gbps = @as(f64, @floatFromInt(kbps)) / 1_000_000.0;

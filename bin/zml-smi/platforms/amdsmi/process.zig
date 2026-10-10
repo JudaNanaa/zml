@@ -7,6 +7,7 @@ const Collector = @import("zml-smi/collector").Collector;
 
 const bdf_len = "0000:00:00.0".len;
 
+// Initialise le suivi des processus AMD : calcule les BDF par GPU puis lance le poll.
 pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, amdsmi: *const AmdSmi, dev_offset: u16) !void {
     const device_count = amdsmi.deviceCount();
     const pci_slots = try collector.arena.alloc(?[bdf_len]u8, device_count);
@@ -26,6 +27,7 @@ pub fn init(collector: *Collector, list: *ProcessDoubleBuffer, amdsmi: *const Am
     try collector.spawnPoll(pollOnce, .{ collector.gpa, collector.io, list, amdsmi, dev_offset, device_count, pci_slots });
 }
 
+// Collecte les processus de chaque GPU, lit leur VRAM par fdinfo et publie la liste.
 fn pollOnce(allocator: std.mem.Allocator, io: std.Io, list: *ProcessDoubleBuffer, amdsmi: *const AmdSmi, dev_offset: u16, device_count: u32, pci_slots: []?[bdf_len]u8) void {
     const back = list.back();
 
@@ -74,6 +76,7 @@ fn pollOnce(allocator: std.mem.Allocator, io: std.Io, list: *ProcessDoubleBuffer
     list.swap();
 }
 
+// Additionne la VRAM de tous les fdinfo du processus, filtree par slot PCI du GPU.
 /// Reads per-GPU VRAM from /proc/<pid>/fdinfo/, filtered by PCI slot.
 /// amdsmi reports global VRAM across all GPUs; fdinfo gives per-GPU values.
 fn readProcessGpuVram(io: std.Io, pid: u32, pci_slot: *const [bdf_len]u8) u64 {
@@ -95,6 +98,7 @@ fn readProcessGpuVram(io: std.Io, pid: u32, pci_slot: *const [bdf_len]u8) u64 {
     return total_vram_kib;
 }
 
+// Lit un fdinfo et renvoie la VRAM (KiB) pour le PCI slot voulu ; 0 si non trouve.
 fn parseFdinfoVram(io: std.Io, path: []const u8, pci_slot: *const [bdf_len]u8) u64 {
     var file = std.Io.Dir.openFile(.cwd(), io, path, .{ .mode = .read_only }) catch return 0;
     defer file.close(io);
@@ -126,6 +130,7 @@ fn parseFdinfoVram(io: std.Io, path: []const u8, pci_slot: *const [bdf_len]u8) u
     return 0;
 }
 
+// Formate un identifiant BDF entier en `dddd:bb:dd.f` (longueur fixe).
 fn formatBdf(bdf_id: u64) [bdf_len]u8 {
     var buf: [bdf_len]u8 = undefined;
     _ = std.fmt.bufPrint(&buf, "{x:0>4}:{x:0>2}:{x:0>2}.{x}", .{

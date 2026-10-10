@@ -7,6 +7,7 @@ const Collector = @import("zml-smi/collector").Collector;
 const poll_metrics = @import("zml-smi/info").poll_metrics;
 const process = @import("process.zig");
 
+// Demarre la collecte oneAPI : cree un Device par GPU, publie les infos et lance les polls.
 pub fn start(collector: *Collector) !void {
     const oneapi = try collector.arena.create(OneApi);
     oneapi.* = try OneApi.init(collector.arena, collector.io);
@@ -43,6 +44,7 @@ const Device = struct {
     arena: *std.heap.ArenaAllocator,
     handle: OneApi.Handle,
 
+    // Construit un Device pour l'index donne en resolvant son Handle oneAPI.
     fn open(oneapi: *OneApi, index: usize, arena: *std.heap.ArenaAllocator) !Device {
         return .{
             .oneapi = oneapi,
@@ -51,66 +53,82 @@ const Device = struct {
         };
     }
 
+    // Relaie la requete de nom vers l'API oneAPI (allocation dans `arena`).
     fn name(self: Device, arena: std.mem.Allocator) ![]const u8 {
         return self.oneapi.name(arena, self.handle);
     }
 
+    // Relaie la lecture de la version du pilote vers l'API oneAPI.
     fn driverVersion(self: Device, arena: std.mem.Allocator) ![]const u8 {
         return self.oneapi.driverVersion(arena);
     }
 
+    // Recupere la puissance instantanee du GPU en mW via l'API oneAPI.
     pub fn powerUsage(self: Device) !u64 {
         return self.oneapi.powerUsage(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la temperature du GPU en degres Celsius via l'API oneAPI.
     pub fn temperature(self: Device) !u64 {
         return self.oneapi.temperature(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la vitesse du ventilateur en pourcentage via l'API oneAPI.
     pub fn fanSpeed(self: Device) !u64 {
         return self.oneapi.fanSpeed(self.arena.allocator(), self.handle);
     }
 
+    // Recupere le taux d'occupation GPU en pourcentage via l'API oneAPI.
     pub fn gpuUtil(self: Device) !u64 {
         return self.oneapi.gpuUtil(self.arena.allocator(), self.handle);
     }
 
+    // Recupere le taux d'occupation du moteur d'encodage via l'API oneAPI.
     pub fn encoderUtil(self: Device) !u64 {
         return self.oneapi.encoderUtil(self.arena.allocator(), self.handle);
     }
 
+    // Recupere le taux d'occupation du moteur de decodage via l'API oneAPI.
     pub fn decoderUtil(self: Device) !u64 {
         return self.oneapi.decoderUtil(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la limite de puissance du GPU en mW via l'API oneAPI.
     pub fn powerLimit(self: Device) !u64 {
         return self.oneapi.powerLimit(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la frequence graphique actuelle en MHz via l'API oneAPI.
     pub fn clockGraphics(self: Device) !u64 {
         return self.oneapi.clockGraphics(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la frequence graphique maximale en MHz via l'API oneAPI.
     pub fn maxClockGraphics(self: Device) !u64 {
         return self.oneapi.maxClockGraphics(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la VRAM utilisee en octets via l'API oneAPI.
     pub fn memUsed(self: Device) !u64 {
         return self.oneapi.memUsed(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la VRAM totale en octets via l'API oneAPI.
     pub fn memTotal(self: Device) !u64 {
         return self.oneapi.memTotal(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la generation PCIe via l'API oneAPI.
     pub fn pcieLinkGen(self: Device) !u64 {
         return self.oneapi.pcieLinkGen(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la largeur du lien PCIe via l'API oneAPI.
     pub fn pcieLinkWidth(self: Device) !u64 {
         return self.oneapi.pcieLinkWidth(self.arena.allocator(), self.handle);
     }
 
+    // Recupere la bande passante PCIe (Mo/s) via l'API oneAPI.
     pub fn pcieBandwidth(self: Device) !u64 {
         return self.oneapi.pcieBandwidth(self.arena.allocator(), self.handle);
     }

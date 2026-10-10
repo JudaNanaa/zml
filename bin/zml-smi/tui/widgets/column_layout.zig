@@ -13,6 +13,9 @@ col_gap: u16 = 0,
 /// When null (default), behaves as a simple vertical stack.
 min_child_width: ?u16 = null,
 
+// Dispose les enfants en pile verticale, ou en grille si `min_child_width`
+// est defini; calcule la largeur/longueur totale et retourne la surface
+// composee.
 pub fn draw(self: *const ColumnLayout, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
     const n = self.children.len;
     if (n == 0) {

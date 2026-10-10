@@ -6,6 +6,7 @@ const HostData = host_info.HostData;
 const poll_metrics = @import("zml-smi/info").poll_metrics;
 const Collector = @import("zml-smi/collector").Collector;
 
+// Releve unique des informations hote (nom, noyau, CPU, memoire) puis lance la collecte periodique.
 pub fn init(collector: *Collector, info: *HostInfo) !void {
     const poll_arena = try collector.createPollArena();
     const host: Host = .{ .io = collector.io, .arena = poll_arena };
@@ -29,18 +30,22 @@ const Host = struct {
     io: std.Io,
     arena: *std.heap.ArenaAllocator,
 
+    // Lit le nom d'hote depuis /proc/sys/kernel/hostname.
     pub fn hostname(self: Host, allocator: std.mem.Allocator) ![]const u8 {
         return sysfs.readString(allocator, self.io, "/proc/sys/kernel/hostname");
     }
 
+    // Lit la version du noyau depuis /proc/sys/kernel/osrelease.
     pub fn kernel(self: Host, allocator: std.mem.Allocator) ![]const u8 {
         return sysfs.readString(allocator, self.io, "/proc/sys/kernel/osrelease");
     }
 
+    // Lit le nom du modele CPU depuis /proc/cpuinfo.
     pub fn cpuName(self: Host, allocator: std.mem.Allocator) ![]const u8 {
         return sysfs.readFieldString(allocator, self.io, "/proc/cpuinfo", "model name");
     }
 
+    // Calcule le nombre de coeurs CPU a partir de la plage /sys/devices/system/cpu/present.
     pub fn cpuCores(self: Host) !u64 {
         const data = try sysfs.readString(self.arena.allocator(), self.io, "/sys/devices/system/cpu/present");
         const dash = std.mem.indexOfScalar(u8, data, '-') orelse return 1;
@@ -48,14 +53,17 @@ const Host = struct {
         return (try std.fmt.parseInt(u64, data[dash + 1 ..], 10)) + 1;
     }
 
+    // Lit la memoire totale (MemTotal) depuis /proc/meminfo.
     pub fn memTotal(self: Host) !u64 {
         return sysfs.readFieldInt(self.arena.allocator(), self.io, "/proc/meminfo", "MemTotal");
     }
 
+    // Lit la memoire disponible (MemAvailable) depuis /proc/meminfo.
     pub fn memAvailable(self: Host) !u64 {
         return sysfs.readFieldInt(self.arena.allocator(), self.io, "/proc/meminfo", "MemAvailable");
     }
 
+    // Extrait le n-ieme champ de /proc/loadavg comme flottant.
     fn parseLoadAvg(self: Host, comptime n: usize) !f32 {
         const data = try sysfs.readString(self.arena.allocator(), self.io, "/proc/loadavg");
         var iter = std.mem.splitScalar(u8, data, ' ');
@@ -68,18 +76,22 @@ const Host = struct {
         return error.NotFound;
     }
 
+    // Retourne la moyenne de charge sur 1 minute.
     pub fn load1(self: Host) !f32 {
         return self.parseLoadAvg(0);
     }
 
+    // Retourne la moyenne de charge sur 5 minutes.
     pub fn load5(self: Host) !f32 {
         return self.parseLoadAvg(1);
     }
 
+    // Retourne la moyenne de charge sur 15 minutes.
     pub fn load15(self: Host) !f32 {
         return self.parseLoadAvg(2);
     }
 
+    // Retourne la duree de fonctionnement du systeme en secondes entieres.
     pub fn uptime(self: Host) !u64 {
         const data = try sysfs.readString(self.arena.allocator(), self.io, "/proc/uptime");
         const dot = std.mem.indexOfScalar(u8, data, '.') orelse data.len;

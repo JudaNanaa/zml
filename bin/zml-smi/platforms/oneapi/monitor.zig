@@ -52,6 +52,7 @@ allocator: std.mem.Allocator,
 io: std.Io,
 devices: []Device,
 
+// Construit un Monitor : decouvre les GPU Intel et initialise les echantillons de reference.
 pub fn init(allocator: std.mem.Allocator, io: std.Io) !Monitor {
     var monitor: Monitor = .{
         .allocator = allocator,
@@ -62,6 +63,7 @@ pub fn init(allocator: std.mem.Allocator, io: std.Io) !Monitor {
     return monitor;
 }
 
+// Lit l'identifiant du peripherique PCI du GPU depuis sysfs (`<dev_path>/device`).
 pub fn deviceId(self: *const Monitor, allocator: std.mem.Allocator, handle: Handle) ![]const u8 {
     const dev = try self.device(handle);
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -70,6 +72,7 @@ pub fn deviceId(self: *const Monitor, allocator: std.mem.Allocator, handle: Hand
     return std.mem.trim(u8, raw, &std.ascii.whitespace);
 }
 
+// Capture un premier echantillon d'energie et de compteurs moteurs comme reference.
 inline fn seedDeviceMetrics(self: *Monitor) !void {
     var device_usage = collectDeviceUsage(self.allocator, self.io, self.devices) catch DeviceUsage{};
     defer device_usage.deinit(self.allocator);
@@ -84,6 +87,7 @@ inline fn seedDeviceMetrics(self: *Monitor) !void {
     }
 }
 
+// Memorise les echantillons moteurs des processus pour calculer les deltas au prochain poll.
 pub fn saveProcessPrevious(allocator: std.mem.Allocator, previous: *ProcessPrevious, usage: *const ProcessUsage) !void {
     previous.clearRetainingCapacity();
     try previous.ensureTotalCapacity(allocator, @intCast(usage.count()));
@@ -96,6 +100,7 @@ pub fn saveProcessPrevious(allocator: std.mem.Allocator, previous: *ProcessPrevi
     }
 }
 
+// Enumere /dev/dri, ne garde que les GPU Intel et renvoie leurs descriptions triees par index.
 inline fn discoverIntelDevices(allocator: std.mem.Allocator, io: std.Io) ![]Device {
     var devices: std.ArrayList(Device) = .empty;
     errdefer devices.deinit(allocator);
@@ -114,6 +119,7 @@ inline fn discoverIntelDevices(allocator: std.mem.Allocator, io: std.Io) ![]Devi
     }
 
     std.mem.sort(Device, devices.items, {}, struct {
+        // Comparateur triant les Device par index render croissant.
         fn lessThan(_: void, lhs: Device, rhs: Device) bool {
             return lhs.render_idx < rhs.render_idx;
         }
@@ -121,6 +127,7 @@ inline fn discoverIntelDevices(allocator: std.mem.Allocator, io: std.Io) ![]Devi
     return devices.toOwnedSlice(allocator);
 }
 
+// Construit la description d'un GPU Intel (chemins DRM, hwmon, PCI, BDF) ; erreur si non-Intel.
 inline fn openDevice(allocator: std.mem.Allocator, io: std.Io, render_idx: usize) !Device {
     const drm_path = try std.fmt.allocPrint(allocator, "/sys/class/drm/renderD{d}", .{render_idx});
     errdefer allocator.free(drm_path);
@@ -148,12 +155,14 @@ inline fn openDevice(allocator: std.mem.Allocator, io: std.Io, render_idx: usize
     };
 }
 
+// Renvoie la description du GPU pour un Handle donne ; error.NotFound si hors limites.
 pub fn device(self: *const Monitor, handle: Handle) !*const Device {
     const idx = @intFromEnum(handle);
     if (idx >= self.devices.len) return error.NotFound;
     return &self.devices[idx];
 }
 
+// Lit la temperature du hwmon (pkg, gpu ou capteur numerote) et renvoie des degres arrondis.
 pub fn readTemperature(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     const hwmon = dev.hwmon_path orelse return error.NotFound;
     const milli_c = readHwmonInput(allocator, io, hwmon, "temp", "pkg") catch
@@ -163,6 +172,7 @@ pub fn readTemperature(allocator: std.mem.Allocator, io: std.Io, dev: *const Dev
     return (milli_c + 500) / 1000;
 }
 
+// Lit l'energie consommee du hwmon (en uJ) et l'horodate pour le calcul de puissance.
 pub fn readEnergy(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !EnergySample {
     const hwmon = dev.hwmon_path orelse return error.NotFound;
     const micro_joules = readHwmonInput(allocator, io, hwmon, "energy", "card") catch
@@ -173,6 +183,7 @@ pub fn readEnergy(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) 
         .timestamp_ns = @intCast(std.Io.Timestamp.now(io, .awake).nanoseconds),
     };
 }
+// Lit la limite de puissance hwmon (cap, sinon max) et renvoie des milliwatts.
 pub fn readPowerLimit(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     const hwmon = dev.hwmon_path orelse return error.NotFound;
     const microwatts = readNumberedSuffix(allocator, io, hwmon, "power", 1, "cap") catch
@@ -180,25 +191,30 @@ pub fn readPowerLimit(allocator: std.mem.Allocator, io: std.Io, dev: *const Devi
     return microwatts / 1000;
 }
 
+// Lit la vitesse du ventilateur en pourcentage : PWM d'abord, sinon RPM ramene en %.
 pub fn readFanSpeed(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     const hwmon = dev.hwmon_path orelse return error.NotFound;
     return readPwmFanSpeed(allocator, io, hwmon) catch readRpmFanSpeedPercent(allocator, io, hwmon);
 }
 
+// Lit la frequence graphique courante (act_freq, sinon cur_freq) en MHz.
 pub fn readClockGraphics(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     return readFreq(allocator, io, dev, "act_freq") catch readFreq(allocator, io, dev, "cur_freq");
 }
 
+// Lit la frequence graphique maximale (max_freq) en MHz.
 pub fn readMaxClockGraphics(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     return readFreq(allocator, io, dev, "max_freq");
 }
 
+// Lit la taille totale de memoire depuis le fichier `resource` du GPU.
 pub fn readMemTotal(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/resource", .{dev.dev_path});
     return readLargestResource(allocator, io, path);
 }
 
+// Lit la vitesse du lien PCIe courant et la convertit en numero de generation.
 pub fn readPcieLinkGen(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/current_link_speed", .{dev.pcie_path});
@@ -206,18 +222,21 @@ pub fn readPcieLinkGen(allocator: std.mem.Allocator, io: std.Io, dev: *const Dev
     return pcieGenFromSpeed(raw);
 }
 
+// Lit la largeur du lien PCIe courant (nombre de voies).
 pub fn readPcieLinkWidth(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/current_link_width", .{dev.pcie_path});
     return smi_sysfs.readInt(allocator, io, path);
 }
 
+// Combine generation et largeur du lien PCIe pour calculer la bande passante (Mo/s).
 pub fn readPcieBandwidth(allocator: std.mem.Allocator, io: std.Io, dev: *const Device) !u64 {
     const gen = try readPcieLinkGen(allocator, io, dev);
     const width = try readPcieLinkWidth(allocator, io, dev);
     return pcieBandwidthFromLink(gen, width) orelse error.NotFound;
 }
 
+// Agrege l'usage par processus en un echantillon par GPU (memoire et moteurs).
 pub fn collectDeviceUsage(allocator: std.mem.Allocator, io: std.Io, devices: []const Device) !DeviceUsage {
     var processes = try collectProcessUsage(allocator, io, devices);
     errdefer processes.deinit(allocator);
@@ -239,6 +258,7 @@ pub fn collectDeviceUsage(allocator: std.mem.Allocator, io: std.Io, devices: []c
     return result;
 }
 
+// Parcourt /proc pour reconstruire l'usage par (pid, GPU) depuis les fdinfo DRM.
 pub fn collectProcessUsage(allocator: std.mem.Allocator, io: std.Io, devices: []const Device) !ProcessUsage {
     var result: ProcessUsage = .{};
     errdefer result.deinit(allocator);
@@ -285,6 +305,7 @@ pub fn collectProcessUsage(allocator: std.mem.Allocator, io: std.Io, devices: []
     return result;
 }
 
+// Calcule un pourcentage d'occupation moteur borne a 100 depuis deux echantillons ; null sinon.
 pub fn processUtil(previous: ?EngineSample, current: ?EngineSample) ?u16 {
     const prev = previous orelse return null;
     const cur = current orelse return null;
@@ -296,12 +317,14 @@ pub fn processUtil(previous: ?EngineSample, current: ?EngineSample) ?u16 {
     return @intCast(if (pct == 0 and engine_delta > 0) 0 else pct);
 }
 
+// Calcule la puissance (mW) entre deux echantillons d'energie ; null si non calculable.
 pub fn powerMilliwatts(previous: ?EnergySample, current: ?EnergySample) ?u64 {
     const prev = previous orelse return null;
     const cur = current orelse return null;
     return milliwattsFromEnergyDelta(prev.micro_joules, cur.micro_joules, prev.timestamp_ns, cur.timestamp_ns);
 }
 
+// Convertit un delta d'energie (uJ) et de temps (ns) en milliwatts ; null si incoherent.
 inline fn milliwattsFromEnergyDelta(prev_uj: u64, cur_uj: u64, prev_ns: u64, cur_ns: u64) ?u64 {
     if (cur_uj < prev_uj or cur_ns <= prev_ns) return null;
     const energy_delta = cur_uj - prev_uj;
@@ -310,17 +333,20 @@ inline fn milliwattsFromEnergyDelta(prev_uj: u64, cur_uj: u64, prev_ns: u64, cur
     return energy_delta * 1_000_000 / time_delta;
 }
 
+// Lit une frequence donnee sous `tile0/gt0/freq0` du GPU, en MHz.
 inline fn readFreq(allocator: std.mem.Allocator, io: std.Io, dev: *const Device, file: []const u8) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/tile0/gt0/freq0/{s}", .{ dev.dev_path, file });
     return smi_sysfs.readInt(allocator, io, path);
 }
 
+// Extrait l'index d'un nom `renderD<n>` ; null si le nom ne correspond pas.
 inline fn parseRenderIndex(name: []const u8) ?usize {
     if (!std.mem.startsWith(u8, name, "renderD")) return null;
     return std.fmt.parseInt(usize, name["renderD".len..], 10) catch null;
 }
 
+// Cherche le repertoire hwmon du GPU correspondant au pilote xe ou i915 ; null sinon.
 inline fn findHwmon(allocator: std.mem.Allocator, io: std.Io, dev_path: []const u8) !?[]const u8 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const hwmon_root = try std.fmt.bufPrint(&path_buf, "{s}/hwmon", .{dev_path});
@@ -340,6 +366,7 @@ inline fn findHwmon(allocator: std.mem.Allocator, io: std.Io, dev_path: []const 
     return null;
 }
 
+// Lit le BDF PCI (PCI_SLOT_NAME) depuis l'uevent du GPU ; error.NotFound si absent.
 inline fn readBusDeviceId(allocator: std.mem.Allocator, io: std.Io, dev_path: []const u8) ![bus_device_identifier_len]u8 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/uevent", .{dev_path});
@@ -351,6 +378,7 @@ inline fn readBusDeviceId(allocator: std.mem.Allocator, io: std.Io, dev_path: []
     return out;
 }
 
+// Remonte la hierarchie PCI du GPU pour retenir le lien au debit maximal.
 inline fn findPcieLinkPath(allocator: std.mem.Allocator, io: std.Io, dev_path: []const u8) ![]const u8 {
     var candidate = dev_path;
     var best_path: ?[]const u8 = null;
@@ -373,6 +401,7 @@ inline fn findPcieLinkPath(allocator: std.mem.Allocator, io: std.Io, dev_path: [
     return best_path orelse dev_path;
 }
 
+// Indique si le peripherique PCI donne appartient a Intel (vendor 0x8086).
 inline fn isIntelPciDevice(allocator: std.mem.Allocator, io: std.Io, dev_path: []const u8) !bool {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const vendor_path = try std.fmt.bufPrint(&path_buf, "{s}/vendor", .{dev_path});
@@ -382,6 +411,7 @@ inline fn isIntelPciDevice(allocator: std.mem.Allocator, io: std.Io, dev_path: [
     return std.mem.eql(u8, vendor, "0x8086");
 }
 
+// Lit vitesse et largeur maximales du lien PCIe et calcule la bande passante (Mo/s).
 inline fn readMaxPcieBandwidth(allocator: std.mem.Allocator, io: std.Io, dev_path: []const u8) !u64 {
     var speed_path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const speed_path = try std.fmt.bufPrint(&speed_path_buf, "{s}/max_link_speed", .{dev_path});
@@ -394,6 +424,7 @@ inline fn readMaxPcieBandwidth(allocator: std.mem.Allocator, io: std.Io, dev_pat
     return pcieBandwidthFromLink(gen, width) orelse error.NotFound;
 }
 
+// Cherche un capteur hwmon par `label` et lit sa valeur d'entree correspondante.
 inline fn readHwmonInput(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8, comptime prefix: []const u8, label: []const u8) !u64 {
     for (1..16) |idx| {
         var label_path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -406,22 +437,26 @@ inline fn readHwmonInput(allocator: std.mem.Allocator, io: std.Io, hwmon: []cons
     return error.NotFound;
 }
 
+// Lit la valeur d'entree `<prefix><idx>_input` d'un capteur hwmon.
 inline fn readNumberedInput(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8, comptime prefix: []const u8, idx: usize) !u64 {
     return readNumberedSuffix(allocator, io, hwmon, prefix, idx, "input");
 }
 
+// Lit la valeur `<prefix><idx>_<suffix>` d'un capteur hwmon, en entier.
 inline fn readNumberedSuffix(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8, comptime prefix: []const u8, idx: usize, suffix: []const u8) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/{s}{d}_{s}", .{ hwmon, prefix, idx, suffix });
     return smi_sysfs.readInt(allocator, io, path);
 }
 
+// Lit la valeur brute `<prefix><idx>` d'un capteur hwmon, en entier.
 inline fn readNumberedRaw(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8, comptime prefix: []const u8, idx: usize) !u64 {
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "{s}/{s}{d}", .{ hwmon, prefix, idx });
     return smi_sysfs.readInt(allocator, io, path);
 }
 
+// Lit le premier canal PWM disponible et le convertit en pourcentage.
 inline fn readPwmFanSpeed(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8) !u64 {
     for (1..16) |idx| {
         const pwm = readNumberedRaw(allocator, io, hwmon, "pwm", idx) catch continue;
@@ -430,6 +465,7 @@ inline fn readPwmFanSpeed(allocator: std.mem.Allocator, io: std.Io, hwmon: []con
     return error.NotFound;
 }
 
+// Convertit la vitesse d'un ventilateur (RPM input/max) en pourcentage.
 inline fn readRpmFanSpeedPercent(allocator: std.mem.Allocator, io: std.Io, hwmon: []const u8) !u64 {
     for (1..16) |idx| {
         const input = readNumberedSuffix(allocator, io, hwmon, "fan", idx, "input") catch continue;
@@ -440,10 +476,12 @@ inline fn readRpmFanSpeedPercent(allocator: std.mem.Allocator, io: std.Io, hwmon
     return error.NotFound;
 }
 
+// Convertit une valeur PWM (0-255) en pourcentage borne a 100.
 inline fn pwmToPercent(pwm: u64) u64 {
     return @min((@min(pwm, 255) * 100 + 127) / 255, 100);
 }
 
+// Parcourt le fichier `resource` du GPU et renvoie la plus grande region memoire (octets).
 inline fn readLargestResource(allocator: std.mem.Allocator, io: std.Io, path: []const u8) !u64 {
     var file = try std.Io.Dir.openFile(.cwd(), io, path, .{ .mode = .read_only });
     defer file.close(io);
@@ -467,6 +505,7 @@ inline fn readLargestResource(allocator: std.mem.Allocator, io: std.Io, path: []
     return largest;
 }
 
+// Interprete une ligne de `resource` (base, fin) et renvoie sa taille si grande ; sinon null.
 inline fn resourceLineSize(line: []const u8) ?u64 {
     var it = std.mem.tokenizeAny(u8, line, " \t");
     const base = parseHex(it.next() orelse return null) orelse return null;
@@ -476,12 +515,14 @@ inline fn resourceLineSize(line: []const u8) ?u64 {
     return if (size >= 256 * 1024 * 1024) size else null;
 }
 
+// Analyse un entier hexadecimal (prefixe 0x facultatif) ; null si invalide.
 inline fn parseHex(raw: []const u8) ?u64 {
     const trimmed = std.mem.trim(u8, raw, &std.ascii.whitespace);
     const digits = if (std.mem.startsWith(u8, trimmed, "0x")) trimmed[2..] else trimmed;
     return std.fmt.parseInt(u64, digits, 16) catch null;
 }
 
+// Convertit une vitesse de lien PCIe ("16.0 GT/s") en generation ; error.NotFound sinon.
 inline fn pcieGenFromSpeed(raw: []const u8) !u64 {
     const trimmed = std.mem.trim(u8, raw, &std.ascii.whitespace);
     if (std.mem.startsWith(u8, trimmed, "2.5")) return 1;
@@ -493,6 +534,7 @@ inline fn pcieGenFromSpeed(raw: []const u8) !u64 {
     return error.NotFound;
 }
 
+// Calcule la bande passante PCIe (Mo/s) = debit par voie x voies ; null si generation inconnue.
 inline fn pcieBandwidthFromLink(gen: u64, width: u64) ?u64 {
     const lane_mb_s: u64 = switch (gen) {
         1 => 250,
@@ -526,6 +568,7 @@ const ParsedFdinfo = struct {
     engine_time_seen: bool = false,
 };
 
+// Lit et analyse un fichier fdinfo DRM, en agregeant les compteurs moteur et memoire.
 inline fn parseFdinfoFile(io: std.Io, path: []const u8, timestamp_ns: u64) !ParsedFdinfo {
     var read_buf: [8192]u8 = undefined;
     const data = std.Io.Dir.readFile(.cwd(), io, path, &read_buf) catch return error.FileUnavailable;
@@ -541,6 +584,7 @@ inline fn parseFdinfoFile(io: std.Io, path: []const u8, timestamp_ns: u64) !Pars
     return parsed;
 }
 
+// Finalise un ParsedFdinfo : choisit la memoire retenue et convertit les cycles en echantillon.
 inline fn finishFdinfo(self: *ParsedFdinfo) void {
     if (self.resident_vram_kib > 0) {
         self.sample.mem_kib = self.resident_vram_kib;
@@ -560,6 +604,7 @@ inline fn finishFdinfo(self: *ParsedFdinfo) void {
     }
 }
 
+// Traite une ligne fdinfo DRM et met a jour le ParsedFdinfo (PCI, memoire, moteurs).
 inline fn parseFdinfoLine(parsed: *ParsedFdinfo, line: []const u8, timestamp_ns: u64) void {
     if (std.mem.startsWith(u8, line, "drm-pdev:")) {
         parsed.bus_device_identifier = parseBdf(line["drm-pdev:".len..]);
@@ -639,6 +684,7 @@ inline fn parseFdinfoLine(parsed: *ParsedFdinfo, line: []const u8, timestamp_ns:
     }
 }
 
+// Fusionne un echantillon fdinfo dans un ProcessSample (somme memoire et moteurs).
 fn mergeProcessSample(dst: *ProcessSample, src: FdinfoSample) void {
     if (src.mem_kib) |mem| dst.mem_kib = (dst.mem_kib orelse 0) + mem;
     addEngineSample(&dst.engine, src.engine);
@@ -646,10 +692,12 @@ fn mergeProcessSample(dst: *ProcessSample, src: FdinfoSample) void {
     addEngineSample(&dst.decoder, src.decoder);
 }
 
+// Ajoute un echantillon moteur optionnel a un accumulateur de moteur.
 fn addEngineSample(dst: *?EngineSample, src: ?EngineSample) void {
     if (src) |engine| addEngineTime(dst, engine.engine_ns, engine.timestamp_ns);
 }
 
+// Cumule un temps moteur (ns) dans un accumulateur en conservant le dernier horodatage.
 fn addEngineTime(dst: *?EngineSample, engine_ns: u64, timestamp_ns: u64) void {
     const current = dst.* orelse EngineSample{ .engine_ns = 0, .timestamp_ns = timestamp_ns };
     dst.* = .{
@@ -658,6 +706,7 @@ fn addEngineTime(dst: *?EngineSample, engine_ns: u64, timestamp_ns: u64) void {
     };
 }
 
+// Retrouve l'index du GPU correspondant a un BDF PCI donne ; null si aucun.
 fn matchDevice(devices: []const Device, bus_device_identifier: [bus_device_identifier_len]u8) ?u16 {
     for (devices, 0..) |dev, idx| {
         if (dev.bus_device_identifier) |device_bus_device_identifier| {
@@ -667,6 +716,7 @@ fn matchDevice(devices: []const Device, bus_device_identifier: [bus_device_ident
     return null;
 }
 
+// Construit une cle unique (device_idx en haut, pid en bas) pour indexer les processus.
 fn processKey(pid: u32, device_idx: u16) u64 {
     return (@as(u64, device_idx) << 32) | pid;
 }
@@ -678,6 +728,7 @@ pub const BdfParts = struct {
     function: u32,
 };
 
+// Formate des composants BDF en chaine `dddd:bb:dd.f` (longueur fixe).
 pub fn formatBdf(parts: BdfParts) [bus_device_identifier_len]u8 {
     var buf: [bus_device_identifier_len]u8 = undefined;
     _ = std.fmt.bufPrint(&buf, "{x:0>4}:{x:0>2}:{x:0>2}.{x}", .{
@@ -689,6 +740,7 @@ pub fn formatBdf(parts: BdfParts) [bus_device_identifier_len]u8 {
     return buf;
 }
 
+// Normalise une adresse BDF (complete ou sans domaine) en forme `0000:bb:dd.f` ; null sinon.
 inline fn parseBdf(raw: []const u8) ?[bus_device_identifier_len]u8 {
     const trimmed = std.mem.trim(u8, raw, " \t\n");
     var out: [bus_device_identifier_len]u8 = undefined;
@@ -703,11 +755,13 @@ inline fn parseBdf(raw: []const u8) ?[bus_device_identifier_len]u8 {
     return null;
 }
 
+// Renvoie le premier entier decimal de la chaine, ou 0 si absent/invalide.
 inline fn firstInt(raw: []const u8) u64 {
     var iter = std.mem.tokenizeAny(u8, raw, " \t");
     return std.fmt.parseInt(u64, iter.next() orelse return 0, 10) catch 0;
 }
 
+// Convertit une valeur memoire avec unite (B, KiB, MiB, GiB) en kibioctets.
 inline fn memoryKiB(raw: []const u8) u64 {
     var iter = std.mem.tokenizeAny(u8, raw, " \t");
     const value = std.fmt.parseInt(u64, iter.next() orelse return 0, 10) catch return 0;
@@ -719,6 +773,7 @@ inline fn memoryKiB(raw: []const u8) u64 {
     return value;
 }
 
+// Teste si `haystack` contient `needle`, insensible a la casse ASCII.
 inline fn containsAsciiIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     if (needle.len == 0) return true;
     if (needle.len > haystack.len) return false;
@@ -728,6 +783,7 @@ inline fn containsAsciiIgnoreCase(haystack: []const u8, needle: []const u8) bool
     return false;
 }
 
+// Verifie l'analyse fdinfo : BDF, client DRM, memoire et cumul des moteurs render/compute.
 test "oneAPI fdinfo parser" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-pdev:\t0000:03:00.0", 10);
@@ -746,6 +802,7 @@ test "oneAPI fdinfo parser" {
     try std.testing.expectEqual(@as(?EngineSample, null), parsed.sample.decoder);
 }
 
+// Verifie la classification des moteurs media explicites (encode/decode).
 test "oneAPI fdinfo parser classifies explicit media engines" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-engine-video-decode:\t100 ns", 10);
@@ -758,6 +815,7 @@ test "oneAPI fdinfo parser classifies explicit media engines" {
     try std.testing.expectEqual(@as(u64, 125), parsed.sample.decoder.?.engine_ns);
 }
 
+// Verifie que les moteurs video generiques restent non classes encode/decode.
 test "oneAPI fdinfo parser leaves generic video engines unclassified" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-engine-video:\t100 ns", 10);
@@ -770,6 +828,7 @@ test "oneAPI fdinfo parser leaves generic video engines unclassified" {
     try std.testing.expectEqual(@as(?EngineSample, null), parsed.sample.decoder);
 }
 
+// Verifie la lecture des compteurs de cycles (drm-cycles / drm-total-cycles).
 test "oneAPI fdinfo parser cycle counters" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-pdev:\t0000:03:00.0", 10);
@@ -784,6 +843,7 @@ test "oneAPI fdinfo parser cycle counters" {
     try std.testing.expectEqual(@as(u64, 100), parsed.sample.engine.?.timestamp_ns);
 }
 
+// Verifie la selection des regions VRAM xe (resident prioritaire sur total).
 test "oneAPI fdinfo parser xe vram regions" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-pdev:\t0000:03:00.0", 10);
@@ -795,6 +855,7 @@ test "oneAPI fdinfo parser xe vram regions" {
     try std.testing.expectEqual(@as(?u64, 3072), parsed.sample.mem_kib);
 }
 
+// Verifie le repli sur la VRAM totale quand aucune valeur residuelle n'est presente.
 test "oneAPI fdinfo parser falls back to total vram" {
     var parsed: ParsedFdinfo = .{};
     parseFdinfoLine(&parsed, "drm-total-vram0:\t2 MiB", 10);
@@ -803,6 +864,7 @@ test "oneAPI fdinfo parser falls back to total vram" {
     try std.testing.expectEqual(@as(?u64, 2048), parsed.sample.mem_kib);
 }
 
+// Verifie la deduplication des clients DRM par couple (device, client).
 test "oneAPI DRM clients dedup per device" {
     var seen_device_clients: std.AutoHashMapUnmanaged(struct { u16, u64 }, void) = .{};
     defer seen_device_clients.deinit(std.testing.allocator);
@@ -813,12 +875,14 @@ test "oneAPI DRM clients dedup per device" {
     try std.testing.expectEqual(false, (try seen_device_clients.getOrPut(std.testing.allocator, .{ 0, 43 })).found_existing);
 }
 
+// Verifie le calcul du pourcentage d'occupation par delta d'echantillons.
 test "oneAPI process utilization delta" {
     try std.testing.expectEqual(@as(?u16, 50), processUtil(.{ .engine_ns = 100, .timestamp_ns = 1000 }, .{ .engine_ns = 600, .timestamp_ns = 2000 }));
     try std.testing.expectEqual(@as(?u16, 1), processUtil(.{ .engine_ns = 100, .timestamp_ns = 1000 }, .{ .engine_ns = 101, .timestamp_ns = 2000 }));
     try std.testing.expectEqual(@as(?u16, null), processUtil(null, .{ .engine_ns = 600, .timestamp_ns = 2000 }));
 }
 
+// Verifie la conversion d'une valeur PWM en pourcentage.
 test "oneAPI PWM fan speed conversion" {
     try std.testing.expectEqual(@as(u64, 0), pwmToPercent(0));
     try std.testing.expectEqual(@as(u64, 50), pwmToPercent(128));
@@ -826,6 +890,7 @@ test "oneAPI PWM fan speed conversion" {
     try std.testing.expectEqual(@as(u64, 100), pwmToPercent(300));
 }
 
+// Verifie que saveProcessPrevious ne conserve que les echantillons moteurs.
 test "oneAPI process previous keeps engine samples" {
     var usage: ProcessUsage = .{};
     defer usage.deinit(std.testing.allocator);
@@ -853,23 +918,27 @@ test "oneAPI process previous keeps engine samples" {
     try std.testing.expectEqual(@as(?EngineSample, null), previous.get(mem_only_key));
 }
 
+// Verifie le calcul de puissance a partir d'un delta d'energie hwmon.
 test "oneAPI power delta from hwmon energy" {
     try std.testing.expectEqual(@as(?u64, 20_000), milliwattsFromEnergyDelta(1_000, 11_000, 1_000, 501_000));
     try std.testing.expectEqual(@as(?u64, null), milliwattsFromEnergyDelta(11_000, 1_000, 1_000, 501_000));
     try std.testing.expectEqual(@as(?u64, null), milliwattsFromEnergyDelta(1_000, 11_000, 501_000, 1_000));
 }
 
+// Verifie la detection des grandes regions memoire BAR depuis `resource`.
 test "oneAPI resource line chooses large memory BARs" {
     try std.testing.expectEqual(@as(?u64, 34_359_738_368), resourceLineSize("0x0000048800000000 0x0000048fffffffff 0x000000000014220c"));
     try std.testing.expectEqual(@as(?u64, null), resourceLineSize("0x00000000f6c00000 0x00000000f6dfffff 0x0000000000046200"));
 }
 
+// Verifie la correspondance vitesse PCIe -> generation.
 test "oneAPI PCIe speed maps to generation" {
     try std.testing.expectEqual(@as(u64, 1), try pcieGenFromSpeed("2.5 GT/s PCIe"));
     try std.testing.expectEqual(@as(u64, 4), try pcieGenFromSpeed("16.0 GT/s PCIe"));
     try std.testing.expectError(error.NotFound, pcieGenFromSpeed("Unknown"));
 }
 
+// Verifie le calcul de bande passante PCIe a partir de la generation et de la largeur.
 test "oneAPI PCIe bandwidth derives from generation and width" {
     try std.testing.expectEqual(@as(?u64, 250), pcieBandwidthFromLink(1, 1));
     try std.testing.expectEqual(@as(?u64, 63_008), pcieBandwidthFromLink(5, 16));

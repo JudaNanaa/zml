@@ -37,9 +37,12 @@ const HOST_VM_INFO64: c_int = 4;
 const HOST_VM_INFO64_COUNT: c_uint = @sizeOf(vm_statistics64) / @sizeOf(c_int);
 const KERN_SUCCESS: c_int = 0;
 
+// Declaration de host_statistics64 : lit les statistiques memoire (VM) de macOS.
 extern "c" fn host_statistics64(host: c.mach_port_t, flavor: c_int, info: *anyopaque, count: *c_uint) c.kern_return_t;
+// Declaration de getloadavg : recupere les moyennes de charge du systeme.
 extern "c" fn getloadavg(loadavg: *[3]f64, nelem: c_int) c_int;
 
+// Releve unique des informations hote macOS (nom, noyau, CPU, memoire) puis lance la collecte periodique.
 pub fn init(collector: *Collector, info: *HostInfo) !void {
     const poll_arena = try collector.createPollArena();
     const host: Host = .{};
@@ -59,14 +62,18 @@ pub fn init(collector: *Collector, info: *HostInfo) !void {
 const pollOnce = poll_metrics.poll(*HostInfo, Host, metrics);
 
 const Host = struct {
+    // Retourne le nombre de coeurs logiques via sysctl hw.logicalcpu.
     pub fn cpuCores(_: Host) !u64 {
         return @intCast(try sysctlU32("hw.logicalcpu"));
     }
 
+    // Retourne la memoire totale en Kio depuis sysctl hw.memsize.
     pub fn memTotal(_: Host) !u64 {
         return (try sysctlU64("hw.memsize")) / 1024;
     }
 
+    // Estime la memoire disponible en Kio a partir des statistiques VM
+    // (pages libres, inactives et purgeables).
     pub fn memAvailable(_: Host) !u64 {
         var vm_stat: vm_statistics64 = undefined;
         var count: c_uint = HOST_VM_INFO64_COUNT;
@@ -87,6 +94,7 @@ const Host = struct {
         return (available_pages * page_size) / 1024;
     }
 
+    // Retourne les trois moyennes de charge via getloadavg.
     fn loadAvg() ![3]f64 {
         var avg: [3]f64 = undefined;
         if (getloadavg(&avg, 3) != 3) {
@@ -96,18 +104,22 @@ const Host = struct {
         return avg;
     }
 
+    // Retourne la moyenne de charge sur 1 minute.
     pub fn load1(_: Host) !f32 {
         return @floatCast((try loadAvg())[0]);
     }
 
+    // Retourne la moyenne de charge sur 5 minutes.
     pub fn load5(_: Host) !f32 {
         return @floatCast((try loadAvg())[1]);
     }
 
+    // Retourne la moyenne de charge sur 15 minutes.
     pub fn load15(_: Host) !f32 {
         return @floatCast((try loadAvg())[2]);
     }
 
+    // Retourne la duree de fonctionnement depuis l'heure de demarrage (kern.boottime).
     pub fn uptime(_: Host) !u64 {
         var boottime: c.timeval = undefined;
         var len: usize = @sizeOf(c.timeval);
@@ -122,6 +134,7 @@ const Host = struct {
     }
 };
 
+// Lit une valeur sysctl sous forme de chaine et en duplique une copie terminee par zero.
 fn sysctlString(allocator: std.mem.Allocator, name: [*:0]const u8) ![]const u8 {
     var buf: [256]u8 = undefined;
     var len: usize = buf.len;
@@ -132,6 +145,7 @@ fn sysctlString(allocator: std.mem.Allocator, name: [*:0]const u8) ![]const u8 {
     return allocator.dupe(u8, std.mem.span(@as([*:0]const u8, @ptrCast(buf[0..len]))));
 }
 
+// Lit une valeur sysctl 64 bits.
 fn sysctlU64(name: [*:0]const u8) !u64 {
     var value: u64 = 0;
     var len: usize = @sizeOf(u64);
@@ -142,6 +156,7 @@ fn sysctlU64(name: [*:0]const u8) !u64 {
     return value;
 }
 
+// Lit une valeur sysctl 32 bits.
 fn sysctlU32(name: [*:0]const u8) !u32 {
     var value: u32 = 0;
     var len: usize = @sizeOf(u32);

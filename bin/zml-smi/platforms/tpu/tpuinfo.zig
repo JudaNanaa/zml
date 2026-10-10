@@ -8,6 +8,8 @@ pub const Error = error{
     QueryFailed,
 };
 
+// Interroge la metrique entiere d'un TPU via gRPC ; ecrit ids/valeurs et
+// retourne le nombre d'entrees, ou QueryFailed.
 pub fn queryInt(
     address: [:0]const u8,
     metric_name: [:0]const u8,
@@ -22,6 +24,8 @@ pub fn queryInt(
     return @intCast(n);
 }
 
+// Interroge la metrique flottante d'un TPU via gRPC ; ecrit ids/valeurs et
+// retourne le nombre d'entrees, ou QueryFailed.
 pub fn queryDouble(
     address: [:0]const u8,
     metric_name: [:0]const u8,
