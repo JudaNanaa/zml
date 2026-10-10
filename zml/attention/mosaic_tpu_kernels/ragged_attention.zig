@@ -2,6 +2,7 @@ const ragged_paged = @import("platforms/tpu/ragged_paged");
 
 const zml = @import("../../zml.zig");
 
+// Bloc de test qui force la référence de la déclaration Kernel.
 test {
     _ = Kernel;
 }

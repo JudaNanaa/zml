@@ -28,6 +28,7 @@ pub const Config = struct {
     /// CTAs per query token (power of two); null picks one from the SM count.
     cluster: ?i64 = null,
 
+    // Choisit le nombre de CTAs persistants couvrant les SMs en une seule vague.
     /// Enough CTAs to cover the SMs in a single wave, but no more than there
     /// are key blocks (64 candidates each) and at most 8 (portable cluster size).
     /// Clusters only co-schedule within a GPC, so large clusters do not fill
@@ -40,6 +41,7 @@ pub const Config = struct {
         return @min(c.queries, @as(i64, @intCast(sm_count)));
     }
 
+    // Détermine la taille de cluster (CTAs par token) adaptée au nombre de SMs.
     pub fn clusterSize(c: Config, sm_count: usize) i64 {
         if (c.cluster) |n| return n;
         // Window-only layers have at most two blocks: splitting them never pays for the merge.
@@ -75,12 +77,14 @@ pub const Inputs = struct {
 
 const kernel = @import("flashmla_sm100.zig");
 
+// Indique si la plateforme est un GPU Blackwell (SM100+) où ce noyau est disponible.
 pub fn isAvailable(platform: *const zml.Platform) bool {
     if (platform.target != .cuda) return false;
     const cc = zml.platform.cuda.computeCapability(platform) orelse return false;
     return cc.major == 10;
 }
 
+// Vérifie que les entrées (Blackwell, Q BF16 de dimension 512, cache quantifié) sont supportées par le noyau.
 /// Whether the kernel supports these inputs: Blackwell, BF16 Q with a 512-wide latent
 /// and a multiple of 16 heads (at most 64; they run in groups of 16, one `kernelCall`
 /// each), and the DeepSeek-V4.1 cache formats without a global scale: FP8 window rows
@@ -113,10 +117,12 @@ pub fn supports(args: Mla.SparseAttentionArgs) bool {
     return @rem(capacity, 128) == 0 and capacity <= 512;
 }
 
+// Renvoie la dimension du dernier axe d'un tenseur.
 fn lastDim(t: Tensor) i64 {
     return t.dim(t.rank() - 1);
 }
 
+// Lance le noyau pour un groupe de 16 têtes après vérification des formes compilées.
 /// One kernel launch over 16 heads (see `Config` and `Inputs`).
 pub fn kernelCall(c: Config, a: Inputs) zml.Tensor {
     // The kernel is compiled for these shapes (see `supports`); anything else would
@@ -151,6 +157,7 @@ pub fn kernelCall(c: Config, a: Inputs) zml.Tensor {
     } }).out;
 }
 
+// Backend `.cute` de l'attention sparse MLA : lit en place les lignes sélectionnées des caches quantifiés.
 /// Backend `.cute` of `paged_attention.Mla.pagedSparseAttention`: the selected rows of a
 /// quantized window cache and optionally of a quantized compressed cache, read in place.
 /// Panics on inputs the kernel does not support (see `supports`). Each stream is scanned
@@ -207,6 +214,7 @@ const ShardContext = struct {
     active_count: Tensor,
     scale: f64,
 
+    // Exécute par device le noyau sur les têtes de ce shard, par groupes de 16.
     fn run(self: ShardContext, _: zml.Shape) Tensor {
         const q = self.q;
         const heads = q.dim(.h);
@@ -259,6 +267,7 @@ const ShardContext = struct {
     }
 };
 
+// Calcule le nombre de lignes à parcourir par requête, jusqu'à la dernière entrée valide (>= 0).
 /// Rows to scan per query: through the last valid (>= 0) entry ([.q] i32).
 fn scanLength(indices: Tensor) Tensor {
     return Tensor.iota(indices.shape(), .topk).addConstant(1)

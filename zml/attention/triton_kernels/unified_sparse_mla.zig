@@ -48,6 +48,7 @@ pub const Kernel2D = tri.Kernel(Config, .{
     .run = run2D,
 });
 
+// Configure les arguments du noyau 2D et invoque le cœur sparse MLA sans sorties partielles.
 fn run2D(b: *tri.Builder, cfg: Config) tri.FinishError!void {
     const a = try b.declareArgs(.{
         .query_ptr = .{ .ptr = cfg.q_dtype },
@@ -114,6 +115,7 @@ pub const Kernel3D = tri.Kernel(Config, .{
     .run = run3D,
 });
 
+// Configure les arguments du noyau 3D et invoque le cœur sparse MLA avec sorties partielles.
 fn run3D(b: *tri.Builder, cfg: Config) tri.FinishError!void {
     const a = try b.declareArgs(.{
         .query_ptr = .{ .ptr = cfg.q_dtype },
@@ -161,6 +163,7 @@ fn run3D(b: *tri.Builder, cfg: Config) tri.FinishError!void {
     );
 }
 
+// Cœur Triton de l'attention sparse MLA paginée : parcourt les tuiles top-k et accumule la softmax.
 fn kernelUnifiedAttentionSparseMla(
     k: *Builder,
     output_ptr: Value,
@@ -401,6 +404,7 @@ pub const Reduce3DPartials = tri.Kernel(Reduce3DPartialsCfg, .{
     .run = runReduce3DPartials,
 });
 
+// Réduit par groupes de taille fixe la grande dimension de splits avant la réduction finale.
 fn runReduce3DPartials(b: *tri.Builder, cfg: Reduce3DPartialsCfg) tri.FinishError!void {
     const a = try b.declareArgs(.{
         .input_ptr = .{ .ptr = .f32 },
@@ -496,6 +500,7 @@ pub const Reduce3D = tri.Kernel(Reduce3DCfg, .{
     .run = runReduce3D,
 });
 
+// Réduit les sorties partielles (par split) en une sortie finale normalisée par la softmax.
 fn runReduce3D(b: *tri.Builder, cfg: Reduce3DCfg) tri.FinishError!void {
     const a = try b.declareArgs(.{
         .partial_output_ptr = .{ .ptr = .f32 },

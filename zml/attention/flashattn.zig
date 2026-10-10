@@ -11,12 +11,14 @@ const AttentionMask = @import("paged_attention.zig").AttentionMask;
 
 const log = std.log.scoped(.@"zml/attention/flashattn");
 
+// Charge la bibliothèque FlashAttention CUDA si la plateforme CUDA est activée.
 pub fn load(allocator: std.mem.Allocator, io: std.Io) !void {
     if (comptime platforms.isEnabled(.cuda)) {
         try flashattn.load(allocator, io);
     }
 }
 
+// Enregistre tous les custom calls FlashAttention (FA2/FA3, prefill/décode paginés) sur la plateforme.
 pub fn register(platform: *const zml.Platform) !void {
     if (comptime platforms.isEnabled(.cuda)) {
         try fa3.register(platform);
@@ -28,6 +30,7 @@ pub fn register(platform: *const zml.Platform) !void {
     }
 }
 
+// Convertit un type de données ZML en type de données FlashAttention.
 fn flashattnDataTypeFromZmlDataType(dtype: zml.DataType) flashattn.DataType {
     return switch (dtype) {
         .f32 => .f32,
@@ -40,6 +43,7 @@ fn flashattnDataTypeFromZmlDataType(dtype: zml.DataType) flashattn.DataType {
     };
 }
 
+// Convertit un buffer de custom call PJRT en tenseur FlashAttention.
 fn toFlashattnTensor(buffer: zml.pjrtx.CustomCallBuffer) flashattn.Tensor {
     return .init(
         buffer.ptr,
@@ -53,6 +57,7 @@ const Buffer = struct {
     shape: zml.Shape,
     ptr: *anyopaque,
 
+    // Convertit un Buffer local (forme et pointeur) en tenseur FlashAttention.
     fn toFlashattnTensor(buffer: Buffer) flashattn.Tensor {
         return .init(
             buffer.ptr,
@@ -62,6 +67,7 @@ const Buffer = struct {
         );
     }
 
+    // Formate le Buffer pour le debug (forme et adresse du pointeur).
     pub fn format(
         self: @This(),
         writer: *std.Io.Writer,
@@ -70,6 +76,7 @@ const Buffer = struct {
     }
 };
 
+// Reconstruit la plateforme CUDA à partir des attributs pjrt_api/pjrt_client du call frame.
 fn getPlatform(call_frame: *ffi.CallFrame) zml.Platform {
     const pjrt_api_ptr = call_frame.attrs.getByName(.scalar, "pjrt_api") orelse unreachable;
     std.debug.assert(pjrt_api_ptr.dtype == .u64);
@@ -82,6 +89,7 @@ fn getPlatform(call_frame: *ffi.CallFrame) zml.Platform {
     return .{ .target = .cuda, .pjrt_api = pjrt_api.?, .pjrt_client = pjrt_client.? };
 }
 
+// Convertit un type de données FFI en type de données ZML.
 fn dataTypeFromFfiDataType(ffi_dt: ffi.DataType) zml.DataType {
     return switch (ffi_dt) {
         .bool => .bool,
@@ -108,10 +116,12 @@ fn dataTypeFromFfiDataType(ffi_dt: ffi.DataType) zml.DataType {
     };
 }
 
+// Construit une Shape ZML à partir de la forme d'un buffer FFI.
 fn shapeFromFfiBuffer(buffer: *const ffi.Buffer) zml.Shape {
     return .init(buffer.dims(), dataTypeFromFfiDataType(buffer.dtype));
 }
 
+// Construit un Buffer local à partir d'un buffer FFI.
 fn bufferFromFfiBuffer(ffi_buffer: *const ffi.Buffer) Buffer {
     return .{
         .shape = shapeFromFfiBuffer(ffi_buffer),
@@ -119,13 +129,16 @@ fn bufferFromFfiBuffer(ffi_buffer: *const ffi.Buffer) Buffer {
     };
 }
 
+// Lit un attribut scalaire typé du call frame, ou null s'il est absent.
 fn getScalarAttributeAs(comptime T: type, call_frame: *ffi.CallFrame, attribute_name: []const u8) ?T {
     const attribute = call_frame.attrs.getByName(.scalar, attribute_name) orelse return null;
     return attribute.get(T);
 }
 
+// Génère un wrapper de custom call FFI (register + run) autour du type T.
 pub fn Wrapper(comptime T: type, run_func: std.meta.DeclEnum(T)) type {
     return struct {
+        // Enregistre le custom call nommé par T sur la plateforme CUDA.
         pub fn register(platform: *const zml.Platform) !void {
             try platform.registerFfi(.{
                 .name = T.custom_call_name,
@@ -135,6 +148,7 @@ pub fn Wrapper(comptime T: type, run_func: std.meta.DeclEnum(T)) type {
             });
         }
 
+        // Point d'entrée FFI qui appelle l'implémentation de T et convertit les erreurs.
         pub fn run(call_frame: *ffi.CallFrame) callconv(.c) ?*ffi.Error {
             return @field(T, @tagName(run_func))(call_frame) catch b: {
                 break :b ffi.Error.create(call_frame.api.?, .unknown, "Unknown");
@@ -170,6 +184,7 @@ pub const fa2 = struct {
         num_heads: i32,
     };
 
+    // Callback FFI du noyau FA2 varlen : prépare les paramètres et lance le noyau flash-attn.
     fn ffiCall(
         call_frame: *zml.pjrt.ffi.CallFrame,
         input: zml.pjrtx.TensorToCustomCallBuffer(Input),
@@ -221,6 +236,7 @@ pub const fa2 = struct {
 
         pub const InitOptions = struct {};
 
+        // Initialise les paramètres FA2 (fenêtre glissante par défaut).
         pub fn init(_: InitOptions) fa2.Parameters {
             return .{};
         }
@@ -236,6 +252,7 @@ pub const fa2 = struct {
             num_heads: i64,
         };
 
+        // Crée les métadonnées FA2 (softmax_lse, accumulateurs) réparties sur le maillage.
         pub fn init(opts: InitOptions, mesh: *const zml.Sharding.Mesh) Metadata {
             return .{
                 .softmax_lse = zml.Tensor.init(.{ .s = opts.seqlen, .h = opts.num_heads, .dummy = 1 }, .f32)
@@ -249,6 +266,7 @@ pub const fa2 = struct {
             };
         }
 
+        // Alloue les buffers des métadonnées FA2.
         pub fn initBuffer(self: Metadata, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(Metadata) {
             return .{
                 .softmax_lse = try zml.Buffer.uninitialized(io, platform, self.softmax_lse.shape(), .{}),
@@ -257,6 +275,7 @@ pub const fa2 = struct {
             };
         }
 
+        // Libère les buffers des métadonnées FA2.
         pub fn deinitBuffer(self: *zml.Bufferized(Metadata)) void {
             self.softmax_lse.deinit();
             self.softmax_lse_accum.deinit();
@@ -264,6 +283,7 @@ pub const fa2 = struct {
         }
     };
 
+    // Exécute l'attention FA2 varlen avec sharding sur l'axe des têtes.
     pub fn attention(q_: zml.Tensor, k_: zml.Tensor, v_: zml.Tensor, token_index_: zml.Tensor, metadata: Metadata, parameters: Parameters) zml.Tensor {
         const ctx = zml.Compiler.current();
 
@@ -361,6 +381,7 @@ pub const fa3 = struct {
     const register = Wrapped.register;
     const run = Wrapped.run;
 
+    // Callback FFI du noyau FA3 (non paginé) : prépare les params et lance flash-attn 3.
     pub fn runInner(call_frame: *ffi.CallFrame) !?*ffi.Error {
         if (call_frame.registeringHook()) return null;
 
@@ -432,6 +453,7 @@ pub const fa3 = struct {
     pub const Parameters = struct {
         pub const InitOptions = struct {};
 
+        // Initialise les paramètres FA3 (sans option).
         pub fn init(opts: InitOptions) fa3.Parameters {
             _ = opts;
             return .{};
@@ -449,6 +471,7 @@ pub const fa3 = struct {
             num_heads: i64,
         };
 
+        // Crée les métadonnées FA3 (softmax_lse, scheduler) réparties sur le maillage.
         pub fn init(opts: InitOptions, mesh: *const zml.Sharding.Mesh) Metadata {
             return .{
                 .softmax_lse = zml.Tensor.init(.{ .h = opts.num_heads * opts.seqlen * 4 }, .i8)
@@ -462,6 +485,7 @@ pub const fa3 = struct {
             };
         }
 
+        // Alloue les buffers des métadonnées FA3.
         pub fn initBuffer(self: Metadata, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(Metadata) {
             return .{
                 .softmax_lse = try zml.Buffer.uninitialized(io, platform, self.softmax_lse.shape(), .{}),
@@ -471,6 +495,7 @@ pub const fa3 = struct {
             };
         }
 
+        // Libère les buffers des métadonnées FA3.
         pub fn deinitBuffer(self: *zml.Bufferized(Metadata)) void {
             self.softmax_lse.deinit();
             self.softmax_lse_accum.deinit();
@@ -479,6 +504,7 @@ pub const fa3 = struct {
         }
     };
 
+    // Exécute l'attention FA3 pour un lot de taille 1.
     pub fn attention(q_: zml.Tensor, k_: zml.Tensor, v_: zml.Tensor, token_index: zml.Tensor, metadata: Metadata, _: Parameters) zml.Tensor {
         stdx.debug.assert(q_.shape().hasTag(.b) == null or q_.dim(.b) == 1, "fa3.attention support for batch size != 1 is not supported yet.", .{});
         const seqused_k = token_index.addConstant(q_.dim(.q)).reshape(.{1});
@@ -540,10 +566,12 @@ pub const paged_fa2 = struct {
         decode: DecodeOptions,
         mixed: MixedOptions,
 
+        // Indique si les options FA2 paginées correspondent à un prefill (variante mixed).
         pub fn isPrefill(self: Options) bool {
             return self == .mixed;
         }
 
+        // Renvoie le nombre maximal de pages du cache KV (FA2 paginé).
         pub fn maxNumPages(self: Options) usize {
             return switch (self) {
                 .decode => |decode_options| decode_options.max_num_pages,
@@ -556,6 +584,7 @@ pub const paged_fa2 = struct {
         decode: DecodeParameters,
         mixed: MixedParameters,
 
+        // Initialise les paramètres FA2 paginés selon la variante (decode ou mixed).
         pub fn init(options_: Options) Parameters {
             return switch (options_) {
                 .decode => |decode_options| .{ .decode = DecodeParameters.init(decode_options) },
@@ -563,6 +592,7 @@ pub const paged_fa2 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres FA2 paginés.
         pub fn allocationSize(self: Parameters) usize {
             return switch (self) {
                 .decode => |decode| decode.allocationSize(),
@@ -570,6 +600,7 @@ pub const paged_fa2 = struct {
             };
         }
 
+        // Renvoie les options associées aux paramètres FA2 paginés.
         pub fn options(self: Parameters) Options {
             return switch (self) {
                 .decode => |v| .{ .decode = v.options },
@@ -595,6 +626,7 @@ pub const paged_fa2 = struct {
 
         options: DecodeOptions,
 
+        // Initialise les paramètres de décodage FA2 (table de pages, cu_seqlens, seqused_k).
         pub fn init(options: DecodeOptions) DecodeParameters {
             return .{
                 .block_table = zml.Tensor.init(.{ .b = options.batch_size, .p = options.max_num_pages }, .i32),
@@ -604,6 +636,7 @@ pub const paged_fa2 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres de décodage FA2.
         pub fn allocationSize(self: DecodeParameters) usize {
             var allocation_size: usize = 0;
 
@@ -663,6 +696,7 @@ pub const paged_fa2 = struct {
         metadata: MixedMetadata,
         options: MixedOptions,
 
+        // Initialise les paramètres mixtes FA2 (tampons prefill + decode).
         pub fn init(options: MixedOptions) MixedParameters {
             return .{
                 .block_table_prefill = zml.Tensor.init(
@@ -679,6 +713,7 @@ pub const paged_fa2 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres mixtes FA2.
         pub fn allocationSize(self: MixedParameters) usize {
             var allocation_size: usize = 0;
             allocation_size += self.block_table_decode.byteSize();
@@ -745,6 +780,7 @@ pub const paged_fa2 = struct {
     pub const MixedMetadata = struct {
         decode_offset: zml.Tensor,
 
+        // Initialise les métadonnées mixtes FA2 (offset de décodage).
         pub fn init(opts: MixedOptions) MixedMetadata {
             _ = opts;
             return .{
@@ -752,6 +788,7 @@ pub const paged_fa2 = struct {
             };
         }
 
+        // Calcule la taille des métadonnées mixtes FA2.
         pub fn allocationSize(self: MixedMetadata) usize {
             var allocation_size: usize = 0;
             allocation_size += self.decode_offset.byteSize();
@@ -766,6 +803,7 @@ pub const paged_fa2 = struct {
         const register = Wrapped.register;
         const run = Wrapped.run;
 
+        // Callback FFI du prefill FA2 paginé : prépare les params et lance le noyau.
         pub fn runInner(call_frame: *ffi.CallFrame) !?*ffi.Error {
             if (call_frame.registeringHook()) return null;
 
@@ -834,6 +872,7 @@ pub const paged_fa2 = struct {
         const register = Wrapped.register;
         const run = Wrapped.run;
 
+        // Callback FFI du décodage FA2 paginé : prépare les params et lance le noyau.
         pub fn runInner(call_frame: *ffi.CallFrame) !?*ffi.Error {
             if (call_frame.registeringHook()) return null;
 
@@ -894,6 +933,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Implémente l'attention paginée FA2 (decode et mixed) via manualComputation.
     pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions) zml.Tensor {
         stdx.debug.assert(q.shape().hasTags(.{ .b, .hg, .hkv, .hd }), "Expected q to have tags .b, .h, .hd", .{});
         stdx.debug.assert(k_cache.shape().hasTags(.{ .page, .k_chunk, .hkv, .hd }), "Expected paged_k to have tags .page, .k_chunk, .h, .hd, got {}", .{k_cache.shape()});
@@ -962,6 +1002,7 @@ pub const paged_fa2 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de décodage FA2.
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Decode.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1048,6 +1089,7 @@ pub const paged_fa2 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de prefill FA2.
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Prefill.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1123,6 +1165,7 @@ pub const paged_fa2 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de décodage FA2 (branche mixed).
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Decode.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1182,10 +1225,12 @@ pub const paged_fa3 = struct {
         decode: DecodeOptions,
         mixed: MixedOptions,
 
+        // Indique si les options FA3 paginées correspondent à un prefill (variante mixed).
         pub fn isPrefill(self: Options) bool {
             return self == .mixed;
         }
 
+        // Renvoie le nombre maximal de pages du cache KV (FA3 paginé).
         pub fn maxNumPages(self: Options) usize {
             return switch (self) {
                 .decode => |decode_options| decode_options.max_num_pages,
@@ -1198,6 +1243,7 @@ pub const paged_fa3 = struct {
         decode: DecodeParameters,
         mixed: MixedParameters,
 
+        // Initialise les paramètres FA3 paginés selon la variante (decode ou mixed).
         pub fn init(options_: Options) Parameters {
             return switch (options_) {
                 .decode => |decode_options| .{ .decode = DecodeParameters.init(decode_options) },
@@ -1205,6 +1251,7 @@ pub const paged_fa3 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres FA3 paginés.
         pub fn allocationSize(self: Parameters) usize {
             return switch (self) {
                 .decode => |decode| decode.allocationSize(),
@@ -1212,6 +1259,7 @@ pub const paged_fa3 = struct {
             };
         }
 
+        // Renvoie les options associées aux paramètres FA3 paginés.
         pub fn options(self: Parameters) Options {
             return switch (self) {
                 .decode => |v| .{ .decode = v.options },
@@ -1237,6 +1285,7 @@ pub const paged_fa3 = struct {
 
         options: DecodeOptions,
 
+        // Initialise les paramètres de décodage FA3 (table de pages, cu_seqlens, seqused_k).
         pub fn init(options: DecodeOptions) DecodeParameters {
             return .{
                 .block_table = .init(.{ .b = options.batch_size, .p = options.max_num_pages }, .i32),
@@ -1246,6 +1295,7 @@ pub const paged_fa3 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres de décodage FA3.
         pub fn allocationSize(self: DecodeParameters) usize {
             var allocation_size: usize = 0;
 
@@ -1305,6 +1355,7 @@ pub const paged_fa3 = struct {
         metadata: MixedMetadata,
         options: MixedOptions,
 
+        // Initialise les paramètres mixtes FA3 (tampons prefill + decode).
         pub fn init(options: MixedOptions) MixedParameters {
             return .{
                 .block_table_prefill = .init(.{ .b = options.batch_size_prefill, .p = options.max_num_pages }, .i32),
@@ -1318,6 +1369,7 @@ pub const paged_fa3 = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres mixtes FA3.
         pub fn allocationSize(self: MixedParameters) usize {
             var allocation_size: usize = 0;
             allocation_size += self.block_table_decode.byteSize();
@@ -1384,6 +1436,7 @@ pub const paged_fa3 = struct {
     pub const MixedMetadata = struct {
         decode_offset: zml.Tensor,
 
+        // Initialise les métadonnées mixtes FA3 (offset de décodage).
         pub fn init(opts: MixedOptions) MixedMetadata {
             _ = opts;
             return .{
@@ -1391,6 +1444,7 @@ pub const paged_fa3 = struct {
             };
         }
 
+        // Calcule la taille des métadonnées mixtes FA3.
         pub fn allocationSize(self: MixedMetadata) usize {
             var allocation_size: usize = 0;
             allocation_size += self.decode_offset.byteSize();
@@ -1405,6 +1459,7 @@ pub const paged_fa3 = struct {
         const register = Wrapped.register;
         const run = Wrapped.run;
 
+        // Callback FFI du prefill FA3 paginé : prépare les params et lance le noyau.
         pub fn runInner(call_frame: *ffi.CallFrame) !?*ffi.Error {
             if (call_frame.registeringHook()) return null;
 
@@ -1482,6 +1537,7 @@ pub const paged_fa3 = struct {
         const register = Wrapped.register;
         const run = Wrapped.run;
 
+        // Callback FFI du décodage FA3 paginé : prépare les params et lance le noyau.
         pub fn runInner(call_frame: *ffi.CallFrame) !?*ffi.Error {
             if (call_frame.registeringHook()) return null;
 
@@ -1551,6 +1607,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Implémente l'attention paginée FA3 (decode et mixed) via manualComputation.
     pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions) zml.Tensor {
         stdx.debug.assert(q.shape().hasTags(.{ .b, .hg, .hkv, .hd }), "Expected q to have tags .b, .h, .hd", .{});
         stdx.debug.assert(k_cache.shape().hasTags(.{ .page, .k_chunk, .hkv, .hd }), "Expected paged_k to have tags .page, .k_chunk, .h, .hd, got {}", .{k_cache.shape()});
@@ -1601,6 +1658,7 @@ pub const paged_fa3 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de décodage FA3.
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Decode.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1678,6 +1736,7 @@ pub const paged_fa3 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de prefill FA3.
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Prefill.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1743,6 +1802,7 @@ pub const paged_fa3 = struct {
                         },
                         opts: zml.ops.CustomCallOptions,
 
+                        // Corps du manualComputation qui émet le custom call de décodage FA3 (branche mixed).
                         fn body(self: @This(), output: zml.Shape) zml.Tensor {
                             return zml.ops.customCall(Decode.custom_call_name, self.inputs, output, self.metadata, self.opts);
                         }
@@ -1780,10 +1840,12 @@ pub const paged_fa3 = struct {
     }
 };
 
+// Convertit une fenêtre glissante en offset inclusif attendu par FlashAttention (-1 sinon).
 fn windowSizeLeft(mask: AttentionMask) i32 {
     return if (mask.slidingWindow()) |window| @as(i32, @intCast(window)) - 1 else -1;
 }
 
+// Vérifie que l'offset de fenêtre glissante est inclusif (2048 -> 2047).
 test "FlashAttention sliding window uses an inclusive offset" {
     try std.testing.expectEqual(@as(i32, 2047), windowSizeLeft(.{ .standard = .{ .sliding_window = 2048 } }));
     try std.testing.expectEqual(@as(i32, 0), windowSizeLeft(.{ .standard = .{ .sliding_window = 1 } }));

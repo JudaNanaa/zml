@@ -19,10 +19,12 @@ const log = std.log.scoped(.@"zml/attention/triton");
 /// `log_2(e)` — pre-multiply with this to turn `exp(x)` into `exp2(x * RCP_LN2)`.
 const RCP_LN2: f32 = 1.4426950408889634;
 
+// Indique si le type de données est un flottant FP8 (e4m3 ou e5m2).
 fn isFp8(dt: DType) bool {
     return dt == .f8e4m3fn or dt == .f8e5m2;
 }
 
+// Division entière arrondie vers le haut, avec `y` constant ou dynamique.
 fn cdivFn(x: Value, y: anytype) Value {
     return switch (@typeInfo(@TypeOf(y))) {
         .comptime_int, .comptime_float => x.add(y - 1).div(y),
@@ -30,6 +32,7 @@ fn cdivFn(x: Value, y: anytype) Value {
     };
 }
 
+// Applique un softcap (tangente hyperbolique) à `x` avec le facteur `s_val`.
 fn applySoftcap(k: *Builder, s_val: Value, x: Value) Value {
     const sdiv = s_val.div(x);
     const p1 = k.exp2(sdiv);
@@ -37,6 +40,7 @@ fn applySoftcap(k: *Builder, s_val: Value, x: Value) Value {
     return x.mul(p1.sub(p2)).div(p1.add(p2));
 }
 
+// Recherche binaire l'index de séquence contenant `target_idx` dans query_start_len.
 fn findSeqIdx(
     k: *Builder,
     query_start_len_ptr: Value,
@@ -76,6 +80,7 @@ fn findSeqIdx(
     return w.results[0].sub(1);
 }
 
+// Déquantifie les valeurs KV FP8 vers le type de Q via l'échelle fournie.
 fn dequantKv(loaded: Value, scale: Value, kv_is_fp8: bool, q_dtype: DType) Value {
     if (!kv_is_fp8 or isFp8(q_dtype)) return loaded;
     return loaded.to(.f32).mul(scale).to(q_dtype);
@@ -131,6 +136,7 @@ pub const KernelUnifiedAttention3dPtr = struct {
         .outputs = &.{ "segm_output", "segm_max", "segm_expsum" },
         .run = run,
     });
+    // Charge les arguments et lance le noyau oneAPI d'attention paginée 3D.
     fn run(b: *Builder, cfg: Config) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .query_ptr = .{ .ptr = cfg.q_dtype },
@@ -212,6 +218,7 @@ pub const KernelUnifiedAttention3dPtr = struct {
     }
 };
 
+// Cœur Triton 3D spécialisé oneAPI (SIMD16) pour l'attention paginée avec segments.
 fn kernelUnifiedAttention3d(
     k: *Builder,
     segm_output_ptr: Value,

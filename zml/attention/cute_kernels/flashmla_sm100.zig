@@ -41,6 +41,7 @@ pub const Cfg = struct {
     /// Persistent CTAs (clusters): token t is processed by CTA t % ctas.
     ctas: i64 = 0,
 
+    // Renvoie le nombre de CTA persistants (clusters) à lancer pour la config.
     fn gridCtas(c: Cfg) i64 {
         return if (c.ctas > 0) @min(c.ctas, c.queries) else c.queries;
     }
@@ -119,6 +120,7 @@ const Bar = enum(i32) {
 /// Arrivals on idx_free: softmax warps (4), MMA (1), loaders (2), dequant warps (4).
 const idx_consumers = 11;
 
+// Calcule l'adresse d'une barrière mbarrier indexée par `which` et `buf`.
 fn bar(b: *B, base: V, comptime which: Bar, buf: anytype) V {
     return base.add(smem.bars + 8 * @intFromEnum(which)).add(b.lift(buf).mul(8));
 }
@@ -133,9 +135,11 @@ const qk_parts = 4;
 const Format = enum {
     fp8,
     fp4,
+    // Renvoie la taille en octets d'une ligne de valeurs selon le format (FP8 ou FP4).
     fn rowBytes(f: Format) i32 {
         return if (f == .fp8) 512 else 256;
     }
+    // Renvoie la taille en octets des échelles d'une ligne selon le format.
     fn scaleBytes(f: Format) i32 {
         return if (f == .fp8) 16 else 32;
     }
@@ -182,6 +186,7 @@ const Ctx = struct {
     slot0: V = undefined, // CTA-wide raw-slot use of the token's first local block
 };
 
+// Construit le contexte du token d'ordinal k (parité, indices, blocs locaux).
 /// The per-token context of token ordinal k; `counts` waits for the token's
 /// index buffer and loads the block counts.
 fn forToken(c0: Ctx, k: V, g0: V, slot0: V, comptime counts: bool) Ctx {
@@ -208,6 +213,7 @@ fn forToken(c0: Ctx, k: V, g0: V, slot0: V, comptime counts: bool) Ctx {
     return c;
 }
 
+// Signale que cette warp a fini d'utiliser le tampon d'indices du token.
 /// This warp is done with the token's index buffer.
 fn releaseIndices(c: Ctx) void {
     const b = c.b;
@@ -217,47 +223,57 @@ fn releaseIndices(c: Ctx) void {
     l0.yieldThen(.{});
 }
 
+// Renvoie le premier slot brut utilisé par le bloc local j.
 /// First raw-slot use of local block j: FP8 (window) blocks come first and use two.
 fn slotUse(c: Ctx, j: V) V {
     return c.slot0.add(j).add(j.minimum(c.nwl));
 }
 
+// Indique s'il y a un token par CTA (l'anneau de slots est alors décalé).
 /// With one token per CTA the second Q buffer is unused: the ring starts there and
 /// has 4 slots (two FP8 blocks in flight); otherwise 3 slots after it.
 fn oneTokenPerCta(cfg: Cfg) bool {
     return cfg.gridCtas() == cfg.queries;
 }
 
+// Renvoie l'adresse de base de l'anneau de slots bruts.
 fn rawBase(cfg: Cfg) i32 {
     return if (oneTokenPerCta(cfg)) smem.q[1] else smem.q[1] + 16384;
 }
 
+// Renvoie le nombre de slots de l'anneau brut (4 ou 3 selon le mode).
 fn rawSlots(cfg: Cfg) i32 {
     return if (oneTokenPerCta(cfg)) 4 else 3;
 }
 
+// Renvoie l'adresse partagée du slot brut correspondant à un usage donné.
 fn slotAddr(c: Ctx, use: V) V {
     return c.s.add(rawBase(c.cfg)).add(use.rem(rawSlots(c.cfg)).mul(smem.raw_slot));
 }
 
+// Renvoie l'adresse des échelles dans le slot brut correspondant.
 fn scaleAddr(c: Ctx, use: V) V {
     return slotAddr(c, use).add(smem.scale_off);
 }
 
+// Renvoie la parité (0/1) d'un slot de l'anneau pour la synchronisation.
 fn slotParity(c: Ctx, use: V) V {
     return use.div(rawSlots(c.cfg)).bitAnd(1);
 }
 
+// Renvoie la parité d'un indice de bloc (utilisée pour les mbarriers).
 fn parity(j: V) V {
     return j.shrLogical(1).bitAnd(1);
 }
 
+// Construit un tuple Zig à partir d'un tableau de valeurs de longueur comptime.
 fn tupleOf(comptime n: usize, arr: [n]V) std.meta.Tuple(&([_]type{V} ** n)) {
     var t: std.meta.Tuple(&([_]type{V} ** n)) = undefined;
     inline for (0..n) |i| t[i] = arr[i];
     return t;
 }
 
+// Construit le programme Cute : déclare le noyau puis la fonction hôte.
 fn program(b: *B, cfg: Cfg) cute.FinishError!void {
     b.beginFunction(kernel_name, .cuda_kernel);
     try kernel(b, cfg);
@@ -281,6 +297,7 @@ fn program(b: *B, cfg: Cfg) cute.FinishError!void {
     b.endFunction(null);
 }
 
+// Configure et lance le noyau CUDA (grille, bloc, smem dynamique, cluster).
 fn launch(b: *B, cfg: Cfg, args: anytype) void {
     const one = b.cst(.i32, 1);
     const config = b.makeLaunchConfig(.{
@@ -295,6 +312,7 @@ fn launch(b: *B, cfg: Cfg, args: anytype) void {
     b.returnHostStatus(b.cudaResultStatus(status));
 }
 
+// Déclare les arguments du noyau et construit son corps.
 fn kernel(b: *B, cfg: Cfg) cute.FinishError!void {
     const g = try globalsOf(b, try b.declareArgs(.{
         .q = .{ .ptr = cute.DType.bf16 },
@@ -312,6 +330,7 @@ fn kernel(b: *B, cfg: Cfg) cute.FinishError!void {
     try kernelBody(b, cfg, g);
 }
 
+// Déclare les attributs de fonction et convertit les arguments en adresses globales.
 fn globalsOf(b: *B, a: anytype) !Globals {
     b.setFunctionAttribute("nvvm.minctasm", .int(b.ctx, .i32, 1));
     b.setFunctionAttribute("cu_attrs", b.parseAttribute("{max_dynamic_shared_size_bytes = #cuda.dev_max_shared_memory_optin, non_portable_cluster_size_allowed = 1 : i32}"));
@@ -331,6 +350,7 @@ fn globalsOf(b: *B, a: anytype) !Globals {
     };
 }
 
+// Initialise le stockage partagé, les barrières, TMEM puis lance les rôles par warp.
 fn kernelBody(b: *B, cfg: Cfg, g: Globals) cute.FinishError!void {
     const tid = b.threadIdx().x;
     const warp = b.makeWarpUniform(tid.shrLogical(5));
@@ -451,6 +471,7 @@ const FrontRegs = struct {
     c: [16]V, // this lane's 16 compressed indices
 };
 
+// Émet les chargements globaux des longueurs et indices des candidats du token t.
 /// Issue the global loads of token t's lengths and indices (lane l holds
 /// candidates [4 l, 4 l + 4) of the window and [16 l, 16 l + 16) of the compressed stream).
 fn frontLoad(c: Ctx, t: V) FrontRegs {
@@ -473,6 +494,7 @@ fn frontLoad(c: Ctx, t: V) FrontRegs {
     return r;
 }
 
+// Valide les candidats du token, stocke indices et compteurs, puis publie.
 /// Validate token t's candidates (invalid ones become -1), store them and the
 /// block counts in index buffer `kb`, and publish them.
 fn frontStore(c: Ctx, t: V, kb: V, r: FrontRegs) void {
@@ -505,6 +527,7 @@ fn frontStore(c: Ctx, t: V, kb: V, r: FrontRegs) void {
     b.mbarrierArrive(bar(b, c.s, .idx_ready, kb), 1);
 }
 
+// Copie les Q [16, 512] du token dans la tuile partagée SW128 K-major.
 /// Q [16, 512] BF16 of token t -> SW128 K-major shared tile (the B operand of QK).
 fn issueQ(c: Ctx, t: V, kb: V) void {
     const b = c.b;
@@ -518,6 +541,7 @@ fn issueQ(c: Ctx, t: V, kb: V) void {
     }
 }
 
+// Rôle de la warp 7 : indices, longueurs et Q de chaque token.
 fn frontRole(c0: Ctx, first: FrontRegs) void {
     const b = c0.b;
     frontStore(c0, c0.cta, b.cst(.i32, 0), first);
@@ -561,6 +585,7 @@ fn frontRole(c0: Ctx, first: FrontRegs) void {
 
 // ---- loaders (warps 5-6) ------------------------------------------------------------
 
+// Rôle des warps 5-6 : chargement cp.async des blocs de clés bruts.
 fn loaderRole(c0: Ctx) void {
     const b = c0.b;
     var loop = b.openFor(0, c0.ntok, 1, .{b.cst(.i32, 0)});
@@ -579,10 +604,12 @@ fn loaderRole(c0: Ctx) void {
     loop.yield(.{slotUse(c, c.n)});
 }
 
+// Renvoie l'offset de base des indices dans le tampon selon le format.
 fn idxBase(comptime f: Format) i32 {
     return if (f == .fp8) 0 else 128 * 4;
 }
 
+// Charge un bloc de clés (valeurs et échelles) dans les slots bruts.
 fn loadBlock(c: Ctx, comptime f: Format, j: V, local: V) void {
     const b = c.b;
     const use_a = slotUse(c, j);
@@ -618,6 +645,7 @@ fn loadBlock(c: Ctx, comptime f: Format, j: V, local: V) void {
     const dst_base = raw.add(first_row.mul(288)).add(dst_chunk);
     const idx_base = idx.add(first_row.mul(4));
     const copyRows = struct {
+        // Copie 4 lignes de valeurs depuis le cache brut vers la tuile partagée.
         fn f_(bb: *B, r: V, dst_base_: V, src_base_: V, idx_base_: V) void {
             const ixs = ldSharedBatch(bb, 1, 4, idx_base_.add(r.mul(4)), .{0});
             for (0..4) |k| {
@@ -657,6 +685,7 @@ fn loadBlock(c: Ctx, comptime f: Format, j: V, local: V) void {
 
 // ---- dequant (warps 8-11) ------------------------------------------------------------
 
+// Rôle des warps 8-11 : déquantification des blocs FP8/FP4 en BF16.
 fn dequantRole(c0: Ctx) void {
     const b = c0.b;
     const tid = c0.tid.sub(256);
@@ -676,6 +705,7 @@ fn dequantRole(c0: Ctx) void {
     loop.yield(.{ c.g0.add(c.n), slotUse(c, c.n) });
 }
 
+// Déquantifie un bloc complet (valeurs + échelles) dans la tuile BF16 partagée.
 /// Thread (g = tid / 8, i = tid % 8) converts 8 consecutive values per step:
 /// rows g + 16 * r (r < 4), columns 64 * step + 8 * i. The 8 threads of a row
 /// write one 128-byte swizzle row, so each STS.128 is conflict free. The tile is
@@ -711,6 +741,7 @@ fn dequantBlock(c: Ctx, comptime f: Format, j: V, tid: V) void {
     // FP4: 2 words per row, then 2 scale words per row.
     const nw = if (f == .fp8) 20 else 16;
     const loadPart = struct {
+        // Charge les mots bruts et les échelles d'une partie de 128 colonnes du bloc.
         fn f_(cc: Ctx, comptime ff: Format, raw_: V, raw_b_: V, sc_: V, in8_: V, p: V) [nw]V {
             const bb = cc.b;
             var out: [nw]V = undefined;
@@ -759,6 +790,7 @@ fn dequantBlock(c: Ctx, comptime f: Format, j: V, tid: V) void {
     b.mbarrierArrive(bar(b, c.s, .raw_empty, (if (f == .fp8) use_b else use_a).rem(rawSlots(c.cfg))), 1);
 }
 
+// Convertit une partie (128 colonnes) en BF16 et l'écrit dans la tuile.
 /// Converts part `p` (raw words `cur`, see `dequantBlock`) into the bf16 tile at `dst`.
 fn dequantPart(c: Ctx, comptime f: Format, cur: [if (f == .fp8) 20 else 16]V, dst: V, in8: V, p: V) void {
     const b = c.b;
@@ -784,6 +816,7 @@ fn dequantPart(c: Ctx, comptime f: Format, cur: [if (f == .fp8) 20 else 16]V, ds
 
 // ---- MMA (warp 4) ------------------------------------------------------------------------
 
+// Rôle de la warp 4 : émission des MMAs tcgen05 QK et PV (une seule lane).
 fn mmaRole(c0: Ctx) void {
     const b = c0.b;
     var leader = b.openIf(b.electSync());
@@ -882,6 +915,7 @@ fn mmaRole(c0: Ctx) void {
 
 // ---- softmax / epilogue (warps 0-3) ------------------------------------------------------
 
+// Rôle des warps 0-3 : softmax (rescale paresseux), rescale de O et épilogue.
 fn softmaxRole(c0: Ctx) void {
     const b = c0.b;
     const scale_log2: f32 = @floatCast(c0.cfg.scale * log2e);
@@ -1024,6 +1058,7 @@ fn softmaxRole(c0: Ctx) void {
     tokens.yield(.{c.g0.add(c.n)});
 }
 
+// Réduit sur les 4 warps softmax le tampon `buf` [4][16] f32 (max ou somme).
 /// Per head, the reduction over the 4 softmax warps of `buf` [4 warps][16 heads] f32.
 fn blockReduce(c: Ctx, buf: V, comptime op: ReduceOp) [H]V {
     const b = c.b;
@@ -1041,6 +1076,7 @@ fn blockReduce(c: Ctx, buf: V, comptime op: ReduceOp) [H]V {
     return r;
 }
 
+// Normalise O^T par (l + exp(sink - m)) et écrit la sortie du token.
 /// O^T / (l + exp(sink - m)) of the token (or this CTA's partial result, for a cluster merge).
 fn epilogue(c: Ctx, o_tmem: V, m: [H]V, l: [H]V) void {
     const b = c.b;
@@ -1167,6 +1203,7 @@ fn epilogue(c: Ctx, o_tmem: V, m: [H]V, l: [H]V) void {
 
 // ---- cluster merge (all 384 threads, cluster > 1) ----------------------------------------------
 
+// Fusionne les résultats partiels des CTA d'un cluster via la mémoire partagée distribuée.
 /// Combine the cluster's partial results. Rank r owns output dims
 /// [r * 512 / C, (r + 1) * 512 / C): after every rank has finished its blocks,
 /// each pushes its (m, l) and the owners' slices of its O^T into their shared
@@ -1269,6 +1306,7 @@ fn clusterMerge(c: Ctx) void {
 // Addresses are raw integers: shared `i32` (shared window), global `i64`, TMEM `i32`
 // (lane << 16 | column).
 
+// Renvoie l'adresse de base d'un espace de mémoire partagée dynamique aligné.
 /// `bytes` of compiler-visible dynamic shared memory (1024-aligned), as a shared address.
 fn sharedStorage(b: *B, comptime bytes: i64) V {
     const storage = b.allocSmemStorage(.i8, 1024, b.layoutType(b.layoutSpec(.{bytes}, .{1})), 0, &.{std.fmt.comptimePrint("storage:{d}:0", .{bytes})});
@@ -1276,6 +1314,7 @@ fn sharedStorage(b: *B, comptime bytes: i64) V {
     return b.ptrToInt(base, .i32);
 }
 
+// Copie asynchrone de 16 octets d'une ligne (remplie de zéros si row < 0).
 /// 16-byte cp.async of `base + row * row_bytes + offset`; when `row < 0` it zero-fills
 /// the destination without reading memory.
 fn cpAsync16Row(b: *B, dst: V, base: V, row: V, comptime row_bytes: u32, offset: V) void {
@@ -1283,6 +1322,7 @@ fn cpAsync16Row(b: *B, dst: V, base: V, row: V, comptime row_bytes: u32, offset:
     b.cpAsync16(dst, src, row.ge(0));
 }
 
+// Effectue n chargements partagés de `words` mots à partir d'offsets constants.
 /// `n` shared loads of `words` 32-bit words each (n * words results), from `base + offsets[i]`.
 fn ldSharedBatch(b: *B, comptime n: usize, comptime words: usize, base: V, comptime offsets: [n]i32) [n * words]V {
     var out: [n * words]V = undefined;
@@ -1293,6 +1333,7 @@ fn ldSharedBatch(b: *B, comptime n: usize, comptime words: usize, base: V, compt
     return out;
 }
 
+// Convertit huit FP8 e4m3 (deux mots) en quatre bf16x2 mis à l'échelle.
 /// Eight packed FP8 e4m3 (two words) -> four bf16x2, each multiplied by the bf16x2 `scale`.
 fn fp8x8ToBf16x2x4Scaled(b: *B, lo: V, hi: V, scale: V) [4]V {
     const pairs = [4]V{ lo, lo.shrLogical(16), hi, hi.shrLogical(16) };
@@ -1301,6 +1342,7 @@ fn fp8x8ToBf16x2x4Scaled(b: *B, lo: V, hi: V, scale: V) [4]V {
     return out;
 }
 
+// Convertit huit FP4 e2m1 (un mot) en quatre bf16x2 mis à l'échelle.
 /// Eight packed FP4 e2m1 (one word, even element in the low nibble) -> four bf16x2,
 /// each multiplied by the bf16x2 `scale`.
 fn fp4x8ToBf16x2x4Scaled(b: *B, word: V, scale: V) [4]V {
@@ -1309,6 +1351,7 @@ fn fp4x8ToBf16x2x4Scaled(b: *B, word: V, scale: V) [4]V {
     return out;
 }
 
+// Stocke en partagé l'arrondi bf16 de v (f32) si pred est vrai.
 /// 16-bit shared store of the bf16 rounding of `v` (f32) when `pred` (i1).
 fn stSharedBf16If(b: *B, addr: V, v: V, pred: V) void {
     var only = b.openIf(pred);
@@ -1318,6 +1361,7 @@ fn stSharedBf16If(b: *B, addr: V, v: V, pred: V) void {
 
 const Major = enum(u1) { k = 0, mn = 1 };
 
+// Construit un descripteur d'instruction kind::f16 (A/B BF16, accumulateur F32).
 /// kind::f16 instruction descriptor: BF16 A/B, F32 accumulator.
 fn instrDescBf16(comptime m: u32, comptime n: u32, comptime a_major: Major, comptime b_major: Major) u32 {
     std.debug.assert((m == 64 or m == 128) and n % 8 == 0 and n >= 8 and n <= 256);
@@ -1330,6 +1374,7 @@ fn instrDescBf16(comptime m: u32, comptime n: u32, comptime a_major: Major, comp
         ((m >> 4) << 24);
 }
 
+// Construit un descripteur de matrice partagée SM100 avec swizzle 128 octets.
 /// SM100 shared-memory matrix descriptor with 128-byte swizzle. `lbo`/`sbo` in bytes.
 fn smemDescSw128(b: *B, addr: V, comptime lbo: u32, comptime sbo: u32) V {
     const hi: u64 = (@as(u64, sbo >> 4) << 32) | (@as(u64, 1) << 46) | (@as(u64, 2) << 61);
@@ -1338,6 +1383,7 @@ fn smemDescSw128(b: *B, addr: V, comptime lbo: u32, comptime sbo: u32) V {
     return start.bitOr(b.cst(.i64, @as(i64, @bitCast(hi | lo))));
 }
 
+// Renvoie l'offset d'un élément (row, col) d'une tuile bf16 SW128 K-major.
 /// Byte offset of element (row, col) of a bf16 tile stored as SW128 K-major atoms.
 fn sw128Offset(b: *B, row: V, col: V, comptime rows: i32) V {
     _ = b;
@@ -1346,6 +1392,7 @@ fn sw128Offset(b: *B, row: V, col: V, comptime rows: i32) V {
     return slab.add(row.mul(128)).add(chunk.shl(4)).add(col.bitAnd(7).shl(1));
 }
 
+// Réduit une valeur f32 sur toute la warp par shuffles XOR.
 fn warpSumF32(b: *B, v: V) V {
     var x = v;
     inline for (.{ 16, 8, 4, 2, 1 }) |o| x = x.add(b.shuffleXor(x, o));

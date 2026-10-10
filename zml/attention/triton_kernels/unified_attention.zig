@@ -66,6 +66,7 @@ pub const KernelUnifiedAttention2dPtr = struct {
         .outputs = &.{"output"},
         .run = run,
     });
+    // Charge les arguments du noyau 2D et lance l'attention paginée unifiée.
     fn run(b: *Builder, cfg: Config) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .query_ptr = .{ .ptr = cfg.q_dtype },
@@ -200,6 +201,7 @@ pub const KernelUnifiedAttention3dPtr = struct {
         .outputs = &.{ "segm_output", "segm_max", "segm_expsum" },
         .run = run,
     });
+    // Charge les arguments du noyau 3D et lance l'attention paginée segmentée.
     fn run(b: *Builder, cfg: Config) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .query_ptr = .{ .ptr = cfg.q_dtype },
@@ -313,6 +315,7 @@ pub const ReduceSegmentsPtr = struct {
         .outputs = &.{"output"},
         .run = run,
     });
+    // Charge les arguments et lance le noyau de réduction des segments.
     fn run(b: *Builder, cfg: Config) tri.FinishError!void {
         const a = try b.declareArgs(.{
             .segm_output_ptr = .{ .ptr = .f32 },
@@ -356,18 +359,22 @@ pub const ReduceSegmentsPtr = struct {
 // Helpers
 // ============================================================================
 
+// Renvoie le contexte MLIR courant du compilateur.
 fn ctx() *mlir.Context {
     return zml.Compiler.current().mlir_ctx;
 }
 
+// Indique si le type de données est un flottant FP8 (e4m3 ou e5m2).
 fn isFp8(dt: DType) bool {
     return dt == .f8e4m3fn or dt == .f8e5m2;
 }
 
+// Calcule exp(x) via exp2 en pré-multipliant par log2(e).
 fn fastExp(k: *Builder, x: Value) Value {
     return k.exp2(x.mul(RCP_LN2));
 }
 
+// Division entière arrondie vers le haut, avec `y` constant ou dynamique.
 fn cdivFn(x: Value, y: anytype) Value {
     return switch (@typeInfo(@TypeOf(y))) {
         .comptime_int, .comptime_float => x.add(y - 1).div(y),
@@ -375,6 +382,7 @@ fn cdivFn(x: Value, y: anytype) Value {
     };
 }
 
+// Applique un softcap (tangente hyperbolique) à `x` avec le facteur `s_val`.
 fn applySoftcap(k: *Builder, s_val: Value, x: Value) Value {
     const sdiv = s_val.div(x);
     const p1 = k.exp2(sdiv);
@@ -382,6 +390,7 @@ fn applySoftcap(k: *Builder, s_val: Value, x: Value) Value {
     return x.mul(p1.sub(p2)).div(p1.add(p2));
 }
 
+// Recherche binaire l'index de séquence contenant `target_idx` dans query_start_len.
 fn findSeqIdx(
     k: *Builder,
     query_start_len_ptr: Value,
@@ -421,11 +430,13 @@ fn findSeqIdx(
     return w.results[0].sub(1);
 }
 
+// Déquantifie les valeurs KV FP8 vers le type de Q via l'échelle fournie.
 fn dequantKv(loaded: Value, scale: Value, kv_is_fp8: bool, q_dtype: DType) Value {
     if (!kv_is_fp8 or isFp8(q_dtype)) return loaded;
     return loaded.to(.f32).mul(scale).to(q_dtype);
 }
 
+// Cœur Triton 2D de l'attention paginée unifiée (un bloc de requêtes par programme).
 fn kernelUnifiedAttention2d(
     k: *Builder,
     output_ptr: Value,
@@ -755,6 +766,7 @@ fn kernelUnifiedAttention2d(
     );
 }
 
+// Cœur Triton 3D de l'attention paginée unifiée : chaque programme traite un segment de la séquence.
 fn kernelUnifiedAttention3d(
     k: *Builder,
     segm_output_ptr: Value,
@@ -1082,6 +1094,7 @@ fn kernelUnifiedAttention3d(
     k.storeOpts(segm_expsum_ptr.addPtr(segm_offset), L_final, .{ .mask = store_mask_1d });
 }
 
+// Combine les sorties/max/sommes par segment en une sortie finale normalisée.
 fn reduceSegments(
     k: *Builder,
     output_ptr: Value,

@@ -11,6 +11,7 @@ const ragged_attention = @import("mosaic_tpu_kernels/ragged_attention.zig");
 
 const log = std.log.scoped(.tpu_attention);
 
+// Vérifie que ce module et le noyau ragged attention compilent (référence toutes les déclarations).
 test {
     std.testing.refAllDecls(@This());
     std.testing.refAllDecls(ragged_attention);
@@ -26,6 +27,7 @@ pub const mosaic_tpu = struct {
         num_seqs: zml.Tensor,
     };
 
+    // Aligne la dimension de tête du noyau sur un multiple de 128 (contrainte matérielle TPU).
     pub fn alignedKernelHeadDim(head_dim: usize) usize {
         stdx.debug.assert(head_dim > 0, "mosaic_tpu ragged paged attention head_dim must be non-zero", .{});
         const alignment: usize = 128;
@@ -43,10 +45,12 @@ pub const mosaic_tpu = struct {
         head_dim: usize,
         pages_per_compute_block: usize = 1,
 
+        // Indique si les options correspondent à un prefill.
         pub fn isPrefill(self: Options) bool {
             return self.is_prefill;
         }
 
+        // Renvoie le nombre maximal de pages du cache KV.
         pub fn maxNumPages(self: Options) usize {
             return self.max_num_pages;
         }
@@ -58,6 +62,7 @@ pub const mosaic_tpu = struct {
         seq_lens: zml.Tensor,
         query_start_len: zml.Tensor,
 
+        // Initialise les paramètres (block_table, seq_lens, query_start_len) pour un lot.
         pub fn init(opts: Options) Parameters {
             return .{
                 .opts = opts,
@@ -67,10 +72,12 @@ pub const mosaic_tpu = struct {
             };
         }
 
+        // Renvoie les options associées à ces paramètres.
         pub fn options(self: Parameters) Options {
             return self.opts;
         }
 
+        // Calcule la taille d'allocation des paramètres.
         pub fn allocationSize(self: Parameters) usize {
             var allocation_size: usize = 0;
             allocation_size += self.block_table.byteSize();
@@ -80,6 +87,7 @@ pub const mosaic_tpu = struct {
         }
     };
 
+    // Émet l'appel au noyau Mosaic TPU ragged paged attention et renvoie la sortie.
     fn raggedPagedKernelCall(
         q: zml.Tensor,
         kv_pages: zml.Tensor,
@@ -117,6 +125,7 @@ pub const mosaic_tpu = struct {
         return out.o;
     }
 
+    // Calcule le nombre de séquences actives à partir des longueurs de requêtes cumulées.
     fn activeSequenceCount(query_start_len: zml.Tensor) zml.Tensor {
         const start = query_start_len.slice(.b, .{ .end = query_start_len.dim(.b) - 1 });
         const end = query_start_len.slice(.b, .{ .start = 1 });
@@ -128,6 +137,7 @@ pub const mosaic_tpu = struct {
             .reshape(.{1});
     }
 
+    // Convertit un type de données ZML en type de données accepté par la config du noyau.
     fn cfgDtype(dtype: zml.DataType) @FieldType(ragged_paged.Cfg, "q_dtype") {
         const cast = zml.kernel.mosaic_tpu.from(dtype);
         return switch (cast) {
@@ -136,6 +146,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Restaure la dimension de tête d'origine après la sortie du noyau.
     inline fn restoreQueryHeads(q_template: zml.Tensor, q_out: zml.Tensor) zml.Tensor {
         const restored = q_out.splitAxis(.h, .{ .hkv = q_template.dim(.hkv), .hg = q_template.dim(.hg) });
         if (restored.dim(.hd) == q_template.dim(.hd)) return restored;
@@ -147,6 +158,7 @@ pub const mosaic_tpu = struct {
         return restored.slice(.hd, .{ .end = q_template.dim(.hd) });
     }
 
+    // Complète par des zéros la dimension de tête des requêtes jusqu'à celle du noyau.
     inline fn alignQueryHeadDimForKernel(q: zml.Tensor, target_head_dim: i64) zml.Tensor {
         if (q.dim(.hd) == target_head_dim) return q;
         stdx.debug.assert(
@@ -158,6 +170,7 @@ pub const mosaic_tpu = struct {
             .withPartitioning(.model, .{ .h = .model });
     }
 
+    // Prépare et partitionne les entrées du noyau (q, cache KV, tables de pages).
     inline fn prepareInputs(parameters: Parameters, q: zml.Tensor, kv_pages: zml.Tensor) PreparedInputs {
         const kv_pages_partitioned = kv_pages.withPartitioning(.model, .{ .hkv = .model });
         const q_merged = q.merge(.{ .h = .{ .hkv, .hg } }).withPartitioning(.model, .{ .h = .model });
@@ -181,6 +194,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Construit la configuration du noyau ragged paged à partir des entrées préparées.
     fn buildCfg(prepared_inputs: PreparedInputs, parameters: Parameters, opts: AttentionOptions) ragged_paged.Cfg {
         const q_shape = prepared_inputs.q.shape();
         const kv_pages_shape = prepared_inputs.kv_pages.shape();
@@ -221,6 +235,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Exécute l'attention paginée Mosaic TPU via un manualComputation.
     pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, kv_cache: zml.Tensor, opts: AttentionOptions) zml.Tensor {
         if (opts.mask == .indices) @panic("Sparse Attention is not supported on TPU");
 
@@ -237,6 +252,7 @@ pub const mosaic_tpu = struct {
                 opts: AttentionOptions,
                 parameters: Parameters,
 
+                // Corps du manualComputation qui émet l'appel au noyau ragged paged attention.
                 fn body(self: @This(), output: zml.Shape) zml.Tensor {
                     const prepared_inputs: PreparedInputs = .{
                         .q = self.q,
@@ -280,6 +296,7 @@ pub const mosaic_tpu = struct {
     }
 };
 
+// Vérifie l'alignement des dimensions de tête du noyau sur 128.
 test "mosaic_tpu aligns kernel head dimensions to 128" {
     try std.testing.expectEqual(@as(usize, 128), mosaic_tpu.alignedKernelHeadDim(64));
     try std.testing.expectEqual(@as(usize, 128), mosaic_tpu.alignedKernelHeadDim(128));
@@ -287,6 +304,7 @@ test "mosaic_tpu aligns kernel head dimensions to 128" {
     try std.testing.expectEqual(@as(usize, 256), mosaic_tpu.alignedKernelHeadDim(256));
 }
 
+// Vérifie que la config utilise la dimension de tête du noyau et l'échelle logique.
 test "mosaic_tpu cfg uses kernel head dim and logical scale" {
     const parameters = mosaic_tpu.Parameters.init(.{
         .is_prefill = false,

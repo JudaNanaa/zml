@@ -52,6 +52,7 @@ pub const ReducePartials = fly.Kernel(ReduceConfig, .{
     .run = runReducePartials,
 });
 
+// Point d'entrée fly : valide le contrat des formes puis transmet à `call`, sinon renvoie null.
 /// Shapes are local to a manual computation. Unsupported contracts fall back
 /// before transposes or native launches enter the graph.
 pub fn pagedAttention(q: Tensor, kv_cache: Tensor, sink: ?Tensor, indices: Tensor, active: Tensor, opts: sparse_mla.Options, cu_count: usize) ?Tensor {
@@ -79,6 +80,7 @@ pub fn pagedAttention(q: Tensor, kv_cache: Tensor, sink: ?Tensor, indices: Tenso
     ).transpose(q.shape().tags());
 }
 
+// Construit les entrées et lance les noyaux fly 2D ou 3D (avec réduction des splits).
 /// Consumes local, row-major [query, head, 512] and [page, slot, 512] tensors.
 /// Values span the full 512 columns; `config` supplies split/reduction settings.
 pub fn call(q: Tensor, kv_cache: Tensor, sink: ?Tensor, indices: Tensor, active: Tensor, opts: sparse_mla.Options, config: sparse_mla.Config) Tensor {
@@ -155,24 +157,29 @@ pub fn call(q: Tensor, kv_cache: Tensor, sink: ?Tensor, indices: Tensor, active:
     }).output;
 }
 
+// Indique si le backend fly est celui choisi automatiquement pour cette plateforme.
 pub fn isAvailable(platform: *const zml.Platform) bool {
     return sparse_mla.Backend.auto(platform, .bf16) == .fly;
 }
 
+// Lance le noyau principal en mode 2D (un seul split, sans réduction).
 fn runMain2D(b: *fly.Builder, cfg: Config) fly.FinishError!void {
     std.debug.assert(cfg.splits == 1);
     try runMain(b, cfg, false, Main2D.args(b));
 }
 
+// Lance le noyau principal en mode 3D (splits de KV produisant des sorties partielles).
 fn runMain3D(b: *fly.Builder, cfg: Config) fly.FinishError!void {
     try runMain(b, cfg, true, Main3D.args(b));
 }
 
+// Charge un vecteur de `count` éléments depuis un pointeur à l'offset donné.
 fn loadVector(b: *fly.Builder, ptr: Value, offset: Value, comptime dtype: fly.DType, comptime count: i64) Value {
     const atom = b.copyAtom(.{ .universal = @intCast(count * @as(i64, dtype.bitWidth())) }, dtype);
     return b.copyAtomLoad(atom, ptr.addOffset(offset).view(fly.L(count, 1)));
 }
 
+// Écrit un vecteur de `count` éléments vers un pointeur à l'offset donné.
 fn storeVector(b: *fly.Builder, ptr: Value, offset: Value, value: Value, comptime dtype: fly.DType, comptime count: i64) void {
     const atom = b.copyAtom(.{ .universal = @intCast(count * @as(i64, dtype.bitWidth())) }, dtype);
     b.copyAtomStore(atom, value, ptr.addOffset(offset).view(fly.L(count, 1)));
@@ -180,6 +187,7 @@ fn storeVector(b: *fly.Builder, ptr: Value, offset: Value, value: Value, comptim
 
 // One CTA owns one query, sixteen heads and one KV split. The four waves
 // partition the 512 contraction dimensions; their score sums meet in LDS.
+// Cœur du noyau : une CTA par requête, 16 têtes et un split KV, avec softmax en ligne.
 fn runMain(b: *fly.Builder, cfg: Config, comptime three_d: bool, a: anytype) fly.FinishError!void {
     const head_blocks = std.math.divCeil(i64, cfg.heads, 16) catch unreachable;
     const tiles = std.math.divCeil(i64, cfg.topk, 16) catch unreachable;
@@ -382,16 +390,19 @@ fn runMain(b: *fly.Builder, cfg: Config, comptime three_d: bool, a: anytype) fly
     }
 }
 
+// Réduit les sorties partielles vers une sortie unique (output_splits == 1).
 fn runReduce(b: *fly.Builder, cfg: ReduceConfig) fly.FinishError!void {
     std.debug.assert(cfg.output_splits == 1);
     runReduction(b, cfg, false, Reduce.args(b));
 }
 
+// Réduit un groupe de splits en sorties partielles (réduction groupée intermédiaire).
 fn runReducePartials(b: *fly.Builder, cfg: ReduceConfig) fly.FinishError!void {
     std.debug.assert(!cfg.has_sink);
     runReduction(b, cfg, true, ReducePartials.args(b));
 }
 
+// Implémente la réduction pondérée (softmax) des sorties partielles, simple ou groupée.
 fn runReduction(b: *fly.Builder, cfg: ReduceConfig, comptime grouped: bool, a: anytype) void {
     const group_splits = @divExact(cfg.input_splits, cfg.output_splits);
     std.debug.assert(group_splits > 0 and group_splits <= 64);

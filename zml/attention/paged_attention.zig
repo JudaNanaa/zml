@@ -12,6 +12,7 @@ const triton = @import("triton_attention.zig");
 
 const PagedAttention = @This();
 
+// Vérifie que les types Backend, Options, Parameters et KvCache compilent.
 test {
     std.testing.refAllDecls(Backend);
     std.testing.refAllDecls(Options);
@@ -27,6 +28,7 @@ pub const Backend = enum {
     metal,
     stablehlo,
 
+    // Sélectionne le backend d'attention paginée par défaut selon la plateforme.
     pub fn auto(platform: *const zml.Platform) Backend {
         return switch (platform.target) {
             .cuda => .triton,
@@ -39,6 +41,7 @@ pub const Backend = enum {
         };
     }
 
+    // Indique si un backend d'attention paginée est disponible sur la plateforme donnée.
     pub fn isAvailable(backend: Backend, platform: *const zml.Platform) bool {
         return switch (backend) {
             .stablehlo => true,
@@ -74,6 +77,7 @@ pub const Options = union(Backend) {
         max_seqlen_q: u32,
     };
 
+    // Construit les options de backend à partir des arguments communs (prefill ou decode).
     pub fn fromBackend(args: Args) Options {
         return switch (args.backend) {
             .cuda_fa2 => if (args.is_prefill) .{
@@ -151,12 +155,14 @@ pub const Options = union(Backend) {
         };
     }
 
+    // Indique si les options correspondent à un prefill (délègue au backend).
     pub fn isPrefill(self: Options) bool {
         return switch (self) {
             inline else => |v| v.isPrefill(),
         };
     }
 
+    // Renvoie le nombre maximal de pages du cache KV (délègue au backend).
     pub fn maxNumPages(self: Options) usize {
         return switch (self) {
             inline else => |v| v.maxNumPages(),
@@ -172,29 +178,34 @@ pub const Parameters = union(Backend) {
     metal: metal.paged.Parameters,
     stablehlo: triton.paged.Parameters,
 
+    // Initialise les paramètres du backend actif à partir des options.
     pub fn init(options_: Options) Parameters {
         return switch (options_) {
             inline else => |opts, backend| @unionInit(Parameters, @tagName(backend), .init(opts)),
         };
     }
 
+    // Renvoie les options associées à ces paramètres.
     pub fn options(self: Parameters) Options {
         return switch (self) {
             inline else => |v, backend| @unionInit(Options, @tagName(backend), v.options()),
         };
     }
 
+    // Calcule la taille d'allocation des paramètres.
     pub fn allocationSize(self: Parameters) usize {
         return switch (self) {
             inline else => |v| v.allocationSize(),
         };
     }
 
+    // Fixe le type de mémoire des paramètres et les renvoie.
     pub fn onMemory(self: Parameters, memory: zml.platform.Memory.Kind) Parameters {
         zml.Tensor.onMemoryAll(&self, memory);
         return self;
     }
 
+    // Renvoie une copie des paramètres sur le type de mémoire demandé.
     pub fn toMemory(self: Parameters, memory: zml.platform.Memory.Kind) Parameters {
         return zml.Tensor.toMemoryAll(self, memory);
     }
@@ -214,6 +225,7 @@ pub const AttentionMask = union(enum) {
     /// Attend to every valid key in the sequence.
     pub const none: AttentionMask = .{ .standard = .{ .causal = false } };
 
+    // Indique si le masque d'attention est causal.
     pub fn isCausal(mask: AttentionMask) bool {
         return switch (mask) {
             .standard => |options| options.causal,
@@ -221,6 +233,7 @@ pub const AttentionMask = union(enum) {
         };
     }
 
+    // Renvoie la taille de la fenêtre glissante du masque, ou null.
     pub fn slidingWindow(mask: AttentionMask) ?u32 {
         return switch (mask) {
             .standard => |options| options.sliding_window,
@@ -244,6 +257,7 @@ pub const KvCache = union(enum) {
     dense: zml.Tensor,
     latent: zml.Tensor,
 
+    // Écrit les nouvelles clés/valeurs dans le cache KV paginé via le slot_mapping.
     pub fn update(
         self: KvCache,
         new_k: zml.Tensor,
@@ -284,12 +298,14 @@ pub const KvCache = union(enum) {
         return kv;
     }
 
+    // Découpe un slot_mapping en indices de page et offsets dans la page.
     pub fn getPageAndOffsetFromSlotMapping(slot_mapping: zml.Tensor, page_size: u32) [2]zml.Tensor {
         const page_index = slot_mapping.divByConst(page_size);
         const offset = slot_mapping.remainder(.scalar(page_size, slot_mapping.dtype()));
         return .{ page_index, offset };
     }
 
+    // Extrait la page K/V correspondant à un index de page.
     pub fn getPage(
         self: KvCache,
         page_index: zml.Tensor,
@@ -304,6 +320,7 @@ pub const KvCache = union(enum) {
     }
 };
 
+// Point d'entrée de l'attention paginée : dispatch vers le backend selon les paramètres.
 pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, kv_cache: KvCache, opts: AttentionOptions) zml.Tensor {
     _ = k;
     _ = v;
@@ -340,6 +357,7 @@ pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k: zml.Tensor, v: z
     };
 }
 
+// Vérifie que Backend.auto choisit mosaic_tpu sur TPU.
 test "Backend.auto selects mosaic_tpu on TPU" {
     const platform: zml.Platform = .{
         .arena = undefined,
@@ -358,6 +376,7 @@ test "Backend.auto selects mosaic_tpu on TPU" {
     try std.testing.expectEqual(Backend.mosaic_tpu, Backend.auto(&platform));
 }
 
+// Vérifie que Backend.auto choisit triton sur oneAPI.
 test "Backend.auto selects triton on oneAPI" {
     const platform: zml.Platform = .{
         .arena = undefined,
@@ -376,6 +395,7 @@ test "Backend.auto selects triton on oneAPI" {
     try std.testing.expectEqual(Backend.triton, Backend.auto(&platform));
 }
 
+// Compare les sorties des backends d'attention paginée au backend Triton de référence.
 test pagedAttention {
     const platform = zml.testing.env();
     const io = std.testing.io;
@@ -609,6 +629,7 @@ test pagedAttention {
     }
 }
 
+// Implémente l'attention paginée StableHLO par une boucle while sur les pages.
 fn stablehlo_pagedAttention(
     parameters: triton.paged.Parameters,
     q: zml.Tensor,
@@ -659,6 +680,7 @@ const AttentionLoop = struct {
         out: zml.Tensor,
     };
 
+    // Condition de boucle : reste-t-il des séquences et des requêtes à traiter ?
     pub fn cond(self: While, state: State) zml.Tensor {
         const has_more_sequences = state.seq_id.cmp(.LT, .scalar(self.parameters.seq_lens.count(), .i32));
         const query_start = self.parameters.query_start_len.slice(0, .dynSingle(state.seq_id));
@@ -667,6 +689,7 @@ const AttentionLoop = struct {
         return has_more_sequences.logical(.AND, has_queries);
     }
 
+    // Corps de la boucle while qui traite la page courante d'une séquence.
     pub fn body(self: While, state_: State) State {
         const query_start = self.parameters.query_start_len.slice(0, .dynSingle(state_.seq_id));
         const query_end = self.parameters.query_start_len.slice(0, .dynSingle(state_.seq_id.addConstant(1)));
@@ -681,6 +704,7 @@ const AttentionLoop = struct {
                 seq_num_queries: zml.Tensor,
                 page_size: u32,
 
+                // Branche prefill : une page complète de requêtes est multipliée par une page de clés.
                 /// Prefill version: num_slots == page_size, we multiply a full page of queries with a page of keys.
                 pub fn onTrue(if_ctx: IfPrefill) State {
                     const while_body = if_ctx.while_body;
@@ -702,6 +726,7 @@ const AttentionLoop = struct {
                     return updateState(state, num_slots, query_has_more_keys, sequence_has_more_queries, partial_softmax);
                 }
 
+                // Branche decode : une requête unique est multipliée par une page de clés.
                 /// Decode version: num_slots == 1, we multiply one query with a page of keys.
                 pub fn onFalse(if_ctx: IfPrefill) State {
                     const while_body = if_ctx.while_body;
@@ -731,6 +756,7 @@ const AttentionLoop = struct {
         );
     }
 
+    // Calcule l'attention d'un morceau de requêtes sur une page de clés et fusionne le softmax.
     pub fn attentionOnePage(self: While, state: State, q_offset: zml.Tensor, q_chunk: u32, page_size: u32) PartialSoftmax {
         const k_offset = state.k_page_idx.scale(page_size);
         const active_q = self.q.slice(self.q.axis(.b), .dyn(state.slot_id, q_chunk));
@@ -768,6 +794,7 @@ const AttentionLoop = struct {
         return og_softmax.merge(partial);
     }
 
+    // Met à jour l'état de la boucle après le traitement d'une page (commit ou report).
     pub fn updateState(state: State, num_slots: u32, query_has_more_keys: zml.Tensor, sequence_has_more_queries: zml.Tensor, softmax: PartialSoftmax) State {
         return zml.ops.if2(
             query_has_more_keys,
@@ -802,6 +829,7 @@ pub const PartialSoftmax = struct {
     exp_sum: zml.Tensor,
     max_value: zml.Tensor,
 
+    // Construit un softmax partiel nul (valeurs à zéro, max à -inf).
     pub fn zeroes(q_shape: zml.Shape) PartialSoftmax {
         return .{
             .values = .zeroes(q_shape),
@@ -810,10 +838,12 @@ pub const PartialSoftmax = struct {
         };
     }
 
+    // Réinitialise un softmax partiel à partir de sa forme.
     pub fn reset(self: PartialSoftmax) PartialSoftmax {
         return .zeroes(self.values.shape());
     }
 
+    // Fusionne deux softmax partiels en les remettant à la même échelle.
     pub fn merge(self: PartialSoftmax, other: PartialSoftmax) PartialSoftmax {
         // Rescale self and other using the new global_max.
         const global_max = self.max_value.maximum(other.max_value.convert(self.max_value.dtype()));
@@ -828,6 +858,7 @@ pub const PartialSoftmax = struct {
         };
     }
 
+    // Met à jour le max et remet à l'échelle les valeurs et l'exponentielle.
     /// Update max_value and rescale attn and exp_sum accordingly.
     pub fn rescale(self: PartialSoftmax, max_value: zml.Tensor) PartialSoftmax {
         const max_diff_exp: zml.Tensor = .exp(self.max_value.sub(max_value));
@@ -839,12 +870,14 @@ pub const PartialSoftmax = struct {
         };
     }
 
+    // Divise les valeurs par la somme des exponentielles pour obtenir l'attention finale.
     /// Divides the intermediary results by the exp_sum to get the proper attention values.
     pub fn finalize(self: PartialSoftmax) zml.Tensor {
         return self.values.div(self.exp_sum.broad(self.values.shape()).convert(self.values.dtype()));
     }
 };
 
+// Calcule un softmax sur un morceau et renvoie des résultats intermédiaires agrégables.
 /// Compute softmax over a chunk.
 /// Returns intermediary results to allow aggregating later.
 pub fn partialSoftmax(self: zml.Tensor, axis: anytype) PartialSoftmax {
@@ -870,6 +903,7 @@ pub const Mla = struct {
         num_kv_splits: ?u8 = null,
     };
 
+    // Implémente l'attention MLA sparse StableHLO (gather topk + softmax).
     fn stablehlo_pagedSparseAttention(q: zml.Tensor, kv: zml.Tensor, sink: ?zml.Tensor, topk: zml.Tensor, opts: Mla.Options) zml.Tensor {
         stdx.debug.assert(kv.dim(.hkv) == 1, "StableHLO MLA expects one latent KV head, got {}", .{kv.dim(.hkv)});
         const kv_flat = kv.squeeze(.hkv).reshape(.{
@@ -906,6 +940,7 @@ pub const Mla = struct {
         latent: zml.Tensor,
         quantized: zml.quantization.QuantizedInput,
 
+        // Renvoie le nombre de lignes (tokens) par page du cache.
         fn rowsPerPage(self: Cache) i64 {
             return switch (self) {
                 .latent => |t| t.dim(.k_chunk),
@@ -925,6 +960,7 @@ pub const Mla = struct {
         /// Ratio of tokens per row
         compression_ratio: u32 = 1,
 
+        // Renvoie le nombre de lignes de requêtes actives depuis la table de pages.
         /// Number of leading active query rows, from the page table
         pub fn activeCount(self: CacheSelection) zml.Tensor {
             return switch (self.parameters) {
@@ -933,6 +969,7 @@ pub const Mla = struct {
             };
         }
 
+        // Convertit des positions en lignes physiques plates (-1 si invalide).
         /// Flat physical row (page * rows per page + slot) of each selected position
         /// -1 for none and for queries past `active_count`
         pub fn physicalRows(self: CacheSelection, tokens_pos: zml.Tensor, active_count: zml.Tensor) zml.Tensor {
@@ -956,6 +993,7 @@ pub const Mla = struct {
         tokens_pos: zml.Tensor,
     };
 
+    // Point d'entrée de l'attention MLA sparse : dispatch vers le backend selon les options.
     pub fn pagedSparseAttention(args: SparseAttentionArgs, opts: Mla.Options) zml.Tensor {
         // Switch there because backends read input rows differently
         return switch (opts.backend) {
@@ -964,6 +1002,7 @@ pub const Mla = struct {
         };
     }
 
+    // Prépare les lignes latentes sélectionnées puis lance l'attention MLA sparse.
     fn latentAttention(args: SparseAttentionArgs, opts: Mla.Options) zml.Tensor {
         const active_count = args.kv.activeCount();
         const rows = args.kv.physicalRows(args.tokens_pos, active_count);
@@ -987,6 +1026,7 @@ pub const Mla = struct {
         return latentSparseAttention(args.kv.parameters, args.q, kv, args.sink, selected, active_count, opts).mask(active, 0);
     }
 
+    // Rassemble les lignes demandées depuis le cache (latent ou quantifié).
     /// Gathers the specified rows from the cache
     fn gatherRows(cache: Cache, rows: zml.Tensor, dtype: zml.DataType) zml.Tensor {
         const valid = rows.cmp(.GE, .scalar(0, .i32));
@@ -1005,6 +1045,7 @@ pub const Mla = struct {
         return values.mask(valid.insertAxes(.last, .{ .hkv, .hd }).broad(values.shape()), 0);
     }
 
+    // Lance l'attention MLA sparse sur les lignes latentes selon le backend.
     fn latentSparseAttention(parameters: Parameters, q: zml.Tensor, latent_kv: zml.Tensor, sink: ?zml.Tensor, rows: zml.Tensor, active_count: zml.Tensor, opts: Mla.Options) zml.Tensor {
         stdx.debug.assert(q.shape().hasTags(.{ .q, .h, .hd }), "expected q to have tags .q, .h, .hd after flattening, got {f}", .{q.shape()});
         stdx.debug.assert(q.dim(.hd) > opts.rope_rank, "expected q head dim ({}) to include a rope tail of {}", .{ q.dim(.hd), opts.rope_rank });
@@ -1021,6 +1062,7 @@ pub const Mla = struct {
     }
 };
 
+// Vérifie les rangs de valeur et les requêtes padded du MLA sparse Triton.
 test "Triton sparse MLA value ranks and padded queries" {
     const platform = zml.testing.env();
     if (!Backend.triton.isAvailable(platform)) return error.SkipZigTest;
@@ -1141,6 +1183,7 @@ test "Triton sparse MLA value ranks and padded queries" {
     }
 }
 
+// Vérifie l'exécution du noyau MLA sparse StableHLO.
 test "execute stablehlo mla kernel" {
     const platform = zml.testing.env();
     const parameters = Parameters.init(.fromBackend(.{

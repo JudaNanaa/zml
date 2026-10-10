@@ -30,6 +30,7 @@ pub const Parameters = struct {
         is_prefill: bool,
     };
 
+    // Initialise les paramètres de communication à partir de la configuration d'attention.
     pub fn init(args: Init) Parameters {
         const mtu: u32 = if (context) |ctx| @intCast(ctx.mtu) else @panic("attnd wasn't registered yet, use register() first.");
         const num_q_per_head: u8 = @intCast(@divExact(args.num_attention_heads, args.num_kv_heads));
@@ -62,6 +63,7 @@ pub const Metadata = struct {
     layer_id: zml.Tensor,
     num_tokens: zml.Tensor,
 
+    // Crée les métadonnées d'attention (identifiants de conversation, couche et nombre de tokens).
     pub fn init() Metadata {
         return .{
             .conversation_id = .fromShape(.scalar(.u64)),
@@ -70,6 +72,7 @@ pub const Metadata = struct {
         };
     }
 
+    // Alloue les buffers des métadonnées sur la plateforme.
     pub fn initBuffer(
         self: Metadata,
         io: std.Io,
@@ -82,6 +85,7 @@ pub const Metadata = struct {
         };
     }
 
+    // Libère les buffers des métadonnées.
     pub fn deinitBuffer(self: *zml.Bufferized(Metadata)) void {
         self.conversation_id.deinit();
         self.layer_id.deinit();
@@ -89,6 +93,7 @@ pub const Metadata = struct {
     }
 };
 
+// Enregistre le client attnd global et le custom call associé sur la plateforme.
 pub fn register(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, config: Config) !void {
     var ctx = try allocator.create(Context);
     errdefer allocator.destroy(ctx);
@@ -100,6 +105,7 @@ pub fn register(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.P
     try targets.attnd.register(platform);
 }
 
+// Libère le contexte attnd global s'il a été initialisé.
 pub fn deinit() void {
     if (context) |ctx| {
         ctx.deinit();
@@ -114,6 +120,7 @@ const Context = struct {
     // One client per device.
     clients: []Client,
 
+    // Initialise le contexte et un client UDP par device de la plateforme.
     fn initialize(ctx: *Context, io: std.Io, allocator: std.mem.Allocator, platform: *const zml.Platform, config: Config) !void {
         ctx.allocator = allocator;
         ctx.io = io;
@@ -129,6 +136,7 @@ const Context = struct {
         }
     }
 
+    // Ferme tous les clients et libère le contexte.
     fn deinit(self: *Context) void {
         for (self.clients) |*c| {
             c.deinit(self.allocator, self.io);
@@ -138,6 +146,7 @@ const Context = struct {
     }
 };
 
+// Exécute l'attention causale en déléguant le calcul à un serveur attnd distant via le réseau.
 pub fn causalAttention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_offset: zml.Tensor, metadata: Metadata, parameters: Parameters) zml.Tensor {
     const tp = zml.Compiler.current().mesh(.model);
     const num_partitions = tp.numPartitionsForLogicalAxis(.model);
@@ -217,6 +226,7 @@ const Attributes = struct {
     v_byte_size: u32,
 };
 
+// Callback hôte du custom call attnd : découpe le buffer entrant et dialogue avec le serveur.
 fn attndCall(
     call_frame: *zml.pjrt.ffi.CallFrame,
     input: zml.pjrtx.TensorToCustomCallBuffer(Input),
@@ -319,6 +329,7 @@ const Client = struct {
     send_addr: std.Io.Threaded.PosixAddress,
     send_namelen: std.posix.socklen_t,
 
+    // Ouvre un socket UDP, configure son MTU et prépare l'adresse de destination.
     fn initialize(self: *Client, allocator: std.mem.Allocator, io: std.Io, config: Config) !void {
         const src: std.Io.net.IpAddress = .{ .ip4 = .unspecified(0) };
         const socket = try src.bind(io, .{ .mode = .dgram, .protocol = .udp });
@@ -355,6 +366,7 @@ const Client = struct {
         self.send_namelen = std.Io.Threaded.addressToPosix(&self.destination, &self.send_addr);
     }
 
+    // Envoie un paquet contenant un en-tête, les requêtes et les clés/valeurs associées.
     pub fn send(self: *Client, header: Header, q: []const u8, k: []const u8, v: []const u8) !void {
         const iovecs = [_]std.posix.iovec_const{
             .{ .base = std.mem.asBytes(&header).ptr, .len = @sizeOf(Header) },
@@ -384,6 +396,7 @@ const Client = struct {
         }
     }
 
+    // Reçoit et analyse un paquet de réponse du serveur.
     pub fn receive(self: *Client) !Response {
         var iovecs = [_]std.posix.iovec{
             .{ .base = self.packet_buffer.ptr, .len = self.packet_buffer.len },
@@ -415,6 +428,7 @@ const Client = struct {
         }
     }
 
+    // Libère le buffer de réception et ferme le socket.
     pub fn deinit(self: *Client, allocator: std.mem.Allocator, io: std.Io) void {
         allocator.free(self.packet_buffer);
         self.socket.close(io);
@@ -425,6 +439,7 @@ pub const Message = struct {
     header: *align(1) const Header,
     payload: []const u8,
 
+    // Analyse un buffer brut en message, en vérifiant la présence de la signature magique.
     pub fn parse(bytes: []const u8) !Message {
         const n = @sizeOf(Header);
         if (bytes.len < n) return error.ShortMessage;

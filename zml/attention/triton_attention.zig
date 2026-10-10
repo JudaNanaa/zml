@@ -13,10 +13,12 @@ const mla_kernels = @import("triton_kernels/unified_sparse_mla.zig");
 
 const log = std.log.scoped(.@"zml/attention/triton");
 
+// Indique si la plateforme de compilation ciblée est oneAPI (Intel).
 fn isOneapiTarget() bool {
     return zml.Compiler.current().platform.target == .oneapi;
 }
 
+// Choisit entre les noyaux d'attention 2D et 3D selon le mode et la taille du lot.
 fn use2dKernel(all_decode: bool, batch_size: usize, num_kv_heads: usize) bool {
     // Intel decode spills the 2D whole-sequence kernel; force the 3D split-K path.
     if (all_decode and isOneapiTarget()) return false;
@@ -39,6 +41,7 @@ pub const Config2D = struct {
     total_q_blocks: usize,
 };
 
+// Vérifie que la plateforme CUDA courante a la capacité de calcul attendue.
 fn isCudaComputeCapability(expected: zml.platform.cuda.ComputeCapability) bool {
     const platform = zml.module.CompilationContext.current().platform;
     return if (zml.platform.cuda.computeCapability(platform)) |cc| cc.eql(expected) else false;
@@ -62,6 +65,7 @@ fn isCudaComputeCapability(expected: zml.platform.cuda.ComputeCapability) bool {
 /// Triton codegen bug is not diagnosed; this only keeps us out of it.
 const max_query_tile_elements: usize = 16 * 1024;
 
+// Sélectionne la configuration du noyau 2D pour l'attention sparse (MLA).
 fn select2dSparseConfig(options: paged.PagedAttentionOptions) Config2D {
     const tile_size: usize = switch (options.indices_count) {
         0...16 => 16,
@@ -79,6 +83,7 @@ fn select2dSparseConfig(options: paged.PagedAttentionOptions) Config2D {
     };
 }
 
+// Sélectionne la configuration du noyau d'attention 2D (blocs, étapes, warps).
 fn select2dConfig(options: paged.PagedAttentionOptions) Config2D {
     if (options.indices_count > 0) return select2dSparseConfig(options);
 
@@ -144,6 +149,7 @@ pub const Config3D = struct {
     reduce: ReduceConfig,
 };
 
+// Sélectionne les configurations d'attention et de réduction du noyau 3D.
 fn select3dConfig(options: paged.PagedAttentionOptions) Config3D {
     var reduce_num_warps: usize = 2;
     // Intel decode needs more warps to spread the work and avoid register spill.
@@ -187,6 +193,7 @@ fn select3dConfig(options: paged.PagedAttentionOptions) Config3D {
     };
 }
 
+// Renvoie le nombre de cœurs (compute units) du premier périphérique, ou 1.
 pub fn getCuCount() usize {
     const platform = zml.Compiler.current().platform;
     if (platform.devices.len == 0) return 1;
@@ -202,10 +209,12 @@ pub const paged = struct {
         max_seqlen_q: usize,
         is_prefill: bool,
 
+        // Indique si les options correspondent à un prefill.
         pub fn isPrefill(self: Options) bool {
             return self.is_prefill;
         }
 
+        // Renvoie le nombre maximal de pages du cache KV.
         pub fn maxNumPages(self: Options) usize {
             return self.max_num_pages;
         }
@@ -217,6 +226,7 @@ pub const paged = struct {
         query_start_len: zml.Tensor,
         options_: Options,
 
+        // Initialise les paramètres (block_table, seq_lens, query_start_len) pour un lot.
         pub fn init(options_: Options) Parameters {
             return .{
                 .block_table = .init(.{ .b = options_.batch_size, .p = options_.max_num_pages }, .i32),
@@ -226,6 +236,7 @@ pub const paged = struct {
             };
         }
 
+        // Calcule la taille d'allocation des paramètres.
         pub fn allocationSize(self: Parameters) usize {
             var allocation_size: usize = 0;
 
@@ -236,6 +247,7 @@ pub const paged = struct {
             return allocation_size;
         }
 
+        // Renvoie les options associées à ces paramètres.
         pub fn options(self: Parameters) Options {
             return self.options_;
         }
@@ -263,15 +275,18 @@ pub const paged = struct {
         /// Number of indices for sparse attention
         indices_count: usize,
 
+        // Renvoie le nombre de têtes de requête par tête KV (ratio GQA).
         pub fn numQueriesPerKv(self: PagedAttentionOptions) usize {
             return self.num_heads / self.num_kv_heads;
         }
 
+        // Renvoie la longueur maximale de séquence côté clés (pages x taille de bloc).
         pub fn maxSeqLenK(self: PagedAttentionOptions) usize {
             return self.max_num_block_per_seq * self.block_size;
         }
     };
 
+    // Exécute l'attention paginée Triton via un manualComputation.
     pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions) zml.Tensor {
         const output = zml.ops.manualComputation(
             (struct {
@@ -284,6 +299,7 @@ pub const paged = struct {
                 opts: AttentionOptions,
                 options: Options,
 
+                // Corps du manualComputation qui choisit le noyau (2D, 3D ou 3D oneAPI) et l'appelle.
                 fn body(self: @This(), _: zml.Shape) zml.Tensor {
                     const parameters_: Parameters = .{
                         .block_table = self.block_table,
@@ -369,6 +385,7 @@ pub const paged = struct {
         return output;
     }
 
+    // Lance le noyau Triton d'attention paginée 2D (séquence entière).
     pub fn pagedAttention2d(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions, paged_attention_opts: PagedAttentionOptions) zml.Tensor {
         const config = select2dConfig(paged_attention_opts);
 
@@ -454,6 +471,7 @@ pub const paged = struct {
         return output.output;
     }
 
+    // Lance les noyaux 3D split-K (attention par segments puis réduction).
     pub fn pagedAttention3d(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions, paged_attention_opts: PagedAttentionOptions) zml.Tensor {
         const config = select3dConfig(paged_attention_opts);
 
@@ -586,6 +604,7 @@ pub const paged = struct {
         return output.output;
     }
 
+    // Variante oneAPI/Intel du noyau 3D, avec le noyau d'attention SIMD16.
     /// oneAPI/Intel specialization of pagedAttention3d: routes the attention pass to
     /// the SIMD16-tuned kernel (compile-time KV strides, cached loads, same-page fast
     /// path) while reusing the shared segment-reduce kernel. See unified_attention_oneapi.zig.
@@ -718,6 +737,7 @@ pub const paged = struct {
         return output.output;
     }
 
+    // Lance le noyau Triton de MLA sparse paginé (2D direct ou 3D split-K + réduction).
     pub fn pagedSparseMlaKernel(q: zml.Tensor, kv_cache: zml.Tensor, sink: ?zml.Tensor, topk: zml.Tensor, active_query_count: zml.Tensor, paged_opts: PagedSparseMlaOptions) zml.Tensor {
         const value_rank: i64 = @intCast(paged_opts.value_rank);
         const rope_rank: i64 = if (paged_opts.value_rank == paged_opts.qk_rank) 0 else @intCast(paged_opts.rope_rank);
@@ -878,6 +898,7 @@ pub const paged = struct {
         return out.output.reshape(out_shape);
     }
 
+    // Associe chaque requête à sa séquence à partir des longueurs cumulées.
     pub fn tokenToSequence(query_start_len: zml.Tensor, query_count: i64) zml.Tensor {
         const sequence_count = query_start_len.dim(.b) - 1;
         const starts = query_start_len.slice(.b, .{ .end = sequence_count }).rename(.{ .b = .seq });
@@ -891,6 +912,7 @@ pub const paged = struct {
         return zml.Tensor.select(in_range, sequence, zml.Tensor.zeroes(query_x_sequence_shape)).sum(.seq).squeeze(.seq);
     }
 
+    // Convertit des indices topk logiques en adresses physiques du cache KV paginé.
     pub fn topkToPhysical(parameters: anytype, topk: zml.Tensor, tokens_pos: zml.Tensor, block_size: i64) zml.Tensor {
         const topk_i32 = topk.convert(.i32);
         const topk_shape = topk_i32.shape();
@@ -930,11 +952,13 @@ pub const paged = struct {
 
     pub const PagedSparseMlaOptions = sparse_mla.Options;
 
+    // Exécute l'attention sparse MLA paginée en déléguant à sparse_mla.
     pub fn pagedSparseMla(parameters: Parameters, q: zml.Tensor, kv_cache: zml.Tensor, sink: ?zml.Tensor, topk: zml.Tensor, tokens_pos: zml.Tensor, opts: MlaOptions) zml.Tensor {
         return sparse_mla.pagedAttention(parameters, q, kv_cache, sink, topk, tokens_pos, opts);
     }
 };
 
+// Vérifie que la MLA sparse émet bien les noyaux Triton 2D et 3D.
 test "sparse MLA emits 2D and 3D Triton kernels" {
     const platform = zml.testing.env();
     var compilation = zml.Compiler.init(std.testing.allocator, std.testing.io, platform, .{});

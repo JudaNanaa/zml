@@ -10,20 +10,24 @@ const log = std.log.scoped(.@"zml/attention/metal");
 pub const Metadata = struct {
     num_tokens: zml.Tensor,
 
+    // Crée les métadonnées Metal (compteur de tokens initialisé à zéro).
     pub fn init() Metadata {
         return .{ .num_tokens = .fromShape(.scalar(.u32)) };
     }
 
+    // Alloue le buffer du compteur de tokens sur la plateforme.
     pub fn initBuffer(self: Metadata, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(Metadata) {
         _ = self;
         return .{ .num_tokens = try zml.Buffer.scalar(io, platform, 0, .u32) };
     }
 
+    // Libère le buffer du compteur de tokens.
     pub fn deinitBuffer(self: *zml.Bufferized(Metadata)) void {
         self.num_tokens.deinit();
     }
 };
 
+// Implémente l'attention Flash Attention sur Metal via un custom call `zml$flash_attn`.
 pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.Tensor, metadata: Metadata) zml.Tensor {
     const qc = q.transpose(.{ .h, .q, .hd });
     const kc = k.transpose(.{ .h, .k, .hd });
@@ -45,10 +49,12 @@ pub const paged = struct {
         max_seqlen_q: usize,
         is_prefill: bool,
 
+        // Indique si la passe courante est un prefill.
         pub fn isPrefill(self: Options) bool {
             return self.is_prefill;
         }
 
+        // Renvoie le nombre maximal de pages du cache KV.
         pub fn maxNumPages(self: Options) usize {
             return self.max_num_pages;
         }
@@ -60,6 +66,7 @@ pub const paged = struct {
         query_start_len: zml.Tensor,
         options_: Options,
 
+        // Initialise les tenseurs de paramètres de l'attention paginée (table de pages, longueurs, offsets).
         pub fn init(options_: Options) Parameters {
             return .{
                 .block_table = .init(.{ .b = options_.batch_size, .p = options_.max_num_pages }, .i32),
@@ -69,6 +76,7 @@ pub const paged = struct {
             };
         }
 
+        // Calcule la taille totale, en octets, des buffers de paramètres.
         pub fn allocationSize(self: Parameters) usize {
             var allocation_size: usize = 0;
 
@@ -79,11 +87,13 @@ pub const paged = struct {
             return allocation_size;
         }
 
+        // Renvoie les options associées à ces paramètres.
         pub fn options(self: Parameters) Options {
             return self.options_;
         }
     };
 
+    // Implémente l'attention paginée Metal via le custom call `zml$paged_attn`.
     pub fn pagedAttention(parameters: Parameters, q: zml.Tensor, k_cache: zml.Tensor, v_cache: zml.Tensor, opts: AttentionOptions) zml.Tensor {
         if (opts.mask == .indices) @panic("Sparse Attention is not implemented on Metal");
 

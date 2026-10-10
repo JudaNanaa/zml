@@ -14,6 +14,7 @@ pub const Parameters = struct {
     decode_kernel: KernelSpec,
     prefill_kernel: KernelSpec,
 
+    // Initialise les spécifications des noyaux NKI decode/prefill pour la cible Neuron courante.
     pub fn init() Parameters {
         if (comptime platforms.isEnabled(.neuron)) {
             const nki_kernel = @import("platforms/neuron/nki_kernel");
@@ -41,6 +42,7 @@ pub const Parameters = struct {
     }
 };
 
+// Attention pour Neuron : prefill et decode sont abaissés en custom calls NKI.
 /// Attention for Neuron. Both prefill and decode lower to NKI custom calls.
 pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.Tensor, parameters: Parameters) zml.Tensor {
     const tp_mesh = zml.Compiler.current().mesh(.model);
@@ -60,6 +62,7 @@ pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.T
                 token_index: zml.Tensor,
                 parameters: Parameters,
 
+                // Corps decode : lance le noyau NKI de décodage sur q/k/v et l'index de token.
                 fn body(self: @This(), output: zml.Shape) zml.Tensor {
                     const kernel = self.parameters.decode_kernel;
                     return zml.ops.neuronNki(
@@ -92,6 +95,7 @@ pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.T
             v: zml.Tensor,
             parameters: Parameters,
 
+            // Corps prefill : lance le noyau NKI de prefill sur q/k/v.
             fn body(self: @This(), output: zml.Shape) zml.Tensor {
                 const kernel = self.parameters.prefill_kernel;
                 return zml.ops.neuronNki(

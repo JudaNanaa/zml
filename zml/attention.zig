@@ -12,6 +12,7 @@ pub const triton = @import("attention/triton_attention.zig");
 pub const triton_kernels = @import("attention/triton_kernels/unified_attention.zig");
 const zml = @import("zml.zig");
 
+// Bloc de test anonyme qui force la référence de toutes les déclarations du module.
 test {
     std.testing.refAllDecls(@This());
 }
@@ -24,6 +25,7 @@ pub const Backend = enum {
     cuda_fa3,
     metal_fa,
 
+    // Choisit le backend d'attention adapté à la plateforme (FA3/FA2 CUDA, NKI, Metal, sinon vanilla).
     pub fn auto(platform: *const zml.Platform) Backend {
         return switch (platform.target) {
             .cuda => b: {
@@ -36,6 +38,7 @@ pub const Backend = enum {
         };
     }
 
+    // Indique si le backend demandé peut s'exécuter sur la plateforme donnée.
     pub fn isAvailable(backend: Backend, platform: *const zml.Platform) bool {
         return switch (backend) {
             .vanilla => true,
@@ -64,6 +67,7 @@ pub const Parameters = union(Backend) {
         cuda_fa3: flashattn.fa3.Parameters.InitOptions,
         metal_fa: void,
 
+        // Construit les options d'initialisation des paramètres pour un backend donné.
         pub fn fromBackend(backend: Backend) InitOptions {
             return switch (backend) {
                 .vanilla => .{ .vanilla = {} },
@@ -76,6 +80,7 @@ pub const Parameters = union(Backend) {
         }
     };
 
+    // Initialise les paramètres d'un backend à partir de ses options d'initialisation.
     pub fn init(opts: InitOptions) Parameters {
         return switch (opts) {
             .vanilla => .{ .vanilla = {} },
@@ -104,6 +109,7 @@ pub const Metadata = union(Backend) {
         cuda_fa3: flashattn.fa3.Metadata.InitOptions,
         metal_fa: void,
 
+        // Construit les options d'initialisation des métadonnées pour un backend, avec la longueur de séquence.
         pub fn fromBackend(backend: Backend, seqlen: i64, num_heads: i64) InitOptions {
             return switch (backend) {
                 .vanilla => .{ .vanilla = {} },
@@ -116,6 +122,7 @@ pub const Metadata = union(Backend) {
         }
     };
 
+    // Initialise les métadonnées d'un backend, en répartissant les tenseurs sur le maillage de sharding.
     pub fn init(opts: InitOptions, mesh: *const zml.Sharding.Mesh) Metadata {
         return switch (opts) {
             .vanilla => .{ .vanilla = {} },
@@ -127,6 +134,7 @@ pub const Metadata = union(Backend) {
         };
     }
 
+    // Alloue les buffers de métadonnées du backend sur la plateforme et renvoie leur version bufferisée.
     pub fn initBuffer(self: Metadata, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(Metadata) {
         return switch (self) {
             .vanilla => .{ .vanilla = {} },
@@ -135,6 +143,7 @@ pub const Metadata = union(Backend) {
         };
     }
 
+    // Libère les buffers de métadonnées du backend précédemment alloués.
     pub fn deinitBuffer(self: *zml.Bufferized(Metadata)) void {
         switch (self.*) {
             .vanilla => {},
@@ -147,6 +156,7 @@ pub const Metadata = union(Backend) {
     }
 };
 
+// Dispatch l'attention causale vers l'implémentation du backend sélectionné.
 /// Causal attention as used in transformers.
 ///
 /// **Shapes**:
@@ -179,6 +189,7 @@ pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.T
     };
 }
 
+// Vérifie que les métadonnées FA s'initialisent avec un sharding explicite hors compilation.
 test "FlashAttention metadata initializes with explicit sharding outside compilation" {
     try std.testing.expect(zml.Compiler.currentOrNull() == null);
     const mesh: zml.Sharding.Mesh = .{
@@ -204,6 +215,7 @@ test "FlashAttention metadata initializes with explicit sharding outside compila
     }
 }
 
+// Teste l'attention avec une seule requête et 64 têtes de requête contre 8 têtes de clé.
 test "attention: q=1,qh=64,kh=8" {
     try testAttention(
         .init(.{ .q = 1, .h = 64, .hd = 64 }, .bf16),
@@ -218,6 +230,7 @@ test "attention: q=1,qh=64,kh=8" {
     );
 }
 
+// Teste l'attention par lots (batch=4) avec attention complète puis partielle.
 test "attention: b=4,q=1,qh=64,kh=8" {
     // Full attention
     try testAttention(
@@ -234,6 +247,7 @@ test "attention: b=4,q=1,qh=64,kh=8" {
     );
 }
 
+// Teste l'attention avec autant de têtes de requête que de têtes de clé.
 test "attention: q=1,qh=8,kh=8" {
     try testAttention(
         .init(.{ .q = 1, .h = 8, .hd = 64 }, .bf16),
@@ -247,6 +261,7 @@ test "attention: q=1,qh=8,kh=8" {
     );
 }
 
+// Teste l'attention avec 8 requêtes et un rapport de têtes 64/8.
 test "attention: q=8,qh=64,kh=8" {
     try testAttention(
         .init(.{ .q = 8, .h = 64, .hd = 64 }, .bf16),
@@ -255,6 +270,7 @@ test "attention: q=8,qh=64,kh=8" {
     );
 }
 
+// Compare la sortie de chaque backend disponible à l'implémentation vanilla de référence.
 pub fn testAttention(q_shape: zml.Shape, k_shape: zml.Shape, token_index_h: []const u32) !void {
     const io = std.testing.io;
     const allocator = std.testing.allocator;

@@ -12,6 +12,7 @@ pub const Backend = enum {
     fly,
     cute,
 
+    // Choisit automatiquement le backend sparse MLA selon la plateforme (cute sur CUDA, fly sur ROCm gfx942, sinon triton).
     pub fn auto(args: SparseAttentionArgs) Backend {
         const platform = zml.Compiler.current().platform;
         return switch (platform.target) {
@@ -27,6 +28,7 @@ pub const Backend = enum {
         };
     }
 
+    // Exécute le noyau sparse MLA du backend retenu, avec repli sur Triton si nécessaire.
     fn call(self: Backend, q: zml.Tensor, kv_cache: zml.Tensor, sink: ?zml.Tensor, topk: zml.Tensor, active_query_count: zml.Tensor, opts: Options) zml.Tensor {
         const backend: Backend = switch (self) {
             .fly => blk: {
@@ -71,6 +73,7 @@ pub const Config = struct {
     parallel_reduce_num_warps: usize = 1,
 };
 
+// Calcule la configuration de lancement (blocs, tuiles, découpes) des noyaux sparse MLA.
 pub fn launchConfig(paged_opts: Options, topk_count: usize, cu_count_: usize) Config {
     stdx.debug.assert(paged_opts.total_q_blocks > 0, "sparse MLA requires at least one query", .{});
     stdx.debug.assert(paged_opts.num_heads > 0, "sparse MLA requires at least one query head", .{});
@@ -143,6 +146,7 @@ pub fn launchConfig(paged_opts: Options, topk_count: usize, cu_count_: usize) Co
     return config;
 }
 
+// Point d'entrée sparse MLA paginé : convertit les positions top-k en lignes physiques puis lance l'attention.
 /// Sparse MLA over a paged latent cache, `topk` holding logical token positions.
 pub fn pagedAttention(parameters: triton.paged.Parameters, q: zml.Tensor, kv_cache: zml.Tensor, sink: ?zml.Tensor, topk: zml.Tensor, tokens_pos: zml.Tensor, opts: MlaOptions) zml.Tensor {
     const rows = triton.paged.topkToPhysical(parameters, topk, tokens_pos, kv_cache.dim(.k_chunk));
@@ -150,6 +154,7 @@ pub fn pagedAttention(parameters: triton.paged.Parameters, q: zml.Tensor, kv_cac
     return attention(q, kv_cache, sink, rows, active_count, !parameters.options_.is_prefill, opts);
 }
 
+// Enveloppe le noyau dans un manualComputation qui valide les formes et construit les options paginées.
 /// Sparse MLA of `q` [.q, .h, .hd] over the latent cache `kv_cache` [.page, .k_chunk, .hkv, .hd]
 /// with the Triton (or Fly) kernels: `rows` holds the physical row of each selected key
 /// ([.q, .topk], -1 unused), `active_count` the number of leading active queries.
@@ -165,6 +170,7 @@ pub fn attention(q: zml.Tensor, kv_cache: zml.Tensor, sink: ?zml.Tensor, rows: z
             all_decode: bool,
             opts: MlaOptions,
 
+            // Corps du manualComputation : assemble les options puis délègue au backend sparse MLA.
             fn body(self: @This(), _: zml.Shape) zml.Tensor {
                 stdx.debug.assert(self.rows.dim(.q) == self.q.dim(.q), "expected rows q dim ({}) to match q dim ({})", .{ self.rows.dim(.q), self.q.dim(.q) });
                 const paged_opts: Options = .{
