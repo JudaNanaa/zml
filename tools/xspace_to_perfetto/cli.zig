@@ -3,6 +3,8 @@ const std = @import("std");
 const stdx = @import("stdx");
 const xspace_to_perfetto = @import("tools/xspace_to_perfetto");
 
+// Point d'entrée du convertisseur : lit un fichier XSpace protobuf, écrit le JSON
+// Perfetto correspondant et affiche le chemin de sortie.
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
 

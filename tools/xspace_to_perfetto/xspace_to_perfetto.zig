@@ -60,6 +60,7 @@ const StatBehavior = enum {
 const JsonArrayWriter = struct {
     needs_comma: bool = false,
 
+    // Écrit une virgule de séparation si nécessaire, puis marque qu'un nouvel élément suit.
     fn nextItem(self: *JsonArrayWriter, writer: *std.Io.Writer) !void {
         if (self.needs_comma) {
             try writer.writeByte(',');
@@ -71,10 +72,12 @@ const JsonArrayWriter = struct {
 const EventScratch = struct {
     args: std.ArrayListUnmanaged(Arg) = .empty,
 
+    // Vide la liste d'arguments tout en conservant sa capacité allouée.
     fn reset(self: *EventScratch) void {
         self.args.clearRetainingCapacity();
     }
 
+    // Libère la mémoire de la liste d'arguments.
     fn deinit(self: *EventScratch, allocator: std.mem.Allocator) void {
         self.args.deinit(allocator);
     }
@@ -92,6 +95,7 @@ const PlaneContext = struct {
     // Metadata caching mirrors the role of XPlaneVisitor lookups in:
     // ../../xla/xla/tsl/profiler/utils/xplane_visitor.h
     // ../../xla/xla/tsl/profiler/utils/xplane_visitor.cc
+    // Crée un contexte de plan (XPlane) avec son identifiant d'appareil et l'indicateur hôte.
     fn init(plane: *const c.tensorflow_profiler_XPlane, device_id: u32, is_host: bool) PlaneContext {
         return .{
             .plane = plane,
@@ -100,6 +104,7 @@ const PlaneContext = struct {
         };
     }
 
+    // Libère les tables de correspondance de métadonnées et de comportements.
     fn deinit(self: *PlaneContext, allocator: std.mem.Allocator) void {
         self.event_metadata_by_id.deinit(allocator);
         self.stat_metadata_by_id.deinit(allocator);
@@ -107,6 +112,8 @@ const PlaneContext = struct {
         self.stat_behavior_by_id.deinit(allocator);
     }
 
+    // Renvoie la métadonnée d'événement associée à un id, depuis le cache ou le plan,
+    // en la mettant en cache et en renvoyant null si absente.
     fn getEventMetadata(
         self: *PlaneContext,
         allocator: std.mem.Allocator,
@@ -126,6 +133,8 @@ const PlaneContext = struct {
         return result;
     }
 
+    // Renvoie la métadonnée de statistique associée à un id, depuis le cache ou le plan,
+    // en la mettant en cache et en renvoyant null si absente.
     fn getStatMetadata(
         self: *PlaneContext,
         allocator: std.mem.Allocator,
@@ -145,6 +154,7 @@ const PlaneContext = struct {
         return result;
     }
 
+    // Indique si l'événement de cet id est interne, résultat mis en cache.
     fn isInternalEvent(
         self: *PlaneContext,
         allocator: std.mem.Allocator,
@@ -162,6 +172,7 @@ const PlaneContext = struct {
         return is_internal;
     }
 
+    // Classe (avec cache) le comportement d'une statistique : emit, step_name ou skip.
     fn statBehavior(
         self: *PlaneContext,
         allocator: std.mem.Allocator,
@@ -180,6 +191,7 @@ const PlaneContext = struct {
     }
 };
 
+// Analyse les octets d'un XSpace protobuf puis écrit le fichier JSON de trace Perfetto.
 pub fn dumpXSpaceProtoToTraceJsonFile(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -198,6 +210,7 @@ pub fn dumpXSpaceProtoToTraceJsonFile(
     try writeTraceJsonFile(allocator, io, xspace, output_path);
 }
 
+// Crée le fichier de sortie, y streame le JSON de trace puis vide le tampon.
 fn writeTraceJsonFile(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -217,6 +230,7 @@ fn writeTraceJsonFile(
     try file_writer.interface.flush();
 }
 
+// Sélectionne les plans puis écrit l'enveloppe JSON de trace avec métadonnées et événements.
 fn streamXSpaceToTraceJson(
     allocator: std.mem.Allocator,
     xspace: *const c.tensorflow_profiler_XSpace,
@@ -245,6 +259,7 @@ fn streamXSpaceToTraceJson(
     try writer.writeAll("]}");
 }
 
+// Sélectionne le plan hôte puis les plans GPU, TPU ou personnalisés sous forme de PlaneContext.
 fn collectSelectedPlanes(
     allocator: std.mem.Allocator,
     xspace: *const c.tensorflow_profiler_XSpace,
@@ -286,6 +301,7 @@ fn collectSelectedPlanes(
     return result;
 }
 
+// Ajoute les plans dont le nom commence par « prefix » et indique si au moins un a été trouvé.
 fn appendPlanesWithPrefix(
     allocator: std.mem.Allocator,
     result: *std.ArrayListUnmanaged(PlaneContext),
@@ -304,6 +320,7 @@ fn appendPlanesWithPrefix(
     return found;
 }
 
+// Écrit les métadonnées de processus du plan et, pour chaque ligne, celles de sa ressource.
 fn streamPlaneMetadata(
     writer: *std.Io.Writer,
     array_writer: *JsonArrayWriter,
@@ -343,6 +360,7 @@ fn streamPlaneMetadata(
     }
 }
 
+// Écrit les métadonnées thread_name et thread_sort_index d'une ressource.
 fn streamResourceMetadata(
     writer: *std.Io.Writer,
     array_writer: *JsonArrayWriter,
@@ -372,6 +390,7 @@ fn streamResourceMetadata(
     try writer.writeAll("}}");
 }
 
+// Parcourt les lignes et événements du plan (hors ligne d'ops XLA asynchrones) et les streame.
 fn streamPlaneEvents(
     allocator: std.mem.Allocator,
     writer: *std.Io.Writer,
@@ -397,6 +416,7 @@ fn streamPlaneEvents(
     }
 }
 
+// Émet un événement de trace complet en fusionnant les métadonnées, les stats et le nom affiché.
 fn streamEvent(
     allocator: std.mem.Allocator,
     writer: *std.Io.Writer,
@@ -461,6 +481,7 @@ fn streamEvent(
     try writer.writeByte('}');
 }
 
+// Filtre et classe les statistiques, applique l'éventuel remplacement de nom, puis les ajoute en args.
 fn appendStats(
     allocator: std.mem.Allocator,
     plane: *PlaneContext,
@@ -492,6 +513,7 @@ fn appendStats(
     }
 }
 
+// Ajoute un argument, ou remplace sa valeur s'il existe déjà un argument de même nom.
 fn putArg(
     args: *std.ArrayListUnmanaged(Arg),
     allocator: std.mem.Allocator,
@@ -507,18 +529,21 @@ fn putArg(
     try args.append(allocator, .{ .name = name, .value = value });
 }
 
+// Renvoie la tranche des statistiques portées par la métadonnée d'événement.
 fn metadataStats(metadata: *const c.tensorflow_profiler_XEventMetadata) []const [*c]const c.tensorflow_profiler_XStat {
     var stat_count: usize = 0;
     const stats = c.tensorflow_profiler_XEventMetadata_stats(metadata, &stat_count) orelse return &.{};
     return stats[0..stat_count];
 }
 
+// Renvoie la tranche des statistiques portées directement par l'événement.
 fn eventStats(event: *const c.tensorflow_profiler_XEvent) []const [*c]const c.tensorflow_profiler_XStat {
     var stat_count: usize = 0;
     const stats = c.tensorflow_profiler_XEvent_stats(event, &stat_count) orelse return &.{};
     return stats[0..stat_count];
 }
 
+// Convertit une XStat en StringValue selon son type (int64, uint64, double, texte, octets, réf).
 fn stringValueFromStat(
     allocator: std.mem.Allocator,
     plane: *PlaneContext,
@@ -544,6 +569,7 @@ fn stringValueFromStat(
     };
 }
 
+// Écrit la représentation JSON (chaîne échappée) d'une StringValue.
 fn writeJsonStringValue(writer: *std.Io.Writer, value: StringValue) !void {
     switch (value) {
         .text => |text| try writeJsonString(writer, text),
@@ -565,6 +591,7 @@ fn writeJsonStringValue(writer: *std.Io.Writer, value: StringValue) !void {
     }
 }
 
+// Écrit une chaîne JSON entre guillemets en échappant les caractères spéciaux.
 fn writeJsonString(writer: *std.Io.Writer, text: []const u8) !void {
     try writer.writeByte('"');
 
@@ -604,29 +631,34 @@ fn writeJsonString(writer: *std.Io.Writer, text: []const u8) !void {
     try writer.writeByte('"');
 }
 
+// Résout l'identifiant de ressource d'une ligne (display_id sinon id), tronqué en u32.
 fn lineResourceId(line: *const c.tensorflow_profiler_XLine) !u32 {
     const display_id = c.tensorflow_profiler_XLine_display_id(line);
     const effective_id = if (display_id != 0) display_id else c.tensorflow_profiler_XLine_id(line);
     return wrapI64ToU32(effective_id);
 }
 
+// Renvoie le nom affiché d'une ligne, sinon son nom brut.
 fn lineDisplayName(line: *const c.tensorflow_profiler_XLine) []const u8 {
     const display_name = stringView(c.tensorflow_profiler_XLine_display_name(line));
     if (display_name.len != 0) return display_name;
     return stringView(c.tensorflow_profiler_XLine_name(line));
 }
 
+// Calcule l'horodatage absolu d'un événement en picosecondes (timestamp de ligne + offset).
 fn eventTimestampPs(line: *const c.tensorflow_profiler_XLine, event: *const c.tensorflow_profiler_XEvent) u64 {
     const line_timestamp_ns = reinterpretSignedAsUnsigned64(c.tensorflow_profiler_XLine_timestamp_ns(line));
     const event_offset_ps = reinterpretSignedAsUnsigned64(c.tensorflow_profiler_XEvent_offset_ps(event));
     return line_timestamp_ns *% kPicosecondsPerNanosecond +% event_offset_ps;
 }
 
+// Renvoie la durée d'un événement en picosecondes, avec un minimum de 1.
 fn eventDurationPs(event: *const c.tensorflow_profiler_XEvent) u64 {
     const duration_ps = reinterpretSignedAsUnsigned64(c.tensorflow_profiler_XEvent_duration_ps(event));
     return @max(duration_ps, 1);
 }
 
+// Convertit des picosecondes en microsecondes et formate le résultat.
 fn formatPicosToMicros(buffer: *[64]u8, picoseconds: u64) []const u8 {
     // The conversion and "%.17g" formatting are kept identical to:
     // ../../xla/xla/tsl/profiler/utils/math_utils.h
@@ -635,27 +667,32 @@ fn formatPicosToMicros(buffer: *[64]u8, picoseconds: u64) []const u8 {
     return formatDouble(buffer, "%.17g", microseconds);
 }
 
+// Formate un flottant avec snprintf selon le format donné et renvoie la tranche écrite.
 fn formatDouble(buffer: *[64]u8, comptime fmt: [*:0]const u8, value: f64) []const u8 {
     const written = c.snprintf(buffer.ptr, buffer.len, fmt, value);
     if (written <= 0 or written >= buffer.len) unreachable;
     return buffer[0..@intCast(written)];
 }
 
+// Convertit une upb StringView en tranche Zig, en renvoyant une tranche vide si nulle.
 fn stringView(value: c.upb_StringView) []const u8 {
     const text = upb.slice(value);
     return text orelse "";
 }
 
+// Réinterprète un i64 en u64 en conservant les bits.
 fn reinterpretSignedAsUnsigned64(value: i64) u64 {
     const same_bits: u64 = @bitCast(value);
     return same_bits;
 }
 
+// Tronque un i64 (réinterprété en u64) en u32.
 fn wrapI64ToU32(value: i64) u32 {
     const unsigned_value = reinterpretSignedAsUnsigned64(value);
     return @truncate(unsigned_value);
 }
 
+// Écrit l'échappement \u00XX d'un octet de contrôle ASCII.
 fn writeAsciiControlEscape(writer: *std.Io.Writer, byte: u8) !void {
     const high_nibble = @as(usize, byte / 16);
     const low_nibble = @as(usize, byte % 16);
@@ -665,10 +702,12 @@ fn writeAsciiControlEscape(writer: *std.Io.Writer, byte: u8) !void {
     try writer.writeByte(kHexDigits[low_nibble]);
 }
 
+// Comparateur d'arguments : ordre lexicographique par nom.
 fn argLessThan(_: void, lhs: Arg, rhs: Arg) bool {
     return std.mem.order(u8, lhs.name, rhs.name) == .lt;
 }
 
+// Indique si un nom correspond à la liste des événements internes à filtrer.
 fn isInternalEventName(name: []const u8) bool {
     // Internal host-event filtering is derived from:
     // ../../xla/xla/tsl/profiler/utils/xplane_schema.cc
@@ -692,6 +731,7 @@ fn isInternalEventName(name: []const u8) bool {
     return false;
 }
 
+// Classe un nom de statistique : step_name, liste à ignorer, sinon emit.
 fn classifyStatName(name: []const u8) StatBehavior {
     // Internal stat filtering and step_name handling are derived from:
     // ../../xla/xla/tsl/profiler/utils/xplane_schema.cc
