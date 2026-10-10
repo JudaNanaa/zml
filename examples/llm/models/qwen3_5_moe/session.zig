@@ -23,6 +23,7 @@ pub const Session = struct {
     think_start: ?u32,
     think_end: ?u32,
 
+    // Initialise une session : buffers de cache KV/RNG, index de couches types, runners et tokenizer.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -92,6 +93,7 @@ pub const Session = struct {
         };
     }
 
+    // Libere tous les buffers et runners alloues par la session.
     pub fn deinit(self: *Session) void {
         self.prefill.deinit(self.allocator);
         self.decode.deinit(self.allocator);
@@ -107,14 +109,17 @@ pub const Session = struct {
         self.generated_token_slice.free(self.allocator);
     }
 
+    // Tokenise un prompt de premier tour au format chat.
     pub fn tokenizePrompt(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return tokenizeChatPrompt(allocator, self.tokenizer, prompt, self.special_tokens, true);
     }
 
+    // Tokenise un prompt de tour suivant au format chat (avec marqueur de fin).
     pub fn tokenizeTurn(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return tokenizeChatPrompt(allocator, self.tokenizer, prompt, self.special_tokens, false);
     }
 
+    // Execute la passe prefill sur tous les tokens et stocke le dernier token genere.
     pub fn runPrefill(self: *Session, all_tokens: []const u32) !void {
         const tokens_slice = try zml.Slice.alloc(self.allocator, .init(.{ .b = 1, .s = self.seqlen }, .u32));
         defer tokens_slice.free(self.allocator);
@@ -142,6 +147,7 @@ pub const Session = struct {
         self.generated_token_slice.items(u32)[0] = tokens_slice.items(u32)[all_tokens.len - 1];
     }
 
+    // Boucle de decodage token par token, ecrit sur stdout et s'arrete sur EOS ou seqlen.
     pub fn runDecode(self: *Session, all_tokens: *std.ArrayList(u32), stdout: *std.Io.Writer) !void {
         var decoder = try self.tokenizer.decoder();
         defer decoder.deinit();
@@ -185,6 +191,7 @@ pub const Session = struct {
     }
 };
 
+// Construit la sequence de tokens au format chat Qwen (roles et balises im_start/im_end).
 fn tokenizeChatPrompt(allocator: std.mem.Allocator, tokenizer: zml.tokenizer.Tokenizer, prompt: []const u8, special_tokens: model.Model.SpecialTokens, is_first_turn: bool) ![]const u32 {
     var encoder = try tokenizer.encoder();
     defer encoder.deinit();

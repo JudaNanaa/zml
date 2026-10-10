@@ -20,6 +20,8 @@ pub const CompilationParameters = struct {
     seqlen: usize,
     meshes: common.Meshes,
 
+    // Construit les parametres de compilation LLaMA : tenseurs de tokens, cache KV, RNG,
+    // metadonnees et parametres d'attention selon le backend.
     pub fn init(mdl: model.Model, config: model.Config, seqlen: u32, backend: zml.attention.Backend, meshes: common.Meshes) CompilationParameters {
         const head_dim = config.head_dim orelse @divExact(config.hidden_size, config.num_attention_heads);
 
@@ -81,6 +83,7 @@ pub const CompiledModel = struct {
     decode: KernelExe,
     params: CompilationParameters,
 
+    // Compile les kernels prefill et decode du modele LLaMA et les assemble.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -102,6 +105,7 @@ pub const CompiledModel = struct {
         };
     }
 
+    // Libere les kernels prefill et decode compiles.
     pub fn deinit(self: *CompiledModel) void {
         self.prefill.deinit();
         self.decode.deinit();
@@ -127,6 +131,8 @@ const Forward = struct {
         rng: zml.Tensor.Rng,
     };
 
+    // Forward complet LLaMA : embedding, empilement des couches avec cache KV, puis tete
+    // de sortie et echantillonnage.
     pub fn forward(input: Input) Output {
         var hidden = model.EmbedTokens.forward(.{
             .embedding = .{ .embed_tokens = input.weights.model.embed_tokens },
@@ -166,15 +172,18 @@ pub const KernelExe = zml.FnExe(Forward.forward);
 pub const KernelRunner = struct {
     forward: KernelExe.Runner(.{.weights}),
 
+    // Instancie le runner du forward en associant les buffers de poids du modele.
     pub fn init(allocator: std.mem.Allocator, exe: *const KernelExe, buffers: *const model.Buffers) !KernelRunner {
         return .{ .forward = try .init(exe, allocator, .{ .weights = buffers.* }) };
     }
 
+    // Libere le runner du forward.
     pub fn deinit(self: *KernelRunner, allocator: std.mem.Allocator) void {
         self.forward.deinit(allocator);
     }
 };
 
+// Execute un pas de forward LLaMA et met a jour tokens, cache KV et RNG.
 pub fn run(runner: *KernelRunner, args: Args) void {
     runner.forward.run(args.io, .{
         .inputs = .{
@@ -192,6 +201,7 @@ pub fn run(runner: *KernelRunner, args: Args) void {
     }, .{});
 }
 
+// Compile le noyau de forward LLaMA pour une phase et un backend d'attention donnes.
 fn compileKernel(
     allocator: std.mem.Allocator,
     io: std.Io,

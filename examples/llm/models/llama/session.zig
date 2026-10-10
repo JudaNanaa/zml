@@ -21,6 +21,8 @@ pub const Session = struct {
     last_generated_token: u32 = 0,
     conversation_id: u64,
 
+    // Initialise la session LLaMA : cache KV, buffers d'indices de token, RNG, identifiant
+    // de conversation et runners prefill/decode.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -72,6 +74,7 @@ pub const Session = struct {
         };
     }
 
+    // Libere les runners, le cache KV, les buffers d'indices et le RNG.
     pub fn deinit(self: *Session) void {
         self.prefill.deinit(self.allocator);
         self.decode.deinit(self.allocator);
@@ -83,6 +86,7 @@ pub const Session = struct {
         zml.Tensor.Rng.deinitBuffer(&self.rng_buffers);
     }
 
+    // Tokenise le prompt initial au format chat LLaMA 3 (start_header/user/assistant).
     pub fn tokenizePrompt(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         var encoder = try self.tokenizer.encoder();
         defer encoder.deinit();
@@ -107,6 +111,7 @@ pub const Session = struct {
         return @ptrCast(@alignCast(try tokens.toOwnedSlice()));
     }
 
+    // Tokenise un tour utilisateur supplementaire au format chat LLaMA 3.
     pub fn tokenizeTurn(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         var encoder = try self.tokenizer.encoder();
         defer encoder.deinit();
@@ -131,6 +136,8 @@ pub const Session = struct {
         return @ptrCast(@alignCast(try tokens.toOwnedSlice()));
     }
 
+    // Prepare les tokens (padding) et les metadonnees d'attention, execute le prefill et
+    // memorise le dernier token genere.
     pub fn runPrefill(self: *Session, all_tokens: []const u32) !void {
         const prefill_tokens_slice: zml.Slice = try .alloc(self.allocator, .init(.{self.seqlen}, .u32));
         defer prefill_tokens_slice.free(self.allocator);
@@ -165,6 +172,8 @@ pub const Session = struct {
         self.last_generated_token = prefill_tokens_slice.items(u32)[all_tokens.len - 1];
     }
 
+    // Boucle de decodage autoregressif : genere, decode et affiche les tokens jusqu'a EOS
+    // ou saturation de la sequence.
     pub fn runDecode(self: *Session, all_tokens: *std.ArrayList(u32), stdout: *std.Io.Writer) !void {
         var decoder: zml.tokenizer.Tokenizer.Decoder = try self.tokenizer.decoder();
         defer decoder.deinit();
@@ -212,6 +221,7 @@ pub const Session = struct {
     }
 };
 
+// Indique si `token_id` est un token de fin de sequence, en gerant les listes d'EOS.
 fn isEosToken(config: *const model.Config, token_id: u32) bool {
     return switch (config.eos_token_id) {
         .int => |eos| token_id == eos,

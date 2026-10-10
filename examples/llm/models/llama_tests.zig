@@ -26,6 +26,8 @@ const Args = struct {
     ;
 };
 
+// Point d'entree du test LLaMA : charge le modele et ses buffers puis lance la
+// validation des couches sur les activations fournies.
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;
@@ -54,6 +56,8 @@ pub fn main(init: std.process.Init) !void {
     try run(allocator, io, platform, args.activations, repo_model.inner, &model_buffers, &meshes.all());
 }
 
+// Valide les couches LLaMA (embedding, projections d'attention, MLP, layernorms) en
+// comparant les sorties compilees aux fixtures d'activations.
 fn run(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -85,6 +89,8 @@ fn run(
     try testLayer(allocator, io, platform, activation_store.view(), "layers.0.post_attention_layernorm", layer.post_attention_layernorm, layer_buffers.post_attention_layernorm, meshes, .{ .absolute_tolerance = 1e-2 });
 }
 
+// Charge l'entree et la sortie attendue d'une couche, compile son forward (en gerant le
+// cas particulier de Linear) puis verifie le resultat obtenu.
 fn testLayer(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -112,6 +118,8 @@ fn testLayer(
     // is `fn (self, Tensor) Tensor`.
     const Layer = @TypeOf(layer);
     const Call = struct {
+        // Adaptateur d'appel uniforme : Linear.forward exige un dtype de sortie alors
+        // que les autres couches sont de type fn(self, Tensor) Tensor.
         fn forward(l: Layer, x: zml.Tensor) zml.Tensor {
             return if (Layer == zml.nn.Linear) l.forward(x, x.dtype()) else Layer.forward(l, x);
         }
@@ -133,6 +141,8 @@ fn testLayer(
     try zml.testing.expectClose(io, out_result, out_buffer_expected, opts);
 }
 
+// Lit un tenseur du store a partir de sa cle et le charge sur la plateforme comme
+// zml.Buffer.
 fn loadBufferFromStore(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, store: zml.io.TensorStore.View, key: []const u8) !zml.Buffer {
     const shape = store.getShape(key) orelse return error.NotFound;
 

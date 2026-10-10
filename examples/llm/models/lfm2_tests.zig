@@ -28,6 +28,8 @@ const Args = struct {
     ;
 };
 
+// Point d'entree du test LFM2 : charge le modele et ses buffers, construit les
+// parametres de compilation, puis lance la validation sur les activations.
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;
@@ -65,6 +67,8 @@ pub fn main(init: std.process.Init) !void {
     try run(allocator, io, platform, args.activations, repo_model.parsed_config.value, repo_model.inner, &model_buffers, params.attention_metadata, params.attention_parameters, meshes);
 }
 
+// Valide chaque couche LFM2 (embedding, conv/attention, feed-forward) en comparant la
+// sortie du modele compilee aux fixtures d'activations fournies.
 pub fn run(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -137,12 +141,16 @@ const TestContext = struct {
     attention_parameters: zml.attention.Parameters,
     mesh: *const zml.Mesh,
 
+    // Variante de testLayer qui formate d'abord le nom de la couche a partir d'un
+    // gabarit et de ses arguments.
     fn testLayerPrint(self: *TestContext, comptime name_fmt: []const u8, name_args: anytype, tagz: anytype, layer: anytype, layer_buffers: anytype, opts: zml.testing.CompareOpts) !void {
         const name = try std.fmt.allocPrint(self.allocator, name_fmt, name_args);
         defer self.allocator.free(name);
         try self.testLayer(name, tagz, layer, layer_buffers, opts);
     }
 
+    // Charge l'entree et la sortie attendue d'une couche, compile son forward puis
+    // verifie que le resultat correspond au buffer attendu.
     fn testLayer(self: *TestContext, name: []const u8, tagz: anytype, layer: anytype, layer_buffers: anytype, opts: zml.testing.CompareOpts) !void {
         std.log.info("Testing layer: {s}", .{name});
 
@@ -179,6 +187,8 @@ const TestContext = struct {
         std.log.info("Layer {s} passed!", .{name});
     }
 
+    // Teste une couche de convolution courte en chargeant entree, cache et sortie
+    // attendue, puis en executant le forward avec mise a jour du cache.
     fn testConvLayer(self: *TestContext, ix: usize, cache_ix: usize, layer: model.ShortConv, layer_buffers: zml.Bufferized(model.ShortConv), opts: zml.testing.CompareOpts) !void {
         const name = try std.fmt.allocPrint(self.allocator, "layers.{d}.conv", .{ix});
         defer self.allocator.free(name);
@@ -237,6 +247,8 @@ const TestContext = struct {
         std.log.info("Layer {s} passed!", .{name});
     }
 
+    // Teste une couche d'attention en chargeant entree, caches K/V et sortie attendue,
+    // puis en executant le forward avec mise a jour du cache.
     fn testAttnLayer(self: *TestContext, ix: usize, cache_ix: usize, layer: model.Attention, layer_buffers: zml.Bufferized(model.Attention), opts: zml.testing.CompareOpts) !void {
         const name = try std.fmt.allocPrint(self.allocator, "layers.{d}.self_attn", .{ix});
         defer self.allocator.free(name);
@@ -298,6 +310,8 @@ const TestContext = struct {
     }
 };
 
+// Lit un tenseur du store a partir de sa cle et le charge sur la plateforme comme
+// zml.Buffer.
 fn loadBufferFromStore(allocator: std.mem.Allocator, io: anytype, platform: *zml.Platform, store: *zml.io.TensorStore, key: []const u8) !zml.Buffer {
     const shape = store.view().getShape(key) orelse return error.NotFound;
 

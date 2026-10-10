@@ -51,6 +51,7 @@ pub const LoadedModel = struct {
     inner: Model,
     parsed_config: std.json.Parsed(Config),
 
+    // Parse la config du depot puis construit le modele LFM2 et ses tenseurs.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -67,11 +68,14 @@ pub const LoadedModel = struct {
         };
     }
 
+    // Libere le modele interne et la config parsee.
     pub fn deinit(self: *LoadedModel, allocator: std.mem.Allocator) void {
         self.inner.deinit(allocator);
         self.parsed_config.deinit();
     }
 
+    // Bufferise le modele, charge tous les poids depuis le store en parallele et
+    // retourne les buffers, en journalisant le debit.
     pub fn loadBuffers(
         self: *const LoadedModel,
         allocator: std.mem.Allocator,
@@ -104,11 +108,13 @@ pub const LoadedModel = struct {
         return buffers;
     }
 
+    // Libere les buffers de poids du modele charge.
     pub fn unloadBuffers(self: *const LoadedModel, buffers: *Buffers, allocator: std.mem.Allocator) void {
         _ = self;
         Model.unloadBuffers(buffers, allocator);
     }
 
+    // Construit les parametres de compilation puis compile le modele LFM2.
     pub fn compile(
         self: *const LoadedModel,
         allocator: std.mem.Allocator,
@@ -133,6 +139,8 @@ pub const Model = struct {
     num_attention_layers: usize,
     num_conv_layers: usize,
 
+    // Construit un modele LFM2 : embedding, tete de sortie et couches decodeur, en
+    // comptant les couches d'attention et de convolution selon `layer_types`.
     pub fn init(
         allocator: std.mem.Allocator,
         root_store: zml.io.TensorStore.View,
@@ -164,6 +172,7 @@ pub const Model = struct {
         };
     }
 
+    // Bufferise le modele et charge ses poids depuis le store, en journalisant le debit.
     pub fn loadBuffers(
         self: *const Model,
         allocator: std.mem.Allocator,
@@ -196,6 +205,7 @@ pub const Model = struct {
         return buffers;
     }
 
+    // Libere un modele bufferise (embedding, lm_head, couches).
     pub fn unloadBuffers(self: *zml.Bufferized(Model), allocator: std.mem.Allocator) void {
         self.embed_tokens.weight.deinit();
         LmHead.unloadBuffers(&self.lm_head);
@@ -205,6 +215,8 @@ pub const Model = struct {
         allocator.free(self.layers);
     }
 
+    // Forward complet LFM2 : embedding, passage dans toutes les couches en mettant a jour
+    // les caches, puis tete d'echantillonnage ; retourne tokens, cache et RNG.
     pub fn forward(
         self: Model,
         tokens: zml.Tensor,
@@ -256,6 +268,7 @@ pub const Model = struct {
         return .{ result.tokens, cache.reuseBuffer(cache_), result.rng };
     }
 
+    // Libere le tableau des couches decodeur.
     pub fn deinit(self: Model, allocator: std.mem.Allocator) void {
         allocator.free(self.layers);
     }
@@ -273,16 +286,19 @@ pub const TokenEmbedding = struct {
         hidden: zml.Tensor,
     };
 
+    // Cree le tenseur de poids d'embedding (vocab x dimension) sharde.
     pub fn init(store: zml.io.TensorStore.View) TokenEmbedding {
         return .{ .weight = store.createTensor("weight", .{ .voc, .d }, .model, .{ .voc = .replicated, .d = .model }) };
     }
 
+    // Recupere les embeddings correspondant aux tokens d'entree par gather.
     pub fn forward(input: Input) Output {
         stdx.debug.assert(input.tokens.dtype().isInteger(), "TokenEmbedding expects an integer input, received: {f}", .{input.tokens});
         stdx.debug.assert(input.embedding.weight.rank() == 2, "TokenEmbedding expects it's weight zml.Tensor to be a 2D matrix, got {f}", .{input.embedding.weight});
         return .{ .hidden = input.embedding.weight.gather(.{ .voc = input.tokens }, .{}) };
     }
 
+    // Projette des embeddings vers le vocabulaire (produit matriciel avec les poids).
     pub fn unembed(self: TokenEmbedding, embeds: zml.Tensor) zml.Tensor {
         stdx.debug.assert(embeds.shape().hasTags(.{.d}), "TokenEmbedding expects the input embeds to have a .d tag, got {f}", .{embeds.shape()});
         return self.weight.dot(embeds, .d);
@@ -306,6 +322,7 @@ pub const LmHead = struct {
         rng: zml.Tensor.Rng,
     };
 
+    // Initialise la tete de sortie : RmsNorm final et strategie d'echantillonnage.
     pub fn init(store: zml.io.TensorStore.View, config: Config, sampling_strategy: zml.nn.SamplingStrategy) LmHead {
         return .{
             .embedding_norm = RmsNorm.init(store.withPrefix("embedding_norm"), config.norm_eps, .d),
@@ -313,6 +330,7 @@ pub const LmHead = struct {
         };
     }
 
+    // Normalise les hidden states, calcule les logits et echantillonne le prochain token.
     pub fn forward(input: Input) Output {
         const self = input.lm_head;
         const logits = input.embed_tokens.unembed(self.embedding_norm.forward(input.hidden));
@@ -320,6 +338,7 @@ pub const LmHead = struct {
         return .{ .tokens = new_tokens.convert(input.tokens.dtype()).reuseBuffer(input.tokens), .rng = new_rng };
     }
 
+    // Libere les buffers de la couche de normalisation finale.
     pub fn unloadBuffers(self: *zml.Bufferized(LmHead)) void {
         RmsNorm.unloadBuffers(&self.embedding_norm);
     }
@@ -354,6 +373,7 @@ pub const DecoderLayer = struct {
         kv_cache_index: zml.Tensor,
     };
 
+    // Convertit le nom de type de couche (chaine) en OperatorKind ; erreur si inconnu.
     pub fn parseOperatorKind(layer_type: []const u8) OperatorKind {
         return std.meta.stringToEnum(OperatorKind, layer_type) orelse {
             stdx.debug.assert(false, "Unsupported layer type {s}", .{layer_type});
@@ -361,6 +381,7 @@ pub const DecoderLayer = struct {
         };
     }
 
+    // Construit une couche decodeur : normes, feed-forward et operateur conv ou attention.
     pub fn init(config: Config, store: zml.io.TensorStore.View, kind: OperatorKind) DecoderLayer {
         const operator_norm = RmsNorm.init(store.withPrefix("operator_norm"), config.norm_eps, .d);
         const ffn_norm = RmsNorm.init(store.withPrefix("ffn_norm"), config.norm_eps, .d);
@@ -378,6 +399,8 @@ pub const DecoderLayer = struct {
         };
     }
 
+    // Applique l'operateur (conv ou attention) avec cache, ajoute la connexion residuelle
+    // puis le feed-forward ; retourne hidden et indices de cache mis a jour.
     pub fn forward(input: Input) Output {
         const self = input.layer;
         var cache = input.cache;
@@ -422,6 +445,7 @@ pub const DecoderLayer = struct {
         };
     }
 
+    // Libere les buffers d'une couche decodeur.
     pub fn unloadBuffers(self: *zml.Bufferized(DecoderLayer)) void {
         switch (self.operator) {
             .conv => |*operator| ShortConv.unloadBuffers(operator),
@@ -441,6 +465,7 @@ pub const ShortConv = struct {
     kernel: zml.Tensor,
     config: Config,
 
+    // Cree les projections d'entree/sortie et le noyau de convolution courte.
     pub fn init(config: Config, store: zml.io.TensorStore.View) ShortConv {
         stdx.debug.assert(!config.conv_bias, "conv_bias is not supported.", .{});
         return .{
@@ -451,6 +476,8 @@ pub const ShortConv = struct {
         };
     }
 
+    // Forward d'une convolution courte : projette, applique le noyau et le cache, puis
+    // reprojette ; distingue les chemins prefill et decode.
     pub fn forward(self: ShortConv, input: zml.Tensor, tokens_position_offset: zml.Tensor, actual_seq_len: zml.Tensor, cache_: ConvCache, cache_index: zml.Tensor, parameters: ConvParameters) struct { zml.Tensor, ConvCache } {
         var cache = cache_;
         const BCx = self.in_proj.forward(input.withPartitioning(.model, .{ .d = .replicated }));
@@ -497,6 +524,7 @@ pub const ShortConv = struct {
         return .{ output.reuseBuffer(input), cache.reuseBuffer(cache_) };
     }
 
+    // Libere les poids des projections et le noyau de convolution.
     pub fn unloadBuffers(self: *zml.Bufferized(ShortConv)) void {
         Linear.unloadBuffers(&self.in_proj);
         Linear.unloadBuffers(&self.out_proj);
@@ -515,6 +543,7 @@ pub const Attention = struct {
     num_key_value_groups: usize,
     rope_opts: zml.nn.RopeOpts,
 
+    // Initialise l'attention LFM2 : projections q/k/v/o, layernorms et options RoPE.
     pub fn init(config: Config, store: zml.io.TensorStore.View) Attention {
         const head_dim = config.hidden_size / config.num_attention_heads;
         const num_key_value_groups = config.num_attention_heads / config.num_key_value_heads;
@@ -531,6 +560,8 @@ pub const Attention = struct {
         };
     }
 
+    // Forward de l'attention : projections, RoPE, mise a jour du cache KV puis attention
+    // (backend vanilla ou flash) et projection de sortie.
     pub fn forward(
         self: Attention,
         x: zml.Tensor,
@@ -590,6 +621,7 @@ pub const Attention = struct {
         return .{ self.out_proj.forward(attn).reuseBuffer(x), new_kv_cache.reuseBuffer(kv_cache) };
     }
 
+    // Libere les projections et les layernorms q/k de l'attention.
     pub fn unloadBuffers(self: *zml.Bufferized(Attention)) void {
         Linear.unloadBuffers(&self.q_proj);
         Linear.unloadBuffers(&self.k_proj);
@@ -604,15 +636,18 @@ pub const Cache = struct {
     conv: ConvCache,
     kv: KvCache,
 
+    // Alloue les buffers des caches de convolution et KV.
     pub fn initBuffers(self: Cache, allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(Cache) {
         return .{ .conv = try self.conv.initBuffers(allocator, io, platform), .kv = try self.kv.initBuffers(io, platform) };
     }
 
+    // Libere les buffers des caches de convolution et KV.
     pub fn unloadBuffers(self: *zml.Bufferized(Cache)) void {
         ConvCache.unloadBuffers(&self.conv);
         KvCache.unloadBuffers(&self.kv);
     }
 
+    // Reutilise les buffers de `other` pour le cache resultant.
     pub fn reuseBuffer(self: Cache, other: Cache) Cache {
         return .{ .conv = self.conv.reuseBuffer(other.conv), .kv = self.kv.reuseBuffer(other.kv) };
     }
@@ -621,10 +656,12 @@ pub const Cache = struct {
 pub const ConvCache = struct {
     state: zml.Tensor,
 
+    // Cree un cache de convolution vide a partir de sa forme.
     pub fn init(shape: zml.Shape) ConvCache {
         return .{ .state = .fromShape(shape) };
     }
 
+    // Alloue et zero-remplit le buffer d'etat du cache de convolution.
     pub fn initBuffers(self: ConvCache, allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(ConvCache) {
         const sh = self.state.shape();
         const host = try allocator.alloc(u8, sh.byteSize());
@@ -633,10 +670,12 @@ pub const ConvCache = struct {
         return .{ .state = try zml.Buffer.fromBytes(io, platform, sh, host) };
     }
 
+    // Libere le buffer d'etat du cache de convolution.
     pub fn unloadBuffers(self: *zml.Bufferized(ConvCache)) void {
         self.state.deinit();
     }
 
+    // Reutilise le buffer d'etat de `other`.
     pub fn reuseBuffer(self: ConvCache, other: ConvCache) ConvCache {
         return .{ .state = self.state.reuseBuffer(other.state) };
     }
@@ -646,32 +685,39 @@ pub const KvCache = struct {
     k: zml.Tensor,
     v: zml.Tensor,
 
+    // Cree un cache KV de formes k/v shardees selon le mesh donne.
     pub fn init(kv_shape: zml.Shape, mesh: *const zml.Mesh) KvCache {
         const sharded_shape = kv_shape.withPartitioning(mesh, .{ .h = .model });
         return .{ .k = .fromShape(sharded_shape), .v = .fromShape(sharded_shape) };
     }
 
+    // Alloue les buffers k et v non initialises du cache KV.
     pub fn initBuffers(self: KvCache, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(KvCache) {
         return .{ .k = try zml.Buffer.uninitialized(io, platform, self.k.shape(), .{}), .v = try zml.Buffer.uninitialized(io, platform, self.v.shape(), .{}) };
     }
 
+    // Libere les buffers k et v du cache KV.
     pub fn unloadBuffers(self: *zml.Bufferized(KvCache)) void {
         self.k.deinit();
         self.v.deinit();
     }
 
+    // Reutilise les buffers k et v de `other`.
     pub fn reuseBuffer(self: KvCache, other: KvCache) KvCache {
         return .{ .k = self.k.reuseBuffer(other.k), .v = self.v.reuseBuffer(other.v) };
     }
 
+    // Extrait les cles de la couche `cache_index` du cache.
     pub fn keys(self: KvCache, cache_index: zml.Tensor) zml.Tensor {
         return self.k.slice(.layer, .dynSingle(cache_index));
     }
 
+    // Extrait les valeurs de la couche `cache_index` du cache.
     pub fn values(self: KvCache, cache_index: zml.Tensor) zml.Tensor {
         return self.v.slice(.layer, .dynSingle(cache_index));
     }
 
+    // Ecrit les nouvelles cles/valeurs aux positions donnees et retourne le cache mis a jour.
     pub fn update(self: KvCache, new_k: zml.Tensor, new_v: zml.Tensor, token_position: zml.Tensor, cache_index: zml.Tensor) KvCache {
         const k_shape = self.k.shape().drop(.layer);
         const layer = cache_index.broad(token_position.shape());
@@ -688,6 +734,8 @@ pub const Linear = struct {
     in_tag: zml.Shape.Tag,
     out_tag: zml.Shape.Tag,
 
+    // Cree une projection lineaire a partir de son poids (et biais optionnel) en deduisant
+    // les tags d'entree et de sortie.
     pub fn init(weight: zml.Tensor, bias: ?zml.Tensor, tag: anytype) Linear {
         stdx.debug.guard(weight.shape().hasTag(tag) != null, @src());
         const axis = weight.shape().axis(tag);
@@ -695,11 +743,13 @@ pub const Linear = struct {
         return .{ .weight = weight, .bias = bias, .in_tag = zml.Shape.toTag(tag), .out_tag = out_tag };
     }
 
+    // Libere le poids et le biais optionnel de la projection.
     pub fn unloadBuffers(linear: *zml.Bufferized(Linear)) void {
         linear.weight.deinit();
         if (linear.bias) |*bias| bias.deinit();
     }
 
+    // Produit matriciel puis ajoute le biais s'il existe.
     pub fn forward(self: Linear, x: zml.Tensor) zml.Tensor {
         var y = x.dot(self.weight, self.in_tag).renameTag(self.out_tag, self.in_tag);
         return if (self.bias) |bias| y.add(bias.broad(y.shape())).reuseBuffer(x) else y;
@@ -711,6 +761,7 @@ const Mlp = struct {
     w2: Linear,
     w3: Linear,
 
+    // Cree le MLP SwiGLU LFM2 (w1, w2, w3).
     pub fn init(store: zml.io.TensorStore.View) Mlp {
         return .{
             .w1 = .init(store.withPrefix("w1").createTensor("weight", .{ .out, .d }, .model, .{ .out = .model, .d = .replicated }), null, .d),
@@ -719,12 +770,14 @@ const Mlp = struct {
         };
     }
 
+    // Libere les poids des trois projections du MLP.
     pub fn unloadBuffers(self: *zml.Bufferized(Mlp)) void {
         Linear.unloadBuffers(&self.w1);
         Linear.unloadBuffers(&self.w2);
         Linear.unloadBuffers(&self.w3);
     }
 
+    // Forward du MLP SwiGLU : w2(silu(w1(x)) * w3(x)).
     pub fn forward(self: Mlp, x: zml.Tensor) zml.Tensor {
         return self.w2.forward(self.w1.forward(x).silu().mul(self.w3.forward(x))).reuseBuffer(x);
     }
@@ -735,14 +788,17 @@ const RmsNorm = struct {
     eps: f32,
     tag: zml.Shape.Tag,
 
+    // Cree une RmsNorm avec son poids replicate et son epsilon.
     pub fn init(store: zml.io.TensorStore.View, eps: f32, tag: anytype) RmsNorm {
         return .{ .weight = store.createReplicatedTensor("weight", .{tag}), .eps = eps, .tag = zml.Shape.toTag(tag) };
     }
 
+    // Libere le poids de la RmsNorm.
     pub fn unloadBuffers(self: *zml.Bufferized(RmsNorm)) void {
         self.weight.deinit();
     }
 
+    // Applique la RmsNorm sur le tag donne puis met a l'echelle par le poids appris.
     pub fn forward(self: RmsNorm, input: zml.Tensor) zml.Tensor {
         const normalized = zml.nn.rmsNorm(input, self.tag, self.eps);
         return normalized.mul(self.weight.broad(input.shape())).reuseBuffer(input);

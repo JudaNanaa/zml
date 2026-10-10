@@ -19,6 +19,8 @@ pub const CompilationParameters = struct {
     seqlen: u32,
     meshes: common.Meshes,
 
+    // Construit les parametres de compilation LFM2 : dimensions, RNG, caches KV/conv,
+    // metadonnees d'attention et meshes, a partir du modele et de sa config.
     pub fn init(mdl: model.Model, config: model.Config, seqlen: u32, backend: zml.attention.Backend, meshes: common.Meshes) CompilationParameters {
         stdx.debug.assert(seqlen >= config.conv_L_cache, "seqlen ({}) must be at least conv_L_cache ({})", .{ seqlen, config.conv_L_cache });
         const cache: model.Cache = .{
@@ -68,6 +70,7 @@ pub const CompiledModel = struct {
     decode: KernelExe,
     params: CompilationParameters,
 
+    // Compile les kernels prefill et decode du modele LFM2 et les assemble.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -88,6 +91,7 @@ pub const CompiledModel = struct {
         };
     }
 
+    // Libere les kernels prefill et decode compiles.
     pub fn deinit(self: *CompiledModel) void {
         self.prefill.deinit();
         self.decode.deinit();
@@ -102,6 +106,7 @@ pub const KernelExe = struct {
     self_attn: zml.FnExe(model.DecoderLayer.forward),
     sample: zml.FnExe(model.LmHead.forward),
 
+    // Libere les quatre executables de noyau (embed, conv, self_attn, sample).
     pub fn deinit(self: *const KernelExe) void {
         self.embed.deinit();
         self.conv.deinit();
@@ -115,6 +120,8 @@ pub const KernelRunner = struct {
     layers: []zml.FnExe(model.DecoderLayer.forward).Runner(.{.layer}),
     sample: zml.FnExe(model.LmHead.forward).Runner(.{ .lm_head, .embed_tokens }),
 
+    // Instancie les runners des noyaux en associant les buffers de poids du modele
+    // (embedding, une entree par couche, lm_head).
     pub fn init(allocator: std.mem.Allocator, exe: *const KernelExe, buffers: *const model.Buffers) !KernelRunner {
         var embed = try zml.FnExe(model.TokenEmbedding.forward).Runner(.{.embedding}).init(&exe.embed, allocator, .{ .embedding = buffers.embed_tokens });
         errdefer embed.deinit(allocator);
@@ -141,6 +148,7 @@ pub const KernelRunner = struct {
         return .{ .embed = embed, .layers = layers, .sample = sample };
     }
 
+    // Libere les runners de noyaux et le tableau de couches.
     pub fn deinit(self: *KernelRunner, allocator: std.mem.Allocator) void {
         self.embed.deinit(allocator);
         for (self.layers) |*layer| layer.deinit(allocator);
@@ -149,6 +157,8 @@ pub const KernelRunner = struct {
     }
 };
 
+// Execute un pas complet d'inference LFM2 : embedding, empilement des couches avec mise
+// a jour des caches, puis echantillonnage du prochain token (RNG mis a jour).
 pub fn run(
     runner: *KernelRunner,
     args: Args,
@@ -197,6 +207,7 @@ pub fn run(
     }, .{});
 }
 
+// Compile les quatre noyaux (embed, conv, attention, sample) pour une phase donnee.
 fn compileKernel(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -218,6 +229,8 @@ fn compileKernel(
     return .{ .embed = embed, .conv = conv_layer, .self_attn = attn_layer, .sample = sample };
 }
 
+// Compile le noyau d'embedding des tokens pour une phase et une longueur de sequence
+// donnees.
 fn compileEmbed(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -243,6 +256,8 @@ fn compileEmbed(
     }});
 }
 
+// Compile le noyau d'une couche (conv ou attention) pour une phase donnee, en
+// selectionnant une couche du modele compatible avec le type demande.
 fn compileLayer(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -289,6 +304,7 @@ fn compileLayer(
     }});
 }
 
+// Compile le noyau d'echantillonnage (lm_head et embedding) produisant le token suivant.
 fn compileSample(
     allocator: std.mem.Allocator,
     io: std.Io,

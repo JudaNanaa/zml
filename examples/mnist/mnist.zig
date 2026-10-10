@@ -17,6 +17,7 @@ const Mnist = struct {
         weight: zml.Tensor,
         bias: zml.Tensor,
 
+        // Construit la couche en lisant son poids et son biais depuis le TensorStore.
         pub fn init(store: zml.io.TensorStore.View) Layer {
             return .{
                 .weight = store.createReplicatedTensor("weight", .{ .d_out, .d }),
@@ -24,11 +25,13 @@ const Mnist = struct {
             };
         }
 
+        // Passe avant d'une couche dense : produit scalaire sur « d », ajout du biais et ReLU.
         pub fn forward(self: Layer, input: zml.Tensor) zml.Tensor {
             return self.weight.dot(input, .d).add(self.bias).relu().withTags(.{.d});
         }
     };
 
+    // Construit le modèle en initialisant fc1 et fc2 depuis les préfixes correspondants du store.
     pub fn init(store: zml.io.TensorStore.View) Mnist {
         return .{
             .fc1 = .init(store.withPrefix("fc1")),
@@ -36,6 +39,8 @@ const Mnist = struct {
         };
     }
 
+    // Alloue les buffers du modèle et charge les poids depuis le store,
+    // en renvoyant la version bufferisée.
     pub fn load(
         self: *const Mnist,
         allocator: std.mem.Allocator,
@@ -55,6 +60,7 @@ const Mnist = struct {
         return buffers;
     }
 
+    // Libère les buffers de poids et de biais des deux couches du modèle.
     pub fn unloadBuffers(self: *zml.Bufferized(Mnist)) void {
         self.fc1.weight.deinit();
         self.fc1.bias.deinit();
@@ -62,6 +68,8 @@ const Mnist = struct {
         self.fc2.bias.deinit();
     }
 
+    // Passe avant du modèle : aplatit l'entrée en f32, applique les deux couches
+    // puis renvoie le chiffre prédit (argMax converti en u8).
     /// just two linear layers + relu activation
     pub fn forward(self: Mnist, input: zml.Tensor) zml.Tensor {
         var x = input.flatten().convert(.f32).withTags(.{.d});
@@ -76,6 +84,8 @@ const Mnist = struct {
     }
 };
 
+// Point d'entrée : lit les chemins en arguments, charge le modèle, compile la passe
+// avant, exécute l'inférence sur un chiffre aléatoire et affiche la prédiction.
 pub fn main(init: std.process.Init) !void {
     const arena = init.arena;
     const allocator = init.gpa;
@@ -159,6 +169,7 @@ pub fn main(init: std.process.Init) !void {
     , .{digits[try result.getValue(u8, io)]});
 }
 
+// Affiche une image de chiffre 28x28 sous forme d'art ASCII via le logger.
 fn printDigit(digit: [28 * 28]u8) void {
     var buffer: [28][30][2]u8 = undefined;
     for (0..28) |y| {

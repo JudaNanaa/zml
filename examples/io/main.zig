@@ -16,6 +16,8 @@ const Command = enum { cat, tree, ls, cp, stat, realpath, safetensors, load };
 // -- ls hf://meta-llama/Llama-3.1-8B-Instruct@0e9e39f
 // -- tree s3://noaa-goes19/ABI-Flood-Day-Shapefiles/2025/08
 // -- cat https://iprs.fly.dev
+// Point d'entrée de l'outil : interprète la sous-commande (cat, tree, ls, cp, stat,
+// realpath, safetensors, load) et l'exécute via le système de fichiers virtuel (VFS).
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
 
@@ -232,6 +234,8 @@ const TreeCounts = struct {
     files: usize = 0,
 };
 
+// Affiche récursivement l'arborescence du répertoire « dir » jusqu'à « max_depth »,
+// en accumulant le nombre de dossiers et de fichiers dans « counts ».
 fn printTree(io: std.Io, writer: *std.Io.Writer, dir: std.Io.Dir, prefix: []const u8, max_depth: usize, counts: *TreeCounts) !void {
     if (max_depth == 0) return;
 
@@ -283,6 +287,7 @@ const TensorNode = struct {
     allocator: std.mem.Allocator,
     tensor: ?zml.safetensors.Tensor = null,
 
+    // Crée un nœud TensorNode avec le nom et l'allocateur donnés (enfants et tenseur vides).
     fn init(allocator: std.mem.Allocator, name: []const u8) !*TensorNode {
         const node = try allocator.create(TensorNode);
         node.* = .{
@@ -293,6 +298,7 @@ const TensorNode = struct {
     }
 };
 
+// Renvoie les nœuds enfants triés par ordre numérique si possible, puis lexical.
 fn getSortedChildren(allocator: std.mem.Allocator, node: *TensorNode) ![]*TensorNode {
     const children_nodes = try allocator.alloc(*TensorNode, node.children.count());
     var it = node.children.iterator();
@@ -302,6 +308,7 @@ fn getSortedChildren(allocator: std.mem.Allocator, node: *TensorNode) ![]*Tensor
     }
 
     std.mem.sort(*TensorNode, children_nodes, {}, struct {
+        // Comparateur de tri : ordre numérique quand les deux noms sont des entiers, sinon lexical.
         fn lessThan(_: void, a: *TensorNode, b: *TensorNode) bool {
             const a_num = std.fmt.parseInt(usize, a.name, 10) catch null;
             const b_num = std.fmt.parseInt(usize, b.name, 10) catch null;
@@ -312,6 +319,8 @@ fn getSortedChildren(allocator: std.mem.Allocator, node: *TensorNode) ![]*Tensor
     return children_nodes;
 }
 
+// Affiche récursivement l'arbre de tenseurs en compactant les segments à enfant unique
+// et en masquant les enfants intermédiaires lorsqu'ils sont trop nombreux.
 fn printTensorTree(
     writer: anytype,
     node: *TensorNode,

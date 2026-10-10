@@ -10,11 +10,13 @@ const log = std.log.scoped(.llm);
 pub const prompt_prefix: [:0]const u8 = "> ";
 pub const history_file_path: [:0]const u8 = ".llm_chat_history";
 
+// Initialise l'historique de saisie linenoise (longueur max et chargement du fichier).
 pub fn initHistory() void {
     _ = c.linenoiseHistorySetMaxLen(1_000);
     _ = c.linenoiseHistoryLoad(history_file_path.ptr);
 }
 
+// Ajoute une ligne non vide a l'historique et sauvegarde le fichier si l'ajout a reussi.
 pub fn rememberPrompt(line: [*:0]const u8) void {
     if (line[0] == 0) return;
     if (c.linenoiseHistoryAdd(line) == 1) {
@@ -29,6 +31,8 @@ pub const Chat = struct {
     session: models.Session,
     tokens: std.ArrayList(u32),
 
+    // Cree la session d'inference du modele compile et alloue le buffer de tokens
+    // dimensionne pour la longueur de sequence.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -57,6 +61,7 @@ pub const Chat = struct {
         };
     }
 
+    // Libere le buffer de tokens et la session sous-jacente.
     pub fn deinit(self: *Chat) void {
         self.tokens.deinit(self.allocator);
         self.session.deinit();
@@ -66,6 +71,8 @@ pub const Chat = struct {
         profile: bool = false,
     };
 
+    // Execute un unique tour de generation : tokenise le prompt, prefill puis decode
+    // jusqu'au token de fin, avec profilage optionnel (trace Perfetto).
     pub fn runOnce(self: *Chat, prompt: []const u8, opts: RunOnceOptions) !void {
         const prompt_tokens = try self.session.tokenizePrompt(self.allocator, prompt);
         defer self.allocator.free(prompt_tokens);
@@ -94,6 +101,8 @@ pub const Chat = struct {
         try stdout.interface.flush();
     }
 
+    // Boucle de conversation interactive : prefill et decode a chaque tour jusqu'a
+    // epuisement du budget de tokens de la sequence.
     pub fn runInteractive(self: *Chat, initial_prompt: []const u8) !void {
         var turn_tokens = try self.session.tokenizePrompt(self.allocator, initial_prompt);
         defer self.allocator.free(turn_tokens);
@@ -119,6 +128,8 @@ pub const Chat = struct {
         }
     }
 
+    // Fait le prefill du prompt en verifiant qu'il tient dans la sequence, affiche un
+    // indicateur et met a jour la liste des tokens.
     fn runPrefill(self: *Chat, prompt_tokens: []const u32, stdout: *std.Io.Writer) !void {
         if (prompt_tokens.len + self.tokens.items.len > self.session.maxTokens()) {
             return error.PromptTooLong;
@@ -133,6 +144,8 @@ pub const Chat = struct {
         try stdout.flush();
     }
 
+    // Decode les tokens suivants via la session, mesure la duree et affiche le debit
+    // en tokens par seconde.
     fn runDecodeTurn(self: *Chat, stdout: *std.Io.Writer) !void {
         const decode_start: std.Io.Timestamp = .now(self.io, .awake);
         const decode_pos_before = self.tokens.items.len;
@@ -149,6 +162,8 @@ pub const Chat = struct {
         try stdout.flush();
     }
 
+    // Lit une nouvelle saisie utilisateur via linenoise et la tokenise ; retourne null
+    // si l'utilisateur interrompt la boucle.
     fn readNextTurn(self: *Chat, previous_turn_tokens: []const u32, stdout: *std.Io.Writer) !?[]const u32 {
         while (true) {
             const line = c.linenoise(prompt_prefix.ptr) orelse {
@@ -168,6 +183,7 @@ pub const Chat = struct {
     }
 };
 
+// Calcule le debit en tokens par seconde a partir d'une duree ; retourne 0 si non mesurable.
 fn tokensPerSecond(duration: std.Io.Duration, tokens: u64) f64 {
     if (tokens == 0) return 0;
     const seconds = @as(f64, @floatFromInt(duration.toNanoseconds())) / 1e9;

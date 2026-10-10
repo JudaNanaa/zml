@@ -21,6 +21,8 @@ pub const Session = struct {
     think_end: ?u32,
     tokenizer: zml.tokenizer.Tokenizer,
 
+    // Initialise la session LFM2 : buffers de cache, RNG, slice du token genere et
+    // runners prefill/decode.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -59,6 +61,7 @@ pub const Session = struct {
         };
     }
 
+    // Libere les runners, les caches, le RNG et le slice du token genere.
     pub fn deinit(self: *Session) void {
         self.prefill.deinit(self.allocator);
         self.decode.deinit(self.allocator);
@@ -67,6 +70,7 @@ pub const Session = struct {
         self.generated_token_slice.free(self.allocator);
     }
 
+    // Tokenise le prompt initial au format chat LFM2 (im_start/user/assistant).
     pub fn tokenizePrompt(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         var encoder = try self.tokenizer.encoder();
         defer encoder.deinit();
@@ -90,6 +94,7 @@ pub const Session = struct {
         return tokens.toOwnedSlice(allocator);
     }
 
+    // Tokenise un tour utilisateur supplementaire au format chat LFM2.
     pub fn tokenizeTurn(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         var encoder = try self.tokenizer.encoder();
         defer encoder.deinit();
@@ -113,6 +118,8 @@ pub const Session = struct {
         return tokens.toOwnedSlice(allocator);
     }
 
+    // Prepare les tokens (padding, positions et longueur reelle) et execute le prefill ;
+    // memorise le dernier token genere.
     pub fn runPrefill(self: *Session, all_tokens: []const u32) !void {
         const tokens_slice: zml.Slice = try .alloc(self.allocator, .init(.{ .batch = 1, .seq = self.seqlen }, .u32));
         defer tokens_slice.free(self.allocator);
@@ -157,6 +164,8 @@ pub const Session = struct {
         self.generated_token_slice.items(u32)[0] = tokens_slice.items(u32)[all_tokens.len - 1];
     }
 
+    // Boucle de decodage autoregressif : genere, decode et affiche les tokens jusqu'a
+    // EOS ou saturation de la sequence.
     pub fn runDecode(self: *Session, all_tokens: *std.ArrayList(u32), stdout: *std.Io.Writer) !void {
         var decoder = try self.tokenizer.decoder();
         defer decoder.deinit();

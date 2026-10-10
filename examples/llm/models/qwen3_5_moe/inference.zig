@@ -15,6 +15,7 @@ pub const CompilationParameters = struct {
     meshes: common.Meshes,
     xla_dump_to: ?[]const u8,
 
+    // Construit les parametres de compilation : cache KV, RNG, backend MoE, seqlen et meshes.
     pub fn init(mdl: model.Model, config: model.Config, seqlen: u32, moe_backend: zml.moe.Backend, meshes: common.Meshes) CompilationParameters {
         const dtype = mdl.text_model.embed_tokens.weight.dtype();
         return .{
@@ -51,6 +52,7 @@ pub const CompiledModel = struct {
     decode: KernelExe,
     params: CompilationParameters,
 
+    // Compile les noyaux prefill et decode (memes graphes, longueurs differentes) et assemble le CompiledModel.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -71,6 +73,7 @@ pub const CompiledModel = struct {
         };
     }
 
+    // Libere les ressources des noyaux prefill et decode.
     pub fn deinit(self: *CompiledModel) void {
         self.prefill.deinit();
         self.decode.deinit();
@@ -85,6 +88,7 @@ pub const KernelExe = struct {
     linear_attention: zml.FnExe(model.TransformerLayer.forwardLinearAttn),
     sample: zml.FnExe(model.Sampler.sampleTokens),
 
+    // Libere les executables compiles (embedding, attentions, echantillonnage).
     pub fn deinit(self: *const KernelExe) void {
         self.embed.deinit();
         self.full_attention.deinit();
@@ -97,6 +101,7 @@ pub const LayerRunner = union(enum) {
     full_attention: zml.FnExe(model.TransformerLayer.forwardSelfAttn).Runner(.{.layer}),
     linear_attention: zml.FnExe(model.TransformerLayer.forwardLinearAttn).Runner(.{.layer}),
 
+    // Libere le runner de couche, quelle que soit la variante d'attention active.
     pub fn deinit(self: *LayerRunner, allocator: std.mem.Allocator) void {
         switch (self.*) {
             inline else => |*runner| runner.deinit(allocator),
@@ -109,6 +114,7 @@ pub const KernelRunner = struct {
     layers: []LayerRunner,
     sample: zml.FnExe(model.Sampler.sampleTokens).Runner(.{.sampler}),
 
+    // Instancie les runners (embedding, couches, sampler) a partir des buffers de poids.
     pub fn init(allocator: std.mem.Allocator, exe: *const KernelExe, buffers: *const model.Buffers) !KernelRunner {
         var embed = try zml.FnExe(model.EmbedTokens.forward).Runner(.{.embedding}).init(&exe.embed, allocator, .{
             .embedding = buffers.text_model.embed_tokens,
@@ -146,6 +152,7 @@ pub const KernelRunner = struct {
         return .{ .embed = embed, .layers = layers, .sample = sample };
     }
 
+    // Libere tous les runners internes.
     pub fn deinit(self: *KernelRunner, allocator: std.mem.Allocator) void {
         self.embed.deinit(allocator);
         for (self.layers) |*layer| layer.deinit(allocator);
@@ -154,6 +161,7 @@ pub const KernelRunner = struct {
     }
 };
 
+// Enchaine embedding, couches (attention complete/lineaire) et sampler pour produire le prochain token.
 pub fn run(runner: *KernelRunner, args: RunArgs) void {
     var hidden_buffer: zml.Buffer = undefined;
     runner.embed.run(args.io, .{
@@ -225,6 +233,7 @@ pub fn run(runner: *KernelRunner, args: RunArgs) void {
     }, .{});
 }
 
+// Compile en parallele (futures) les graphes des quatre noyaux et les assemble dans un KernelExe.
 fn compileKernel(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -264,6 +273,7 @@ fn compileKernel(
     };
 }
 
+// Compile le graphe d'embedding des tokens pour la longueur demandee.
 fn compileEmbed(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, mdl: model.Model, parameters: CompilationParameters, seqlen: usize, phase: []const u8, progress: *std.Progress.Node) !zml.FnExe(model.EmbedTokens.forward) {
     return compileExe(allocator, io, platform, model.EmbedTokens.forward, .{.{
         .embedding = mdl.text_model.embed_tokens,
@@ -271,6 +281,7 @@ fn compileEmbed(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.P
     }}, parameters, progress, phase, "embedding");
 }
 
+// Compile le graphe d'une couche d'attention complete avec config et backend MoE.
 fn compileFullAttention(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, mdl: model.Model, parameters: CompilationParameters, seqlen: usize, layer_index: usize, phase: []const u8, progress: *std.Progress.Node) !zml.FnExe(model.TransformerLayer.forwardSelfAttn) {
     return compileExe(allocator, io, platform, model.TransformerLayer.forwardSelfAttn, .{.{
         .layer = mdl.text_model.layers[layer_index],
@@ -286,6 +297,7 @@ fn compileFullAttention(allocator: std.mem.Allocator, io: std.Io, platform: *con
     }}, parameters, progress, phase, "full-attention layer");
 }
 
+// Compile le graphe d'une couche d'attention lineaire avec config et backend MoE.
 fn compileLinearAttention(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, mdl: model.Model, parameters: CompilationParameters, seqlen: usize, layer_index: usize, phase: []const u8, progress: *std.Progress.Node) !zml.FnExe(model.TransformerLayer.forwardLinearAttn) {
     return compileExe(allocator, io, platform, model.TransformerLayer.forwardLinearAttn, .{.{
         .layer = mdl.text_model.layers[layer_index],
@@ -301,6 +313,7 @@ fn compileLinearAttention(allocator: std.mem.Allocator, io: std.Io, platform: *c
     }}, parameters, progress, phase, "linear-attention layer");
 }
 
+// Compile le graphe d'echantillonnage du prochain token.
 fn compileSample(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, mdl: model.Model, parameters: CompilationParameters, seqlen: usize, phase: []const u8, progress: *std.Progress.Node) !zml.FnExe(model.Sampler.sampleTokens) {
     return compileExe(allocator, io, platform, model.Sampler.sampleTokens, .{.{
         .sampler = mdl.text_model.sampler(),
@@ -310,6 +323,7 @@ fn compileSample(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.
     }}, parameters, progress, phase, "sampling");
 }
 
+// Compile une fonction en executable en affichant la progression et la duree.
 fn compileExe(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -334,6 +348,7 @@ fn compileExe(
     }, args);
 }
 
+// Construit un tenseur d'etats caches (forme [b,s,d]) partitionne sur le mesh modele.
 fn hiddenTensor(mdl: model.Model, seqlen: usize, mesh: *const zml.Mesh) zml.Tensor {
     return .fromShape(zml.Shape.init(
         .{ .b = 1, .s = seqlen, .d = mdl.config.text_config.hidden_size },
@@ -341,6 +356,7 @@ fn hiddenTensor(mdl: model.Model, seqlen: usize, mesh: *const zml.Mesh) zml.Tens
     ).withPartitioning(mesh, .{ .b = .replicated, .s = .replicated, .d = .replicated }));
 }
 
+// Renvoie l'index de la premiere couche du type demande, ou null si absent.
 fn findFirstLayerIndex(layer_types: []const model.LayerType, target: model.LayerType) ?usize {
     for (layer_types, 0..) |layer_type, index| if (layer_type == target) return index;
     return null;

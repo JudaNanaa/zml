@@ -25,10 +25,13 @@ const DemoModel = struct {
     w: zml.Tensor, // {feature, hidden}
     b: zml.Tensor, // {hidden}
 
+    // Initialise le modèle de démonstration à partir de son poids et de son biais.
     pub fn init(w: zml.Tensor, b: zml.Tensor) DemoModel {
         return .{ .w = w, .b = b };
     }
 
+    // Passe avant : matmul + biais partitionnés (données/modèle), impression locale,
+    // puis calcul manuel combinant une ReLU et un masque sigmoïde.
     pub fn forward(self: DemoModel, input: zml.Tensor) zml.Tensor {
         const x = input.convert(.f32);
 
@@ -43,6 +46,8 @@ const DemoModel = struct {
                 y: zml.Tensor,
                 gate: zml.Tensor,
 
+                // Corps du calcul manuel : applique ReLU à y, multiplie par le masque puis reshape
+                // vers la forme de sortie partitionnée donnée.
                 fn body(ctx: @This(), output_sharded: zml.Shape) zml.Tensor {
                     const local_result = ctx.y.relu().mul(ctx.gate);
                     return local_result.reshape(output_sharded);
@@ -54,6 +59,7 @@ const DemoModel = struct {
     }
 };
 
+// Affiche l'aide d'utilisation (options et description du démo de sharding).
 fn usage() void {
     std.debug.print(
         \\Usage: sharding [--partitioner=shardy|gspmd] [--mesh=auto|mock]
@@ -70,6 +76,7 @@ fn usage() void {
     , .{});
 }
 
+// Analyse les arguments CLI (--partitioner, --mesh, -h/--help) et renvoie leurs valeurs.
 fn parseArgs(init: std.process.Init) !CliArgs {
     var args: CliArgs = .{};
     var it = init.minimal.args.iterate();
@@ -110,6 +117,8 @@ fn parseArgs(init: std.process.Init) !CliArgs {
     return args;
 }
 
+// Construit un maillage physique simulé de topologie torus (axes link_x/y/z)
+// à partir d'au moins 8 appareils.
 fn buildMockMesh(
     allocator: std.mem.Allocator,
     target: zml.Target,
@@ -137,6 +146,7 @@ fn buildMockMesh(
     return zml.Sharding.PhysicalMesh.fromTree(allocator, target, topology);
 }
 
+// Alloue un buffer rempli par la suite start, start+1, start+2, ... sur « shape ».
 fn createSequenceBuffer(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -154,6 +164,8 @@ fn createSequenceBuffer(
     return zml.Buffer.fromSlice(io, platform, slice);
 }
 
+// Point d'entrée : configure plateforme et maillage, compile le modèle, l'exécute
+// avec des buffers d'exemple et affiche un aperçu de la sortie.
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;

@@ -30,6 +30,8 @@ pub const LoadedModel = union(ModelType) {
     qwen3_5: qwen3_5.LoadedModel,
     qwen3_5_moe: qwen3_5_moe.LoadedModel,
 
+    // Detecte le type de modele depuis `config.json` puis initialise la variante
+    // correspondante de l'union LoadedModel.
     pub fn load(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -49,12 +51,14 @@ pub const LoadedModel = union(ModelType) {
         };
     }
 
+    // Libere la variante de modele actuellement active.
     pub fn deinit(self: *LoadedModel, allocator: std.mem.Allocator) void {
         switch (self.*) {
             inline else => |*m| m.deinit(allocator),
         }
     }
 
+    // Charge les poids du modele actif en buffers, selon sa variante.
     pub fn loadBuffers(
         self: *LoadedModel,
         allocator: std.mem.Allocator,
@@ -72,12 +76,14 @@ pub const LoadedModel = union(ModelType) {
         };
     }
 
+    // Libere les buffers de poids du modele actif.
     pub fn unloadBuffers(self: *const LoadedModel, buffers: *Buffers, allocator: std.mem.Allocator) void {
         switch (self.*) {
             inline else => |*loaded, t| loaded.unloadBuffers(&@field(buffers, @tagName(t)), allocator),
         }
     }
 
+    // Compile les kernels prefill/decode du modele actif et retourne le modele compile.
     pub fn compile(
         self: *const LoadedModel,
         allocator: std.mem.Allocator,
@@ -113,12 +119,14 @@ pub const CompiledModel = struct {
     inner: Inner,
     seqlen: u32,
 
+    // Libere le modele compile de la variante active.
     pub fn deinit(self: *CompiledModel) void {
         switch (self.inner) {
             inline else => |*b| b.deinit(),
         }
     }
 
+    // Cree une session d'inference pour la variante de modele compilee active.
     pub fn newSession(
         self: *CompiledModel,
         allocator: std.mem.Allocator,
@@ -158,41 +166,48 @@ pub const Session = struct {
     inner: Inner,
     seqlen: u32,
 
+    // Libere la session de la variante active.
     pub fn deinit(self: *Session) void {
         switch (self.inner) {
             inline else => |*s| s.deinit(),
         }
     }
 
+    // Delegue le prefill a la session de la variante active.
     pub fn runPrefill(self: *Session, all_tokens: []const u32) !void {
         try switch (self.inner) {
             inline else => |*s| s.runPrefill(all_tokens),
         };
     }
 
+    // Delegue le decodage a la session de la variante active.
     pub fn runDecode(self: *Session, all_tokens: *std.ArrayList(u32), writer: *std.Io.Writer) !void {
         try switch (self.inner) {
             inline else => |*s| s.runDecode(all_tokens, writer),
         };
     }
 
+    // Tokenise un prompt initial via la session de la variante active.
     pub fn tokenizePrompt(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return switch (self.inner) {
             inline else => |*s| s.tokenizePrompt(allocator, prompt),
         };
     }
 
+    // Tokenise un tour supplementaire de conversation via la variante active.
     pub fn tokenizeTurn(self: *const Session, allocator: std.mem.Allocator, prompt: []const u8) ![]const u32 {
         return switch (self.inner) {
             inline else => |*s| s.tokenizeTurn(allocator, prompt),
         };
     }
 
+    // Retourne la longueur de sequence maximale (budget de tokens) de la session.
     pub fn maxTokens(self: *const Session) u32 {
         return self.seqlen;
     }
 };
 
+// Lit le champ `model_type` de `config.json` et le convertit en enum ModelType.
 pub fn detectModelType(allocator: std.mem.Allocator, io: std.Io, repo: std.Io.Dir) !ModelType {
     const parsed = try parseConfig(RawConfig, allocator, io, repo);
     defer parsed.deinit();

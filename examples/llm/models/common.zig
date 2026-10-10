@@ -15,14 +15,17 @@ pub const Phase = enum {
     prefill,
     decode,
 
+    // Indique si la phase est le prefill (par opposition au decodage).
     pub fn isPrefill(self: Phase) bool {
         return self == .prefill;
     }
 
+    // Retourne le nom de la phase sous forme de chaine (tag de l'enum).
     pub fn label(self: Phase) []const u8 {
         return @tagName(self);
     }
 
+    // Construit le message d'avancement `Compiling <phase> <composant>...`.
     pub fn startMessage(self: Phase, comptime component: []const u8) []const u8 {
         return switch (self) {
             .prefill => "Compiling prefill " ++ component ++ "...",
@@ -30,6 +33,7 @@ pub const Phase = enum {
         };
     }
 
+    // Construit le nom de programme du kernel (`llm_<modele>_<phase>_<composant>`).
     pub fn programName(self: Phase, comptime model_name: []const u8, comptime component: []const u8) []const u8 {
         return switch (self) {
             .prefill => "llm_" ++ model_name ++ "_prefill_" ++ component,
@@ -37,6 +41,7 @@ pub const Phase = enum {
         };
     }
 
+    // Journalise la fin de compilation d'un composant avec sa duree.
     pub fn logCompileDone(self: Phase, logger: anytype, comptime component: []const u8, io: std.Io, from: std.Io.Timestamp) void {
         logger.info("Compiled {s} " ++ component ++ " [{f}]", .{ self.label(), from.untilNow(io, .awake) });
     }
@@ -46,6 +51,8 @@ pub const Meshes = struct {
     model: *const zml.Mesh,
     experts: *const zml.Mesh,
 
+    // Enregistre les meshes `model` et `experts` sur la plateforme, avec un pliage sur
+    // les axes link_x/link_y disponibles sur TPU.
     pub fn init(platform: *zml.Platform) !Meshes {
         switch (platform.target) {
             .tpu => {
@@ -70,11 +77,14 @@ pub const Meshes = struct {
         }
     }
 
+    // Retourne les deux meshes sous forme de tableau, pour les API ZML.
     pub fn all(self: Meshes) [2]*const zml.Mesh {
         return .{ self.model, self.experts };
     }
 };
 
+// Parse le fichier `config.json` du depot en type T, en ignorant les champs inconnus,
+// et retourne la valeur parsee avec son arena de liberte.
 pub fn parseConfig(comptime T: type, allocator: std.mem.Allocator, io: std.Io, dir: std.Io.Dir) !std.json.Parsed(T) {
     const file = try dir.openFile(io, "config.json", .{});
     defer file.close(io);

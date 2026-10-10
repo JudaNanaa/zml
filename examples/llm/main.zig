@@ -39,6 +39,9 @@ const Args = struct {
     ;
 };
 
+// Point d'entree du binaire : parse les arguments, configure les VFS et la plateforme,
+// charge le modele et le tokenizer, compile le modele, puis lance la generation (prompt
+// unique ou boucle interactive).
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
 
@@ -179,6 +182,8 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
+// Charge et parse le fichier `tokenizer.json` du depot de modele, en suivant la
+// progression, et retourne le tokenizer initialise.
 fn loadTokenizer(allocator: std.mem.Allocator, io: std.Io, dir: std.Io.Dir, progress: *std.Progress.Node) !zml.tokenizer.Tokenizer {
     progress.increaseEstimatedTotalItems(1);
     var node = progress.start("Loading tokenizer...", 1);
@@ -196,6 +201,7 @@ fn loadTokenizer(allocator: std.mem.Allocator, io: std.Io, dir: std.Io.Dir, prog
     return try .fromBytes(allocator, bytes);
 }
 
+// Affiche le logo ASCII de ZML sur stdout, en detectant le support couleur du terminal.
 pub fn printZmlLogo(io: std.Io, environ_map: *const std.process.Environ.Map) !void {
     const stdout = std.Io.File.stdout();
     const logo_options: zml.logo.Options = .{

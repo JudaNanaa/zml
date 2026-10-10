@@ -4,10 +4,14 @@ const log = std.log;
 const zml = @import("zml");
 const stdx = zml.stdx;
 
+// Produit le produit matriciel a·b selon l'axe « k », puis applique le partitionnement
+// du benchmark sur benchmark_mesh (m local, n répliqué) et renvoie le tenseur résultat.
 pub fn benchmark(a: zml.Tensor, b: zml.Tensor) zml.Tensor {
     return a.dot(b, .k).withPartitioning(.benchmark_mesh, .{ .m = .m, .n = .replicated });
 }
 
+// Point d'entrée du benchmark : lit les arguments CLI, sélectionne la plateforme,
+// compile le noyau, prépare des buffers aléatoires et mesure les GFLOP/s.
 pub fn main(init: std.process.Init) !void {
     const CliArgs = struct {
         pub const help =
@@ -93,6 +97,8 @@ pub fn main(init: std.process.Init) !void {
     });
 }
 
+// Alloue un buffer rempli de valeurs aléatoires adaptées au type de « shape »
+// et le transfère vers la plateforme sous forme de Buffer.
 fn createRandomBuffer(allocator: std.mem.Allocator, io: std.Io, platform: *const zml.Platform, shape: zml.Shape, random: std.Random) !zml.Buffer {
     const slice = try zml.Slice.alloc(allocator, shape);
     defer slice.free(allocator);

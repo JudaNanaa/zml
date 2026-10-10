@@ -47,6 +47,7 @@ pub const RopeParameters = struct {
     rope_theta: f32,
 };
 
+// Applique le partitionnement du mesh aux tenseurs k/v projetes selon le sharding des tetes.
 fn partitionProjectedKv(kv: zml.Tensor, kv_head_meshe: zml.Sharding.DimMeshe) zml.Tensor {
     return switch (kv_head_meshe) {
         .sharded => |heads| blk: {
@@ -57,6 +58,7 @@ fn partitionProjectedKv(kv: zml.Tensor, kv_head_meshe: zml.Sharding.DimMeshe) zm
     };
 }
 
+// Partitionne les tenseurs k/v du cache (axe sequence renomme en k).
 fn partitionCachedKv(tensor: zml.Tensor, kv_head_meshe: zml.Sharding.DimMeshe) zml.Tensor {
     var kv = tensor.rename(.{ .s = .k });
     return switch (kv_head_meshe) {
@@ -74,6 +76,7 @@ pub const LoadedModel = struct {
     inner: Model,
     parsed_config: std.json.Parsed(Config),
 
+    // Charge la config JSON et construit le Model depuis le store et les options de generation.
     pub fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -95,11 +98,13 @@ pub const LoadedModel = struct {
         };
     }
 
+    // Libere le Model interne et la config JSON parsee.
     pub fn deinit(self: *LoadedModel, allocator: std.mem.Allocator) void {
         self.inner.deinit(allocator);
         self.parsed_config.deinit();
     }
 
+    // Alloue puis charge en memoire GPU les poids du modele depuis le store, en loggant le debit.
     pub fn loadBuffers(
         self: *LoadedModel,
         allocator: std.mem.Allocator,
@@ -132,11 +137,13 @@ pub const LoadedModel = struct {
         return buffers;
     }
 
+    // Libere les buffers du text_model.
     pub fn unloadBuffers(self: *const LoadedModel, buffers: *Buffers, allocator: std.mem.Allocator) void {
         _ = self;
         TextModel.unloadBuffers(&buffers.text_model, allocator);
     }
 
+    // Detecte le backend MoE et compile le modele d'inference (prefill + decode).
     pub fn compile(
         self: *const LoadedModel,
         allocator: std.mem.Allocator,
@@ -176,6 +183,7 @@ pub const Model = struct {
         .end_of_text_token_id = 248044,
     },
 
+    // Construit le modele a partir du store en prefixant par model.language_model.
     pub fn init(allocator: std.mem.Allocator, store: zml.io.TensorStore.View, config: Config, gen_options: GenOptions) !Model {
         // For some Qwen3.5 versions, the output projection lm_head has a standalone weight tensor, while for others it's the same as the input embedding layer
         return .{
@@ -184,10 +192,12 @@ pub const Model = struct {
         };
     }
 
+    // Libere les ressources internes du modele (text_model).
     pub fn deinit(self: Model, allocator: std.mem.Allocator) void {
         self.text_model.deinit(allocator);
     }
 
+    // Charge les poids du modele en buffers sur le(s) mesh(s) via le loader asynchrone.
     pub fn load(
         self: *const Model,
         allocator: std.mem.Allocator,
@@ -221,9 +231,11 @@ pub const Model = struct {
         return buffers;
     }
 
+    // Libere les buffers du text_model.
     pub fn unloadBuffers(self: *zml.Bufferized(Model), allocator: std.mem.Allocator) void {
         TextModel.unloadBuffers(&self.text_model, allocator);
     }
+    // Passe avant complet (embedding, couches, echantillonnage) renvoyant tokens, cache KV et RNG.
     pub fn forward(
         self: Model,
         tokens_: zml.Tensor,
@@ -260,6 +272,7 @@ pub const Sampler = struct {
         token_index: zml.Tensor,
     };
 
+    // Normalise les etats caches, calcule les logits et tire le prochain token.
     pub fn sampleTokens(input: Input) Output {
         const self = input.sampler;
         const x = self.norm.forward(input.hidden);
@@ -283,6 +296,7 @@ pub const EmbedTokens = struct {
         hidden: zml.Tensor,
     };
 
+    // Convertit les tokens en etats caches via la table d'embedding.
     pub fn forward(input: Input) Output {
         return .{ .hidden = input.embedding.forward(input.tokens) };
     }
@@ -295,6 +309,7 @@ pub const TextModel = struct {
     lm_head: zml.nn.Linear,
     gen_options: Model.GenOptions,
 
+    // Construit le text_model : embedding, couches transformer, norme finale, lm_head et options.
     pub fn init(
         allocator: std.mem.Allocator,
         store: zml.io.TensorStore.View,
@@ -320,6 +335,7 @@ pub const TextModel = struct {
         };
     }
 
+    // Libere les couches du text_model.
     pub fn deinit(self: TextModel, allocator: std.mem.Allocator) void {
         for (self.layers) |layer| {
             layer.deinit(allocator);
@@ -327,6 +343,7 @@ pub const TextModel = struct {
         allocator.free(self.layers);
     }
 
+    // Libere les buffers des couches, embedding, norme et lm_head.
     pub fn unloadBuffers(self: *zml.Bufferized(TextModel), allocator: std.mem.Allocator) void {
         self.embed_tokens.weight.deinit();
         for (self.layers) |*layer| {
@@ -337,6 +354,7 @@ pub const TextModel = struct {
         zml.nn.Linear.unloadBuffers(&self.lm_head);
     }
 
+    // Construit le Sampler (norm + lm_head + options) pour l'echantillonnage.
     pub fn sampler(self: TextModel) Sampler {
         return .{
             .norm = self.norm,
@@ -345,6 +363,7 @@ pub const TextModel = struct {
         };
     }
 
+    // Execute embedding, couches puis echantillonnage et renvoie tokens, cache KV et RNG.
     pub fn forward(
         self: TextModel,
         tokens: zml.Tensor,
@@ -414,6 +433,7 @@ pub const TransformerLayer = struct {
         cache: KvCache.GatedDeltaNetCache,
     };
 
+    // Construit une couche transformer avec le bon type d'attention et un MLP MoE.
     pub fn init(allocator: std.mem.Allocator, store: zml.io.TensorStore.View, config: Config, layer_index: usize) !TransformerLayer {
         const is_full_attention = config.text_config.layer_types[layer_index] == .full_attention;
         return .{
@@ -427,10 +447,12 @@ pub const TransformerLayer = struct {
         };
     }
 
+    // Libere les ressources du bloc MoE de la couche.
     pub fn deinit(self: TransformerLayer, allocator: std.mem.Allocator) void {
         self.moe.deinit(allocator);
     }
 
+    // Libere les buffers de la couche (normes, attention et MoE).
     pub fn unloadBuffers(self: *zml.Bufferized(TransformerLayer), allocator: std.mem.Allocator) void {
         RmsNorm.unloadBuffers(&self.input_layernorm);
         switch (self.attn) {
@@ -441,6 +463,7 @@ pub const TransformerLayer = struct {
         RmsNorm.unloadBuffers(&self.post_attention_layernorm);
     }
 
+    // Variante compilable isolee du forward pour une couche d'attention complete (MoE).
     pub fn forwardSelfAttn(input: SelfAttnInput) SelfAttnOutput {
         const self = input.layer;
         const x0 = input.hidden;
@@ -465,6 +488,7 @@ pub const TransformerLayer = struct {
         };
     }
 
+    // Variante compilable isolee du forward pour une couche d'attention lineaire (MoE).
     pub fn forwardLinearAttn(input: LinearAttnInput) LinearAttnOutput {
         const self = input.layer;
         const x0 = input.hidden;
@@ -489,6 +513,7 @@ pub const TransformerLayer = struct {
         };
     }
 
+    // Passe avant d'une couche : attention avec residu, norme puis MoE.
     pub fn forward(
         self: TransformerLayer,
         x0: zml.Tensor,
@@ -546,6 +571,7 @@ pub const SelfAttn = struct {
 
     o_proj_scale: ?zml.Tensor,
 
+    // Cree une projection lineaire (poids + biais optionnel) avec le partitionnement donne.
     fn initProj(store: zml.io.TensorStore.View, partitions: anytype, bias_partitions: anytype) zml.nn.Linear {
         return .init(
             store.createTensor("weight", .{ .dout, .d }, .model, partitions),
@@ -554,6 +580,7 @@ pub const SelfAttn = struct {
         );
     }
 
+    // Construit l'attention complete : projections q/k/v/o, normes q/k et dimensions RoPE.
     pub fn init(store: zml.io.TensorStore.View, config: Config) !SelfAttn {
         const rotary_dim: i64 = @intFromFloat(@as(f32, @floatFromInt(config.text_config.head_dim)) *
             config.text_config.rope_parameters.partial_rotary_factor);
@@ -576,10 +603,12 @@ pub const SelfAttn = struct {
         };
     }
 
+    // Libere tous les buffers de l'attention complete.
     pub fn unloadBuffers(self: *zml.Bufferized(SelfAttn)) void {
         zml.Buffer.deinitAll(SelfAttn, self);
     }
 
+    // Projette q (avec sa porte) et separe la dimension de tete en q et gate.
     fn projectQAndGate(self: SelfAttn, x: zml.Tensor) struct { zml.Tensor, zml.Tensor } {
         const q_proj = self.q_proj.forward(x, x.dtype())
             .splitAxis(.dout, .{ .h = self.num_heads, .hd = 2 * self.head_dim });
@@ -588,6 +617,7 @@ pub const SelfAttn = struct {
         return .{ q, gate };
     }
 
+    // Projette k et v en separant les tetes KV.
     fn projectKV(self: SelfAttn, x: zml.Tensor) struct { zml.Tensor, zml.Tensor } {
         const num_kv_heads = if (self.num_kv_heads > 0) self.num_kv_heads else self.num_heads;
         const k = self.k_proj.forward(x, x.dtype())
@@ -597,6 +627,7 @@ pub const SelfAttn = struct {
         return .{ k, v };
     }
 
+    // Forward de self-attention : projections, RoPE, cache KV, attention et projection de sortie.
     pub fn forward(
         self: SelfAttn,
         x: zml.Tensor,
@@ -659,6 +690,7 @@ pub const Mlp = struct {
     down_proj: zml.nn.Linear,
     down_proj_scale: ?zml.Tensor,
 
+    // Construit le MLP SwiGLU (up, gate, down) a partir des poids du store.
     pub fn init(store: zml.io.TensorStore.View) Mlp {
         return .{
             .up_proj = .init(
@@ -682,10 +714,12 @@ pub const Mlp = struct {
         };
     }
 
+    // Libere tous les buffers de projection du MLP.
     pub fn unloadBuffers(self: *zml.Bufferized(Mlp)) void {
         zml.Buffer.deinitAll(Mlp, self);
     }
 
+    // Applique le MLP SwiGLU : silu(gate) * up puis down.
     pub fn forward(self: Mlp, x: zml.Tensor) zml.Tensor {
         const up_projed = self.up_proj.forward(x, x.dtype());
         const gate = self.gate_proj.forward(x, x.dtype());
@@ -700,6 +734,7 @@ const Router = struct {
     router: zml.nn.Linear,
     num_experts_per_tok: u32,
 
+    // Construit le routeur MoE (projection vers les experts et nombre d'experts par token).
     pub fn init(store: zml.io.TensorStore.View, num_experts_per_tok: u32) Router {
         return .{
             .router = .init(
@@ -711,10 +746,12 @@ const Router = struct {
         };
     }
 
+    // Libere les buffers du routeur.
     pub fn unloadBuffers(self: *zml.Bufferized(Router)) void {
         zml.Buffer.deinitAll(Router, self);
     }
 
+    // Calcule les logits de routage, selectionne le top-k des experts et normalise les scores.
     pub fn forward(self: Router, x: zml.Tensor) struct { zml.Tensor, zml.Tensor } {
         const router_logits = self.router.forward(x, .f32);
         const routing = router_logits.topK(.{ .topk = .expert }, self.num_experts_per_tok, .{});
@@ -731,6 +768,7 @@ pub const Moe = struct {
     down_proj: zml.nn.Linear,
     router: Router,
 
+    // Construit la couche MoE : experts partages/groups, porte partagee et routeur.
     pub fn init(allocator: std.mem.Allocator, store: zml.io.TensorStore.View, config: Config) !Moe {
         _ = allocator;
         const experts_store = store.withPrefix("experts");
@@ -760,11 +798,13 @@ pub const Moe = struct {
         };
     }
 
+    // Libere les ressources de la couche MoE (aucune allocation propre).
     pub fn deinit(self: Moe, allocator: std.mem.Allocator) void {
         _ = self;
         _ = allocator;
     }
 
+    // Routage vers les experts, calcul du melange MoE et ajout de l'expert partage pondere.
     pub fn forward(self: Moe, x: zml.Tensor, moe_backend: zml.moe.Backend) zml.Tensor {
         const routing_scores, const topk_ids = self.router.forward(x);
 
@@ -792,6 +832,7 @@ pub const Moe = struct {
         return moe_output.add(shared);
     }
 
+    // Libere tous les buffers de la couche MoE.
     pub fn unloadBuffers(self: *zml.Bufferized(Moe), allocator: std.mem.Allocator) void {
         _ = allocator;
         zml.Buffer.deinitAll(Moe, self);
@@ -803,6 +844,7 @@ pub const TextRotaryEmbedding = struct {
     rotary_dim: i64,
     mrope_section: [3]i64,
 
+    // Initialise l'embedding rotatif (dimension, theta et sections mrope).
     pub fn init(rotary_dim: i64, theta: f32, mrope_section: [3]i64) TextRotaryEmbedding {
         return .{
             .rope_opts = .{
@@ -814,6 +856,7 @@ pub const TextRotaryEmbedding = struct {
         };
     }
 
+    // Calcule les cosinus/sinus de RoPE pour les positions donnees.
     pub fn getCosAndSin(self: TextRotaryEmbedding, position_ids: zml.Tensor, dtype: zml.DataType) struct { zml.Tensor, zml.Tensor } {
         const inv_freq = zml.nn.invFreq(self.rotary_dim, self.rope_opts).withTags(.{.hd});
 
@@ -826,6 +869,7 @@ pub const TextRotaryEmbedding = struct {
         return .{ cos, sin };
     }
 
+    // Variante mrope interleavee (extension image) calculant cos/sin.
     pub fn getCosAndSinInterleaved(self: TextRotaryEmbedding, position_ids: zml.Tensor, dtype: zml.DataType) struct { zml.Tensor, zml.Tensor } { // To be used later in image extension
         const stacked_position_ids = zml.Tensor.stack(&.{ position_ids, position_ids, position_ids }, 0, .g).convert(.f32);
         const inv_freq = zml.nn.InvFreq(self.rotary_dim, self.rope_opts).withTags(.{.hd});
@@ -851,6 +895,7 @@ pub const TextRotaryEmbedding = struct {
         return .{ cos, sin };
     }
 
+    // Inverse et permute les deux moities d'un tenseur selon l'axe final (rotation RoPE).
     fn rotateHalf(x: zml.Tensor) zml.Tensor {
         const half_dim = @divExact(x.dim(-1), 2);
         const x1 = x.slice(-1, .{ .start = 0, .end = half_dim });
@@ -858,6 +903,7 @@ pub const TextRotaryEmbedding = struct {
         return zml.Tensor.concatenate(&.{ x2.negate(), x1 }, -1);
     }
 
+    // Applique RoPE a la partie rotative et conserve la partie non rotative.
     pub fn applyRope(self: TextRotaryEmbedding, x: zml.Tensor, cos: zml.Tensor, sin: zml.Tensor) zml.Tensor {
         const x_rot = x.slice(-1, .{ .start = 0, .end = self.rotary_dim });
         const x_pass = x.slice(-1, .{ .start = self.rotary_dim, .end = x.dim(-1) });
@@ -892,10 +938,12 @@ pub const GatedDeltaNet = struct {
     head_v_dim: i64,
     conv_kernel_size: i64,
 
+    // Cree une projection lineaire sans biais pour GatedDeltaNet.
     fn initProj(store: zml.io.TensorStore.View, partitions: anytype) zml.nn.Linear {
         return .init(store.createTensor("weight", .{ .dout, .d }, .model, partitions), null, .d);
     }
 
+    // Construit GatedDeltaNet : projections, convolution, biais de dt, A_log et norme.
     pub fn init(store: zml.io.TensorStore.View, config: Config) GatedDeltaNet {
         const qk_head_repetition: u32 =
             @intCast(@divExact(config.text_config.linear_num_value_heads, config.text_config.linear_num_key_heads));
@@ -921,10 +969,12 @@ pub const GatedDeltaNet = struct {
         };
     }
 
+    // Libere tous les buffers de GatedDeltaNet.
     pub fn unloadBuffers(self: *zml.Bufferized(GatedDeltaNet)) void {
         zml.Buffer.deinitAll(GatedDeltaNet, self);
     }
 
+    // Applique la regle recurrente Gated Delta Net pour mettre a jour l'etat et produire la sortie.
     fn recurrentGatedDeltaRule(
         query: zml.Tensor,
         key: zml.Tensor,
@@ -972,6 +1022,7 @@ pub const GatedDeltaNet = struct {
         };
     }
 
+    // Met a jour l'etat de convolution a partir des dernieres positions, complete par du padding.
     fn buildUpdatedConvState(input: zml.Tensor, left_pad: i64) zml.Tensor {
         const copy_len = @min(input.dim(.s), left_pad);
         const tail = input.slice(.s, .{ .start = input.dim(.s) - copy_len, .end = input.dim(.s) });
@@ -982,12 +1033,14 @@ pub const GatedDeltaNet = struct {
         return zml.Tensor.concatenate(&.{ padding, tail }, .s);
     }
 
+    // Met a jour l'etat de convolution depuis le prefixe avec du padding en tete.
     fn buildUpdatedConvStateFromPrefix(input: zml.Tensor, left_pad: i64, active_length: zml.Tensor) zml.Tensor {
         const padding = zml.Tensor.zeroes(input.shape().setDim(.s, left_pad));
         const padded = zml.Tensor.concatenate(&.{ padding, input }, .s);
         return padded.slice(.s, .dyn(active_length.convert(.i64), left_pad));
     }
 
+    // Forward de GatedDeltaNet : projections, convolution, regle delta recurrente, norme et sortie.
     pub fn forward(self: GatedDeltaNet, x: zml.Tensor, cache: KvCache.GatedDeltaNetCache, active_length: zml.Tensor) struct { zml.Tensor, KvCache.GatedDeltaNetCache } {
         const key_dim = self.num_k_heads * self.head_k_dim;
         const value_dim = self.num_v_heads * self.head_v_dim;
@@ -1086,14 +1139,17 @@ pub const RmsNorm = struct {
     weight: zml.Tensor,
     eps: f32 = 1e-6,
 
+    // Construit une RMSNorm avec son poids et son epsilon.
     pub fn init(store: zml.io.TensorStore.View, eps: f32) RmsNorm {
         return .{ .weight = store.createTensor("weight", .{.d}, .model, .{ .d = .replicated }), .eps = eps };
     }
 
+    // Libere le buffer de poids de la RMSNorm.
     pub fn unloadBuffers(self: *zml.Bufferized(RmsNorm)) void {
         self.weight.deinit();
     }
 
+    // Applique la RMSNorm et reechelonne par (1 + poids).
     pub fn forward(self: RmsNorm, x: zml.Tensor) zml.Tensor {
         const x_f32 = x.convert(.f32);
         const weight_f32 = self.weight.convert(.f32);
@@ -1107,14 +1163,17 @@ pub const RmsNormGated = struct {
     weight: zml.Tensor,
     eps: f32 = 1e-6,
 
+    // Construit une RMSNorm avec porte (poids et epsilon).
     pub fn init(store: zml.io.TensorStore.View, eps: f32) RmsNormGated {
         return .{ .weight = store.createTensor("weight", .{.d}, .model, .{ .d = .replicated }), .eps = eps };
     }
 
+    // Libere le buffer de poids de la RMSNorm avec porte.
     pub fn unloadBuffers(self: *zml.Bufferized(RmsNormGated)) void {
         self.weight.deinit();
     }
 
+    // Applique la RMSNorm echelonnee puis multiplie par la porte en silu.
     pub fn forward(self: RmsNormGated, x: zml.Tensor, gate: zml.Tensor) zml.Tensor {
         const x_f32 = x.convert(.f32);
         const gate_f32 = gate.convert(.f32);
@@ -1138,6 +1197,7 @@ pub const KvCache = struct {
         v: zml.Tensor,
         layer_index: zml.Tensor,
 
+        // Initialise la forme du cache KV d'attention complete selon la config et le mesh.
         pub fn init(config: Config, batch_dim: i64, max_seq_len: i64, dtype: zml.DataType, model_meshe: *const zml.Mesh) SelfAttnCache {
             const num_self_attn_layers = countLayers(config.text_config.layer_types, .full_attention);
             const kv_shape = zml.Shape.init(.{
@@ -1159,6 +1219,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Alloue les buffers GPU k/v non initialises et l'index de couche du cache.
         pub fn initBuffer(self: SelfAttnCache, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(SelfAttnCache) {
             return .{
                 .k = try zml.Buffer.uninitialized(io, platform, self.k.shape(), .{}),
@@ -1167,20 +1228,24 @@ pub const KvCache = struct {
             };
         }
 
+        // Libere les buffers k, v et l'index de couche.
         pub fn deinitBuffer(self: *zml.Bufferized(SelfAttnCache)) void {
             self.k.deinit();
             self.v.deinit();
             self.layer_index.deinit();
         }
 
+        // Extrait les cles de la couche courante du cache.
         pub fn keys(self: SelfAttnCache) zml.Tensor {
             return self.k.slice(.layer, .dynSingle(self.layer_index));
         }
 
+        // Extrait les valeurs de la couche courante du cache.
         pub fn values(self: SelfAttnCache) zml.Tensor {
             return self.v.slice(.layer, .dynSingle(self.layer_index));
         }
 
+        // Ecrit k/v des nouvelles positions dans le cache et renvoie le cache mis a jour.
         pub fn update(self: SelfAttnCache, new_k: zml.Tensor, new_v: zml.Tensor, token_index: ?zml.Tensor) SelfAttnCache {
             const k_shape = self.k.shape().drop(.layer);
             var layer = self.layer_index;
@@ -1213,6 +1278,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Renvoie une vue du cache pointant sur la couche dense demandee.
         pub fn atLayer(self: SelfAttnCache, layer_index: usize) SelfAttnCache {
             return .{
                 .k = self.k,
@@ -1221,6 +1287,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Indique que le cache reutilise les buffers d'un autre cache.
         pub fn reuseBuffer(self: SelfAttnCache, other: SelfAttnCache) SelfAttnCache {
             return .{
                 .k = self.k.reuseBuffer(other.k),
@@ -1235,6 +1302,7 @@ pub const KvCache = struct {
         recurrent_state: zml.Tensor,
         layer_index: zml.Tensor,
 
+        // Initialise la forme des etats de convolution et recurrent du cache GatedDeltaNet.
         pub fn init(config: Config, batch_dim: i64, conv_dtype: zml.DataType, recurrent_dtype: zml.DataType, model_meshe: *const zml.Mesh) GatedDeltaNetCache {
             const num_linear_attn_layers = countLayers(config.text_config.layer_types, .linear_attention);
             const conv_dim = 2 * config.text_config.linear_num_key_heads * config.text_config.linear_key_head_dim + config.text_config.linear_num_value_heads * config.text_config.linear_value_head_dim;
@@ -1260,6 +1328,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Alloue les buffers GPU des etats de convolution/recurrent et l'index de couche.
         pub fn initBuffer(self: GatedDeltaNetCache, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(GatedDeltaNetCache) {
             return .{
                 .conv_state = try zml.Buffer.uninitialized(io, platform, self.conv_state.shape(), .{}),
@@ -1268,20 +1337,24 @@ pub const KvCache = struct {
             };
         }
 
+        // Libere les buffers des etats de convolution/recurrent et l'index de couche.
         pub fn deinitBuffer(self: *zml.Bufferized(GatedDeltaNetCache)) void {
             self.conv_state.deinit();
             self.recurrent_state.deinit();
             self.layer_index.deinit();
         }
 
+        // Extrait l'etat de convolution de la couche courante.
         pub fn convState(self: GatedDeltaNetCache) zml.Tensor {
             return self.conv_state.slice(.layer, .dynSingle(self.layer_index));
         }
 
+        // Extrait l'etat recurrent de la couche courante.
         pub fn recurrentState(self: GatedDeltaNetCache) zml.Tensor {
             return self.recurrent_state.slice(.layer, .dynSingle(self.layer_index));
         }
 
+        // Ecrit les nouveaux etats de convolution/recurrent et renvoie le cache mis a jour.
         pub fn update(self: GatedDeltaNetCache, new_conv_state: ?zml.Tensor, new_recurrent_state: ?zml.Tensor) GatedDeltaNetCache {
             const conv_state = if (new_conv_state) |state|
                 self.conv_state.scatterSlices(
@@ -1308,6 +1381,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Renvoie une vue du cache pointant sur la couche dense demandee.
         pub fn atLayer(self: GatedDeltaNetCache, layer_index: usize) GatedDeltaNetCache {
             return .{
                 .conv_state = self.conv_state,
@@ -1316,6 +1390,7 @@ pub const KvCache = struct {
             };
         }
 
+        // Indique que le cache reutilise les buffers d'un autre cache.
         pub fn reuseBuffer(self: GatedDeltaNetCache, other: GatedDeltaNetCache) GatedDeltaNetCache {
             return .{
                 .conv_state = self.conv_state.reuseBuffer(other.conv_state),
@@ -1325,6 +1400,7 @@ pub const KvCache = struct {
         }
     };
 
+    // Initialise le cache KV global (self-attention + GatedDeltaNet) depuis la config.
     pub fn init(
         config: Config,
         batch_dim: i64,
@@ -1340,6 +1416,7 @@ pub const KvCache = struct {
         };
     }
 
+    // Alloue les buffers GPU de tous les sous-caches du cache KV.
     pub fn initBuffer(self: KvCache, io: std.Io, platform: *const zml.Platform) !zml.Bufferized(KvCache) {
         return .{
             .self_attn = try self.self_attn.initBuffer(io, platform),
@@ -1347,6 +1424,7 @@ pub const KvCache = struct {
         };
     }
 
+    // Libere les buffers des sous-caches self-attention et GatedDeltaNet.
     pub fn deinitBuffer(self: *zml.Bufferized(KvCache)) void {
         SelfAttnCache.deinitBuffer(&self.self_attn);
         GatedDeltaNetCache.deinitBuffer(&self.gated_delta_net);
@@ -1360,6 +1438,7 @@ pub const KvCache = struct {
         },
     };
 
+    // Renvoie la vue de cache correspondant a l'index de couche.
     pub fn atLayer(self: KvCache, layer_index: usize) LayerView {
         return switch (getDenseIndex(self.layer_types, layer_index)) {
             .full_attention => |dense_index| .{
@@ -1373,6 +1452,7 @@ pub const KvCache = struct {
         };
     }
 
+    // Indique que le cache KV reutilise les buffers d'un autre cache.
     pub fn reuseBuffer(self: KvCache, other: KvCache) KvCache {
         return .{
             .layer_types = self.layer_types,
@@ -1381,6 +1461,7 @@ pub const KvCache = struct {
         };
     }
 
+    // Compte le nombre de couches du type donne dans layer_types.
     fn countLayers(layer_types: []const LayerType, layer_type: LayerType) i64 {
         var count: i64 = 0;
         for (layer_types) |registered_layer_type| {
@@ -1389,6 +1470,7 @@ pub const KvCache = struct {
         return count;
     }
 
+    // Calcule l'index dense (par type) de la couche et renvoie son type.
     fn getDenseIndex(layer_types: []const LayerType, layer_index: usize) union(enum) {
         full_attention: struct { layer_dense_index: usize },
         linear_attention: struct { layer_dense_index: usize },
@@ -1410,6 +1492,7 @@ pub const KvCache = struct {
 
 //========================Utils========================
 
+// Calcule softplus(x) = log(1 + exp(x)).
 fn softplus(x: zml.Tensor) zml.Tensor {
     return x.exp().addConstant(1).log();
 }
