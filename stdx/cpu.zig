@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+// Restreint le thread appelant et les threads existants aux CPU d'un nœud NUMA, en préservant les affinités plus étroites ; renvoie le nombre de threads modifiés.
 /// Restricts the calling thread and existing threads to the CPUs of a NUMA
 /// node within the caller's current affinity, preserving each thread's narrower
 /// affinity. Threads with no overlap are left alone. Returns the number of
@@ -31,16 +32,19 @@ pub const AllowedCores = struct {
     /// `ids.len` when the topology is unknown.
     physical_count: usize,
 
+    // Renvoie un CPU par cœur physique (sans les frères SMT).
     /// One CPU per physical core, skipping SMT siblings.
     pub fn physical(self: AllowedCores) []const usize {
         return self.ids[0..self.physical_count];
     }
 
+    // Libère la liste des CPU autorisés.
     pub fn deinit(self: AllowedCores, allocator: std.mem.Allocator) void {
         allocator.free(self.ids);
     }
 };
 
+// Renvoie les CPU autorisés pour le thread courant, ordonnés pour répartir d'abord un CPU par cœur physique (via sysfs sur Linux).
 /// Returns the CPUs the calling thread may run on. Linux uses sysfs topology so
 /// that a second logical CPU of a physical core comes only after every allowed
 /// physical core got one.
@@ -60,6 +64,7 @@ pub fn allowedCores(allocator: std.mem.Allocator, io: std.Io) !AllowedCores {
     return .{ .ids = cpus, .physical_count = physical_count };
 }
 
+// Épingle tous les threads du processus à l'ensemble `node_set` ∩ affinité de chaque thread.
 fn pinProcessToCpuSet(io: std.Io, node_set: std.os.linux.cpu_set_t) !usize {
     const linux = std.os.linux;
     // Keep the caller's taskset/numactl choice as the process-wide limit, and
@@ -86,12 +91,14 @@ fn pinProcessToCpuSet(io: std.Io, node_set: std.os.linux.cpu_set_t) !usize {
     return pinned;
 }
 
+// Renvoie l'intersection bit à bit de deux ensembles de CPU.
 fn intersectCpuSets(a: std.os.linux.cpu_set_t, b: std.os.linux.cpu_set_t) std.os.linux.cpu_set_t {
     var set = a;
     for (&set, b) |*word, other| word.* &= other;
     return set;
 }
 
+// Lit l'affinité CPU du thread `tid` ; `ThreadGone` si le thread n'existe plus.
 fn threadAffinity(tid: std.os.linux.pid_t) error{ ThreadGone, GetAffinityFailed }!std.os.linux.cpu_set_t {
     const linux = std.os.linux;
     var set: linux.cpu_set_t = @splat(0);
@@ -102,6 +109,7 @@ fn threadAffinity(tid: std.os.linux.pid_t) error{ ThreadGone, GetAffinityFailed 
     }
 }
 
+// Applique l'ensemble d'affinité `set` au thread `tid` (syscall `sched_setaffinity`).
 fn setThreadAffinity(tid: std.os.linux.pid_t, set: *const std.os.linux.cpu_set_t) error{ ThreadGone, SetAffinityFailed }!void {
     const linux = std.os.linux;
     const rc = linux.syscall3(.sched_setaffinity, @as(usize, @bitCast(@as(isize, tid))), @sizeOf(linux.cpu_set_t), @intFromPtr(set));
@@ -112,6 +120,7 @@ fn setThreadAffinity(tid: std.os.linux.pid_t, set: *const std.os.linux.cpu_set_t
     }
 }
 
+// Restreint le thread `tid` à `target` ∩ affinité courante ; renvoie vrai si modifié.
 fn pinThreadToCpuSet(tid: std.os.linux.pid_t, target: std.os.linux.cpu_set_t) !bool {
     const current = try threadAffinity(tid);
     const set = intersectCpuSets(target, current);
@@ -120,6 +129,7 @@ fn pinThreadToCpuSet(tid: std.os.linux.pid_t, target: std.os.linux.cpu_set_t) !b
     return true;
 }
 
+// Parse une liste de CPU Linux (« 0-2,64,66-67 ») dans un `cpu_set_t`.
 /// Parses Linux CPU lists, including singleton CPUs and inclusive ranges.
 fn parseCpuList(cpulist: []const u8, set: *std.os.linux.cpu_set_t) !void {
     const trimmed = std.mem.trim(u8, cpulist, " \t\r\n");
@@ -145,6 +155,7 @@ fn parseCpuList(cpulist: []const u8, set: *std.os.linux.cpu_set_t) !void {
     }
 }
 
+// Renvoie la liste triée des CPU autorisés à partir de l'affinité du thread courant.
 fn linuxAllowedCoreIds(allocator: std.mem.Allocator) ![]usize {
     const set = try threadAffinity(0);
 
@@ -163,6 +174,7 @@ fn linuxAllowedCoreIds(allocator: std.mem.Allocator) ![]usize {
     return core_ids.toOwnedSlice(allocator);
 }
 
+// Indique si `core_id` appartient à l'ensemble de CPU `set`.
 fn cpuSetContains(set: std.os.linux.cpu_set_t, core_id: usize) bool {
     const word_bit_count = @bitSizeOf(usize);
     const word_index = core_id / word_bit_count;
@@ -170,6 +182,7 @@ fn cpuSetContains(set: std.os.linux.cpu_set_t, core_id: usize) bool {
     return word_index < set.len and (set[word_index] & (@as(usize, 1) << bit_index)) != 0;
 }
 
+// Ordonne `cpus` par cœur physique : calcule le « leader » de chaque CPU puis appelle `orderBySiblings`.
 fn linuxOrderBySiblings(allocator: std.mem.Allocator, io: std.Io, cpus: []usize) !usize {
     const leaders = try allocator.alloc(usize, cpus.len);
     defer allocator.free(leaders);
@@ -177,6 +190,7 @@ fn linuxOrderBySiblings(allocator: std.mem.Allocator, io: std.Io, cpus: []usize)
     return orderBySiblings(allocator, cpus, leaders);
 }
 
+// Renvoie le plus petit identifiant CPU partageant un cœur physique avec `cpu`.
 /// Returns the lowest CPU id sharing a physical core with `cpu`.
 fn linuxCoreLeader(io: std.Io, cpu: usize) !usize {
     var cpulist_buf: [4096]u8 = undefined;
@@ -194,12 +208,14 @@ fn linuxCoreLeader(io: std.Io, cpu: usize) !usize {
     return error.MissingCpuTopology;
 }
 
+// Lit un fichier de topologie sysfs pour le CPU `cpu` dans `buf`.
 fn linuxReadTopology(io: std.Io, cpu: usize, name: []const u8, buf: []u8) ![]const u8 {
     var path_buf: [96]u8 = undefined;
     const path = try std.fmt.bufPrint(&path_buf, "/sys/devices/system/cpu/cpu{d}/topology/{s}", .{ cpu, name });
     return std.Io.Dir.cwd().readFile(io, path, buf);
 }
 
+// Réordonne `cpus` pour qu'un même tour contienne au plus un CPU par cœur physique ; renvoie le nombre de cœurs physiques.
 /// Reorders `cpus` so that each round holds at most one CPU per physical core,
 /// in ascending order, before the next round of SMT siblings. `leaders[i]`
 /// identifies the physical core of `cpus[i]`. Returns the number of physical
@@ -209,6 +225,7 @@ fn orderBySiblings(allocator: std.mem.Allocator, cpus: []usize, leaders: []const
         round: usize,
         cpu: usize,
 
+        // Comparateur : trie par tour puis par identifiant CPU.
         fn lessThan(_: void, lhs: @This(), rhs: @This()) bool {
             return if (lhs.round != rhs.round) lhs.round < rhs.round else lhs.cpu < rhs.cpu;
         }
@@ -230,12 +247,14 @@ fn orderBySiblings(allocator: std.mem.Allocator, cpus: []usize, leaders: []const
     return physical_count;
 }
 
+// Renvoie les CPU `0..cpu_count` dans l'ordre naturel (aucune info de topologie).
 fn naturalOrder(allocator: std.mem.Allocator, cpu_count: usize) !AllowedCores {
     const ids = try allocator.alloc(usize, cpu_count);
     for (ids, 0..) |*id, index| id.* = index;
     return .{ .ids = ids, .physical_count = ids.len };
 }
 
+// Vérifie que `parseCpuList` respecte les bornes du masque et rejette les listes malformées.
 test "CPU lists respect mask boundaries" {
     var set: std.os.linux.cpu_set_t = @splat(0);
     try parseCpuList("0-2,64,66-67\n", &set);
@@ -253,6 +272,7 @@ test "CPU lists respect mask boundaries" {
 const AffinityTest = struct {
     const CpuSet = std.os.linux.cpu_set_t;
 
+    // Renvoie un ensemble de `count` CPU disponibles dans l'affinité courante, ou `SkipZigTest`.
     fn available(count: usize) !CpuSet {
         if (builtin.os.tag != .linux) return error.SkipZigTest;
         const current = try threadAffinity(0);
@@ -268,6 +288,7 @@ const AffinityTest = struct {
         return selected;
     }
 
+    // Épingle des threads et vérifie que l'affinité process-wide préserve les liaisons plus étroites.
     fn check(caller: CpuSet, worker: CpuSet, node: CpuSet, expected: CpuSet) !void {
         const io = std.testing.io;
         const Worker = struct {
@@ -278,6 +299,7 @@ const AffinityTest = struct {
             stop: std.Io.Event = .unset,
             failure: ?anyerror = null,
 
+            // Corps du thread de test : s'épingle puis attend l'ordre d'arrêt.
             fn run(self: *@This()) void {
                 self.tid = @intCast(std.Thread.getCurrentId());
                 setThreadAffinity(0, &self.set) catch |err| {
@@ -326,6 +348,7 @@ const AffinityTest = struct {
     }
 };
 
+// Vérifie qu'une liaison de travail plus étroite est préservée par `pinProcessToNumaNode`.
 test "process NUMA affinity preserves a narrower worker binding" {
     const caller = try AffinityTest.available(3);
     const node = try AffinityTest.available(2);
@@ -333,12 +356,14 @@ test "process NUMA affinity preserves a narrower worker binding" {
     try AffinityTest.check(caller, worker, node, worker);
 }
 
+// Vérifie que les autres threads sont visités même si l'appelant est déjà épinglé.
 test "process NUMA affinity visits workers when the caller is already pinned" {
     const caller = try AffinityTest.available(1);
     const worker = try AffinityTest.available(2);
     try AffinityTest.check(caller, worker, worker, caller);
 }
 
+// Vérifie qu'un thread sans CPU commun est laissé inchangé.
 test "process NUMA affinity leaves a worker with no overlapping CPUs alone" {
     const caller = try AffinityTest.available(2);
     const node = try AffinityTest.available(1);
@@ -347,6 +372,7 @@ test "process NUMA affinity leaves a worker with no overlapping CPUs alone" {
     try AffinityTest.check(caller, worker, node, worker);
 }
 
+// Vérifie que les listes CPU acceptent espaces et ensembles vides.
 test "CPU lists accept whitespace and empty node CPU sets" {
     var set: std.os.linux.cpu_set_t = @splat(0);
     try parseCpuList(" \t\r\n", &set);
@@ -356,6 +382,7 @@ test "CPU lists accept whitespace and empty node CPU sets" {
     try std.testing.expectEqual(@as(usize, 0b1101), set[1]);
 }
 
+// Vérifie que les plages malformées sont rejetées.
 test "CPU lists reject malformed ranges" {
     for ([_][]const u8{ "3-1", "x", "-1", "1-", "1-2-3", "1,,2", "1,", ",1", "999999999999999999999999999999" }) |text| {
         var set: std.os.linux.cpu_set_t = @splat(0);
@@ -363,6 +390,7 @@ test "CPU lists reject malformed ranges" {
     }
 }
 
+// Vérifie que l'ordre naturel traite chaque CPU comme physique.
 test "natural order treats every CPU as physical" {
     const cores = try naturalOrder(std.testing.allocator, 4);
     defer cores.deinit(std.testing.allocator);
@@ -371,6 +399,7 @@ test "natural order treats every CPU as physical" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, cores.physical());
 }
 
+// Vérifie que l'ordonnancement par frères SMT place un CPU par cœur physique d'abord.
 test "sibling order puts one CPU per physical core first" {
     const Case = struct { cpus: []const usize, leaders: []const usize, expected: []const usize, physical_count: usize };
     const cases = [_]Case{
@@ -396,6 +425,7 @@ test "sibling order puts one CPU per physical core first" {
     }
 }
 
+// Vérifie que les cœurs autorisés couvrent exactement l'affinité du thread.
 test "allowed cores cover the thread affinity" {
     const cores = try allowedCores(std.testing.allocator, std.testing.io);
     defer cores.deinit(std.testing.allocator);

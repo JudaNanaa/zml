@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+// File d'attente intrusive SPSC (un producteur, un consommateur) ; `T` doit avoir un champ `next: ?*T`.
 /// An intrusive queue implementation. The type T must have a field
 /// "next" of type `?*T`.
 ///
@@ -19,6 +20,7 @@ pub fn SPSC(comptime T: type) type {
         head: ?*T = null,
         tail: ?*T = null,
 
+        // Ajoute `v` à l'arrière de la file.
         /// Enqueue a new element to the back of the queue.
         pub fn push(self: *Self, v: *T) void {
             assert(v.next == null);
@@ -34,6 +36,7 @@ pub fn SPSC(comptime T: type) type {
             }
         }
 
+        // Concatène une autre file `other` à la fin de celle-ci en O(1).
         pub fn pushAll(self: *Self, other: Self) void {
             if (self.tail) |tail| {
                 tail.next = other.head;
@@ -43,6 +46,7 @@ pub fn SPSC(comptime T: type) type {
             self.tail = other.tail;
         }
 
+        // Retire et renvoie l'élément de tête, ou `null` si la file est vide.
         /// Dequeue the next element from the queue.
         pub fn pop(self: *Self) ?*T {
             // The next element is in "head".
@@ -62,6 +66,7 @@ pub fn SPSC(comptime T: type) type {
             return next;
         }
 
+        // Renvoie le nombre d'éléments (parcours complet, O(n)).
         pub fn len(self: Self) usize {
             var ret: usize = 0;
             var current = self.head;
@@ -71,6 +76,7 @@ pub fn SPSC(comptime T: type) type {
             return ret;
         }
 
+        // Renvoie vrai si la file est vide.
         /// Returns true if the queue is empty.
         pub fn empty(self: *const Self) bool {
             return self.head == null;
@@ -78,6 +84,7 @@ pub fn SPSC(comptime T: type) type {
     };
 }
 
+// Teste les opérations de base de la file SPSC.
 test SPSC {
     const testing = std.testing;
 
@@ -118,6 +125,7 @@ test SPSC {
     try testing.expect(q.pop() == null);
 }
 
+// File d'attente intrusive MPSC (plusieurs producteurs, un consommateur), implémentation de type Vyukov.
 /// An intrusive MPSC (multi-provider, single consumer) queue implementation.
 /// The type T must have a field "next" of type `?*T`.
 ///
@@ -144,6 +152,7 @@ pub fn MPSC(comptime T: type) type {
         tail: *T,
         stub: T,
 
+        // Initialise la file (pointeur stable requis) ; à appeler avant tout usage concurrent.
         /// Initialize the queue. This requires a stable pointer to itself.
         /// This must be called before the queue is used concurrently.
         pub fn init(self: *Self) void {
@@ -152,6 +161,7 @@ pub fn MPSC(comptime T: type) type {
             self.stub.next = null;
         }
 
+        // Ajoute `v` en tête ; appelable par plusieurs producteurs.
         /// Push an item onto the queue. This can be called by any number
         /// of producers.
         pub fn push(self: *Self, v: *T) void {
@@ -160,6 +170,7 @@ pub fn MPSC(comptime T: type) type {
             @atomicStore(?*T, &prev.next, v, .release);
         }
 
+        // Retire le premier élément ; appelable par un seul consommateur à la fois.
         /// Pop the first in element from the queue. This must be called
         /// by only a single consumer at any given time.
         pub fn pop(self: *Self) ?*T {
@@ -194,6 +205,7 @@ pub fn MPSC(comptime T: type) type {
     };
 }
 
+// Teste les opérations de base de la file MPSC.
 test MPSC {
     const testing = std.testing;
 
@@ -232,6 +244,7 @@ test MPSC {
     try testing.expect(q.pop() == null);
 }
 
+// File circulaire de capacité fixe `size` stockée dans un tableau.
 pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
     return struct {
         const Self = @This();
@@ -240,6 +253,7 @@ pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
         head: ?usize = null,
         tail: ?usize = null,
 
+        // Renvoie le nombre d'éléments présents.
         pub fn len(self: Self) usize {
             switch (self.state()) {
                 .empty => return 0,
@@ -255,10 +269,12 @@ pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
             }
         }
 
+        // Renvoie l'espace libre restant.
         pub fn available(self: Self) usize {
             return size - self.len();
         }
 
+        // Ajoute `val` ; erreur `QueueFull` si la file est pleine.
         pub fn push(self: *Self, val: T) !void {
             if (self.len() == size) {
                 return error.QueueFull;
@@ -278,6 +294,7 @@ pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
             }
         }
 
+        // Retire et renvoie l'élément de tête, ou `null` si vide.
         pub fn pop(self: *Self) ?T {
             switch (self.state()) {
                 .empty => return null,
@@ -296,6 +313,7 @@ pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
         }
 
         const State = enum { empty, one, many };
+        // Détermine l'état interne (vide, un élément, plusieurs).
         inline fn state(self: Self) State {
             if (self.head == null) return .empty;
             if (self.head.? == self.tail.?) return .one;

@@ -46,12 +46,14 @@ const builtin = @import("builtin");
 
 const debug = @import("debug.zig");
 
+// Formate et imprime un message d'erreur sur stderr puis quitte avec le code 1.
 /// Format and print an error message to stderr, then exit with an exit code of 1.
 pub fn fatal(comptime fmt_string: []const u8, args: anytype) noreturn {
     std.debug.print("error: " ++ fmt_string ++ "\n", args);
     std.process.exit(1);
 }
 
+// Parse les arguments CLI selon un `struct` (drapeaux) ou `union(enum)` (sous-commandes) ; gère `-h/--help` via `pub const help`.
 /// Parse CLI arguments for subcommands specified as Zig `struct` or `union(enum)`:
 ///
 /// ```
@@ -86,12 +88,14 @@ pub fn parse(args: std.process.Args, comptime CliArgs: type) CliArgs {
     };
 }
 
+// Parse les arguments du processus courant ; voir `stdx.flags.parse`.
 /// Parse CLI arguments for current process.
 /// See `stdx.flags.parse` documentation for more.
 pub fn parseProcessArgs(init_: std.process.Init.Minimal, comptime CliArgs: type) CliArgs {
     return parse(init_.args, CliArgs);
 }
 
+// Sélectionne la sous-commande à partir du premier argument, puis parse ses drapeaux.
 fn parse_commands(args: *std.process.Args.Iterator, comptime Commands: type) Commands {
     comptime assert(@typeInfo(Commands) == .@"union");
     comptime assert(std.meta.fields(Commands).len >= 2);
@@ -118,6 +122,7 @@ fn parse_commands(args: *std.process.Args.Iterator, comptime Commands: type) Com
     fatal("unknown subcommand: '{s}'", .{first_arg});
 }
 
+// Parse les drapeaux d'une sous-commande décrite par la structure `Flags` (validation comptime, champs `positional`, `help`).
 fn parse_flags(args: *std.process.Args.Iterator, comptime Flags: type) Flags {
     @setEvalBranchQuota(5_000);
 
@@ -293,6 +298,7 @@ fn parse_flags(args: *std.process.Args.Iterator, comptime Flags: type) Flags {
     return result;
 }
 
+// Valide à la compilation qu'un type de valeur est supporté (chaîne, entier, flottant, `ByteSize`, énumération exhaustive).
 fn assert_valid_value_type(comptime T: type) void {
     comptime {
         if (T == []const u8 or T == [:0]const u8 or T == ByteSize or @typeInfo(T) == .int or @typeInfo(T) == .float) return;
@@ -309,6 +315,7 @@ fn assert_valid_value_type(comptime T: type) void {
     }
 }
 
+// Parse `--flag=value` en valeur de type `T` (les booléens n'acceptent pas de valeur).
 /// Parse, e.g., `--cluster=123` into `123` integer
 fn parse_flag(comptime T: type, flag: []const u8, arg: [:0]const u8) T {
     assert(flag[0] == '-' and flag[1] == '-');
@@ -325,6 +332,7 @@ fn parse_flag(comptime T: type, flag: []const u8, arg: [:0]const u8) T {
     return parse_value(T, flag, value);
 }
 
+// Sépare la valeur de la syntaxe `--flag=value`, en exigeant le séparateur `=`.
 /// Splits the value part from a `--arg=value` syntax.
 fn parse_flag_split_value(flag: []const u8, arg: [:0]const u8) [:0]const u8 {
     assert(flag[0] == '-' and flag[1] == '-');
@@ -344,6 +352,7 @@ fn parse_flag_split_value(flag: []const u8, arg: [:0]const u8) [:0]const u8 {
     return value[1..];
 }
 
+// Convertit la chaîne `value` en type `T` (optionnel déballé) selon la catégorie du type.
 fn parse_value(comptime T: type, flag: []const u8, value: [:0]const u8) T {
     comptime assert(T != bool);
     assert((flag[0] == '-' and flag[1] == '-') or flag[0] == '<');
@@ -362,6 +371,7 @@ fn parse_value(comptime T: type, flag: []const u8, value: [:0]const u8) T {
     comptime unreachable;
 }
 
+// Parse une taille (`ByteSize`) en gérant les unités et les messages d'erreur.
 fn parse_value_size(flag: []const u8, value: []const u8) ByteSize {
     assert((flag[0] == '-' and flag[1] == '-') or flag[0] == '<');
 
@@ -406,6 +416,7 @@ pub const ByteSize = struct {
     value: u64,
     unit: ByteUnit = .bytes,
 
+    // Analyse une chaîne comme `ByteSize` (chiffres + unité optionnelle) ; erreurs de format/overflow.
     fn parse(value: []const u8) ByteSizeParseError!ByteSize {
         assert(value.len != 0);
 
@@ -456,6 +467,7 @@ pub const ByteSize = struct {
         return ByteSize{ .value = amount, .unit = unit };
     }
 
+    // Convertit la taille en nombre d'octets (multiplication par l'unité).
     pub fn bytes(size: *const ByteSize) u64 {
         return std.math.mul(
             u64,
@@ -464,6 +476,7 @@ pub const ByteSize = struct {
         ) catch unreachable;
     }
 
+    // Renvoie le suffixe textuel de l'unité (ex. « KiB »).
     pub fn suffix(size: *const ByteSize) []const u8 {
         return switch (size.unit) {
             .bytes => "",
@@ -475,6 +488,7 @@ pub const ByteSize = struct {
     }
 };
 
+// Teste le parsing des tailles (`parse_value_size`) pour différentes entrées.
 test parse_value_size {
     const kib = 1024;
     const mib = kib * 1024;
@@ -508,6 +522,7 @@ test parse_value_size {
     }
 }
 
+// Parse une valeur entière avec un message d'erreur soigné.
 /// Parse string value into an integer, providing a nice error message for the user.
 fn parse_value_int(comptime T: type, flag: []const u8, value: [:0]const u8) T {
     assert((flag[0] == '-' and flag[1] == '-') or flag[0] == '<');
@@ -526,6 +541,7 @@ fn parse_value_int(comptime T: type, flag: []const u8, value: [:0]const u8) T {
     };
 }
 
+// Parse une valeur flottante avec un message d'erreur soigné.
 /// Parse string value into a float, providing a nice error message for the user.
 fn parse_value_float(comptime T: type, flag: []const u8, value: [:0]const u8) T {
     assert((flag[0] == '-' and flag[1] == '-') or flag[0] == '<');
@@ -540,6 +556,7 @@ fn parse_value_float(comptime T: type, flag: []const u8, value: [:0]const u8) T 
     };
 }
 
+// Parse une valeur d'énumération à partir de son nom, avec message d'erreur.
 fn parse_value_enum(comptime E: type, flag: []const u8, value: [:0]const u8) E {
     assert((flag[0] == '-' and flag[1] == '-') or flag[0] == '<');
     comptime assert(@typeInfo(E).@"enum".is_exhaustive);
@@ -550,6 +567,7 @@ fn parse_value_enum(comptime E: type, flag: []const u8, value: [:0]const u8) E {
     );
 }
 
+// Construit la liste des noms de champs de `E` séparés par des virgules (avec « or » final).
 fn fields_to_comma_list(comptime E: type) []const u8 {
     comptime {
         const field_count = std.meta.fields(E).len;
@@ -568,6 +586,7 @@ fn fields_to_comma_list(comptime E: type) []const u8 {
     }
 }
 
+// Renvoie le nom du drapeau CLI d'un champ (préfixe `--`, `_` remplacés par `-`).
 pub fn flag_name(comptime field: std.builtin.Type.StructField) []const u8 {
     // TODO(Zig): Cleanup when this is fixed after Zig 0.11.
     // Without comptime blk, the compiler thinks the result is a runtime slice returning a UAF.
@@ -585,16 +604,19 @@ pub fn flag_name(comptime field: std.builtin.Type.StructField) []const u8 {
     };
 }
 
+// Vérifie la génération du nom de drapeau pour un champ `statsd`.
 test flag_name {
     const field = @typeInfo(struct { statsd: bool }).@"struct".fields[0];
     try std.testing.expectEqualStrings(flag_name(field), "--statsd");
 }
 
+// Renvoie le nom d'un argument positionnel, sous la forme `<nom>`.
 fn flag_name_positional(comptime field: std.builtin.Type.StructField) []const u8 {
     comptime assert(std.mem.indexOf(u8, field.name, "_") == null);
     return "<" ++ field.name ++ ">";
 }
 
+// Renvoie la valeur par défaut d'un champ, avec un type utile (`?field.type`).
 /// This is essentially `field.default_value`, but with a useful type instead of `?*anyopaque`.
 pub fn default_value(comptime field: std.builtin.Type.StructField) ?field.type {
     return if (field.default_value_ptr) |default_opaque|

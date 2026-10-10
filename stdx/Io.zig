@@ -2,17 +2,20 @@ const std = @import("std");
 
 pub const Dir = struct {
     pub const path = struct {
+        // Joint `paths` en un chemin écrit dans `buf` (échec si le buffer est trop petit).
         pub fn bufJoin(buf: []u8, paths: []const []const u8) ![]u8 {
             var fa: std.heap.FixedBufferAllocator = .init(buf);
             return try std.Io.Dir.path.join(fa.allocator(), paths);
         }
 
+        // Comme `bufJoin` mais renvoie un chemin terminé par zéro (`[:0]u8`).
         pub fn bufJoinZ(buf: []u8, paths: []const []const u8) ![:0]u8 {
             var fa: std.heap.FixedBufferAllocator = .init(buf);
             return try std.Io.Dir.path.joinZ(fa.allocator(), paths);
         }
     };
 
+    // Lit tout le fichier `sub_path` dans un buffer alloué sur `gpa`, limité à `limit`.
     pub fn readFileAlloc(dir: std.Io.Dir, io: std.Io, sub_path: []const u8, gpa: std.mem.Allocator, limit: std.Io.Limit) ![]u8 {
         const stat = try std.Io.Dir.statFile(dir, io, sub_path, .{});
         const buffer = try gpa.alloc(u8, limit.minInt64(stat.size));
@@ -29,8 +32,10 @@ pub const LimitedGroup = struct {
     cond: std.Io.Condition = .init,
     mutex: std.Io.Mutex = .init,
 
+    // Génère un wrapper qui applique la limite de concurrence avant d'appeler `function`.
     fn Wrapper(comptime function: anytype) type {
         return struct {
+            // Attend une place disponible, exécute la fonction, puis libère la place en fin d'exécution.
             fn wrapper(self: *LimitedGroup, io: std.Io, args: std.meta.ArgsTuple(@TypeOf(function))) std.Io.Cancelable!void {
                 while (true) {
                     var in_flight = self.in_flight.load(.acquire);
@@ -59,22 +64,27 @@ pub const LimitedGroup = struct {
         };
     }
 
+    // Initialise le groupe avec une limite de `limit` tâches simultanées.
     pub fn init(limit: usize) LimitedGroup {
         return .{ .limit = limit };
     }
 
+    // Lance `function` de façon asynchrone en respectant la limite.
     pub fn async(self: *LimitedGroup, io: std.Io, comptime function: anytype, args: std.meta.ArgsTuple(@TypeOf(function))) void {
         self.group.async(io, Wrapper(function).wrapper, .{ self, io, args });
     }
 
+    // Lance `function` de façon concurrente en respectant la limite.
     pub fn concurrent(self: *LimitedGroup, io: std.Io, comptime function: anytype, args: std.meta.ArgsTuple(@TypeOf(function))) std.Io.ConcurrentError!void {
         try self.group.concurrent(io, Wrapper(function).wrapper, .{ self, io, args });
     }
 
+    // Attend la fin de toutes les tâches lancées.
     pub fn await(self: *LimitedGroup, io: std.Io) std.Io.Cancelable!void {
         try self.group.await(io);
     }
 
+    // Annule les tâches en cours.
     pub fn cancel(self: *LimitedGroup, io: std.Io) void {
         self.group.cancel(io);
     }
@@ -89,6 +99,7 @@ pub const AllocatingLimitedConcurrentGroup = struct {
     group: std.Io.Group = .init,
     queue: std.Io.Queue(bool) = undefined,
 
+    // Alloue un buffer de `limit` booléens et initialise le groupe concurrent limité.
     pub fn init(allocator: std.mem.Allocator, limit: usize) std.mem.Allocator.Error!AllocatingLimitedConcurrentGroup {
         const buffer = try allocator.alloc(bool, limit);
         @memset(buffer, false);
@@ -103,10 +114,12 @@ pub const AllocatingLimitedConcurrentGroup = struct {
         return self;
     }
 
+    // Libère le buffer de la file d'attente interne.
     pub fn deinit(self: *AllocatingLimitedConcurrentGroup) void {
         self.allocator.free(self.queue_buffer);
     }
 
+    // Soumet une tâche : dépose un jeton puis lance `function` en concurrence.
     pub fn concurrent(
         self: *AllocatingLimitedConcurrentGroup,
         io: std.Io,
@@ -116,6 +129,7 @@ pub const AllocatingLimitedConcurrentGroup = struct {
         self.queue.putOneUncancelable(io, true) catch unreachable;
 
         try self.group.concurrent(io, struct {
+            // Retire un jeton en fin d'exécution, libérant une place dans la limite.
             fn wrapper(
                 io_: std.Io,
                 queue: *std.Io.Queue(bool),
@@ -127,24 +141,29 @@ pub const AllocatingLimitedConcurrentGroup = struct {
         }.wrapper, .{ io, &self.queue, args });
     }
 
+    // Attend la fin de toutes les tâches du groupe.
     pub fn await(self: *AllocatingLimitedConcurrentGroup, io: std.Io) std.Io.Cancelable!void {
         try self.group.await(io);
     }
 
+    // Annule les tâches du groupe.
     pub fn cancel(self: *AllocatingLimitedConcurrentGroup, io: std.Io) void {
         self.group.cancel(io);
     }
 };
 
 pub const Duration = struct {
+    // Divise une durée `std.Io.Duration` par `rhs`.
     pub fn div(self: std.Io.Duration, rhs: u64) std.Io.Duration {
         return .fromNanoseconds(@divTrunc(self.nanoseconds, @as(i96, @intCast(rhs))));
     }
 
+    // Fréquence entière en Hz correspondant à la durée.
     pub fn hz(self: std.Io.Duration) u64 {
         return @intCast(std.time.ns_per_s / self.nanoseconds);
     }
 
+    // Fréquence flottante en Hz correspondant à la durée.
     pub fn hzFloat(self: std.Io.Duration) f64 {
         return (1 * std.time.ns_per_s) / @as(f64, @floatFromInt(self.nanoseconds));
     }

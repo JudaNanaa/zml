@@ -1,9 +1,11 @@
 const std = @import("std");
 
+// Renvoie la taille en octets de la représentation UTF-32 LE d'une chaîne UTF-8.
 pub fn calcUtf32LeLen(utf8: []const u8) !usize {
     return (try std.unicode.utf8CountCodepoints(utf8)) * @sizeOf(u32);
 }
 
+// Décode `utf8` en points de code UTF-32 dans `utf32le` ; renvoie le nombre écrit, ou `BufferTooSmall`.
 pub fn utf8ToUtf32Le(utf32le: []u32, utf8: []const u8) !usize {
     var view: std.unicode.Utf8View = .initUnchecked(utf8);
     var it = view.iterator();
@@ -17,6 +19,7 @@ pub fn utf8ToUtf32Le(utf32le: []u32, utf8: []const u8) !usize {
     return idx;
 }
 
+// Comme `utf8ToUtf32Le` mais ajoute un zéro terminal ; renvoie la longueur zéro inclus.
 pub fn utf8ToUtf32LeZ(utf32le: []u32, utf8: []const u8) !usize {
     const n = try utf8ToUtf32Le(utf32le, utf8);
     utf32le[n] = 0;

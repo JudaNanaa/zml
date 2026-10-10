@@ -1,5 +1,6 @@
 const std = @import("std");
 
+// Construit un `std.Io.Writer` dont chaque écriture met à jour le MAC `T`.
 pub fn MacWriter(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -7,6 +8,7 @@ pub fn MacWriter(comptime T: type) type {
         mac: *T,
         interface: std.Io.Writer,
 
+        // Initialise le writer en reliant le MAC `mac_` à son interface `std.Io.Writer`.
         pub fn init(mac_: *T) MacWriter(T) {
             return .{
                 .mac = mac_,
@@ -19,6 +21,7 @@ pub fn MacWriter(comptime T: type) type {
             };
         }
 
+        // Callback de vidage : met à jour le MAC avec chaque bloc écrit (et les `splat` répétitions).
         pub fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
             const self: *Self = @alignCast(@fieldParentPtr("interface", w));
             var total: usize = 0;
@@ -36,6 +39,7 @@ pub fn MacWriter(comptime T: type) type {
     };
 }
 
+// Raccourci créant un `MacWriter` pour le type du HMAC donné.
 pub fn hmacWriter(hmac: anytype) MacWriter(std.meta.Child(@TypeOf(hmac))) {
     return .init(hmac);
 }

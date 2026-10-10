@@ -1,28 +1,34 @@
 const std = @import("std");
 
+// Enveloppe une slice pour un formatage lisible (via `FmtSlice`).
 /// Properly format a slice of numbers.
 pub fn slice(any_slice: anytype) FmtSlice(std.meta.Elem(@TypeOf(any_slice))) {
     return .{ .slice = any_slice };
 }
 
+// Enveloppe une slice de chaînes pour un formatage lisible.
 /// Properly format a slice of []const u8.
 pub fn strings(strs: []const []const u8) FmtStrings {
     return .{ .strings = strs };
 }
 
+// Enveloppe une slice de chaînes C (`[*:0]const u8`) pour un formatage lisible.
 /// Properly format a slice of [*:0]const u8.
 pub fn stringsZ(strs: []const [*:0]const u8) FmtZeroStrings {
     return .{ .strings = strs };
 }
 
+// Type de formatage d'une slice d'éléments `T`, choisissant le formatteur selon le type d'élément.
 fn FmtSlice(T: type) type {
     return struct {
         slice: []const T,
 
+        // Formate la slice via le chemin générique.
         pub fn format(f: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
             return try formatSliceAny(f.slice, .{}, 1, writer);
         }
 
+        // Formate la slice selon un `std.fmt.Number`, avec le formatteur adapté au type.
         pub fn formatNumber(f: @This(), writer: *std.Io.Writer, n: std.fmt.Number) std.Io.Writer.Error!void {
             return switch (@typeInfo(T)) {
                 .comptime_float, .float => try formatFloatSlice(f.slice, n, 1, writer),
@@ -44,10 +50,12 @@ fn FmtSlice(T: type) type {
 pub const FmtStrings = struct {
     strings: []const []const u8,
 
+    // Formate la liste de chaînes.
     pub fn format(f: FmtStrings, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return try formatSliceCustom(formatStr, f.strings, .{}, 1, writer);
     }
 
+    // Formate la liste de chaînes comme des entiers (largeur = nombre de colonnes).
     pub fn formatNumber(f: FmtStrings, writer: *std.Io.Writer, n: std.fmt.Number) std.Io.Writer.Error!void {
         return try formatIntSlice(f.strings, n, 1, writer);
     }
@@ -56,11 +64,13 @@ pub const FmtStrings = struct {
 pub const FmtZeroStrings = struct {
     strings: []const [*:0]const u8,
 
+    // Formate la liste de chaînes C.
     pub fn format(f: FmtZeroStrings, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         return try formatSliceCustom(formatStrZ, f.strings, .{}, 1, writer);
     }
 };
 
+// Formate une valeur flottante (ou convertible en f32) avec le spécificateur donné.
 pub fn formatFloat(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !void {
     const x = switch (@typeInfo(@TypeOf(value))) {
         .@"struct" => value.toF32(),
@@ -78,6 +88,7 @@ pub fn formatFloat(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer)
     }
 }
 
+// Formate une valeur entière (ou un vecteur d'entiers) avec le spécificateur donné.
 pub fn formatInt(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !void {
     return switch (@typeInfo(@TypeOf(value))) {
         .int => try writer.printInt(value, spec.mode.base().?, spec.case, .{ .alignment = spec.alignment, .fill = spec.fill }),
@@ -95,6 +106,7 @@ pub fn formatInt(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !
     };
 }
 
+// Formate un nombre complexe (`re`/`im`) avec le spécificateur donné.
 pub fn formatComplex(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !void {
     try writer.writeAll(".{.re=");
     try writer.printFloat(value.re, spec);
@@ -103,18 +115,22 @@ pub fn formatComplex(value: anytype, spec: std.fmt.Number, writer: *std.Io.Write
     try writer.writeAll("}");
 }
 
+// Formate un booléen en « 1 »/« 0 » avec l'alignement demandé.
 pub fn formatBool(value: bool, spec: std.fmt.Number, writer: *std.Io.Writer) !void {
     try writer.alignBufferOptions(if (value) "1" else "0", .{ .alignment = spec.alignment, .fill = spec.fill });
 }
 
+// Formate une chaîne en écrivant son contenu brut.
 pub fn formatStr(value: []const u8, _: std.fmt.Number, writer: *std.Io.Writer) !void {
     try writer.writeAll(value);
 }
 
+// Formate une chaîne C en écrivant son contenu jusqu'au zéro terminal.
 pub fn formatStrZ(value: [*:0]const u8, _: std.fmt.Number, writer: *std.Io.Writer) !void {
     try writer.writeAll(std.mem.span(value));
 }
 
+// Formate une valeur quelconque via `{d}`/`{f}` dans un petit buffer temporaire.
 pub fn formatAny(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !void {
     var buf: [48]u8 = undefined;
     const T = @TypeOf(value);
@@ -133,6 +149,7 @@ pub fn formatAny(value: anytype, spec: std.fmt.Number, writer: *std.Io.Writer) !
     return try writer.alignBufferOptions(s, .{ .alignment = spec.alignment, .fill = spec.fill });
 }
 
+// Formate une séquence en colonnes (largeur = nombre de colonnes), tronquée au milieu si trop longue ; `stride` fixe le pas.
 pub fn formatSliceCustom(fmt_func: anytype, values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     // use the format "width" for the number of columns instead of individual width.
     const num_cols: usize = spec.width orelse 12;
@@ -164,41 +181,50 @@ pub fn formatSliceCustom(fmt_func: anytype, values: anytype, spec: std.fmt.Numbe
     _ = try writer.write("}");
 }
 
+// Formate une slice via `formatAny`.
 pub fn formatSliceAny(values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     return try formatSliceCustom(formatAny, values, spec, stride, writer);
 }
 
+// Formate une slice de flottants.
 pub fn formatFloatSlice(values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     return try formatSliceCustom(formatFloat, values, spec, stride, writer);
 }
 
+// Formate une slice d'entiers.
 pub fn formatIntSlice(values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     return try formatSliceCustom(formatInt, values, spec, stride, writer);
 }
 
+// Formate une slice de nombres complexes.
 pub fn formatComplexSlice(values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     return try formatSliceCustom(formatComplex, values, spec, stride, writer);
 }
 
+// Formate une slice de booléens.
 pub fn formatBoolSlice(values: anytype, spec: std.fmt.Number, stride: i64, writer: *std.Io.Writer) !void {
     return try formatSliceCustom(formatBool, values, spec, stride, writer);
 }
 
+// Enveloppe une valeur pour un formatage utilisant la méthode `format` des sous-champs.
 /// Format a struct using `format` method of subfields when possible.
 pub fn any(any_val: anytype) FmtAny(@TypeOf(any_val)) {
     return .{ .data = any_val };
 }
 
+// Type de formatage générique appelant `printValue`.
 fn FmtAny(Data: type) type {
     return struct {
         data: Data,
 
+        // Formate la valeur en respectant la profondeur maximale de `std.options`.
         pub inline fn format(self: @This(), writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try printValue(writer, .{}, self.data, std.options.fmt_max_depth);
         }
     };
 }
 
+// Comme `std.Io.Writer.printValue`, mais privilégie les méthodes `format`/`formatNumber` des champs.
 /// Fix up of std.Io.Writer.printValue that uses `format` method of subfields when possible
 fn printValue(
     w: *std.Io.Writer,

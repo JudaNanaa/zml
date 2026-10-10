@@ -18,10 +18,12 @@ pub const SegmentedList = @import("segmented_list.zig").SegmentedList;
 pub const time = @import("time.zig");
 pub const unicode = @import("unicode.zig");
 
+// Test de compilation : référence toutes les déclarations publiques du module.
 test {
     std.testing.refAllDecls(@This());
 }
 
+// Crée une slice de `len` éléments `T` sur la pile (taille maximale `max_len`).
 pub inline fn stackSlice(comptime max_len: usize, T: type, len: usize) []T {
     debug.assert(len <= max_len, "stackSlice can only create a slice of up to {} elements, got: {}", .{ max_len, len });
     var storage: [max_len]T = undefined;
@@ -30,6 +32,7 @@ pub inline fn stackSlice(comptime max_len: usize, T: type, len: usize) []T {
 
 pub const noalloc: std.mem.Allocator = if (builtin.mode == .ReleaseFast) undefined else std.testing.failing_allocator;
 
+// Crée une arène dont le premier bloc réserve déjà `initial_capacity` octets.
 pub fn arenaWithCapacity(parent: std.mem.Allocator, initial_capacity: usize) std.mem.Allocator.Error!std.heap.ArenaAllocator {
     var a: std.heap.ArenaAllocator = .init(parent);
 
@@ -39,6 +42,7 @@ pub fn arenaWithCapacity(parent: std.mem.Allocator, initial_capacity: usize) std
     return a;
 }
 
+// Épingle le thread courant sur le cœur `core_id` (Linux uniquement).
 pub fn pinToCore(core_id: usize) void {
     if (builtin.os.tag == .linux) {
         const CPUSet = std.bit_set.ArrayBitSet(usize, std.os.linux.CPU_SETSIZE * @sizeOf(usize));
@@ -49,12 +53,14 @@ pub fn pinToCore(core_id: usize) void {
     }
 }
 
+// Exécute `f` une seule fois via un `Once(f)` initialisé implicitement.
 pub fn once(comptime f: anytype) once(f) {
     return .{};
 }
 
 /// An object that executes the function `f` just once.
 /// It is undefined behavior if `f` re-enters the same Once instance.
+// Renvoie un type n'exécutant `f` qu'une seule fois, de façon thread-safe, via `call`.
 pub fn Once(comptime f: anytype) type {
     const Args = std.meta.ArgsTuple(@TypeOf(f));
     return struct {
@@ -65,6 +71,7 @@ pub fn Once(comptime f: anytype) type {
         /// If `call` is invoked multiple times `f` will be executed only the
         /// first time.
         /// The invocations are thread-safe.
+        // Exécute `f` si ce n'est pas déjà fait ; les appels suivants retournent immédiatement.
         pub fn call(self: *@This(), io: std.Io, args: Args) void {
             if (@atomicLoad(bool, &self.done, .acquire))
                 return;
@@ -72,6 +79,7 @@ pub fn Once(comptime f: anytype) type {
             self.callSlow(io, args);
         }
 
+        // Chemin lent de `call` : verrouille, exécute `f` une fois si `done` est faux.
         fn callSlow(self: *@This(), io: std.Io, args: Args) void {
             @branchHint(.cold);
 

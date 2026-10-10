@@ -69,6 +69,7 @@ const Allocator = std.mem.Allocator;
 // box_index = customer_index + prealloc - 2 ** (log2(prealloc) + 1 + shelf)
 // shelf_size = prealloc * 2 ** (shelf_index + 1)
 
+// Liste segmentée : croissance par « étagères » de tailles croissantes, garantissant la stabilité des pointeurs d'éléments (append/pop en O(1)).
 /// This is a stack data structure where pointers to indexes have the same lifetime as the data structure
 /// itself, unlike ArrayList where append() invalidates all existing element pointers.
 /// The tradeoff is that elements are not guaranteed to be contiguous. For that, use ArrayList.
@@ -106,6 +107,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
 
         pub const prealloc_count = prealloc_item_count;
 
+        // Type de retour de `at`/`uncheckedAt` : `*T` ou `*const T` selon la constance de `SelfType`.
         fn AtType(comptime SelfType: type) type {
             if (@typeInfo(SelfType).pointer.is_const) {
                 return *const T;
@@ -114,32 +116,38 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             }
         }
 
+        // Libère toutes les étagères dynamiques et remet la structure à `undefined`.
         pub fn deinit(self: *Self, allocator: Allocator) void {
             self.freeShelves(allocator, @as(ShelfIndex, @intCast(self.dynamic_segments.len)), 0);
             allocator.free(self.dynamic_segments);
             self.* = undefined;
         }
 
+        // Renvoie un pointeur sur l'élément d'indice `i` (assertion `i < len`).
         pub fn at(self: anytype, i: usize) AtType(@TypeOf(self)) {
             assert(i < self.len);
             return self.uncheckedAt(i);
         }
 
+        // Renvoie le nombre d'éléments.
         pub fn count(self: Self) usize {
             return self.len;
         }
 
+        // Ajoute `item` à la fin en copiant sa valeur.
         pub fn append(self: *Self, allocator: Allocator, item: T) Allocator.Error!void {
             const new_item_ptr = try self.addOne(allocator);
             new_item_ptr.* = item;
         }
 
+        // Ajoute tous les éléments de `items` à la fin.
         pub fn appendSlice(self: *Self, allocator: Allocator, items: []const T) Allocator.Error!void {
             for (items) |item| {
                 try self.append(allocator, item);
             }
         }
 
+        // Retire et renvoie le dernier élément, ou `null` si vide.
         pub fn pop(self: *Self) ?T {
             if (self.len == 0) return null;
 
@@ -149,6 +157,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return result;
         }
 
+        // Ajoute un élément non initialisé et renvoie son pointeur (alloue si nécessaire).
         pub fn addOne(self: *Self, allocator: Allocator) Allocator.Error!*T {
             const new_length = self.len + 1;
             try self.growCapacity(allocator, new_length);
@@ -159,17 +168,20 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
 
         /// Reduce length to `new_len`.
         /// Invalidates pointers for the elements at index new_len and beyond.
+        // Réduit la longueur à `new_len` ; invalide les pointeurs au-delà.
         pub fn shrinkRetainingCapacity(self: *Self, new_len: usize) void {
             assert(new_len <= self.len);
             self.len = new_len;
         }
 
         /// Invalidates all element pointers.
+        // Remet la longueur à zéro sans libérer la capacité ; invalide tous les pointeurs.
         pub fn clearRetainingCapacity(self: *Self) void {
             self.len = 0;
         }
 
         /// Invalidates all element pointers.
+        // Vide la liste et libère toute la capacité.
         pub fn clearAndFree(self: *Self, allocator: Allocator) void {
             self.setCapacity(allocator, 0) catch unreachable;
             self.len = 0;
@@ -177,6 +189,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
 
         /// Grows or shrinks capacity to match usage.
         /// TODO update this and related methods to match the conventions set by ArrayList
+        // Ajuste la capacité à `new_capacity` (croissance ou réduction).
         pub fn setCapacity(self: *Self, allocator: Allocator, new_capacity: usize) Allocator.Error!void {
             if (prealloc_item_count != 0) {
                 if (new_capacity <= @as(usize, 1) << (prealloc_exp + @as(ShelfIndex, @intCast(self.dynamic_segments.len)))) {
@@ -187,6 +200,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
         }
 
         /// Only grows capacity, or retains current capacity.
+        // Augmente la capacité pour atteindre `new_capacity` (ne réduit jamais).
         pub fn growCapacity(self: *Self, allocator: Allocator, new_capacity: usize) Allocator.Error!void {
             const new_cap_shelf_count = shelfCount(new_capacity);
             const old_shelf_count = @as(ShelfIndex, @intCast(self.dynamic_segments.len));
@@ -212,6 +226,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
 
         /// Only shrinks capacity or retains current capacity.
         /// It may fail to reduce the capacity in which case the capacity will remain unchanged.
+        // Réduit la capacité si possible ; peut rester inchangée en cas d'échec d'allocation.
         pub fn shrinkCapacity(self: *Self, allocator: Allocator, new_capacity: usize) void {
             if (new_capacity <= prealloc_item_count) {
                 const len = @as(ShelfIndex, @intCast(self.dynamic_segments.len));
@@ -244,12 +259,14 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             }
         }
 
+        // Réduit la longueur à `new_len` (assertion), sans changer la capacité.
         pub fn shrink(self: *Self, new_len: usize) void {
             assert(new_len <= self.len);
             // TODO take advantage of the new realloc semantics
             self.len = new_len;
         }
 
+        // Copie `dest.len` éléments à partir de `start` dans `dest`.
         pub fn writeToSlice(self: *Self, dest: []T, start: usize) void {
             const end = start + dest.len;
             assert(end <= self.len);
@@ -275,6 +292,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             }
         }
 
+        // Renvoie un pointeur sur l'élément `index` sans vérification de borne.
         pub fn uncheckedAt(self: anytype, index: usize) AtType(@TypeOf(self)) {
             if (index < prealloc_item_count) {
                 return &self.prealloc_segment[index];
@@ -284,6 +302,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return &self.dynamic_segments[shelf_index][box_index];
         }
 
+        // Calcule le nombre d'étagères dynamiques nécessaires pour `box_count` éléments.
         fn shelfCount(box_count: usize) ShelfIndex {
             if (prealloc_item_count == 0) {
                 return log2_int_ceil(usize, box_count + 1);
@@ -291,6 +310,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return log2_int_ceil(usize, box_count + prealloc_item_count) - prealloc_exp - 1;
         }
 
+        // Renvoie la taille (en éléments) de l'étagère d'indice `shelf_index`.
         fn shelfSize(shelf_index: ShelfIndex) usize {
             if (prealloc_item_count == 0) {
                 return @as(usize, 1) << shelf_index;
@@ -298,6 +318,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return @as(usize, 1) << (shelf_index + (prealloc_exp + 1));
         }
 
+        // Calcule l'indice d'étagère contenant l'élément de liste `list_index`.
         fn shelfIndex(list_index: usize) ShelfIndex {
             if (prealloc_item_count == 0) {
                 return std.math.log2_int(usize, list_index + 1);
@@ -305,6 +326,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return std.math.log2_int(usize, list_index + prealloc_item_count) - prealloc_exp - 1;
         }
 
+        // Calcule l'indice de boîte dans l'étagère pour l'élément `list_index`.
         fn boxIndex(list_index: usize, shelf_index: ShelfIndex) usize {
             if (prealloc_item_count == 0) {
                 return (list_index + 1) - (@as(usize, 1) << shelf_index);
@@ -312,6 +334,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return list_index + prealloc_item_count - (@as(usize, 1) << ((prealloc_exp + 1) + shelf_index));
         }
 
+        // Libère les étagères de `from_count` (exclu) jusqu'à `to_count`.
         fn freeShelves(self: *Self, allocator: Allocator, from_count: ShelfIndex, to_count: ShelfIndex) void {
             var i = from_count;
             while (i != to_count) {
@@ -322,6 +345,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
 
         pub const Iterator = BaseIterator(*Self, *T);
         pub const ConstIterator = BaseIterator(*const Self, *const T);
+        // Construit un itérateur sur `SelfType` renvoyant `ElementPtr`.
         fn BaseIterator(comptime SelfType: type, comptime ElementPtr: type) type {
             return struct {
                 list: SelfType,
@@ -330,6 +354,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
                 shelf_index: ShelfIndex,
                 shelf_size: usize,
 
+                // Avance et renvoie l'élément courant, ou `null` en fin de liste.
                 pub fn next(it: *@This()) ?ElementPtr {
                     if (it.index >= it.list.len) return null;
                     if (it.index < prealloc_item_count) {
@@ -354,6 +379,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
                     return ptr;
                 }
 
+                // Recule et renvoie l'élément courant, ou `null` au début.
                 pub fn prev(it: *@This()) ?ElementPtr {
                     if (it.index == 0) return null;
 
@@ -371,6 +397,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
                     return &it.list.dynamic_segments[it.shelf_index][it.box_index];
                 }
 
+                // Renvoie l'élément courant sans avancer, ou `null` en fin.
                 pub fn peek(it: *@This()) ?ElementPtr {
                     if (it.index >= it.list.len)
                         return null;
@@ -380,6 +407,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
                     return &it.list.dynamic_segments[it.shelf_index][it.box_index];
                 }
 
+                // Positionne l'itérateur sur l'indice `index`.
                 pub fn set(it: *@This(), index: usize) void {
                     it.index = index;
                     if (index < prealloc_item_count) return;
@@ -390,6 +418,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             };
         }
 
+        // Crée un itérateur mutable démarrant à `start_index`.
         pub fn iterator(self: *Self, start_index: usize) Iterator {
             var it = Iterator{
                 .list = self,
@@ -402,6 +431,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
             return it;
         }
 
+        // Crée un itérateur constant démarrant à `start_index`.
         pub fn constIterator(self: *const Self, start_index: usize) ConstIterator {
             var it = ConstIterator{
                 .list = self,
@@ -416,6 +446,7 @@ pub fn SegmentedList(comptime T: type, comptime prealloc_item_count: usize) type
     };
 }
 
+// Teste l'usage de base de `SegmentedList` pour plusieurs valeurs de préallocation.
 test "basic usage" {
     try testSegmentedList(0);
     try testSegmentedList(1);
@@ -425,6 +456,7 @@ test "basic usage" {
     try testSegmentedList(16);
 }
 
+// Teste `SegmentedList` avec une préallocation comptime `prealloc` donnée.
 fn testSegmentedList(comptime prealloc: usize) !void {
     var list = SegmentedList(i32, prealloc){};
     defer list.deinit(testing.allocator);
@@ -515,6 +547,7 @@ fn testSegmentedList(comptime prealloc: usize) !void {
     try list.setCapacity(testing.allocator, 0);
 }
 
+// Teste `clearRetainingCapacity` : la capacité est conservée, le contenu vidé.
 test "clearRetainingCapacity" {
     var list = SegmentedList(i32, 1){};
     defer list.deinit(testing.allocator);
@@ -528,6 +561,7 @@ test "clearRetainingCapacity" {
     try testing.expect(list.len == 0);
 }
 
+// Calcule `ceil(log2(x))` ; variante locale de std (cf. TODO).
 /// TODO look into why this std.math function was changed in
 /// fc9430f56798a53f9393a697f4ccd6bf9981b970.
 fn log2_int_ceil(comptime T: type, x: T) std.math.Log2Int(T) {

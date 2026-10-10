@@ -1,6 +1,7 @@
 pub const std = @import("std");
 const ParseFromValueError = std.json.ParseFromValueError;
 
+// Génère les méthodes de sérialisation JSON pour une union dont chaque membre a un type Zig distinct (sélection par type JSON).
 /// Handle json fields that can have different Zig types depending on the message.
 /// Each union field should have a unique Zig type.
 ///
@@ -33,6 +34,7 @@ const ParseFromValueError = std.json.ParseFromValueError;
 /// ```
 pub fn UnionHelpers(comptime T: type) type {
     return struct {
+        // Décode un `std.json.Value` puis délègue à `jsonParseFromValue`.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!T {
             return jsonParseFromValue(
                 allocator,
@@ -41,6 +43,7 @@ pub fn UnionHelpers(comptime T: type) type {
             );
         }
 
+        // Construit `T` en choisissant le membre d'union correspondant au type de la valeur JSON.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) ParseFromValueError!T {
             inline for (std.meta.fields(T)) |field| {
                 switch (field.type) {
@@ -66,6 +69,7 @@ pub fn UnionHelpers(comptime T: type) type {
             return error.UnknownField;
         }
 
+        // Sérialise le membre actif de l'union en JSON.
         pub fn jsonStringify(self: T, jw: anytype) !void {
             return switch (self) {
                 inline else => |v| jw.write(v),
@@ -74,6 +78,7 @@ pub fn UnionHelpers(comptime T: type) type {
     };
 }
 
+// Ancienne API : enveloppe `UnionHelpers` avec un champ `value` (dépréciée).
 /// Deprecated: prefer importing `stdx.json.UnionHelpers` method into your union.
 /// This will remove the nesting required by `stdx.json.Union`.
 pub fn Union(comptime T: type) type {
@@ -84,20 +89,24 @@ pub fn Union(comptime T: type) type {
 
         const Helpers = UnionHelpers(T);
 
+        // Parse et enveloppe le résultat dans `Self.value`.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!Self {
             return .{ .value = try Helpers.jsonParse(allocator, source, options) };
         }
 
+        // Idem depuis un `std.json.Value`.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) ParseFromValueError!Self {
             return .{ .value = try Helpers.jsonParseFromValue(allocator, source, options) };
         }
 
+        // Sérialise `Self.value`.
         pub fn jsonStringify(self: Self, jw: anytype) !void {
             return try Helpers.jsonStringify(self.value, jw);
         }
     };
 }
 
+// Génère les méthodes JSON pour une union étiquetée : le champ `tag_name` du JSON sélectionne le membre.
 /// Handle json fields that can have different Zig types depending on another field in the same message.
 /// This is translated to a Zig tagged union.
 ///
@@ -138,6 +147,7 @@ pub fn TaggedUnionHelpers(comptime T: type, comptime tag_name: [:0]const u8) typ
     }
 
     return struct {
+        // Décode un `std.json.Value` puis délègue à `jsonParseFromValue`.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!T {
             return jsonParseFromValue(
                 allocator,
@@ -146,6 +156,7 @@ pub fn TaggedUnionHelpers(comptime T: type, comptime tag_name: [:0]const u8) typ
             );
         }
 
+        // Lit l'étiquette `tag_name`, puis parse le membre correspondant dans un objet JSON.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) ParseFromValueError!T {
             errdefer std.log.warn("failed to parse: {} as {s}", .{ source, @typeName(T) });
             if (source != .object) return error.UnexpectedToken;
@@ -164,6 +175,7 @@ pub fn TaggedUnionHelpers(comptime T: type, comptime tag_name: [:0]const u8) typ
             return error.InvalidEnumTag;
         }
 
+        // Sérialise l'union en objet JSON, en émettant d'abord le champ d'étiquette.
         pub fn jsonStringify(self: T, jw: anytype) !void {
             try jw.beginObject();
             switch (self) {
@@ -185,6 +197,7 @@ pub fn TaggedUnionHelpers(comptime T: type, comptime tag_name: [:0]const u8) typ
     };
 }
 
+// Ancienne API : enveloppe `TaggedUnionHelpers` avec un champ `value` (dépréciée).
 /// Deprecated: prefer importing `stdx.json.TaggedUnionHelpers` method into your union.
 /// This will remove the nesting required by `stdx.json.TaggedUnion`.
 pub fn TaggedUnion(comptime T: type, comptime tag_name: [:0]const u8) type {
@@ -195,40 +208,48 @@ pub fn TaggedUnion(comptime T: type, comptime tag_name: [:0]const u8) type {
 
         const Helpers = TaggedUnionHelpers(T, tag_name);
 
+        // Parse et enveloppe le résultat dans `Self.value`.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!Self {
             return .{ .value = try Helpers.jsonParse(allocator, source, options) };
         }
 
+        // Idem depuis un `std.json.Value`.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) ParseFromValueError!Self {
             return .{ .value = try Helpers.jsonParseFromValue(allocator, source, options) };
         }
 
+        // Sérialise `Self.value`.
         pub fn jsonStringify(self: Self, jw: anytype) !void {
             return try Helpers.jsonStringify(self.value, jw);
         }
     };
 }
 
+// Type JSON qui remplace un `null` par `default_value` au lieu de renvoyer une option.
 pub fn NeverNull(comptime T: type, comptime default_value: T) type {
     return struct {
         const Self = @This();
 
         value: T = default_value,
 
+        // Parse une valeur optionnelle et retombe sur `default_value` si elle est nulle.
         pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !Self {
             return .{ .value = (try std.json.innerParse(?T, allocator, source, options)) orelse default_value };
         }
 
+        // Idem depuis un `std.json.Value`.
         pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: std.json.Value, options: std.json.ParseOptions) !Self {
             return .{ .value = (try std.json.innerParseFromValue(?T, allocator, source, options)) orelse default_value };
         }
 
+        // Sérialise la valeur.
         pub fn jsonStringify(self: Self, jw: anytype) !void {
             try jw.write(self.value);
         }
     };
 }
 
+// Remplit les champs nuls de `r` par leur valeur par défaut.
 pub fn fillDefaultStructValues(comptime T: type, r: *T) !void {
     inline for (@typeInfo(T).Struct.fields) |field| {
         if (field.default_value) |default_ptr| {
@@ -240,6 +261,7 @@ pub fn fillDefaultStructValues(comptime T: type, r: *T) !void {
     }
 }
 
+// Teste la sérialisation d'unions à types hétérogènes (union non taguée).
 test "union" {
     const Answer = union(enum) {
         number: i32,
@@ -296,6 +318,7 @@ test "union" {
     try std.testing.expectError(error.UnknownField, Answer.jsonParseFromValue(allocator, null_value, .{}));
 }
 
+// Vérifie que les chaînes parsées dans une union peuvent être libérées par l'appelant.
 test "strings in union can be freed" {
     const Answer = union(enum) {
         string: []const u8,
@@ -327,6 +350,7 @@ test "strings in union can be freed" {
     std.testing.allocator.free(parsed.answer2.string);
 }
 
+// Teste la sérialisation d'unions étiquetées (`TaggedUnionHelpers`).
 test "tagged union" {
     const Message = union(enum) {
         faq: struct {
@@ -361,6 +385,7 @@ test "tagged union" {
     try std.testing.expectFmt(address_case, "{f}", .{std.json.fmt(parsed_address, .{})});
 }
 
+// Teste `NeverNull` : `null` remplacé par la valeur par défaut.
 test "never null" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

@@ -4,6 +4,7 @@ const mem = std.mem;
 const testing = std.testing;
 const Alignment = std.mem.Alignment;
 
+// Tableau borné (buffer + longueur) utilisable comme slice, sans allocateur ; capacité fixée à la compilation.
 /// A structure with an array and a length, that can be used as a slice.
 ///
 /// Useful to pass around small arrays whose exact size is only known at
@@ -20,6 +21,7 @@ pub fn BoundedArray(comptime T: type, comptime buffer_capacity: usize) type {
     return BoundedArrayAligned(T, .of(T), buffer_capacity);
 }
 
+// Variante alignée de `BoundedArray`, avec alignement explicite `alignment`.
 /// A structure with an array, length and alignment, that can be used as a
 /// slice.
 ///
@@ -49,12 +51,14 @@ pub fn BoundedArrayAligned(
 
         pub const empty: Self = .{ .buffer = undefined, .len = 0 };
 
+        // Initialise en copiant la slice `m` dans le buffer (longueur = `m.len`).
         pub fn init(m: []const T) Self {
             var buf: Self = .{ .buffer = undefined, .len = m.len };
             @memcpy(buf.buffer[0..m.len], m);
             return buf;
         }
 
+        // Renvoie une slice sur les éléments déjà initialisés.
         /// View the internal array as a slice whose size was previously set.
         pub fn slice(self: anytype) switch (@TypeOf(&self.buffer)) {
             *align(alignment.toByteUnits()) [buffer_capacity]T => []align(alignment.toByteUnits()) T,
@@ -64,11 +68,13 @@ pub fn BoundedArrayAligned(
             return self.buffer[0..self.len];
         }
 
+        // Comme `slice` mais renvoie une slice constante.
         /// View the internal array as a constant slice whose size was previously set.
         pub fn constSlice(self: *const Self) []align(alignment.toByteUnits()) const T {
             return self.slice();
         }
 
+        // Ajuste la longueur à `len` sans initialiser les nouveaux éléments ; `Overflow` si trop grand.
         /// Adjust the slice's length to `len`.
         /// Does not initialize added items if any.
         pub fn resize(self: *Self, len: usize) error{Overflow}!void {
@@ -76,32 +82,38 @@ pub fn BoundedArrayAligned(
             self.len = len;
         }
 
+        // Vide le tableau (longueur remise à zéro).
         /// Remove all elements from the slice.
         pub fn clear(self: *Self) void {
             self.len = 0;
         }
 
+        // Copie le contenu de la slice `m` ; `Overflow` si elle dépasse la capacité.
         /// Copy the content of an existing slice.
         pub fn fromSlice(m: []const T) error{Overflow}!Self {
             if (m.len > buffer_capacity) return error.Overflow;
             return .init(m);
         }
 
+        // Renvoie la copie de l'élément d'indice `i`.
         /// Return the element at index `i` of the slice.
         pub fn get(self: Self, i: usize) T {
             return self.constSlice()[i];
         }
 
+        // Écrit `item` à l'indice `i`.
         /// Set the value of the element at index `i` of the slice.
         pub fn set(self: *Self, i: usize, item: T) void {
             self.slice()[i] = item;
         }
 
+        // Renvoie la capacité maximale du buffer.
         /// Return the maximum length of a slice.
         pub fn capacity(self: Self) usize {
             return self.buffer.len;
         }
 
+        // Vérifie qu'au moins `additional_count` éléments supplémentaires tiennent dans le buffer.
         /// Check that the slice can hold at least `additional_count` items.
         pub fn ensureUnusedCapacity(self: Self, additional_count: usize) error{Overflow}!void {
             if (self.len + additional_count > buffer_capacity) {
@@ -109,12 +121,14 @@ pub fn BoundedArrayAligned(
             }
         }
 
+        // Ajoute un élément non initialisé et renvoie son pointeur ; `Overflow` si plein.
         /// Increase length by 1, returning a pointer to the new item.
         pub fn addOne(self: *Self) error{Overflow}!*T {
             try self.ensureUnusedCapacity(1);
             return self.addOneAssumeCapacity();
         }
 
+        // Comme `addOne` en supposant la place disponible (assertion).
         /// Increase length by 1, returning pointer to the new item.
         /// Asserts that there is space for the new item.
         pub fn addOneAssumeCapacity(self: *Self) *T {
@@ -123,6 +137,7 @@ pub fn BoundedArrayAligned(
             return &self.slice()[self.len - 1];
         }
 
+        // Réserve `n` éléments et renvoie un pointeur vers le tableau non initialisé.
         /// Resize the slice, adding `n` new elements, which have `undefined` values.
         /// The return value is a pointer to the array of uninitialized elements.
         pub fn addManyAsArray(self: *Self, comptime n: usize) error{Overflow}!*align(alignment.toByteUnits()) [n]T {
@@ -131,6 +146,7 @@ pub fn BoundedArrayAligned(
             return self.slice()[prev_len..][0..n];
         }
 
+        // Réserve `n` éléments et renvoie une slice vers les éléments non initialisés.
         /// Resize the slice, adding `n` new elements, which have `undefined` values.
         /// The return value is a slice pointing to the uninitialized elements.
         pub fn addManyAsSlice(self: *Self, n: usize) error{Overflow}![]align(alignment.toByteUnits()) T {
@@ -139,6 +155,7 @@ pub fn BoundedArrayAligned(
             return self.slice()[prev_len..][0..n];
         }
 
+        // Retire et renvoie le dernier élément, ou `null` si vide.
         /// Remove and return the last element from the slice, or return `null` if the slice is empty.
         pub fn pop(self: *Self) ?T {
             if (self.len == 0) return null;
@@ -147,6 +164,7 @@ pub fn BoundedArrayAligned(
             return item;
         }
 
+        // Renvoie la portion de capacité encore inutilisée (à combiner avec `resize`).
         /// Return a slice of only the extra capacity after items.
         /// This can be useful for writing directly into it.
         /// Note that such an operation must be followed up with a
@@ -155,6 +173,7 @@ pub fn BoundedArrayAligned(
             return self.buffer[self.len..];
         }
 
+        // Insère `item` à l'indice `i` en décalant la suite ; O(N).
         /// Insert `item` at index `i` by moving `slice[n .. slice.len]` to make room.
         /// This operation is O(N).
         pub fn insert(
@@ -171,6 +190,7 @@ pub fn BoundedArrayAligned(
             self.buffer[i] = item;
         }
 
+        // Insère la slice `items` à l'indice `i` en décalant la suite ; O(N).
         /// Insert slice `items` at index `i` by moving `slice[i .. slice.len]` to make room.
         /// This operation is O(N).
         pub fn insertSlice(self: *Self, i: usize, items: []const T) error{Overflow}!void {
@@ -180,6 +200,7 @@ pub fn BoundedArrayAligned(
             @memcpy(self.slice()[i..][0..items.len], items);
         }
 
+        // Remplace `slice[start..][0..len]` par `new_items`, en agrandissant ou rétrécissant si besoin.
         /// Replace range of elements `slice[start..][0..len]` with `new_items`.
         /// Grows slice if `len < new_items.len`.
         /// Shrinks slice if `len > new_items.len`.
@@ -209,12 +230,14 @@ pub fn BoundedArrayAligned(
             }
         }
 
+        // Ajoute `item` à la fin ; `Overflow` si plein.
         /// Extend the slice by 1 element.
         pub fn append(self: *Self, item: T) error{Overflow}!void {
             const new_item_ptr = try self.addOne();
             new_item_ptr.* = item;
         }
 
+        // Comme `append` en supposant la place disponible (assertion).
         /// Extend the slice by 1 element, asserting the capacity is already
         /// enough to store the new item.
         pub fn appendAssumeCapacity(self: *Self, item: T) void {
@@ -222,6 +245,7 @@ pub fn BoundedArrayAligned(
             new_item_ptr.* = item;
         }
 
+        // Retire l'élément d'indice `i` en décalant les suivants ; O(N).
         /// Remove the element at index `i`, shift elements after index
         /// `i` forward, and return the removed element.
         /// Asserts the slice has at least one item.
@@ -236,6 +260,7 @@ pub fn BoundedArrayAligned(
             return old_item;
         }
 
+        // Retire l'élément d'indice `i` en le remplaçant par le dernier ; O(1).
         /// Remove the element at the specified index and return it.
         /// The empty slot is filled from the end of the slice.
         /// This operation is O(1).
@@ -246,12 +271,14 @@ pub fn BoundedArrayAligned(
             return old_item;
         }
 
+        // Ajoute tous les éléments de `items` à la fin.
         /// Append the slice of items to the slice.
         pub fn appendSlice(self: *Self, items: []const T) error{Overflow}!void {
             try self.ensureUnusedCapacity(items.len);
             self.appendSliceAssumeCapacity(items);
         }
 
+        // Comme `appendSlice` en supposant la place disponible.
         /// Append the slice of items to the slice, asserting the capacity is already
         /// enough to store the new items.
         pub fn appendSliceAssumeCapacity(self: *Self, items: []const T) void {
@@ -260,6 +287,7 @@ pub fn BoundedArrayAligned(
             @memcpy(self.slice()[old_len..][0..items.len], items);
         }
 
+        // Ajoute `value` `n` fois.
         /// Append a value to the slice `n` times.
         /// Allocates more memory as necessary.
         pub fn appendNTimes(self: *Self, value: T, n: usize) error{Overflow}!void {
@@ -268,6 +296,7 @@ pub fn BoundedArrayAligned(
             @memset(self.slice()[old_len..self.len], value);
         }
 
+        // Comme `appendNTimes` en supposant la place disponible.
         /// Append a value to the slice `n` times.
         /// Asserts the capacity is enough.
         pub fn appendNTimesAssumeCapacity(self: *Self, value: T, n: usize) void {
@@ -288,6 +317,7 @@ pub fn BoundedArrayAligned(
         //    return .{ .context = self };
         //}
 
+        // Écrit `m` via `appendSlice` et renvoie `m.len` (API writer générique).
         /// Same as `appendSlice` except it returns the number of bytes written, which is always the same
         /// as `m.len`. The purpose of this function existing is to match `std.io.GenericWriter` API.
         fn appendWrite(self: *Self, m: []const u8) error{Overflow}!usize {
@@ -297,6 +327,7 @@ pub fn BoundedArrayAligned(
     };
 }
 
+// Teste les opérations de base de `BoundedArray`.
 test BoundedArray {
     var a: BoundedArray(u8, 64) = .{ .buffer = undefined, .len = 32 };
 
@@ -402,6 +433,7 @@ test BoundedArray {
     try testing.expectEqualStrings(s, a.constSlice());
 }
 
+// Vérifie que `BoundedArrayAligned` respecte l'alignement demandé.
 test "BoundedArrayAligned" {
     var a: BoundedArrayAligned(u8, .@"16", 4) = .empty;
     try a.append(0);

@@ -3,6 +3,7 @@ const std = @import("std");
 const debug = @import("debug.zig");
 const compileError = debug.compileError;
 
+// Indique si `T` est une structure (tuples compris).
 pub fn isStruct(comptime T: type) bool {
     return switch (@typeInfo(T)) {
         .@"struct" => true,
@@ -10,6 +11,7 @@ pub fn isStruct(comptime T: type) bool {
     };
 }
 
+// Indique si `T` est un tuple (structure anonyme).
 pub fn isTuple(comptime T: type) bool {
     return switch (@typeInfo(T)) {
         .@"struct" => |info| info.is_tuple,
@@ -17,6 +19,7 @@ pub fn isTuple(comptime T: type) bool {
     };
 }
 
+// Indique si `T` est une structure dont tous les champs sont de type `Elem`.
 pub fn isStructOf(comptime T: type, comptime Elem: type) bool {
     return switch (@typeInfo(T)) {
         .@"struct" => |info| blk: {
@@ -31,6 +34,7 @@ pub fn isStructOf(comptime T: type, comptime Elem: type) bool {
     };
 }
 
+// Indique si `T` est une structure dont chaque champ satisfait le prédicat comptime `f`.
 pub fn isStructOfAny(comptime T: type, comptime f: fn (comptime type) bool) bool {
     return switch (@typeInfo(T)) {
         .@"struct" => |info| blk: {
@@ -45,14 +49,17 @@ pub fn isStructOfAny(comptime T: type, comptime f: fn (comptime type) bool) bool
     };
 }
 
+// Indique si `T` est un tuple dont tous les champs sont de type `Elem`.
 pub fn isTupleOf(comptime T: type, comptime Elem: type) bool {
     return isTuple(T) and isStructOf(T, Elem);
 }
 
+// Indique si `T` est un tuple dont chaque champ satisfait le prédicat `f`.
 pub fn isTupleOfAny(comptime T: type, comptime f: fn (comptime type) bool) bool {
     return isTuple(T) and isStructOfAny(T, f);
 }
 
+// Indique si `T` est une slice (ou pointeur vers tableau) d'éléments `Elem`.
 pub fn isSliceOf(comptime T: type, comptime Elem: type) bool {
     return switch (@typeInfo(T)) {
         .pointer => |info| switch (info.size) {
@@ -68,6 +75,7 @@ pub fn isSliceOf(comptime T: type, comptime Elem: type) bool {
     };
 }
 
+// Indique si `T` est un entier (runtime ou comptime).
 pub fn isInteger(comptime T: type) bool {
     return switch (@typeInfo(T)) {
         .int, .comptime_int => true,
@@ -75,6 +83,7 @@ pub fn isInteger(comptime T: type) bool {
     };
 }
 
+// Indique si `T` est une slice dont le type d'élément satisfait le prédicat `f`.
 pub fn isSliceOfAny(comptime T: type, comptime f: fn (comptime type) bool) bool {
     return switch (@typeInfo(T)) {
         .pointer => |info| switch (info.size) {
@@ -86,6 +95,7 @@ pub fn isSliceOfAny(comptime T: type, comptime f: fn (comptime type) bool) bool 
     };
 }
 
+// Renvoie l'énumération des déclarations de `T` (pointeur déréférencé).
 pub fn DeclEnum(comptime T: type) type {
     const field_infos = std.meta.declarations(T);
     if (field_infos.len == 0) {
@@ -94,6 +104,7 @@ pub fn DeclEnum(comptime T: type) type {
     return std.meta.DeclEnum(UnwrapPtr(T));
 }
 
+// Déballe un pointeur simple et renvoie le type enfant ; sinon renvoie `T`.
 pub fn UnwrapPtr(comptime T: type) type {
     return switch (@typeInfo(T)) {
         .pointer => |info| switch (info.size) {
@@ -104,6 +115,7 @@ pub fn UnwrapPtr(comptime T: type) type {
     };
 }
 
+// Renvoie le type des éléments de `T` interprété comme slice (erreur de compilation sinon).
 pub fn asSlice(comptime T: type) type {
     const err_msg = "Type " ++ @typeName(T) ++ " can't be interpreted as a slice";
     return switch (@typeInfo(T)) {
@@ -120,6 +132,7 @@ pub fn asSlice(comptime T: type) type {
     };
 }
 
+// Construit un tuple des types des champs de `T` dans l'intervalle `[start, end)`.
 pub fn TupleRange(comptime T: type, comptime start: ?usize, comptime end: ?usize) type {
     const fields = std.meta.fields(T);
     const start_ = start orelse 0;
@@ -136,6 +149,7 @@ pub fn TupleRange(comptime T: type, comptime start: ?usize, comptime end: ?usize
     return @Tuple(&field_types);
 }
 
+// Renvoie le type du `n`-ième paramètre de la fonction `func`.
 pub fn FnParam(comptime func: anytype, comptime n: comptime_int) type {
     const params = @typeInfo(@TypeOf(func)).@"fn".params;
     if (n >= params.len) {
@@ -144,10 +158,12 @@ pub fn FnParam(comptime func: anytype, comptime n: comptime_int) type {
     return params[n].type orelse @compileError("anytype is not supported");
 }
 
+// Renvoie le type de retour de la fonction `func`.
 pub fn FnReturn(comptime func: anytype) type {
     return @typeInfo(@TypeOf(func)).@"fn".return_type orelse @compileError("anytype is not supported");
 }
 
+// Renvoie la charge utile du retour de `func` (déballe l'union d'erreur).
 pub fn FnReturnPayload(comptime func: anytype) type {
     const rt = @typeInfo(@TypeOf(func)).@"fn".return_type orelse @compileError("anytype is not supported");
     return switch (@typeInfo(rt)) {
@@ -156,6 +172,7 @@ pub fn FnReturnPayload(comptime func: anytype) type {
     };
 }
 
+// Renvoie le jeu d'erreurs du retour de `func`, ou `null` s'il n'y en a pas.
 pub fn FnReturnErrorSet(comptime func: anytype) ?type {
     const rt = @typeInfo(@TypeOf(func)).@"fn".return_type orelse @compileError("anytype is not supported");
     return switch (@typeInfo(rt)) {
@@ -164,6 +181,7 @@ pub fn FnReturnErrorSet(comptime func: anytype) ?type {
     };
 }
 
+// Renvoie le type du premier champ du tuple `Tuple`.
 pub fn Head(comptime Tuple: type) type {
     return switch (@typeInfo(Tuple)) {
         .@"struct" => |struct_info| {
@@ -174,6 +192,7 @@ pub fn Head(comptime Tuple: type) type {
     };
 }
 
+// Renvoie un tuple formé des champs de `Tuple` sauf le premier.
 pub fn Tail(comptime Tuple: type) type {
     return switch (@typeInfo(Tuple)) {
         .@"struct" => |struct_info| {
@@ -188,6 +207,7 @@ pub fn Tail(comptime Tuple: type) type {
     };
 }
 
+// Renvoie le nom de la fonction `func` (extrait du nom du type généré).
 pub fn fnName(comptime func: anytype) []const u8 {
     const T = @TypeOf(func);
     std.debug.assert(@typeInfo(T) == .@"fn");
@@ -199,12 +219,14 @@ pub fn fnName(comptime func: anytype) []const u8 {
     return rest[0 .. rest.len - 3];
 }
 
+// Type structure utilitaire portant `arg`, utilisé pour retrouver le nom d'une fonction.
 fn Wrapper(comptime arg: anytype) type {
     return struct {
         const stuff = arg;
     };
 }
 
+// Vérifie que `fnName` renvoie le nom de la fonction `Tail`.
 test fnName {
     try std.testing.expectEqualStrings("Tail", fnName(Tail));
 }
