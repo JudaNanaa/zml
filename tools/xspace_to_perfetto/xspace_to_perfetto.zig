@@ -3,6 +3,7 @@ const std = @import("std");
 const c = @import("c");
 const upb = @import("upb");
 
+// Arguments positionnels du convertisseur : fichier XSpace en entrée et sortie JSON optionnelle.
 pub const Args = struct {
     positional: struct {
         input: []const u8,
@@ -38,6 +39,7 @@ const kMaxCustomPlaneDevicesPerHost: u32 = 200;
 const kLastCustomPlaneDeviceId: u32 = kFirstCustomPlaneDeviceId + kMaxCustomPlaneDevicesPerHost - 1;
 const kHostThreadsDeviceId: u32 = kLastCustomPlaneDeviceId + 1;
 
+// Valeur d'argument typée : texte, entier signé/non signé, flottant ou octets opaques.
 const StringValue = union(enum) {
     text: []const u8,
     int64: i64,
@@ -46,17 +48,20 @@ const StringValue = union(enum) {
     opaque_bytes,
 };
 
+// Paire nom/valeur représentant un argument d'événement ou de statistique.
 const Arg = struct {
     name: []const u8,
     value: StringValue,
 };
 
+// Comportement d'une statistique : émise comme argument, remplace le nom d'étape, ou ignorée.
 const StatBehavior = enum {
     emit,
     step_name,
     skip,
 };
 
+// Écrivain de tableau JSON qui gère l'insertion automatique des virgules de séparation.
 const JsonArrayWriter = struct {
     needs_comma: bool = false,
 
@@ -69,6 +74,7 @@ const JsonArrayWriter = struct {
     }
 };
 
+// Tampon d'arguments réutilisé pour un événement lors du streaming JSON.
 const EventScratch = struct {
     args: std.ArrayListUnmanaged(Arg) = .empty,
 
@@ -83,6 +89,7 @@ const EventScratch = struct {
     }
 };
 
+// Contexte d'un plan XPlane : plan source, identifiant d'appareil et caches de métadonnées.
 const PlaneContext = struct {
     plane: *const c.tensorflow_profiler_XPlane,
     device_id: u32,
