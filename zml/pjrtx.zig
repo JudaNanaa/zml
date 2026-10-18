@@ -11,6 +11,7 @@ const Tensor = @import("tensor.zig").Tensor;
 
 const log = std.log.scoped(.@"zml/pjrtx");
 
+// Client PJRT opaque (handle FFI vers le runtime PJRT).
 pub const Client = opaque {
     pub const CompileError = std.mem.Allocator.Error || error{InvalidMlirBytecodeVersion} || pjrt.ApiError;
 
@@ -56,6 +57,7 @@ pub fn ShapeToCustomCallBuffer(T: type) type {
     return meta.MapRestrict(Shape, CustomCallBuffer).map(T);
 }
 
+// Buffer opaque d'un custom call PJRT : forme ZML et pointeur brut.
 pub const CustomCallBuffer = struct {
     shape: Shape,
     ptr: *anyopaque,

@@ -14,6 +14,7 @@ const Tensor = @import("tensor.zig").Tensor;
 pub const nvfp4_block_size = 16;
 pub const mx_block_size = 32;
 
+// Metadonnees de quantification d'un poids : schema, echelles et echelles globales optionnelles.
 pub const Quantization = struct {
     scheme: Scheme, // decided when the checkpoint is read
     scales: Tensor,
@@ -23,11 +24,13 @@ pub const Quantization = struct {
     // Something cleaner will need to be done to differentiate different kinds of swizzling
     swizzled_scales: bool = false,
 
+    // Echelle globale par tenseur et polarite (multiplication ou division) telle qu'ecrite.
     /// A per-tensor scale and the polarity its producer wrote it in
     pub const GlobalScale = struct {
         value: Tensor,
         operation: Operation,
 
+        // Sens dans lequel le producteur a ecrit l'echelle globale.
         pub const Operation = enum { multiply, divide };
 
         // Renvoie l'echelle globale sous forme de multiplicateur (inverse si l'operation est division).
@@ -42,6 +45,7 @@ pub const Quantization = struct {
         }
     };
 
+    // Schemas de quantification reconnus (NVFP4, MXFP8/4, FP8 par canal, bloc ou tenseur).
     pub const Scheme = enum {
         /// f4e2m1 values (`u8`-packed or native), f8e4m3fn scale per 16 contracted values.
         /// Emitted by llm-compressor and by NVIDIA's ModelOpt.
@@ -111,6 +115,7 @@ pub const Quantization = struct {
     };
 };
 
+// Resultat d'une quantification d'activation : valeurs, echelles et echelle globale optionnelle.
 pub const QuantizedInput = struct {
     values: Tensor,
     scales: Tensor,
@@ -431,7 +436,9 @@ test "block FP8 quantization preserves axes and reconstructs constant blocks in 
     const io = std.testing.io;
     const platform = zml.testing.env();
     inline for (.{ DataType.f8e4m3fn, DataType.f8e4m3fnuz }) |dtype| {
+        // Bloc du test regroupant la fonction forward et ses types de sortie.
         const Local = struct {
+            // Sorties du forward de test : valeurs quantifiees et echelles.
             const Outputs = struct { values: Tensor, scales: Tensor };
             // Quantifie x en FP8 par blocs de 128 et renvoie valeurs et echelles.
             fn forward(x: Tensor) Outputs {
@@ -478,7 +485,9 @@ test "block FP8 E8M0 scales preserve power-of-two boundaries and nonminor axes" 
     const io = std.testing.io;
     const platform = zml.testing.env();
     inline for (.{ DataType.f8e4m3fn, DataType.f8e4m3fnuz }) |dtype| {
+        // Bloc du test regroupant la fonction forward et ses types de sortie.
         const Local = struct {
+            // Sorties du forward de test : valeurs quantifiees et echelles.
             const Outputs = struct { values: Tensor, scales: Tensor };
             // Quantifie x en FP8 par blocs de 32 avec echelles e8m0 et renvoie valeurs et echelles.
             fn forward(x: Tensor) Outputs {

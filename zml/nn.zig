@@ -17,6 +17,7 @@ const zml = @import("zml.zig");
 
 const log = std.log.scoped(.@"zml/nn");
 
+// Couche dense : poids, biais optionnel, tag de l'axe contracté et éventuelle quantification.
 pub const Linear = struct {
     weight: Tensor,
     bias: ?Tensor = null,
@@ -104,6 +105,7 @@ pub fn unpackFp4(w: Tensor, packed_tag: anytype, contracting_tag: anytype) Tenso
 test "unpackFp4 expands the requested axis" {
     const platform = zml.testing.env();
     const packed_weight: Tensor = .init(.{ .out = 2, .stored = 4 }, .u8);
+    // Bloc de portée locale regroupant l'aide de test de `unpackFp4`.
     const Local = struct {
         // Aide de test qui appelle `unpackFp4` avec les tags donnes.
         fn call(w: Tensor) Tensor {
@@ -232,6 +234,7 @@ pub fn scaledDot(
     })[0];
 }
 
+// Options de `scaledDot` : disposition swizzlée des échelles du membre droit (matériel Blackwell).
 pub const ScaledDotOpts = struct {
     /// The rhs scale's `[n, k / block]` grid is stored in the 128x4 blocked layout of Blackwell's block-scaled mma,
     /// each device's slice on its own.
@@ -248,7 +251,9 @@ test "block128 scaled dot layouts" {
     // FIXME: Add rocm when we have a PJRT plugin with native fp8 dot support (by the end of Sept 2026)
     if (platform.target != .cuda) return error.SkipZigTest;
     const dtype: DataType = if (platform.target == .rocm and @import("platform.zig").rocm.computeCapability(platform) == .gfx942) .f8e4m3fnuz else .f8e4m3fn;
+    // Bloc de portée locale regroupant les aides de test de `scaledDot`.
     const Local = struct {
+        // Sorties du test `scaledDot` : résultats réels, attendus et linéaires.
         const Outputs = struct { actual: Tensor, expected: Tensor, linear: Tensor, linear_expected: Tensor };
 
         // Aide de test : developpe les echelles et multiplie les valeurs pour dequantifier.
@@ -373,6 +378,7 @@ fn applyGlobalScale(acc: Tensor, igs: ?Tensor, wgs: ?Tensor) Tensor {
     return res.convert(acc.dtype());
 }
 
+// Couche d'embedding : matrice de poids `.voc x .d` utilisée pour rassembler les tokens.
 pub const TokenEmbedding = struct {
     weight: Tensor,
 
@@ -385,6 +391,7 @@ pub const TokenEmbedding = struct {
     }
 };
 
+// Fonction d'activation élément par élément ; certaines variantes (leakyReLU, elu) portent un paramètre.
 pub const Activation = union(enum) {
     sigmoid,
     tanh,
@@ -418,6 +425,7 @@ pub fn elu(x: Tensor, alpha: f32) Tensor {
     );
 }
 
+// Layer Normalization : gain, biais optionnel et epsilon de stabilisation.
 /// Layer Normalization
 pub const LayerNorm = struct {
     weight: Tensor,
@@ -491,10 +499,12 @@ test normalizeL2 {
     try zml.testing.expectClose(std.testing.io, expectation, res, .{});
 }
 
+// Options du codage positionnel rotatif (RoPE) : disposition et stratégie de mise à l'échelle.
 pub const RopeOpts = struct {
     layout: Layout = .real_im_pass,
     scaling: Scaling = .{ .default = .{} },
 
+    // Disposition des parties réelle/image/pass-through dans les tenseurs de RoPE.
     /// There are 3 layouts corresponding to how to split `x` in real/imag/passthrough parts.
     /// The hard part is that HF models don't specify the layout they use.
     /// But HF models don't use the `interleaved` format,
@@ -505,6 +515,7 @@ pub const RopeOpts = struct {
     /// * interleaved: : [x_re0, x_im0, x_re1, x_im1, ..., p_re0, p_im0, p_re1, p_im1, ...]
     pub const Layout = enum { real_im_pass, real_pass_im_pass, interleaved };
 
+    // Stratégies d'initialisation de `inv_freq` (mise à l'échelle de RoPE) selon les modèles.
     /// There are several ways to init the scaling aka "inv_freq"
     pub const Scaling = union(enum) {
         default: Default,
@@ -513,10 +524,12 @@ pub const RopeOpts = struct {
         linear: Scaling.Linear,
         proportional: Scaling.Proportional,
 
+        // Mise à l'échelle RoPE par défaut : seule la base `rope_theta` est requise.
         pub const Default = struct {
             rope_theta: f32 = 10000,
         };
 
+        // Mise à l'échelle RoPE de type Llama 3 (facteurs par bande de fréquence).
         pub const Llama3 = struct {
             factor: f32,
             high_freq_factor: f32,
@@ -526,6 +539,7 @@ pub const RopeOpts = struct {
             rope_theta: f32 = 10000,
         };
 
+        // Mise à l'échelle RoPE de type YaRN (facteurs beta et modulation d'échelle).
         pub const Yarn = struct {
             beta_fast: f32 = 32.0,
             beta_slow: f32 = 1.0,
@@ -540,11 +554,13 @@ pub const RopeOpts = struct {
             partial_rotary_factor: f32 = 1.0,
         };
 
+        // Mise à l'échelle RoPE linéaire par un facteur global.
         pub const Linear = struct {
             factor: f32,
             rope_theta: f32 = 10000,
         };
 
+        // Mise à l'échelle RoPE proportionnelle (facteur rotatif partiel).
         pub const Proportional = struct {
             partial_rotary_factor: f32 = 1.0,
             rope_theta: f32 = 10000,
@@ -700,6 +716,7 @@ pub fn splitRealImg(x: Tensor, layout: RopeOpts.Layout) [2]Tensor {
     };
 }
 
+// Partie pass-through du RoPE partiel, dépendante du layout : tenseur unique ou paire réel/image.
 const Pass = union(RopeOpts.Layout) {
     real_im_pass: Tensor,
     real_pass_im_pass: [2]Tensor,
@@ -969,6 +986,7 @@ test "RopeOpts.Scaling parses default rope type" {
 test "real/img" {
     const platform = zml.testing.env();
 
+    // Bloc de portée locale regroupant le test de réversibilité découpage/recomposition.
     const Fns = struct {
         // Verifie que decouper puis recomposer `x` est l'identite : renvoie le nombre d'elements egaux.
         fn testSplitMergeIsId(layout: RopeOpts.Layout) Tensor {
@@ -1080,6 +1098,7 @@ test "real/img" {
 test rope {
     const platform = zml.testing.env();
 
+    // Bloc de portée locale regroupant le forward de test RoPE.
     const Local = struct {
         // Forward de test : convertit l'entree dans la disposition demandee, applique RoPE, puis
         // repasse en disposition sequentielle.
@@ -1220,6 +1239,7 @@ test "rope: Yarn with partial_rotary_factor" {
     try zml.testing.expectClose(io, expected, res, .{});
 }
 
+// Mode de sur-échantillonnage spatial supporté (pour l'instant seulement `nearest`).
 pub const UpsampleMode = enum {
     nearest,
     // TODO: Linear,
@@ -1475,6 +1495,7 @@ test nearest {
     }
 }
 
+// Options de redimensionnement : longueur d'origine optionnelle, méthode et précision interne.
 pub const ResizeOpts = struct {
     /// scalar tensor containing the original dimension of the image.
     /// It can be different from the image shape,
@@ -1690,6 +1711,7 @@ pub fn causalAttnMask(
     return mask;
 }
 
+// Options de l'attention produit scalaire : masque, facteur d'échelle et biais de softmax.
 pub const SdpaOpts = struct {
     attn_mask: ?Tensor = null,
     scale: ?Tensor = null,
@@ -1748,6 +1770,7 @@ pub fn sdpa(q_: Tensor, k_: Tensor, v_: Tensor, opts: SdpaOpts) Tensor {
     return attn.transpose(q.shape()).merge(.{ .h = .{ .h, .hq } });
 }
 
+// Entrées Gated Delta Net : requêtes, clés, valeurs, portes et longueur active pour l'état récurrent.
 pub const GatedDeltaNet = struct {
     /// Query tensor .{ .s, .h, .k }.
     queries: Tensor,
@@ -1762,6 +1785,7 @@ pub const GatedDeltaNet = struct {
     /// Number of sequence positions to process, clamped to the input length.
     active_length: Tensor,
 
+    // État récurrent du Gated Delta Net : état par tête, séquence de sorties et pas courant.
     pub const State = struct {
         /// Per-head recurrent state with shape .{ .h, .v, .k }.
         s: Tensor,
@@ -1772,10 +1796,12 @@ pub const GatedDeltaNet = struct {
         step: Tensor,
     };
 
+    // État récurrent transmis en entrée de la boucle : tenseur `s` par tête.
     pub const Input = struct {
         s: Tensor,
     };
 
+    // Sortie de la boucle Gated Delta Net : nouvel état et séquence de sorties.
     pub const Output = struct {
         /// Per-head recurrent state with shape .{ .h, .v, .k }.
         state: Input,
@@ -2050,6 +2076,7 @@ test "gated delta net" {
     });
 }
 
+// Options d'échantillonnage statiques (top-k et température) ; valeurs par défaut = décodage glouton.
 /// Options controlling generation. The default values correspond to greedy decoding.
 pub const SamplingStrategy = struct {
     topk: u32 = 1,
@@ -2125,6 +2152,7 @@ test sampleTokens {
     }
 }
 
+// Stratégie d'échantillonnage dynamique (tenseurs par étape) : top-k, température, top-p et min-p.
 pub const DynamicSamplingStrategy = struct {
     max_top_k: u32,
     top_k: Tensor,
@@ -2132,6 +2160,7 @@ pub const DynamicSamplingStrategy = struct {
     top_p: Tensor,
     min_p: Tensor,
 
+    // Options de construction d'une stratégie dynamique : bornes top-k et valeurs par défaut.
     pub const Opts = struct {
         top_k: u32,
         temperature: f32 = 1.0,
@@ -2259,6 +2288,7 @@ test sampleTokensDynamic {
     var logits_buffer: zml.Buffer = try .fromBytes(std.testing.io, platform, logits.shape(), std.mem.sliceAsBytes(&logits_data));
     defer logits_buffer.deinit();
 
+    // Jeu d'arguments de test : options d'échantillonnage et valeurs attendues.
     const Args = struct { DynamicSamplingStrategy.Opts, [4]f32 };
     inline for ([_]Args{
         // top_k == logits.len -> just sort the input
@@ -2330,6 +2360,7 @@ pub fn collectDims(
     v: anytype,
     comptime mode: enum { strict, allow_extra_dims, ignore_errors },
 ) ShapeError!ShapeStruct(dims) {
+    // Contexte local accumulant la forme résultante et le mode de collecte des dimensions.
     const LocalContext = struct {
         res: ShapeStruct(dims),
         mode: @TypeOf(mode),
@@ -2383,6 +2414,7 @@ fn shapeToDims(shape: anytype) [@divExact(@sizeOf(@TypeOf(shape)), @sizeOf(i64))
 
 // Verifie `collectDims` en mode strict et ignore_errors (dimensions coherentes, mismatch, absentes).
 test collectDims {
+    // Bloc de portée locale modélisant les formes d'entrée du test `collectDims`.
     const Model = struct {
         x: Shape,
         y: Shape,

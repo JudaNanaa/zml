@@ -125,6 +125,8 @@ pub fn format(self: Sharding, writer: *std.Io.Writer) !void {
     try writer.print("}}@{s}", .{mesh.name});
 }
 
+// Décrit le comportement d'un axe de Shape dans le mesh : répliqué, découpé selon un axe
+// logique, ou ouvert à la réplication.
 /// Describes how a given Shape axis behaves inside a mesh.
 /// Is it replicated ? sharded along a specific logical axis ? or open to replication ?
 pub const PartitionSpec = enum(u4) {
@@ -176,6 +178,7 @@ pub const PartitionSpec = enum(u4) {
     }
 };
 
+// Sélection du partitionneur utilisé pour répartir le graphe (implémentation Shardy).
 pub const Partitioner = union(enum) {
     shardy,
     gspmd,
@@ -196,6 +199,7 @@ fn shapeHasAxisPartition(shape: Shape) bool {
     return false;
 }
 
+// Description d'un axe de mesh pour une dimension : soit découpé (dim, factor), soit répliqué.
 pub const DimMeshe = union(enum) {
     sharded: struct {
         dim: i64,
@@ -229,6 +233,7 @@ pub fn sdyManualAxesAttr(
     var axis_names = std.ArrayList([]const u8).empty;
     defer axis_names.deinit(allocator);
 
+    // Bloc de portée locale regroupant l'aide de déduplication des noms d'axes.
     const Collect = struct {
         // Ajoute un nom d'axe a la liste s'il n'y figure pas deja (deduplication).
         fn appendUnique(list: *std.ArrayList([]const u8), allocator_: std.mem.Allocator, axis_name: []const u8) void {
@@ -272,6 +277,7 @@ pub fn sdyManualAxesAttr(
     return dialects.shardy.ManualAxesAttribute.init(ctx, axes).asAttr();
 }
 
+// Répartition d'une Shape : un PartitionSpec par dimension du tenseur (jusqu'à MAX_RANK).
 pub const Partitioning = packed struct {
     _0: PartitionSpec,
     _1: PartitionSpec,
@@ -474,6 +480,7 @@ pub const Partitioning = packed struct {
     }
 };
 
+// Un device appartenant à un PhysicalMesh : identifiant unique et coordonnées dans le mesh physique.
 /// Device as part of a PhysicalMesh.
 pub const Device = struct {
     /// Unique device identifier in the mesh
@@ -502,6 +509,7 @@ pub const Device = struct {
     }
 };
 
+// Tags d'axes physiques représentant les paliers d'interconnexion matériels (link, bus, ...).
 /// Physical axis tags represent hardware interconnect tiers.
 pub const PhysicalAxisTag = enum {
     link, // Intra-device / island-local 1D interconnect
@@ -511,18 +519,21 @@ pub const PhysicalAxisTag = enum {
     bus, // PCIe / NUMA (Potential isolation boundary)
 };
 
+// Topologie d'une interconnexion 1D en anneau : linéaire ouverte ou circulaire.
 /// Ring geometry style for 1D neighbor-only interconnects.
 pub const RingKind = enum {
     linear, // Neighbors only, open ends
     closed_ring, // Neighbors only, circular (wrap-around)
 };
 
+// Topologie d'une interconnexion 2D/3D en maille : grille ouverte ou tore.
 /// Mesh geometry style for 2D/3D neighbor-only interconnects.
 pub const MeshKind = enum {
     grid, // 2D/3D Neighbors only, open ends
     torus, // 2D/3D Neighbors only, circular wrap-around
 };
 
+// Catégorie de communication d'un axe : point-à-point, anneau, mesh, arbre ou isolé.
 /// AxisGeometry describes the communication pattern for an axis.
 pub const AxisGeometry = union(enum) {
     point_to_point: void, // Full all-to-all (NVLink Switch, TPU v5p)
@@ -543,6 +554,8 @@ pub const AxisGeometry = union(enum) {
     }
 };
 
+// Arbre hiérarchique de la topologie physique : une branche porte un axe (tag, géométrie, enfants),
+// une feuille représente un device matériel.
 /// Represents the hierarchical physical topology of the hardware devices.
 pub const PhysicalNode = union(enum) {
     /// A branch represents a physical axis
@@ -588,6 +601,8 @@ pub const PhysicalNode = union(enum) {
     }
 };
 
+// Décrit la topologie matérielle sous forme d'arbre d'axes : chaque branche est un axe physique
+// (link_x/link_y/bus/...) et chaque feuille un device.
 /// PhysicalMesh models hardware as a tree of axes.
 /// Each branch = one physical axis (link_x/link_y/bus/etc),
 /// each leaf = one device.
@@ -604,6 +619,7 @@ pub const PhysicalMesh = struct {
     /// Explicit topology tree API (canonical form)
     pub const Tree = PhysicalNode;
 
+    // Ordre canonique des axes du mesh (parcours DFS) et profondeur associée à chaque tag.
     /// AxisTraversal captures canonical axis order and depth mapping.
     pub const AxisTraversal = struct {
         pub const Order = stdx.BoundedArray(PhysicalAxisTag, MAX_MESH_RANK);
@@ -686,6 +702,7 @@ pub const PhysicalMesh = struct {
         }
     };
 
+    // Taille et géométrie d'un axe physique identifié par son tag.
     /// AxisInfo exposes the size and geometry for a tag.
     pub const AxisInfo = struct {
         tag: PhysicalAxisTag,
@@ -739,6 +756,7 @@ pub const PhysicalMesh = struct {
         try devicesNodeInto(allocator, self.root, &devices_);
         self.devices_in_canonical_order = try devices_.toOwnedSlice(allocator);
 
+        // Bloc de portée locale : contexte de tri comparant les devices par index linéaire canonique.
         const Order = struct {
             mesh: *const PhysicalMesh,
             // Compare deux devices par leur index lineaire canonique pour le tri.
@@ -1003,13 +1021,16 @@ pub const PhysicalMesh = struct {
         }
     }
 
+    // Bloc de portée locale construisant le mesh à partir des attributs PJRT `coords`.
     /// CoordsTopology builds a mesh from PJRT `coords` attributes.
     const CoordsTopology = struct {
+        // Disposition des coordonnées PJRT : rang et taille de chaque axe du mesh.
         const CoordLayout = struct {
             rank: usize,
             axis_sizes: [MAX_MESH_RANK]usize,
         };
 
+        // Device associé à son index linéaire, pour trier les placements.
         const IndexedCoord = struct {
             placement: Device,
             linear: usize,
@@ -1094,6 +1115,7 @@ pub const PhysicalMesh = struct {
                 };
             }
 
+            // Bloc de portée locale comparant deux placements par index linéaire.
             const SortCtx = struct {
                 // Compare deux placements par leur index lineaire pour le tri.
                 fn lessThan(_: @This(), a: IndexedCoord, b: IndexedCoord) bool {
@@ -1303,6 +1325,7 @@ pub const PhysicalMesh = struct {
         var coords_buf: [MAX_MESH_RANK]usize = @splat(0);
         var next_device: usize = 0;
 
+        // Bloc de portée locale construisant récursivement l'arbre de topologie Neuron.
         const Node = struct {
             // Construit recursivement un noeud de l'arbre Neuron a partir des placements et tailles d'axes.
             fn build(
@@ -1387,6 +1410,8 @@ pub const PhysicalMesh = struct {
     }
 };
 
+// Intention de performance d'un axe logique (bande passante, équilibre, ...), utilisée pour
+// choisir l'axe physique correspondant.
 pub const LogicalAxisIntent = enum {
     /// Needs the fastest possible path (e.g. Weight mesh / All-Reduce).
     /// Requires high-bandwidth, low-latency interconnects (Cores/NVLink).
@@ -1401,6 +1426,8 @@ pub const LogicalAxisIntent = enum {
     low_bandwidth,
 };
 
+// Description logique d'un mesh : une liste d'axes nommés (par leurs tags) et l'intention de
+// performance associée à chacun. Ne porte ni taille ni contrainte de divisibilité.
 // Defines the logical mesh used for mesh the model and data.
 // E.g., batch, model, context, experts, etc.
 // Each axis represents a dimension along which the workload can be partitioned. The value is the intent of the axis.
@@ -1481,12 +1508,14 @@ pub const LogicalMesh = struct {
 
 pub const PhysicalList = stdx.BoundedArray(PhysicalAxisTag, MAX_MESH_RANK);
 
+// Repliement d'axes physiques : un axe cible `target` remplace la liste `sources`.
 pub const Fold = struct {
     target: PhysicalAxisTag,
     sources: PhysicalList,
 };
 pub const Folds = stdx.BoundedArray(Fold, MAX_MESH_RANK);
 
+// Axe physique du mesh : tag, taille, géométrie optionnelle et liste des axes repliés qui le composent.
 pub const Axis = struct {
     tag: PhysicalAxisTag,
     size: i64,
@@ -1501,6 +1530,7 @@ pub const Axis = struct {
     }
 };
 
+// Vue physique complète du mesh : la liste des axes et le nombre total de devices.
 pub const PhysicalView = struct {
     axes: stdx.BoundedArray(Axis, MAX_MESH_RANK),
     total_devices: i64,
@@ -1523,6 +1553,8 @@ pub const PhysicalView = struct {
     }
 };
 
+// Mesh complet du module : nom, topologie physique, description logique et table de correspondance
+// entre axes logiques et axes physiques.
 pub const Mesh = struct {
     pub const zml_no_meta_visit: void = {};
 
@@ -1744,6 +1776,7 @@ pub const Mesh = struct {
         return try out.toOwnedSlice();
     }
 
+    // Correspondance d'une Shape avec la vue physique : axes physiques par dimension et axes de réplication.
     const DimMapping = struct {
         /// For each tensor dimension, the indices of physical axes (in PhysicalView) mesh it.
         axes_per_dim: stdx.BoundedArray(stdx.BoundedArray(usize, Shape.MAX_RANK), Shape.MAX_RANK),
@@ -2008,11 +2041,14 @@ pub const Mesh = struct {
     }
 };
 
+// Description d'une stratégie de sharding : correspondances logique/physique et repliements d'axes.
 pub const Strategy = struct {
+    // Repliement d'axes physiques (cible et sources) propre à la stratégie.
     pub const Fold = struct {
         target: PhysicalAxisTag,
         sources: PhysicalList,
     };
+    // Correspondance entre un axe logique (tag) et les axes physiques qui le portent.
     pub const Binding = struct {
         logical: Shape.Tag,
         physical: PhysicalList,
@@ -2145,9 +2181,11 @@ pub fn shardedShape(shape: Shape) error{IncompatibleSharding}!Shape {
     }
 }
 
+// Informations de mesh précalculées, communes à tous les devices, pour une Shape donnée.
 /// Precompute mesh information common to all devices for a given shape.
 pub const Placement = struct {
     pub const Slices = stdx.BoundedArray(Slice1d, Shape.MAX_RANK);
+    // Découpage 1D d'un buffer shard : position de départ et taille.
     pub const Slice1d = struct {
         start: i64,
         size: i64,
@@ -2283,6 +2321,7 @@ pub const Placement = struct {
     }
 };
 
+// Répartition linéaire des devices pour un axe : strides par coordonnée, nombres et total de devices.
 const AxisSplit = struct {
     /// For each physical coordinate depth, the contribution of that coordinate
     /// to the linear shard index. Unused depths have stride 0.
@@ -2367,13 +2406,16 @@ fn calculateSplit(
     return plan;
 }
 
+// Bloc de portée locale rassemblant l'infrastructure de test des scénarios de sharding.
 const ShardingTest = struct {
+    // Shard attendu dans un test : identifiant de device et tranches par axe.
     pub const ExpectedShard = struct {
         // TODO: remove device_id from here, we always have ids from 0 to N
         device_id: usize,
         slices: []const [2]i64,
     };
 
+    // Scénario de test de sharding : mesh, forme et résultats attendus (erreur, shardy, shards).
     pub const Scenario = struct {
         mesh: *const Mesh,
         shape: Shape,

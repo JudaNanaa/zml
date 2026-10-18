@@ -18,6 +18,7 @@ pub fn isBytes(comptime T: type) bool {
     return true;
 }
 
+// Vue non proprietaire sur une zone memoire : octets bruts et indicateur de mutabilite.
 pub const Slice = struct {
     bytes: []const u8,
     mutable: bool,

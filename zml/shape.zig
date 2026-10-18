@@ -15,6 +15,8 @@ test {
     std.testing.refAllDecls(Shape);
 }
 
+// Représentation de la forme d'un tenseur : dtype, dimensions, tags et sharding ; elle décrit
+// exactement comment le tenseur/buffer sera réparti sur les devices de la Platform courante.
 /// Represent the shape of a tensor.
 /// Contains also the sharding information,
 /// so it describes exactly how the corresponding tensor/buffer will be layed out
@@ -1650,6 +1652,8 @@ pub const Shape = struct {
     }
 };
 
+// Itérateur parcourant toutes les coordonnées d'une Shape, en fournissant à chaque pas les
+// coordonnées multi-dimensionnelles et l'index plat correspondant.
 /// Iterates over all coordinates of a shape, yielding the multi-dimensional
 /// coordinates and the corresponding flat index for each element.
 pub const MultiDimIterator = struct {
@@ -1657,6 +1661,7 @@ pub const MultiDimIterator = struct {
     current_coords: [Shape.MAX_RANK]i64,
     flat_index: usize,
 
+    // Un pas d'itération du MultiDimIterator : coordonnées, rang effectif et index plat.
     pub const Item = struct {
         coords: [Shape.MAX_RANK]i64,
         rank: u4,

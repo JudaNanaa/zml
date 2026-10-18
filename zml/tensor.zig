@@ -23,7 +23,11 @@ test {
     std.testing.refAllDecls(Tensor);
 }
 
+// Type central du module : un tenseur paresseux combinant forme, dtype, tags et sharding,
+// avec une valeur MLIR optionnelle. Les opérations construisent le graphe MLIR, matérialisé
+// seulement à l'exécution.
 pub const Tensor = struct {
+    // Identifiant unique et strictement croissant d'un Tensor, attribué à sa création.
     pub const Id = enum(u64) { _ };
     var current_id: std.atomic.Value(u64) = .init(1);
 
@@ -343,6 +347,7 @@ pub const Tensor = struct {
         const inputs: [8]f32 = .{ -3.0, -2, -1, 1, 2, 3, 5, -5 };
         const x_t = Tensor.init(.{8}, .f32);
 
+        // Bloc de portée locale regroupant l'unique fonction de test (copie hôte vers device).
         const Local = struct {
             // Fonction de test : copie un tenseur de la mémoire hôte pinned vers la mémoire device.
             fn memcpyH2D(x: Tensor) Tensor {
@@ -517,6 +522,7 @@ pub const Tensor = struct {
         const y_t = Tensor.init(.{ 6, 2 }, .i4);
         const z_t = Tensor.init(.{ 6, 2 }, .i4);
 
+        // Bloc de portée locale regroupant la fonction de test de réutilisation de buffer.
         const Local = struct {
             // Fonction de test : la première sortie réutilise le buffer de `y`, la seconde non.
             fn memcopy(x: Tensor, y: Tensor, z: Tensor) [2]Tensor {
@@ -858,6 +864,7 @@ pub const Tensor = struct {
         const platform = zml.testing.env();
         const rfft_input_len: i64 = 10;
 
+        // Bloc de portée locale regroupant la fonction de test RFFT puis IRFFT.
         const Local = struct {
             // Fonction de test appliquant RFFT puis IRFFT pour valider les dimensions.
             pub fn _fwd(x: Tensor) Tensor {
@@ -880,6 +887,8 @@ pub const Tensor = struct {
         defer exe.deinit();
     }
 
+    // État d'un générateur de nombres aléatoires stablehlo : encapsule la graine sous forme de
+    // Tensor et l'algorithme utilisé.
     pub const Rng = struct {
         _state: Tensor,
         algorithm: dialects.stablehlo.RngAlgorithm.Type = .DEFAULT,
@@ -974,6 +983,7 @@ pub const Tensor = struct {
         // Vérifie la moyenne, la variance, le min et le max d'un tirage uniforme.
         test uniform {
             const zml = @import("zml.zig");
+            // Bloc de portée locale rassemblant les statistiques d'un tirage uniforme pour les tests.
             const Stats = struct {
                 const Stats = @This();
 
@@ -1077,6 +1087,7 @@ pub const Tensor = struct {
         // Vérifie les statistiques de la Gumbel et l'astuce de reparamétrisation (argmax).
         test gumbel {
             const zml = @import("zml.zig");
+            // Bloc de portée locale rassemblant les statistiques d'un tirage Gumbel pour les tests.
             const Stats = struct {
                 const Stats = @This();
 
@@ -1437,6 +1448,7 @@ pub const Tensor = struct {
         return self.mul(.scalar(val, self.dtype()));
     }
 
+    // Opération logique élément par élément appliquée par Tensor.logical : OR, XOR ou AND.
     pub const LogicalOp = enum { OR, XOR, AND };
 
     // Applique une opération logique (OR/XOR/AND) élément par élément.
@@ -1626,6 +1638,7 @@ pub const Tensor = struct {
         return lhs.dotGeneral(rhs, dot_axes.contracting.constSlice(), dot_axes.batching.constSlice());
     }
 
+    // Paires d'axes de contraction et de batch d'un produit généralisé, déduites des tags fournis.
     pub const DotAxes = struct {
         contracting: stdx.BoundedArray([2]i8, constants.MAX_RANK),
         batching: stdx.BoundedArray([2]i8, constants.MAX_RANK),
@@ -1703,6 +1716,7 @@ pub const Tensor = struct {
             const y: Tensor = .init(testcase[1], .f32);
             const ctr = Shape.toTag(testcase[2]);
             const z_shape: Shape = .init(testcase[3], .f32);
+            // Bloc de portée locale exposant la fonction de test `forward` pour `dot`.
             const forward = struct {
                 // Fonction de test effectuant un `dot` entre deux tenseurs selon un tag.
                 fn forward(x_: Tensor, y_: Tensor, tag: Shape.Tag) Tensor {
@@ -2162,6 +2176,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le test de propagation des tags de `cumulativeSum`.
         const Local = struct {
             // Fonction de test vérifiant que `cumulativeSum` propage bien les tags.
             pub fn _cumsum(input: Tensor) Tensor {
@@ -2309,6 +2324,7 @@ pub const Tensor = struct {
         return self.reshape(.{self.count()});
     }
 
+    // Description d'un découpage le long d'un axe : début, longueur/fin, pas et index dynamique optionnel.
     pub const Slice = struct {
         start: i64 = 0,
         dyn_start: ?Tensor = null,
@@ -2494,6 +2510,7 @@ pub const Tensor = struct {
         var x_buffer: zml.Buffer = try .fromBytes(std.testing.io, platform, x.shape(), std.mem.sliceAsBytes(&[_]f32{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }));
         defer x_buffer.deinit();
 
+        // Bloc de portée locale encapsulant le slice statique pour masquer l'`anytype` de la signature.
         // Wrap slice to hide the anytype in the signature.
         // TODO(wzk): stdx.meta.specifyFn (waiting 0.17 for SoA meta programming)
         const Local = struct {
@@ -2531,6 +2548,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant la fonction de test de slice dynamique.
         const Local = struct {
             // Fonction de test effectuant un slice dynamique après résolution de l'axe.
             fn dynSliceResolved(x: Tensor, ax: ResolvedAxis, dyn_slice: Slice) Tensor {
@@ -2658,6 +2676,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `repeat1d`.
         const Local = struct {
             // Wrapper de test pour `repeat1d`.
             fn repeat1d(x: Tensor, axis_: u3, n_reps: u32) Tensor {
@@ -2725,6 +2744,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `stutter1d`.
         const Local = struct {
             // Wrapper de test pour `stutter1d`.
             fn stutter1d(x: Tensor, axis_: u3, n_reps: u32) Tensor {
@@ -2822,6 +2842,7 @@ pub const Tensor = struct {
         return _result(self._shape, expm1_op.result(0));
     }
 
+    // Paramètres de `arange` : bornes `start`/`end` et pas `step`.
     pub const ArangeArgs = struct {
         start: i64 = 0,
         end: i64,
@@ -2902,6 +2923,7 @@ pub const Tensor = struct {
         return _result(res_shape, op.result(0));
     }
 
+    // Paramètres de `linspace` : bornes `start`/`end` et nombre de points `steps`.
     pub const LinspaceArgs = struct {
         start: f64,
         end: f64,
@@ -2951,6 +2973,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le test de création de scalaires nuls.
         const Local = struct {
             // Fonction de test créant un scalaire zéro pour plusieurs dtypes.
             pub fn _fwd() [6]Tensor {
@@ -3129,6 +3152,7 @@ pub const Tensor = struct {
         return if (self.rank() == 0) self else self.reshape(.{});
     }
 
+    // Paramètres de remplissage d'un axe : marges `low`/`high` et espacement `interior`.
     pub const Pad = struct {
         low: i64 = 0,
         high: i64 = 0,
@@ -3266,6 +3290,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le test d'indices constants diffusés.
         const Local = struct {
             // Fonction de test créant des indices constants (zéro) broadcast à la shape donnée.
             pub fn _idx(idx_shape: anytype) Tensor {
@@ -3424,6 +3449,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `gatherSlices`.
         const Local = struct {
             // Wrapper de test pour `gatherSlices`.
             pub fn _gatherSlices(self: Tensor, slice_shape: Shape, indices: Tensor, opts: GatherOpts) Tensor {
@@ -3489,6 +3515,7 @@ pub const Tensor = struct {
         var indices_buffer: zml.Buffer = try .fromBytes(std.testing.io, platform, indices.shape(), std.mem.sliceAsBytes(&[2][2]i32{ .{ 2, 1 }, .{ 0, 3 } }));
         defer indices_buffer.deinit();
         var operand_buffer: zml.Buffer = b: {
+            // Bloc de portée locale exposant la fonction temporaire générant l'opérande arange du test.
             const temp_func = struct {
                 // Fonction de test générant un tenseur arange reshapé servant d'opérande.
                 fn forward() Tensor {
@@ -3518,6 +3545,7 @@ pub const Tensor = struct {
         try zml.testing.expectClose(std.testing.io, expected, result, .{});
     }
 
+    // Options de `scatterSlices` : promesses de tri/unicité des indices et fonction d'accumulation.
     pub const ScatterOpts = struct {
         /// Promise scatter that all coordinates in `indices` are sorted, wrt to the final offset in `self`
         /// Result is undefined if the promise is violated.
@@ -3626,6 +3654,7 @@ pub const Tensor = struct {
 
         const UpdateType = @TypeOf(ScatterOpts.increment);
 
+        // Adaptateur local appelant la fonction d'accumulation fournie dans les options de scatter.
         const Custom = struct {
             // Adaptateur appelant la fonction d'update fournie dans les options de scatter.
             pub fn inc(values: ops.ScatterArgs, custom: *const UpdateType) struct { Tensor } {
@@ -3641,6 +3670,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `scatterSlices`.
         const Local = struct {
             // Wrapper de test pour `scatterSlices` avec la fonction increment.
             pub fn _scatter(self: Tensor, indices: []const Tensor, updates: Tensor) Tensor {
@@ -3830,6 +3860,7 @@ pub const Tensor = struct {
         )[0];
     }
 
+    // Résultat d'un argMax ou d'un tri : les valeurs et leurs indices correspondants.
     pub const ArgMaxRes = struct {
         values: Tensor,
         indices: Tensor,
@@ -3874,6 +3905,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
         const allocator = std.testing.allocator;
+        // Bloc de portée locale regroupant le wrapper de test de `argMax`.
         const ArgMaxTest = struct {
             // Wrapper de test pour argMax.
             pub fn _fwd(x: Tensor) Tensor.ArgMaxRes {
@@ -3921,6 +3953,7 @@ pub const Tensor = struct {
 
     pub const SortRes = ArgMaxRes;
 
+    // Options de tri : `descending` choisit l'ordre décroissant.
     pub const SortOpts = struct { descending: bool = false };
 
     // Trie le tenseur le long d'un axe et retourne valeurs et indices triés.
@@ -3951,6 +3984,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `argsort`.
         const Local = struct {
             // Wrapper de test pour argsort.
             pub fn _argsort(x: Tensor, axis_: u3, opts: ArgSortOpts) Tensor {
@@ -4046,6 +4080,7 @@ pub const Tensor = struct {
         }
     }
 
+    // Options de top-k : `descending` place les plus grandes valeurs en premier.
     pub const TopKOpts = struct { descending: bool = true };
 
     // Retourne les k plus grandes (ou plus petites) valeurs et leurs indices ; utilise
@@ -4345,6 +4380,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `split`.
         const Local = struct {
             // Wrapper de test pour `split`.
             pub fn _split(x: Tensor, axis_: i8, split_sizes: []const i64) []Tensor {
@@ -4488,6 +4524,7 @@ pub const Tensor = struct {
             const x = Tensor.init(.{10}, .f32).withTags(.{.a});
             const y = Tensor.init(.{2}, .f32).withTags(.{.a});
             const ids: Tensor = .init(.{}, .i32);
+            // Bloc de portée locale exposant le test taggé de `dynamicUpdateSlice` (slice 1D).
             const forward = struct {
                 // Test dynamicUpdateSlice taggé (slice 1D sur l'axe .a).
                 pub fn _fwd(x_: Tensor, idx_: struct { a: Tensor }, y_: Tensor) Tensor {
@@ -4515,6 +4552,7 @@ pub const Tensor = struct {
             const x = Tensor.init(.{ 2, 5 }, .f32).withTags(.{ .a, .b });
             const y = Tensor.init(.{2}, .f32).withTags(.{.a});
             const ids: Tensor = .init(.{}, .i32);
+            // Bloc de portée locale exposant le test taggé de `dynamicUpdateSlice` (offset sur .b).
             const forward = struct {
                 // Test dynamicUpdateSlice taggé (offset sur l'axe .b d'un tenseur 2D).
                 pub fn _fwd(x_: Tensor, idx_: Tensor, y_: Tensor) Tensor {
@@ -4545,6 +4583,7 @@ pub const Tensor = struct {
             const x: Tensor = .init(.{ 2, 5 }, .f32);
             const y: Tensor = .init(.{ 2, 1 }, .f32);
             const ids: Tensor = .init(.{}, .i32);
+            // Bloc de portée locale exposant le test non taggé de `dynamicUpdateSlice` (offset scalaire).
             const forward = struct {
                 // Test dynamicUpdateSlice non taggé avec un update de dimension 1 sur l'axe secondaire.
                 pub fn _fwd(x_: Tensor, idx_: Tensor, y_: Tensor) Tensor {
@@ -4576,6 +4615,7 @@ pub const Tensor = struct {
             const y = Tensor.init(.{1}, .f32).withTags(.{.a});
             const idx_a: Tensor = .init(.{}, .i32);
             const idx_b: Tensor = .init(.{}, .i32);
+            // Bloc de portée locale exposant le test taggé partiel de `dynamicUpdateSlice`.
             const forward = struct {
                 // Test dynamicUpdateSlice partiel taggé (offsets sur .a et .b).
                 pub fn _fwd(x_: Tensor, idx_: struct { a: Tensor, b: Tensor }, y_: Tensor) Tensor {
@@ -4609,6 +4649,7 @@ pub const Tensor = struct {
             const y: Tensor = .init(.{ 1, 1 }, .f32);
             const idx_a: Tensor = .init(.{}, .i32);
             const idx_b: Tensor = .init(.{}, .i32);
+            // Bloc de portée locale exposant le test non taggé de `dynamicUpdateSlice` (offsets en tableau).
             const forward = struct {
                 // Test dynamicUpdateSlice partiel non taggé avec offsets fournis dans un tableau.
                 pub fn _fwd(x_: Tensor, idx_: [2]Tensor, y_: Tensor) Tensor {
@@ -4689,6 +4730,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `toDiagonal`.
         const Local = struct {
             // Wrapper de test pour `toDiagonal`.
             pub fn _toDiag(input: Tensor) Tensor {
@@ -4746,6 +4788,7 @@ pub const Tensor = struct {
         const zml = @import("zml.zig");
         const platform = zml.testing.env();
 
+        // Bloc de portée locale regroupant le wrapper de test de `triangular`.
         const Local = struct {
             // Wrapper de test pour `triangular`.
             pub fn _tri(input: Tensor, num_diagonals: i32) Tensor {
@@ -4939,6 +4982,7 @@ pub const Tensor = struct {
         const x: Tensor = .init(.{6}, .i32);
         const y: Tensor = .init(.{4}, .i32);
 
+        // Bloc de portée locale regroupant le wrapper de test de `cartesianProduct` (2 vecteurs).
         const Local = struct {
             // Wrapper de test pour cartesianProduct à 2 vecteurs.
             pub fn _cartesianProduct2(a: Tensor, b: Tensor) [2]Tensor {
@@ -5020,6 +5064,7 @@ pub const Tensor = struct {
         const x: Tensor = .init(.{6}, .i32);
         const y: Tensor = .init(.{4}, .i32);
 
+        // Bloc de portée locale regroupant le wrapper de test de `cartesianProductStacked`.
         const Local = struct {
             // Wrapper de test pour `cartesianProductStacked`.
             pub fn _fwd(a: Tensor, b: Tensor) Tensor {
@@ -5181,6 +5226,7 @@ test "Tensor.maxPool1d" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
+    // Bloc de portée locale regroupant le test de `maxPool1d`.
     const MaxPool = struct {
         // Wrapper de test pour maxPool1d.
         pub fn _fwd(x: zml.Tensor) Tensor.ArgMaxRes {
@@ -5225,6 +5271,7 @@ test "Tensor.maxPool2d" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
+    // Bloc de portée locale regroupant le test de `maxPool2d`.
     const MaxPool = struct {
         // Wrapper de test pour maxPool2d.
         pub fn _fwd(x: Tensor) Tensor.ArgMaxRes {
@@ -5342,6 +5389,7 @@ test "unused tensor" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
+    // Bloc de portée locale regroupant le test d'un tenseur intermédiaire non utilisé.
     const Local = struct {
         // Fonction de test produisant un tenseur intermédiaire non utilisé.
         pub fn _fwd(x: Tensor) Tensor {

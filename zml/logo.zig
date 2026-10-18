@@ -1,5 +1,6 @@
 const std = @import("std");
 
+// Couleur ANSI du logo, avec variantes brillantes.
 pub const Color = enum {
     reset,
     cyan,
@@ -57,16 +58,19 @@ pub const Color = enum {
     }
 };
 
+// Une ligne du logo : texte, couleur de base et couleur brillante.
 pub const Row = struct {
     text: []const u8,
     color: Color = .reset,
     shine: Color = .reset,
 };
 
+// Un bloc du logo compose de plusieurs lignes.
 pub const Block = struct {
     rows: []const Row,
 };
 
+// Niveau de support des couleurs du terminal.
 pub const ColorSupport = enum {
     no_color,
     ansi,
@@ -74,6 +78,7 @@ pub const ColorSupport = enum {
     true_color,
 };
 
+// Options de rendu du logo (support couleur et detection des glyphes brillants).
 pub const Options = struct {
     color_support: ColorSupport,
     is_shiny: *const fn ([]const u8) bool = isShineGlyph,

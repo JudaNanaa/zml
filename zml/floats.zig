@@ -141,6 +141,7 @@ fn FloatHelpers(Float: type) type {
     };
 }
 
+// Flottant IEEE 754 simple precision (32 bits) decoupe en mantisse/exposant/signe.
 pub const Float32 = packed struct(u32) {
     mantissa: u23,
     exponent: u8,
@@ -176,6 +177,7 @@ pub const Float32 = packed struct(u32) {
 
 const f32_exp_bias = FloatHelpers(Float32).expBias();
 
+// Flottant IEEE 754 double precision (64 bits).
 pub const Float64 = packed struct(u64) {
     mantissa: u52,
     exponent: u11,
@@ -208,6 +210,7 @@ pub const Float64 = packed struct(u64) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Flottant 8 bits E4M3 avec biais 11 et FNUZ (pas de -0, pas d'infini).
 pub const Float8E4M3B11FNUZ = packed struct(u8) {
     mantissa: u3,
     exponent: u4,
@@ -230,6 +233,7 @@ pub const Float8E4M3B11FNUZ = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Flottant 8 bits E4M3 FN (avec infinis, NaN sur les valeurs maximales).
 pub const Float8E4M3FN = packed struct(u8) {
     mantissa: u3,
     exponent: u4,
@@ -252,6 +256,7 @@ pub const Float8E4M3FN = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Flottant 8 bits E4M3 FNUZ (pas de -0, NaN code a zero).
 pub const Float8E4M3FNUZ = packed struct(u8) {
     mantissa: u3,
     exponent: u4,
@@ -294,6 +299,7 @@ test "Float8E4" {
     }
 }
 
+// Flottant 8 bits E5M2 (comme un FP16 tronque, avec infinis).
 pub const Float8E5M2 = packed struct(u8) {
     mantissa: u2,
     exponent: u5,
@@ -318,6 +324,7 @@ pub const Float8E5M2 = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Flottant 8 bits E5M2 FNUZ (pas de -0, NaN code a zero).
 pub const Float8E5M2FNUZ = packed struct(u8) {
     mantissa: u2,
     exponent: u5,
@@ -351,6 +358,7 @@ test "Float8E5" {
     }
 }
 
+// Brain float 16 bits : exposant de f32, mantisse reduite.
 pub const BFloat16 = packed struct(u16) {
     mantissa: u7,
     exponent: u8,
@@ -406,6 +414,7 @@ test BFloat16 {
     });
 }
 
+// Flottant 8 bits E4M3 avec NaN sur les valeurs maximales.
 pub const Float8E4M3 = packed struct(u8) {
     mantissa: u3,
     exponent: u4,
@@ -430,6 +439,7 @@ pub const Float8E4M3 = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Flottant 8 bits E3M4 : exposant reduit, mantisse elargie.
 pub const Float8E3M4 = packed struct(u8) {
     mantissa: u4,
     exponent: u3,
@@ -454,6 +464,7 @@ pub const Float8E3M4 = packed struct(u8) {
     pub const formatNumber = Helpers.formatNumber;
 };
 
+// Echelle 8 bits E8M0 : exposant 8 bits, mantisse nulle (puissances de deux positives).
 pub const Float8E8M0 = packed struct(u8) {
     mantissa: u0 = 0,
     exponent: u8,
@@ -497,6 +508,7 @@ test Float8E8M0 {
     });
 }
 
+// Flottant 4 bits E2M1 (NVFP4) : 1 bit de signe, 2 d'exposant, 1 de mantisse.
 pub const Float4E2M1 = packed struct(u4) {
     mantissa: u1,
     exponent: u2,
@@ -537,6 +549,7 @@ pub const Float4E2M1 = packed struct(u4) {
         try std.testing.expectEqualSlices(u4, &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, @ptrCast(&from_f32_res));
     }
 
+    // Paquet de deux valeurs Float4E2M1 dans un octet.
     pub const Packed = packed struct(@Int(.unsigned, @bitSizeOf(Float4E2M1) * 2)) {
         x: Float4E2M1,
         y: Float4E2M1,
@@ -588,6 +601,7 @@ pub fn isInf(x: anytype) bool {
     return @as(FBits, @bitCast(x)) & remove_sign == @as(FBits, @bitCast(Float.inf));
 }
 
+// Cas de test de conversion : valeurs sans perte, avec perte, et tolerance.
 const TestCase = struct {
     lossless: []const f32,
     lossy: []const f32,

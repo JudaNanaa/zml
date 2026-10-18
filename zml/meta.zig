@@ -113,11 +113,14 @@ pub fn MapType(From: type, To: type) type {
 
 // Verifie que MapType remplace From par To dans des structs et unions imbriques.
 test MapType {
+    // Type source du test de mapping.
     const A = struct { a: u32 };
+    // Type cible du test de mapping.
     const B = struct { b: u32 };
 
     const A2B = MapType(A, B);
 
+    // Struct imbriquant A de plusieurs facons (slice, optionnel, direct).
     const StructA = struct { some: []const A, one: A, maybe: ?A, other: u32 };
     const struct_b = A2B.map(StructA){
         .some = &[2]B{ .{ .b = 0 }, .{ .b = 1 } },
@@ -127,6 +130,7 @@ test MapType {
     };
     _ = struct_b;
 
+    // Union imbriquant A de plusieurs facons.
     const UnionA = union { some: []const A, one: A, maybe: ?A, other: u32 };
     const union_b = [_]A2B.map(UnionA){
         .{ .some = &[2]B{ .{ .b = 0 }, .{ .b = 1 } } },
@@ -254,7 +258,9 @@ pub fn mapAlloc(comptime cb: anytype, allocator: std.mem.Allocator, ctx: FnParam
 
 // Verifie mapAlloc sur structs, tableaux, slices et champs comptime.
 test mapAlloc {
+    // Type cible du test mapAlloc.
     const B = struct { b: u8 };
+    // Type source du test mapAlloc, avec callback de conversion.
     const A = struct {
         a: u8,
         // Callback de test convertissant un A en B.
@@ -263,8 +269,10 @@ test mapAlloc {
         }
     };
 
+    // Struct vide pour tester les champs sans donnee.
     const Empty = struct {};
 
+    // Struct d'entree du test mapAlloc (champ, tableau, slice...).
     const AA = struct {
         field: A,
         array: [2]A,
@@ -276,6 +284,7 @@ test mapAlloc {
         comptime static_slice: [2]A = .{ .{ .a = 11 }, .{ .a = 12 } },
         field_with_empty: struct { A, Empty },
     };
+    // Struct de sortie attendue du test mapAlloc.
     const BB = struct {
         field: B,
         array: [2]B,
@@ -427,11 +436,14 @@ pub fn MapRestrict(From: type, To: type) type {
 
 // Verifie que MapRestrict ne garde que les champs contenant From.
 test MapRestrict {
+    // Type source du test MapRestrict.
     const A = struct { a: u32 };
+    // Type cible du test MapRestrict.
     const B = struct { b: u32 };
 
     const A2B = MapRestrict(A, B);
 
+    // Struct a mapper en ne gardant que les champs contenant A.
     const StructA = struct { some: []const A, one: A, maybe: ?A, other: u32 };
     const struct_b = A2B.map(StructA){
         .some = &[2]B{ .{ .b = 0 }, .{ .b = 1 } },
@@ -441,6 +453,7 @@ test MapRestrict {
     };
     _ = struct_b;
 
+    // Union a mapper en ne gardant que les champs contenant A.
     const UnionA = union { some: []const A, one: A, maybe: ?A, other: u32 };
     const union_b = [_]A2B.map(UnionA){
         .{ .some = &[2]B{ .{ .b = 0 }, .{ .b = 1 } } },
@@ -462,7 +475,9 @@ pub fn VisitReturn(comptime cb: anytype) type {
         void;
 }
 
+// Etat interne de la visite recursive d'un objet par meta.visit.
 const Visitor = struct {
+    // Action a effectuer par le callback de visite : callback, recurse ou exit.
     pub const Action = enum {
         callback,
         recurse,
@@ -554,14 +569,22 @@ pub fn visit(comptime callback: anytype, ctx: FnParam(callback, 0), v: anytype) 
 
 // Verifie la visite recursive (structs, arrays, optionnels, BoundedArray).
 test visit {
+    // Type terminal de test de la visite.
     const Attr = struct { data: usize };
+    // Second type terminal de test.
     const OtherAttr = struct { other: []const u8 };
+    // Struct imbriquant un Attr.
     const NestedAttr = struct { nested: Attr };
+    // Struct contenant un Attr optionnel.
     const NestedAttrOptional = struct { nested: ?Attr };
+    // Struct a champ unique de test.
     const SimpleStruct = struct { prop: Attr };
+    // Struct a plusieurs types de champs.
     const MultipleTypesStruct = struct { prop1: Attr, prop2: OtherAttr, prop3: ?Attr, prop4: []Attr };
+    // Struct a champs imbriques (struct, optionnel, BoundedArray).
     const NestedTypesStruct = struct { prop1: Attr, prop2: OtherAttr, prop3: NestedAttr, prop4: NestedAttrOptional, prop5: stdx.BoundedArray(Attr, 8) };
 
+    // Contexte du callback de visite accumulant les donnees.
     const LocalContext = struct {
         result: usize,
 
@@ -693,15 +716,23 @@ pub fn visitFlatStruct(comptime callback: anytype, ctx: FnParam(callback, 0), v:
 
 // Verifie la visite de structs plats (avec BoundedArray).
 test visitFlatStruct {
+    // Type terminal de test de la visite de struct plat.
     const Attr = struct { data: usize };
+    // Second type terminal de test.
     const OtherAttr = struct { other: []const u8 };
+    // Struct imbriquant un Attr.
     const NestedAttr = struct { nested: Attr };
+    // Struct contenant un Attr optionnel.
     const NestedAttrOptional = struct { nested: ?Attr };
+    // Struct a champ unique de test.
     const SimpleStruct = struct { prop: Attr };
+    // Struct a plusieurs types de champs.
     // Note: no slice anymore, no stdx.BoundedArray
     const MultipleTypesStruct = struct { prop1: Attr, prop2: OtherAttr, prop3: ?Attr };
+    // Struct a champs imbriques (struct, optionnel, BoundedArray).
     const NestedTypesStruct = struct { prop1: Attr, prop2: OtherAttr, prop3: NestedAttr, prop4: NestedAttrOptional, prop5: stdx.BoundedArray(Attr, 8) };
 
+    // Contexte du callback de visite accumulant les donnees.
     const LocalContext = struct {
         result: usize,
 
@@ -846,10 +877,12 @@ pub fn zip(comptime func: anytype, allocator: std.mem.Allocator, values: anytype
 
 // Verifie que zip somme champ par champ plusieurs structures.
 test zip {
+    // Struct de test zippee champ par champ.
     const A = struct { a: u8, b: [2]u8 };
     const a0: A = .{ .a = 1, .b = .{ 2, 3 } };
     const a1: A = .{ .a = 4, .b = .{ 5, 6 } };
 
+    // Struct exposant le callback de somme utilise par zip.
     const Sum = struct {
         // Callback de test sommant une slice d'octets.
         pub fn call(x: []const u8) u8 {
@@ -873,6 +906,7 @@ pub fn collectAlloc(
 ) std.mem.Allocator.Error![]stdx.meta.FnReturn(func) {
     stdx.debug.assertComptime(@typeInfo(@TypeOf(func)).@"fn".params.len <= 2, "zml.meta.collect expects a func with two arguments, got: {}", .{@TypeOf(func)});
 
+    // Contexte d'allocation pour meta.collect.
     const CollectAllocCtx = struct {
         func_ctx: _CollectCtx(func),
         allocator: std.mem.Allocator,
@@ -901,6 +935,7 @@ pub fn collectAlloc(
 /// Asserts that the number of X found is equal to the slice len.
 pub fn collectBuf(func: anytype, func_ctx: _CollectCtx(func), obj: anytype, out: []stdx.meta.FnReturn(func)) void {
     stdx.debug.assertComptime(@typeInfo(@TypeOf(func)).@"fn".params.len <= 2, "zml.meta.collectBuf expects a func with one or two arguments, got: {}", .{@TypeOf(func)});
+    // Contexte de meta.collectBuf : fonction, sortie et index courant.
     const LocalContext = struct {
         func_ctx: _CollectCtx(func),
         out: @TypeOf(out),
@@ -927,6 +962,7 @@ pub fn collectPtrs(
     allocator: std.mem.Allocator,
     obj: anytype,
 ) std.mem.Allocator.Error![]*const T {
+    // Contexte de collecte de pointeurs.
     const CollectPtrCtx = struct {
         allocator: std.mem.Allocator,
         out: std.ArrayList(*const T) = .empty,
@@ -999,6 +1035,7 @@ pub fn Contains(Haystack: type, T: type) bool {
 
 // Visite v en appelant f(index, elem, ...args) pour chaque T rencontre.
 pub fn forEachVisit(v: anytype, comptime T: type, f: anytype, args: stdx.meta.TupleRange(std.meta.ArgsTuple(@TypeOf(f)), 2, null)) void {
+    // Contexte de forEachVisit : index courant et arguments transmis.
     const Ctx = struct {
         i: usize,
         args_: @TypeOf(args),

@@ -130,6 +130,7 @@ pub fn expectClose(io: std.Io, left_: anytype, right_: anytype, opts: CompareOpt
     }
 }
 
+// Options de comparaison numerique : tolerances et fraction minimale d'elements proches.
 pub const CompareOpts = struct {
     absolute_tolerance: f32 = 1e-3,
     relative_tolerance: f32 = 1e-2,
@@ -143,6 +144,7 @@ pub const CompareOpts = struct {
         .minimum_close_fraction = 1.00,
     };
 
+    // Rapport de comparaison : erreurs max/moyenne/RMSE, quantiles et fraction d'elements proches.
     pub const Report = struct {
         nan_or_inf: bool,
         max_absolute_error: f32,
@@ -224,6 +226,7 @@ pub const CompareOpts = struct {
         }
     };
 
+    // Accumulateur d'erreurs servant a construire un Report (avec quantiles).
     const Accumulator = struct {
         absolute_errors: []f32,
         relative_errors: []f32,
@@ -330,6 +333,7 @@ pub const CompareOpts = struct {
             std.sort.heap(f32, self.absolute_errors, {}, std.sort.asc(f32));
             std.sort.heap(f32, self.relative_errors, {}, std.sort.asc(f32));
 
+            // Namespace anonyme definissant le calcul de quantile local.
             const q = struct {
                 // Quantile d'un tableau trie a la fraction demandee (index arrondi).
                 fn q(values: []const f32, frac: f32) f32 {
@@ -424,6 +428,7 @@ pub fn testLayer(
 
     var args: ArgsT = undefined;
 
+    // Contexte du callback de visite : store d'activations et index courant.
     const LocalContext = struct {
         activation_store: zml.io.TensorStore.View,
         index: usize = 0,

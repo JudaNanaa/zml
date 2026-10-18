@@ -14,6 +14,7 @@ const Shape = @import("shape.zig").Shape;
 const Sharding = @import("Sharding.zig");
 const Tensor = @import("tensor.zig").Tensor;
 
+// Executable PJRT compile pour une fonction, avec formes d'entree/sortie et nombre de devices.
 pub const Exe = struct {
     platform: *const Platform,
     exe: *pjrt.LoadedExecutable,
@@ -90,6 +91,7 @@ pub const Exe = struct {
         return Results.init(allocator, self.output_shapes, self.platform, self.num_devices);
     }
 
+    // Vues a plat des buffers PJRT par device pour les entrees et les sorties.
     pub const FlatBuffers = struct {
         buffers: []const [*]*pjrt.Buffer,
         raw_buffers: []const *pjrt.Buffer,
@@ -122,6 +124,7 @@ pub const Exe = struct {
         }
     };
 
+    // Stockage des buffers d'entree de l'execution, avec eventuelles entrees fixees (baked).
     pub const Arguments = struct {
         flat_buffers: FlatBuffers,
         expected_shapes: []const Shape,
@@ -154,6 +157,7 @@ pub const Exe = struct {
 
         // Renseigne les arguments à partir de `offset` en parcourant `v` avec `meta.visit`.
         pub fn setPartial(self: *Arguments, v: anytype, offset: usize) void {
+            // Contexte du callback de remplissage partiel des arguments.
             const LocalContext = struct {
                 self: *Arguments,
                 current_index: usize = 0,
@@ -189,6 +193,7 @@ pub const Exe = struct {
 
         // Fixe (bake) les premiers arguments `v` pour les appels suivants.
         pub fn bake(self: *Arguments, v: anytype) void {
+            // Contexte du callback fixant (baking) les premiers arguments.
             const LocalContext = struct {
                 self: *Arguments,
 
@@ -214,6 +219,7 @@ pub const Exe = struct {
         }
     };
 
+    // Stockage des buffers de sortie de l'execution.
     pub const Results = struct {
         platform: *const Platform,
         flat_buffers: FlatBuffers,
@@ -244,6 +250,7 @@ pub const Exe = struct {
         // Construit des Buffers ZML depuis les handles de sortie et les renvoie comme `T`.
         pub fn get(self: *Results, comptime T: type) T {
             var result: T = undefined;
+            // Contexte du callback construisant les Buffers de sortie.
             const LocalContext = struct {
                 self: *Results,
                 current_index: usize = 0,
@@ -265,6 +272,7 @@ pub const Exe = struct {
 
         // Remplit `v` avec des Buffers construits depuis les handles de sortie.
         pub fn fill(self: *Results, v: anytype) void {
+            // Contexte du callback remplissant les sorties a partir des handles de sortie.
             const LocalContext = struct {
                 results: *Results,
                 current_index: usize = 0,
@@ -302,6 +310,7 @@ pub const Exe = struct {
         return .init(self, allocator);
     }
 
+    // Stockage reutilisable des arguments et resultats pour un executable emprunte.
     /// Reusable argument and result storage for a borrowed executable.
     /// The executable must outlive the runner, and the runner must not be used concurrently.
     pub const Runner = struct {
@@ -340,6 +349,7 @@ pub const Exe = struct {
         }
     };
 
+    // Options d'appel d'un runner : attendre la fin de l'execution.
     pub const CallOpts = struct {
         /// Waits for execution to complete before returning.
         wait: bool = false,
@@ -496,6 +506,7 @@ pub fn FnExe(comptime function_: anytype) type {
                     self.args.deinit(allocator);
                 }
 
+                // Paire entrees non baked / sorties pour un appel de runner type.
                 pub const Call = struct {
                     inputs: NonBakedInput,
                     outputs: Output,
@@ -602,6 +613,7 @@ fn typedOutputDestinations(comptime BufferizedOutput: type) type {
 
 // Vérifie que FnExe dérive correctement les appels baked et runtime.
 test "FnExe derives baked and runtime calls from a function" {
+    // Struct de test des entrees derivees par FnExe.
     const Inputs = struct {
         weights: struct {
             tensor: Tensor,
@@ -611,6 +623,7 @@ test "FnExe derives baked and runtime calls from a function" {
         tokens: Tensor,
         token_count: usize,
     };
+    // Struct de test des sorties derivees par FnExe.
     const Outputs = struct {
         hidden: Tensor,
         cache: struct {
@@ -619,6 +632,7 @@ test "FnExe derives baked and runtime calls from a function" {
         },
         metadata: usize,
     };
+    // Bloc de test contenant la fonction forward derivee.
     const Functions = struct {
         // Fonction factice utilisée pour tester la dérivation FnExe.
         fn forward(inputs: Inputs) Outputs {
@@ -657,6 +671,7 @@ test "Exe raw calls leave donated input handle cleanup to the caller" {
     const platform = @import("testing.zig").env();
     const allocator = std.testing.allocator;
     const io = std.testing.io;
+    // Bloc de test sommant deux tenseurs en reutilisant le buffer de value.
     const Functions = struct {
         // Fonction de test sommant deux tenseurs en réutilisant le buffer de `value`.
         fn forward(value: Tensor, weight: Tensor) Tensor {
@@ -699,6 +714,7 @@ test "FnExe runner replaces donated buffers with and without waiting" {
     const platform = @import("testing.zig").env();
     const allocator = std.testing.allocator;
     const io = std.testing.io;
+    // Bloc de test additionnant deux tenseurs en reutilisant value.
     const Functions = struct {
         // Fonction de test additionnant weight et value en réutilisant value.
         fn forward(inputs: struct { weight: Tensor, value: Tensor }) struct { value: Tensor } {
@@ -736,6 +752,7 @@ test "FnExe runner replaces unchanged donated buffers" {
     const platform = @import("testing.zig").env();
     const allocator = std.testing.allocator;
     const io = std.testing.io;
+    // Bloc de test reutilisant le buffer de value sans le modifier.
     const Functions = struct {
         // Fonction de test réutilisant le buffer de value sans le modifier.
         fn forward(inputs: struct { value: Tensor }) struct { value: Tensor } {

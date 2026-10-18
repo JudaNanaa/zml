@@ -64,6 +64,7 @@ fn resolveOutputOperandAliases(
     return out;
 }
 
+// Backend Triton : reexporte le builder, ses valeurs, dtypes et erreurs.
 pub const triton = struct {
     pub const Builder = triton_builder.Builder;
     pub const Value = triton_builder.Value;
@@ -116,6 +117,7 @@ pub const triton = struct {
             pub const Outputs = StructOf(spec.outputs, Shape);
             pub const Results = StructOf(spec.outputs, Tensor);
 
+            // Options d'appel d'un kernel Triton : config, grille, stages/warps et aliases de sorties.
             pub const CallOpts = struct {
                 cfg: ConfigT,
                 grid: [3]i32,
@@ -184,6 +186,7 @@ pub const triton = struct {
     }
 };
 
+// Backend Mosaic-TPU : reexporte le builder et ses helpers de configuration.
 pub const mosaic_tpu = struct {
     const Builder = mosaic_tpu_builder.Builder;
     const DType = mosaic_tpu_builder.DType;
@@ -234,6 +237,7 @@ pub const mosaic_tpu = struct {
             pub const Outputs = StructOf(spec.outputs, Shape);
             pub const Results = StructOf(spec.outputs, Tensor);
 
+            // Attributs Mosaic-TPU optionnels du custom call (vmem, bounds, semaphores...).
             pub const CallExtras = struct {
                 vmem_limit_bytes: ?i64 = null,
                 disable_bounds_checks: ?bool = null,
@@ -244,6 +248,7 @@ pub const mosaic_tpu = struct {
                 dynamic_grid_bounds: []const Tensor = &.{},
             };
 
+            // Options d'appel d'un kernel Mosaic-TPU : config et extras.
             pub const CallOpts = struct {
                 cfg: ConfigT,
                 extras: CallExtras = .{},
@@ -308,6 +313,7 @@ pub const mosaic_tpu = struct {
         };
     }
 
+    // Configuration serialisee d'un custom call TPU (corps, communication, layout...).
     const CustomCallConfig = struct {
         body: []const u8,
         has_communication: ?bool = null,
@@ -318,17 +324,20 @@ pub const mosaic_tpu = struct {
         disable_semaphore_checks: ?bool = null,
     };
 
+    // Configuration d'une zone memoire scope (espace, offset, taille).
     const ScopedMemoryConfig = struct {
         memory_space: i64 = 1,
         offset: i64 = 0,
         size: i64,
     };
 
+    // Configuration backend d'un custom call TPU : config custom call et memoires scopees.
     const BackendConfig = struct {
         custom_call_config: CustomCallConfig,
         scoped_memory_configs: ?[]const ScopedMemoryConfig = null,
     };
 
+    // Options de construction de la configuration backend TPU.
     const BackendConfigOpts = struct {
         vmem_limit_bytes: ?i64 = null,
         disable_bounds_checks: ?bool = null,
@@ -388,6 +397,7 @@ pub const mosaic_tpu = struct {
         return try json.toOwnedSlice();
     }
 
+    // Arguments d'emission d'un custom call TPU.
     const TpuCustomCallArgs = struct {
         inputs: []const *const mlir.Value,
         result_types: []const *const mlir.Type,
@@ -422,6 +432,7 @@ pub const mosaic_tpu = struct {
     }
 };
 
+// Backend CUDA Tile : reexporte le builder CUDA Tile.
 pub const cuda_tile = struct {
     pub const Builder = cuda_tile_builder.Builder;
     pub const Value = cuda_tile_builder.Value;
@@ -478,6 +489,7 @@ pub const cuda_tile = struct {
             pub const Outputs = StructOf(spec.outputs, Shape);
             pub const Results = StructOf(spec.outputs, Tensor);
 
+            // Options d'appel d'un kernel CUDA Tile : config, grille et sorties zero-init.
             /// No `num_warps`/`num_stages`: warp and CTA tuning is
             /// `optimization_hints` inside the IR (`Opts.hints`).
             pub const CallOpts = struct {
@@ -534,6 +546,7 @@ pub const cuda_tile = struct {
     }
 };
 
+// Backend CuTe : reexporte le builder CuTe et ses types.
 pub const cute = struct {
     pub const Builder = cute_builder.Builder;
     pub const ArgSpec = cute_builder.ArgSpec;
@@ -596,6 +609,7 @@ pub const cute = struct {
             pub const Outputs = StructOf(spec.outputs, Shape);
             pub const Results = StructOf(spec.outputs, Tensor);
 
+            // Options d'appel d'un kernel CuTe : config, grille, block et sorties zero-init.
             /// `kernel.launch(grid=, block=)` in the Python DSL; dynamic shared
             /// memory is what the kernel declares.
             pub const CallOpts = struct {
@@ -691,6 +705,7 @@ pub const cute = struct {
             pub const Outputs = StructOf(spec.outputs, Shape);
             pub const Results = StructOf(spec.outputs, Tensor);
 
+            // Options d'appel d'un programme CuTe : config, sorties zero-init et scalaires.
             pub const CallOpts = struct {
                 cfg: ConfigT,
                 zeroed_outputs: []const i32 = &.{},
@@ -739,6 +754,7 @@ pub const cute = struct {
     }
 };
 
+// Backend Fly (ROCm) : kernels bas niveau et helpers de layout.
 pub const fly = struct {
     // Renvoie la taille de wavefront de la plateforme : 64 sur CDNA, 32 sur RDNA.
     /// Threads per wavefront: 64 on CDNA, 32 on RDNA.
@@ -845,6 +861,7 @@ pub const fly = struct {
             /// By name, as `!fly.memref` views.
             pub const Args = StructOf(arg_names, Value);
 
+            // Options d'appel d'un kernel Fly : config, grille et threads par bloc.
             pub const CallOpts = struct {
                 cfg: ConfigT,
                 grid: [3]i32,
@@ -942,9 +959,11 @@ pub const fly = struct {
     }
 };
 
+// Kernel Fly de test : C = A + B sur (M, N) f32, vectorise et predicte.
 /// C = A + B over (M, N) f32, 128-bit vectorized and predicated on the
 /// ragged edge.
 const FlyVectorAdd = struct {
+    // Configuration du kernel FlyVectorAdd : layouts des threads et des valeurs.
     const Cfg = struct {
         thr: fly.Layout = fly.ordered(.{ 8, 16 }, .{ 1, 0 }),
         val: fly.Layout = fly.ordered(.{ 1, 4 }, .{ 0, 1 }),
@@ -973,8 +992,10 @@ test "fly kernel emits a module XLA can parse" {
     try std.testing.expect(std.mem.indexOf(u8, ir, "fly.static : !fly.tile<[8|64]>") != null);
 }
 
+// Kernel Fly de test : C = A x B^T avec un bloc tuile MFMA.
 /// C = A @ B^T with one MFMA-tiled block.
 const FlyTiledMma = struct {
+    // Configuration du kernel FlyTiledMma : flavour MFMA.
     const Cfg = struct { flavor: fly.MmaFlavor };
     const K = fly.Kernel(Cfg, .{
         .name = "tiled_mma",
@@ -998,6 +1019,7 @@ test "fly kernels run on rocm" {
 
     const allocator = std.testing.allocator;
 
+    // Namespace de test regroupant la compilation et l'execution des kernels Fly.
     // Compile `forward`, upload both inputs, run, and bring the result back.
     const call = struct {
         // Compile `forward`, televerse les entrees, execute et renvoie la sortie ramenee sur l'hote.
@@ -1017,6 +1039,7 @@ test "fly kernels run on rocm" {
     // vector add: elementwise over a ragged (100, 1000), predicated at the edge.
     {
         const M, const N = .{ 100, 1000 };
+        // Module de test du kernel FlyVectorAdd.
         const Mod = struct {
             // Forward du test vector add : appelle le kernel FlyVectorAdd sur les entrees.
             pub fn forward(a: Tensor, b: Tensor) Tensor {
@@ -1061,6 +1084,7 @@ test "fly kernels run on rocm" {
                 else => unreachable,
             };
 
+            // Module de test du kernel FlyTiledMma.
             const Mod = struct {
                 // Forward du test tiled MMA : appelle le kernel FlyTiledMma avec le flavour de l'appareil.
                 pub fn forward(a: Tensor, b: Tensor) Tensor {
@@ -1095,6 +1119,7 @@ test "fly kernels run on rocm" {
 
 // Verifie que le kernel CuTe genere le module attendu par le compilateur CuTe.
 test "cute kernel emits the module the CuTe compiler takes" {
+    // Configuration du kernel CuTe de test.
     const Cfg = struct { n: i64 };
     const AddOne = cute.Kernel(Cfg, .{
         .name = "add_one",
@@ -1126,6 +1151,7 @@ test "cute kernel emits the module the CuTe compiler takes" {
 
 // Verifie que le kernel CUDA Tile genere un module que XLA peut parser.
 test "cuda_tile kernel emits a module XLA can parse" {
+    // Configuration du kernel CUDA Tile de test.
     const Cfg = struct { n: i64 };
     const AddOne = cuda_tile.Kernel(Cfg, .{
         .name = "add_one",

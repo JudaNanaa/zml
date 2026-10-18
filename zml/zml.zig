@@ -53,6 +53,7 @@ pub const tensor = @import("tensor.zig");
 pub const Tensor = tensor.Tensor;
 pub const testing = @import("testing.zig");
 
+// Alias deprecie de l'ancien nom du module de compilation (utiliser zml.Compiler a la place).
 /// Deprecated, use `zml.Compiler` instead
 pub const module = struct {
     pub const CompilationContext = Compiler;

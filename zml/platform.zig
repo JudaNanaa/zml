@@ -20,6 +20,7 @@ var api_map: std.enums.EnumArray(Target, ?*const pjrt.Api) = .initFill(null);
 
 // Force le niveau de log XLA/TensorFlow à ERROR s'il n'est pas déjà défini.
 fn disableXlaLogs() void {
+    // Valeurs acceptees par la variable d'environnement TF_CPP_LOG_LEVEL.
     // https://deepreg.readthedocs.io/en/latest/docs/logging.html#tensorflow-logging
     const TF_CPP_LOG_LEVEL = struct {
         const DEBUG = "0";
@@ -62,7 +63,9 @@ fn loadOrGetApi(allocator: std.mem.Allocator, io: std.Io, target: Target) !*cons
     };
 }
 
+// Memoire PJRT adressable par un device, indexee par type.
 pub const Memory = struct {
+    // Type de memoire : defaut, hote non epinglee/epinglee ou device.
     pub const Kind = enum {
         default,
         host_unpinned,
@@ -121,6 +124,7 @@ pub const Memory = struct {
     }
 };
 
+// Device PJRT : plateforme parente, description, memoires adressables et identifiant de tri.
 pub const Device = struct {
     platform: *const Platform,
     pjrt_device: *const pjrt.Device,
@@ -253,6 +257,7 @@ fn platformDeviceSortId(target: Target, device: Device) usize {
 
 // Trie les devices par identifiant et vérifie l'ordre en mode Debug.
 fn sortDevicesById(target: Target, devices: []Device) void {
+    // Contexte du comparateur triant les devices par identifiant.
     const Context = struct {
         target: Target,
 
@@ -271,6 +276,7 @@ fn sortDevicesById(target: Target, devices: []Device) void {
     }
 }
 
+// Etat specifique a la plateforme cible (union taguee sur Target).
 // State union tagged on target platform to handle related resources
 pub const State = union(Target) {
     cpu: void,
@@ -282,6 +288,7 @@ pub const State = union(Target) {
     metal: void,
     furiosa: void,
 
+    // Ressources CUDA persistantes, dont les runners CUTLASS FlashInfer MoE.
     pub const CudaState = struct {
         fi_cutlass_moe_runners: ?*zml.moe.cutlass_flashinfer.Runners = null,
 
@@ -317,6 +324,7 @@ pub const State = union(Target) {
     }
 };
 
+// Plateforme PJRT initialisee : client, devices, memoires, maillages et enregistrement FFI.
 pub const Platform = struct {
     arena: std.heap.ArenaAllocator,
     target: Target,
@@ -332,6 +340,7 @@ pub const Platform = struct {
 
     pub const MAX_NUM_DEVICES: u16 = if (Target.tpu.isEnabled()) 64 else 32;
 
+    // Implementation d'E/S utilisee par la plateforme (threaded ou zio).
     pub const IoImpl = enum {
         threaded,
         zio,
@@ -657,6 +666,7 @@ pub const Platform = struct {
         unreachable;
     }
 
+    // Enregistrement d'un handler FFI personnalise aupres de la plateforme.
     pub const FfiRegistration = struct {
         name: []const u8,
         handler: *const pjrt.ffi.Handler,
@@ -758,6 +768,7 @@ pub const Platform = struct {
     }
 };
 
+// Options de creation d'une plateforme : maillage physique et configuration par cible.
 pub const CreateOptions = struct {
     pub const CreatePhysicalMeshFn = *const fn (
         allocator: std.mem.Allocator,
@@ -765,6 +776,7 @@ pub const CreateOptions = struct {
         devices: []const Device,
     ) anyerror!zml.Sharding.PhysicalMesh;
 
+    // Strategie de creation du maillage physique : automatique ou personnalisee.
     pub const PhysicalMesh = union(enum) {
         auto,
         custom: CreatePhysicalMeshFn,
@@ -785,6 +797,7 @@ pub const CreateOptions = struct {
     metal: XlaGpu = .{ .allocator = .{ .bfc = .{ .preallocate = true, .memory_fraction = 0.90 } } },
     io_impl: Platform.IoImpl = .threaded,
 
+    // Options de la plateforme Furiosa.
     pub const Furiosa = struct {
         pe_count: u8 = 8,
 
@@ -794,6 +807,7 @@ pub const CreateOptions = struct {
         }
     };
 
+    // Options de la plateforme CPU.
     pub const Cpu = struct {
         device_count: u32,
 
@@ -803,6 +817,7 @@ pub const CreateOptions = struct {
         }
     };
 
+    // Options du client GPU XLA (allocateur et dispatch asynchrone).
     pub const XlaGpu = struct {
         allocator: Allocator = .{ .bfc = .{} },
         /// The PJRT C API still exposes this under legacy
@@ -815,6 +830,7 @@ pub const CreateOptions = struct {
         // enable_mock_nccl
         // mock_gpu_topology
 
+        // Choix de l'allocateur GPU : BFC, cudaMallocAsync, VMM ou cuMalloc brut.
         pub const Allocator = union(enum) {
             /// "Best-Fit with Coalescing" algorithm
             bfc: Options,
@@ -825,12 +841,14 @@ pub const CreateOptions = struct {
             /// use raw cuMalloc
             platform,
 
+            // Options d'allocation GPU (preallocation, fraction memoire, taille collective).
             pub const Options = struct {
                 preallocate: bool = true,
                 memory_fraction: f32 = 0.90,
                 collective_memory_size_mb: i64 = 0,
             };
 
+            // Options de l'allocateur a memoire virtuelle (VMM).
             pub const VmmOptions = struct {
                 memory_fraction: f32 = 0.90,
             };
@@ -891,8 +909,10 @@ pub const CreateOptions = struct {
     }
 };
 
+// Helpers specifiques a la plateforme CUDA.
 // TODO(Corendos): Consider moving that in its own file if its size increase too much.
 pub const cuda = struct {
+    // Capacite de calcul CUDA (version majeure/mineure).
     pub const ComputeCapability = struct {
         major: u8,
         minor: u8,
@@ -937,7 +957,9 @@ pub const cuda = struct {
     }
 };
 
+// Helpers specifiques a la plateforme ROCm.
 pub const rocm = struct {
+    // Capacite de calcul ROCm identifiee par son architecture gfx.
     pub const ComputeCapability = enum {
         /// CDNA1: MI100.
         gfx908,
@@ -964,6 +986,7 @@ pub const rocm = struct {
         /// RDNA4 (Navi 48): RX 9070 family.
         gfx1201,
 
+        // Generations d'architecture AMD (CDNA et RDNA).
         pub const Architecture = enum {
             cdna1,
             cdna2,

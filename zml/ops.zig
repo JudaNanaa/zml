@@ -211,6 +211,7 @@ pub fn partitionId() Tensor {
     return Tensor._result(.init(.{}, .u32), op.result(0));
 }
 
+// Arguments d'un réducteur binaire stablehlo.reduce : opérande gauche et droite.
 pub const ReduceArgs = struct {
     left: Tensor,
     right: Tensor,
@@ -313,6 +314,7 @@ pub fn reduce(inputs: anytype, inits: anytype, axes_: []const i64, comptime func
     return result;
 }
 
+// Options d'une fenêtre glissante de réduction : dimensions, strides, dilatations et padding.
 pub const ReduceWindowOpts = struct {
     // TODO replace with Shape
     window_dimensions: []const i64,
@@ -408,6 +410,7 @@ pub fn reduceWindow(N: comptime_int, inputs: [N]Tensor, inits: [N]Tensor, opts: 
     return result;
 }
 
+// Arguments d'un comparateur stablehlo.sort : valeurs gauche et droite à comparer.
 pub const SortArgs = struct {
     left: Tensor,
     right: Tensor,
@@ -511,6 +514,7 @@ pub fn @"while"(
 
     const flat_operands: []*const Tensor = meta.collectPtrs(Tensor, allocator, &initial_state) catch @panic("OOM");
 
+    // Métadonnées MLIR (type, location, valeur) associées à un opérande.
     const OperandInfo = struct {
         type: *const mlir.Type,
         location: *const mlir.Location,
@@ -589,6 +593,7 @@ pub fn @"while"(
         comp.location,
     ).appendTo(comp.currentScope().block);
 
+    // État local du callback réécrivant les Tensors de résultat d'une opération while.
     const AssignResultCtx = struct {
         op_: *mlir.Operation,
         og_tensors: []*const Tensor,
@@ -616,11 +621,13 @@ test @"while" {
     const zml = @import("zml.zig");
     const platform = zml.testing.env();
 
+    // Bloc de portée locale décrivant l'état d'entrée du test de boucle while.
     const While = struct {
         // While struct can contain tensor and non-tensor fields.
         limit: i64,
         step: Tensor,
 
+        // État interne de la boucle de test : compteur `i` et somme courante.
         pub const State = struct {
             i: zml.Tensor,
             sum: zml.Tensor,
@@ -776,6 +783,7 @@ test "if" {
     const platform = zml.testing.env();
     const allocator = std.testing.allocator;
 
+    // Bloc de portée locale regroupant le forward de test de `@"if"`.
     const IfMod = struct {
         a: Tensor,
         b: Tensor,
@@ -869,6 +877,7 @@ test if2 {
     const platform = zml.testing.env();
     const allocator = std.testing.allocator;
 
+    // Bloc de portée locale regroupant le forward de test de `if2`.
     const IfMod = struct {
         // Forward de test qui appelle `if2` avec les deux produits matriciels.
         pub fn _fwd(pred: Tensor, a: Tensor, b: Tensor) Tensor {
@@ -894,6 +903,7 @@ test if2 {
 /// Create a Tensor struct similar to base, keeping base tags,
 /// but using mlir value and dims from the mlir operation.
 fn fromMlirOperationWithTags(op: *const mlir.Operation, base: anytype) @TypeOf(base) {
+    // Contexte local associant chaque Tensor au résultat MLIR suivant.
     const LocalContext = struct {
         index: usize,
         op: *const mlir.Operation,
@@ -917,6 +927,7 @@ fn fromMlirOperationWithTags(op: *const mlir.Operation, base: anytype) @TypeOf(b
     return res;
 }
 
+// Paramètres d'un noyau Triton : nom, IR, grille de lancement, nombres de stages/warps et options.
 pub const TritonOps = struct {
     debug: bool = false,
     name: []const u8,
@@ -993,6 +1004,7 @@ pub fn triton(inputs: anytype, outputs: anytype, opts: TritonOps) [outputs.len]T
     return outputs_;
 }
 
+// Paramètres d'un noyau Fly (MLIR GPU) : nom, module IR, grille et configuration de lancement.
 pub const FlyOps = struct {
     name: []const u8,
     /// The whole module text: a `gpu.func @name ... kernel` inside a
@@ -1094,6 +1106,7 @@ test "fly custom call, both entry ABIs" {
 
     const allocator = std.testing.allocator;
 
+    // Bloc de portée locale regroupant l'aide de compilation/exécution du test Fly.
     // Compile `forward` over one f32 input and bring the result back.
     const call = struct {
         // Aide de test : compile `forward`, televerse l'entree, execute le module et renvoie le resultat hote.
@@ -1111,6 +1124,7 @@ test "fly custom call, both entry ABIs" {
     // Native Fly ABI: a `gpu.func ... kernel` taking one !fly.ptr per operand
     // then per result. This is what `zml.kernel.fly` emits.
     {
+        // Bloc de portée locale contenant l'IR du noyau Fly (ABI native).
         const Mod = struct {
             const ir =
                 \\module attributes {gpu.container_module} {
@@ -1149,6 +1163,7 @@ test "fly custom call, both entry ABIs" {
     }
 
     {
+        // Bloc de portée locale contenant l'IR du noyau Fly (ABI tenseur destination).
         const Mod = struct {
             const ir =
                 \\module {
@@ -1179,6 +1194,7 @@ test "fly custom call, both entry ABIs" {
     }
 }
 
+// Paramètres d'un noyau Neuron NKI : nom, point d'entrée, source et options de compilation.
 pub const NeuronNkiOps = struct {
     name: []const u8,
     entrypoint: []const u8,
@@ -1305,6 +1321,7 @@ test "triton" {
         \\ }
     ;
 
+    // Bloc de portée locale regroupant le forward de test du noyau Triton.
     const TritonMod = struct {
         // Forward de test invoquant le noyau Triton d'addition.
         pub fn forward(a: Tensor, b: Tensor) [2]Tensor {
@@ -1349,6 +1366,7 @@ test "triton" {
     try std.testing.expectEqual(expected_result_b, cpu_result_1.items(f32)[0]);
 }
 
+// Paramètres d'un noyau CUDA Tile IR : nom, IR, grille, version de bytecode et sorties à zéroer.
 pub const CudaTileOps = struct {
     name: []const u8,
     ir: []const u8,
@@ -1419,6 +1437,7 @@ pub fn cudaTile(inputs: anytype, outputs: anytype, opts: CudaTileOps) [outputs.l
     return outputs_;
 }
 
+// Paramètres d'un noyau CuTe DSL : nom, module IR et configuration de lancement (grille/bloc).
 pub const CuteOps = struct {
     /// The kernel symbol.
     name: []const u8,
@@ -1539,6 +1558,7 @@ test "cute" {
         \\}
     ;
 
+    // Bloc de portée locale regroupant le forward de test du noyau CuTe.
     const Mod = struct {
         // Forward de test invoquant le noyau CuTe d'addition.
         pub fn forward(a: Tensor) Tensor {
@@ -1596,6 +1616,7 @@ test "cuda_tile" {
         \\}
     ;
 
+    // Bloc de portée locale regroupant le forward de test du noyau cuda_tile.
     const Mod = struct {
         // Forward de test invoquant le noyau cuda_tile d'addition.
         pub fn forward(a: Tensor) Tensor {
@@ -1665,6 +1686,7 @@ test "cuda_tile grid" {
         \\}
     ;
 
+    // Bloc de portée locale regroupant le forward de test du noyau cuda_tile (grille).
     const Mod = struct {
         // Forward de test invoquant le noyau cuda_tile de grille.
         pub fn forward(a: Tensor) Tensor {
@@ -1726,6 +1748,7 @@ test "cuda_tile zeroed_outputs" {
         \\}
     ;
 
+    // Bloc de portée locale regroupant le forward de test du noyau cuda_tile (écriture partielle).
     const Mod = struct {
         // Forward de test invoquant le noyau cuda_tile d'ecriture partielle.
         pub fn forward(a: Tensor) Tensor {
@@ -1760,6 +1783,7 @@ test "cuda_tile zeroed_outputs" {
     }
 }
 
+// Arguments d'une mise à jour scatter : opérande d'entrée et mise à jour.
 pub const ScatterArgs = struct {
     input: Tensor,
     update: Tensor,
@@ -1901,6 +1925,8 @@ pub fn scatter(
     return result;
 }
 
+// Configuration stablehlo d'un scatter : types d'axes (opération/update), axes de batch des
+// indices, correspondance indices/opérande et transposition des mises à jour.
 const ScatterConfig = struct {
     op_kind: stdx.BoundedArray(ScatterAxisKind, constants.MAX_RANK) = .empty,
     up_kind: stdx.BoundedArray(ScatterAxisKind, constants.MAX_RANK) = .empty,
@@ -1909,6 +1935,7 @@ const ScatterConfig = struct {
     updates_transpose: Shape.AxesArray = .empty,
 };
 
+// Type d'un axe de scatter stablehlo : batching, update_window, inserted_window ou window_id.
 const ScatterAxisKind = enum { batching, update_window, inserted_window, window_id };
 
 // Calcule la configuration StableHLO d'un scatter (types d'axes, batching, transposition des updates)
@@ -2016,6 +2043,7 @@ test scatterConfig {
     const scope = comp.pushBlock(block);
     defer scope.pop();
 
+    // Bloc de portée locale regroupant l'aide de test fabriquant des indices nuls diffusés.
     const Local = struct {
         // Aide de test : renvoie des indices nuls diffuses vers `idx_shape`.
         pub fn _idx(idx_shape: anytype) Tensor {
@@ -2099,8 +2127,10 @@ fn scatterPrepareIndices(
     return Tensor.stack(indices.constSlice(), .last, .coord);
 }
 
+// Type d'un axe de gather stablehlo : batching, offset, collapsed ou indices.
 pub const GatherAxisKind = enum { batching, offset, collapsed, indices };
 
+// Options de gather : promesse que les indices sont triés.
 pub const GatherOpts = struct { indices_are_sorted: bool = false };
 
 // Emet une operation stablehlo.gather sur les axes tagges donnes ; gere batching, axes regroupes
@@ -2221,6 +2251,8 @@ pub fn gather(self: Tensor, idx_axes: []const u3, idx_per_axis: []const Tensor, 
     return Tensor._result(res_shape, gather_op.result(0));
 }
 
+// Regroupe les correctifs de compatibilité des backends (ex. Neuron) appliqués avant l'abaissement
+// de certaines opérations stablehlo vers le matériel.
 /// Backend lowering compatibility shims live here so public tensor/model code
 /// can keep expressing StableHLO semantics directly.
 /// Each rewrite should
@@ -2382,6 +2414,7 @@ fn CustomCallResultTypeFromOutputSpec(comptime OutputSpecT: type) type {
     };
 }
 
+// Options d'un custom call stablehlo : effets de bord, alias sortie/opérande et exécution hôte.
 pub const CustomCallOptions = struct {
     has_side_effect: bool,
     output_operand_aliases: ?[]const dialects.stablehlo.CustomCallOpts.OutputOperandAlias = null,
@@ -2435,6 +2468,7 @@ pub fn customCallOutputOperandAliases(
     return &output_operand_aliases;
 }
 
+// Options d'une opération stablehlo.composite : version et attributs MLIR additionnels.
 pub const CompositeOpts = struct {
     version: i32 = 0,
     composite_attributes: []const mlir.NamedAttribute = &.{},
@@ -2661,6 +2695,7 @@ pub fn manualComputation(
 // Reconstruit la structure d'entrees en substituant a chaque Tensor son equivalent localise
 // sur le fragment courant.
 fn manualComputationLocalizeInputs(allocator: std.mem.Allocator, inputs: anytype, local_tensors: []const Tensor) !@TypeOf(inputs) {
+    // Contexte local fournissant les tenseurs localisés au callback de substitution.
     const Context = struct {
         local_tensors: []const Tensor,
         input_idx: usize = 0,
@@ -2926,6 +2961,7 @@ test "manualComputation handler API" {
     const lhs = Tensor.constant(DataType.f32.constant(1)).broad(shape);
     const rhs = Tensor.constant(DataType.f32.constant(2)).broad(shape);
 
+    // Bloc de portée locale décrivant la configuration à transmettre au gestionnaire de test.
     const Configured = struct {
         lhs: Tensor,
         bias: ?Tensor,
@@ -2967,6 +3003,7 @@ test "manualComputation handler API" {
     );
     try zml.testing.expectEqualShapes(shape, passthrough.shape());
 
+    // Entrées imbriquées du test : paire de tenseurs et tenseur optionnel enveloppé.
     const NestedInputs = struct {
         pair: [2]Tensor,
         optional: ?struct { tensor: Tensor },
@@ -2980,6 +3017,7 @@ test "manualComputation handler API" {
         @intFromPtr(rhs.value()),
     };
 
+    // Structure de test vérifiant la localisation de champs imbriqués et de slices.
     const NestedStruct = struct {
         nested_inputs: NestedInputs,
         slice_inputs: []const Tensor,
@@ -3270,6 +3308,7 @@ pub fn shardingAwareTypedCustomCall(
         output_shapes[i] = @field(output, field.name);
     }
 
+    // Bloc de portée locale émettant le custom call typé sur les formes locales au fragment.
     const Handler = struct {
         input: Input,
         attributes: Attributes,
@@ -3488,11 +3527,13 @@ test customCall {
 
 // Verifie la conversion d'alias de champs nommes en indices sortie/operande.
 test "CustomCallOutputOperandAliases maps named fields to indices" {
+    // Entrées du test d'alias : tenseurs q, k et v.
     const Input = struct {
         q: Tensor,
         k: Tensor,
         v: Tensor,
     };
+    // Sorties du test d'alias : forme d'attention et forme de scratch.
     const Output = struct {
         attn: Shape,
         scratch: Shape,

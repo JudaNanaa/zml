@@ -25,6 +25,7 @@ test {
     std.testing.refAllDecls(Buffer.HostAccessible);
 }
 
+// Buffer multi-dimensionnel alloue sur l'accelerateur et adresse par un ou plusieurs shards PJRT.
 /// Buffer is a multi-dimension array, whose memory is allocated on an accelerator.
 ///
 /// * contains a handle that the ZML runtime can use to convert into a physical address, but there is no guarantee this address is visible from the CPU.
@@ -35,6 +36,7 @@ pub const Buffer = struct {
     _shape: Shape,
     _shards: Shards,
 
+    // Indique si une execution peut donner (donate) ce buffer et y ecrire ses sorties.
     /// Whether executions may donate a buffer, writing their outputs into it.
     /// `HostAccessible.init` uses it to decide whether devices share allocations.
     pub const Donation = enum {
@@ -50,6 +52,7 @@ pub const Buffer = struct {
     pub const MAX_NUM_SHARDS: u16 = Platform.MAX_NUM_DEVICES;
     pub const Shards = stdx.BoundedArray(*pjrt.Buffer, MAX_NUM_SHARDS);
 
+    // Vue d'un shard de Buffer : plateforme et pointeur vers le buffer PJRT sous-jacent.
     pub const Shard = struct {
         _platform: *const Platform,
         _pjrt_buffer: *pjrt.Buffer,
@@ -60,6 +63,7 @@ pub const Buffer = struct {
         }
     };
 
+    // Iterateur sur les shards PJRT d'un Buffer.
     pub const ShardIterator = struct {
         _platform: *const Platform,
         _shards: []const *pjrt.Buffer,
@@ -82,6 +86,7 @@ pub const Buffer = struct {
         }
     };
 
+    // Options de creation d'un Buffer depuis l'hote : attente du transfert et type de memoire.
     pub const FromOptions = struct { wait: bool = true, memory: Memory.Kind = .default };
 
     // Libere la memoire accelerator de tous les shards et vide la liste.
@@ -231,6 +236,7 @@ pub const Buffer = struct {
         }
     }
 
+    // Options de creation d'un Buffer non initialise : type de memoire cible.
     pub const UnitializedOptions = struct { memory: Memory.Kind = .default };
 
     // Cree un Buffer non initialise de la forme donnee sur chaque device.
@@ -427,6 +433,7 @@ test "device round-trip" {
     }
 }
 
+// Metadonnees PJRT derivees d'une Shape (forme packee, type de buffer, placement et layout).
 const PjrtBufferMetadata = struct {
     shape: Shape,
     ty: pjrt.BufferType,

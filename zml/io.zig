@@ -23,7 +23,9 @@ const Tensor = @import("tensor.zig").Tensor;
 
 const log = std.log.scoped(.@"zml/io");
 
+// Ensembles de tenseurs et metadonnees charges depuis un depot, indexes par nom.
 pub const TensorStore = struct {
+    // Groupe de tenseurs lies a une memoire et a un drapeau de transformation.
     pub const Binding = struct {
         tensors: []*safetensors.Tensor,
         transformed: bool,
@@ -132,6 +134,7 @@ pub const TensorStore = struct {
         , .{ name_slice, stdx.fmt.slice(store.meshes) });
     }
 
+    // Vue d'un TensorStore limitee a un prefixe de nom.
     pub const View = struct {
         store: *TensorStore,
 
@@ -339,6 +342,7 @@ pub const TensorStore = struct {
     };
 };
 
+// Charge les tenseurs vers les devices via des allocations DMA et des groupes d'E/S limites.
 pub const Loader = struct {
     allocator: std.mem.Allocator,
     platform: *const Platform,
@@ -349,6 +353,7 @@ pub const Loader = struct {
     bytes_loaded: std.atomic.Value(usize) = .init(0),
     delivered: std.AutoHashMapUnmanaged(Tensor.Id, void) = .empty,
 
+    // Options du Loader : parallelisme et taille/nombre de chunks DMA.
     pub const Opts = struct {
         pub const default: Opts = .{
             .parallelism = 1,
@@ -401,6 +406,7 @@ pub const Loader = struct {
         return self.group.await(io);
     }
 
+    // Options de chargement d'un tenseur (barre de progression optionnelle).
     pub const LoadOpts = struct {
         progress: ?*std.Progress.Node = null,
     };
@@ -616,6 +622,7 @@ test "Loader.loadExecute cleans up donated and non-donated inputs" {
     defer loader.deinit();
 
     inline for (.{ false, true }) |donate| {
+        // Bloc de test regroupant la fonction forward du chargement.
         const Functions = struct {
             // Fonction forward du test : additionne value et weight, en donnant eventuellement son buffer a la somme.
             fn forward(value: Tensor, weight: Tensor) Tensor {
@@ -638,6 +645,7 @@ test "Loader.loadExecute cleans up donated and non-donated inputs" {
     }
 }
 
+// Writer qui relaie les octets ecrits et alimente une barre de progression.
 pub const ProgressWriter = struct {
     inner: *std.Io.Writer,
     progress: *std.Progress.Node,
@@ -645,6 +653,7 @@ pub const ProgressWriter = struct {
     total: usize = 0,
     scale: usize,
 
+    // Options de creation du ProgressWriter : facteur d'echelle de la progression.
     pub const InitOpts = struct {
         scale: usize = 1,
     };
@@ -721,6 +730,7 @@ pub const ProgressWriter = struct {
     }
 };
 
+// Writer memoire choisi selon la plateforme : direct (DMA) ou buffered.
 pub const MemoryWriter = union(enum) {
     direct: DirectMemoryWriter,
     buffered: BufferedMemoryWriter,
@@ -773,6 +783,7 @@ pub const MemoryWriter = union(enum) {
     }
 };
 
+// Writer memoire qui accumule les octets dans un buffer avant transfert vers les shards.
 pub const BufferedMemoryWriter = struct {
     io: std.Io,
     platform: *const Platform,
@@ -819,7 +830,9 @@ pub const BufferedMemoryWriter = struct {
     }
 };
 
+// Writer DMA d'un shard : ecrit directement dans le buffer device via des evenements PJRT.
 const DirectShardWriter = struct {
+    // Etat partage d'une copie DMA asynchrone vers un buffer device.
     const EventContext = struct {
         self: *DirectShardWriter,
         err: ?*pjrt.Error = null,
@@ -999,6 +1012,7 @@ const DirectShardWriter = struct {
     }
 };
 
+// Suivi de la progression d'un shard pendant le transfert.
 const ShardProgress = struct {
     const scale: usize = 1024;
 
@@ -1013,6 +1027,7 @@ const ShardProgress = struct {
     }
 };
 
+// Table de routage des octets d'un tenseur vers les writers de shards (spans primaires et miroirs).
 // Dispatch planning bridges two different orders:
 //
 // 1. Placement traversal emits byte ranges per shard writer, in device order.
@@ -1027,6 +1042,7 @@ const ShardProgress = struct {
 // ranges represent replicated shard data: the reader provides those bytes once,
 // the primary writer receives them zero-copy, and mirrors receive a copy.
 const DispatchSpans = struct {
+    // Plage d'octets globale envoyee a un writer primaire et a ses miroirs.
     const DispatchSpan = struct {
         start: usize,
         end: usize,
@@ -1035,6 +1051,7 @@ const DispatchSpans = struct {
         mirror_writer_len: usize,
     };
 
+    // Plage d'octets appartenant a un shard, avec son ordre d'apparition.
     const PlacementSpan = struct {
         writer_index: usize,
         start: usize,
@@ -1100,6 +1117,7 @@ const DispatchSpans = struct {
         spans: *std.ArrayList(DispatchSpan),
         mirror_writers: *std.ArrayList(usize),
     ) !void {
+        // Contexte du comparateur triant les spans de placement.
         const SortContext = struct {
             // Comparateur de tri des spans par (start, len, ordre d'apparition).
             fn lessThan(_: void, lhs: PlacementSpan, rhs: PlacementSpan) bool {
@@ -1216,6 +1234,7 @@ const DispatchSpans = struct {
     }
 };
 
+// Writer memoire DMA repartissant les octets d'un flux vers les shards via les spans de placement.
 // Direct load writer state machine.
 //
 //     std.Io.Reader
@@ -1597,12 +1616,15 @@ fn buildMesh2x2x2(
     return Sharding.PhysicalMesh.fromTree(allocator, target, topology);
 }
 
+// Types et scenarios de test de DirectMemoryWriter sur device.
 const DirectMemoryWriterDeviceTest = struct {
+    // Mode d'ecriture du test : flux restant ou tranche ecrivable gloutonne.
     const WriteMode = enum {
         stream_remaining,
         writable_slice_greedy,
     };
 
+    // Scenario de test : nom, options de creation, forme, maillage et strategie.
     pub const Scenario = struct {
         name: []const u8,
         create_options: CreateOptions,

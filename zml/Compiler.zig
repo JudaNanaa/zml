@@ -72,6 +72,7 @@ fn mlirRegistry(io: std.Io) *mlir.DialectRegistry {
     return mlir_global_registry.?;
 }
 
+// Options de compilation : progression, maillages, partitionneur et sorties MLIR.
 pub const Options = struct {
     /// Incremented once after successful compilation.
     progress: std.Progress.Node = .none,
@@ -101,11 +102,13 @@ pub const Error = std.mem.Allocator.Error ||
     pjrtx.Client.CompileError ||
     error{MissingDeviceInTile};
 
+// Origine d'une donation de buffer : implicite (compteur) ou explicite (sortie).
 pub const Donation = union(enum) {
     implicit: u32,
     explicit: u32,
 };
 
+// Etat de compilation d'un bloc MLIR : arguments, donations et memoires des tenseurs.
 pub const Scope = struct {
     compiler: *Compiler,
     block: *mlir.Block,
@@ -570,12 +573,14 @@ fn addPartitionerOperations(ctx: *Compiler) !void {
     }
 }
 
+// Resultat de l'emission MLIR : fonction produite et infos des tenseurs d'entree/sortie.
 const EmitMlirResult = struct {
     func: *mlir.Operation,
     input_info: std.MultiArrayList(TensorInfo),
     output_info: std.MultiArrayList(TensorInfo),
 };
 
+// Info de compilation d'un tenseur : id, forme, valeur MLIR et buffer de donation.
 pub const TensorInfo = struct {
     id: Tensor.Id,
     shape: Shape,
@@ -646,6 +651,7 @@ fn emitMlir(compiler: *Compiler, comptime func: anytype, args: std.meta.ArgsTupl
 
 // Crée les arguments de bloc MLIR des tenseurs d'entrée et collecte leurs infos.
 fn createBlockArguments(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOfMemory}!std.MultiArrayList(TensorInfo) {
+    // Contexte du callback creant les arguments de bloc MLIR des entrees.
     const CreateBlockArgumentsCb = struct {
         compiler: *Compiler,
         scope: *Scope,
@@ -692,6 +698,7 @@ fn createBlockArguments(compiler: *Compiler, scope: *Scope, v: anytype) error{Ou
 
 // Collecte les infos des tenseurs de sortie, en repackant les dtypes sub-byte.
 fn collectOutputInfo(compiler: *Compiler, scope: *Scope, v: anytype) error{OutOfMemory}!std.MultiArrayList(TensorInfo) {
+    // Contexte du callback collectant les infos des tenseurs de sortie.
     const CollectOutputInfoCb = struct {
         compiler: *Compiler,
         scope: *Scope,

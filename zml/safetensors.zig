@@ -13,6 +13,7 @@ const log = std.log.scoped(.@"zml/safetensors");
 
 const BYTES_HEADER = 8;
 
+// Type de fichier modele deduit de son extension.
 pub const FileType = enum {
     index,
     safetensors,
@@ -65,6 +66,7 @@ pub fn fetchRegistry(
     };
 }
 
+// Lecteur streaming des octets d'un Tensor safetensors, avec alignement optionnel.
 pub const TensorReader = struct {
     tensor: Tensor,
     file: std.Io.File,
@@ -76,6 +78,7 @@ pub const TensorReader = struct {
     io: std.Io,
     interface: std.Io.Reader,
 
+    // Options d'ouverture d'un TensorReader : alignement de l'offset de lecture.
     pub const InitOpts = struct {
         alignment: ?std.mem.Alignment = null,
     };
@@ -231,6 +234,7 @@ pub const TensorReader = struct {
     }
 };
 
+// Description d'un tenseur safetensors : fichier, nom, forme et offset en octets.
 pub const Tensor = struct {
     file_uri: []const u8,
     name: []const u8,
@@ -259,6 +263,7 @@ pub const Tensor = struct {
     }
 };
 
+// Registre des tenseurs et metadonnees charges depuis un depot de modeles.
 pub const TensorRegistry = struct {
     arena: std.heap.ArenaAllocator,
 
@@ -483,6 +488,7 @@ pub fn parseSafetensors(
     }
 }
 
+// Index d'un .safetensors.index.json : map fichier vers noms de tenseurs, plus metadonnees.
 const SafetensorsIndex = struct {
     pub const Map = std.StringArrayHashMapUnmanaged(std.ArrayList([]const u8));
 
@@ -641,6 +647,7 @@ pub fn resolveModelEntrypoint(io: std.Io, repo: std.Io.Dir) ModelPathResolutionE
     return ModelPathResolutionError.FileNotFound;
 }
 
+// Valeur de metadonnee safetensors : scalaire ou tableau de bool/entier/flottant/chaine.
 const Metadata = union(enum) {
     null: void,
     int: i64,
@@ -653,6 +660,7 @@ const Metadata = union(enum) {
     array_float: []const f64,
     array_string: []const []const u8,
 
+    // Type d'element d'un tableau de metadonnees.
     pub const ItemType = enum {
         int,
         float,

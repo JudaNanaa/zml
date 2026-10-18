@@ -5,6 +5,7 @@ const floats = @import("floats.zig");
 const C64 = std.math.Complex(f32);
 const C128 = std.math.Complex(f64);
 
+// Type de donnee elementaire supporte par ZML (bool, entiers, flottants, complexes).
 pub const DataType = enum(u8) {
     bool,
     f4e2m1,
@@ -43,6 +44,7 @@ pub const DataType = enum(u8) {
         };
     }
 
+    // Classe d'un DataType : booleen, flottant, entier ou complexe.
     pub const Class = enum(u8) {
         bool,
         float,
@@ -259,6 +261,7 @@ pub const DataType = enum(u8) {
         return .init(dtype, value);
     }
 
+    // Valeur scalaire typee : union taguee par le DataType actif.
     pub const Value = union(DataType) {
         bool: bool,
         f4e2m1: floats.Float4E2M1,

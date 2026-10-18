@@ -14,6 +14,7 @@ const Tensor = @import("tensor.zig").Tensor;
 
 const log = std.log.scoped(.@"zml/mem");
 
+// Allocateur DMA choisi selon la plateforme : DMA map CUDA, buffers non initialises ou passthrough.
 pub const DmaAllocator = union(enum) {
     passthrough: std.mem.Allocator,
     uib: UninitializedBufferAllocator,
@@ -37,9 +38,11 @@ pub const DmaAllocator = union(enum) {
     }
 };
 
+// Allocateur qui puise des buffers PJRT non initialises dans une memoire hote epinglee.
 pub const UninitializedBufferAllocator = struct {
     memory: *const Memory,
 
+    // En-tete place devant chaque allocation, conservant le *pjrt.Buffer a liberer.
     const Header = struct {
         buffer: *pjrt.Buffer,
     };
@@ -126,6 +129,7 @@ pub const UninitializedBufferAllocator = struct {
     }
 };
 
+// Allocateur qui enregistre (dmaMap) la memoire hote aupres de PJRT pour les transferts DMA.
 pub const DmaMapAllocator = struct {
     parent: std.mem.Allocator,
     platform: *const Platform,
@@ -193,6 +197,7 @@ pub const DmaMapAllocator = struct {
     }
 };
 
+// Pool de buffers a taille fixe : decoupe un buffer en blocs egaux et gere une file d'index libres.
 pub const FixedBufferPool = struct {
     buffer: []u8,
     block_size: usize,
@@ -242,7 +247,9 @@ pub const FixedBufferPool = struct {
     }
 };
 
+// Pool de buffers croissant jusqu'a max_blocks blocs, avec pile de blocs libres sans verrou.
 pub const DynamicBufferPool = struct {
+    // Noeud de la pile libre pointant vers le prochain bloc reutilisable.
     const Node = struct { next: ?*Node };
     const alignment: std.mem.Alignment = .of(Node);
 

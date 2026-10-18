@@ -32,6 +32,7 @@ buffer: Buffer,
 /// HostAccessible moves.
 mapping: *Mapping,
 
+// Metadonnees de layout et de placement preparees une fois par buffer HostAccessible.
 /// The host side of the buffer. Views and blocks copy nothing from it: the
 /// layout and shard placement are prepared once at creation and take several
 /// KB, and copying them into every view, slice and block made memcpy most of
@@ -77,6 +78,7 @@ const Mapping = struct {
     }
 };
 
+// Table des allocations hote epinglees : entrees et regions (replicas) en ordre d'apparition.
 /// The host allocations behind the buffer's shards. Devices that share an
 /// allocation map to one entry, and entries holding the same region of the
 /// array are its replicas. Entries stay in region order, so a region's
@@ -88,6 +90,7 @@ const HostPinnedAllocations = struct {
 
     const empty: HostPinnedAllocations = .{};
 
+    // Une allocation hote epinglee : origine globale, pointeur et shard proprietaire.
     const Allocation = struct {
         /// Global coordinates of the allocation's first element.
         origin: Coordinates,
@@ -104,6 +107,7 @@ const HostPinnedAllocations = struct {
         shared: bool = false,
     };
 
+    // Plage d'entrees partageant la meme region de donnees (replicas).
     /// `entries[start..][0..len]` hold the region's replicas, in the order they
     /// were added. Reads use the first.
     const Region = struct { start: u8, len: u8 };
@@ -515,6 +519,7 @@ pub fn View(comptime T: type) type {
             };
         }
 
+        // Vue en ecriture d'un sous-ensemble contigu d'un shard.
         pub const Edit = struct {
             view: Self,
             /// Holds the previous values or garbage: write every element.
@@ -552,6 +557,7 @@ pub fn View(comptime T: type) type {
             return .init(self);
         }
 
+        // Bloc logique contigu d'un shard, avec offsets et pointeurs par replica.
         /// A run of elements that are consecutive in the view's row-major order and
         /// contiguous in memory, so each replica holds them as a plain slice.
         /// Writes must reach every replica; reads use the first. Borrows the buffer's
@@ -634,6 +640,7 @@ pub fn View(comptime T: type) type {
             };
         }
 
+        // Bornes [start, end) d'un bloc contigu, en indices row-major locaux au shard.
         const Bounds = struct { start: usize, end: usize };
 
         // Calcule les bornes [start,end) du bloc contigu contenant l'index local donné.
@@ -706,6 +713,7 @@ pub fn View(comptime T: type) type {
             return @ptrCast(@alignCast(ptr + byte_offset));
         }
 
+        // Localisation d'un element : region, coordonnees locales et offset row-major.
         const Location = struct {
             region: HostPinnedAllocations.Region,
             /// Coordinates of the element within its shard.
@@ -737,6 +745,7 @@ pub fn View(comptime T: type) type {
     };
 }
 
+// Position dans un tableau : une coordonnee par axe (les axes au-dela du rang restent nuls).
 /// A position in an array, one coordinate per axis. Axes past the rank stay zero.
 const Coordinates = struct {
     axes: [Shape.MAX_RANK]usize,
@@ -804,6 +813,7 @@ const Coordinates = struct {
     }
 };
 
+// Adressage physique et limites de blocs logiques prepares une fois par buffer.
 /// Physical addressing and logical block boundaries prepared once per HostAccessible.
 /// All metadata is stored by value; the source layout is needed only during init.
 const LayoutMetadata = struct {
@@ -813,6 +823,7 @@ const LayoutMetadata = struct {
     alignment_size: usize,
     addressing: Addressing,
 
+    // Mode d'adressage physique : row-major, strided ou tuile.
     const Addressing = union(enum) {
         row_major,
         strided: ByteStrides,
@@ -820,10 +831,12 @@ const LayoutMetadata = struct {
 
         const ByteStrides = [Shape.MAX_RANK]usize;
 
+        // Adressage tuile : digits physiques (hors dimensions unitaires et de padding).
         const Tiled = struct {
             /// Unit and padding dimensions always hold index 0 and are left out.
             digits: stdx.BoundedArray(Digit, Shape.MAX_RANK + pjrt.DefaultMemoryLayout.MAX_TILE_DIMS) = .empty,
 
+            // Une dimension physique d'un layout tuile, vue comme digit d'une coordonnee.
             /// One physical dimension of a tiled layout, as a digit of one coordinate.
             const Digit = struct {
                 byte_stride: usize,
@@ -992,11 +1005,13 @@ fn isMinorToMajorRowMajor(minor_to_major: []const i64, rank: usize) bool {
     return true;
 }
 
+// Dimensions physiques d'un layout tuile, de la plus majeure a la plus mineure.
 /// The physical dimensions of a tiled layout, major to minor. XLA lays a tiled array
 /// out row-major over these dimensions; see https://openxla.org/xla/tiled_layout.
 const TiledDims = struct {
     dims: stdx.BoundedArray(Dim, Shape.MAX_RANK + 2 * pjrt.DefaultMemoryLayout.MAX_TILE_DIMS) = .empty,
 
+    // Une dimension physique d'un layout tuile : axe source, taille et diviseur/modulus.
     /// Every dimension holds the digit `(coordinate[axis] / divisor) % modulus`.
     const Dim = struct {
         /// Null for padding, which only holds index 0.
@@ -1153,6 +1168,7 @@ fn tiledElementOffset(shape_: Shape, layout: pjrt.MemoryLayout.Tiled, index: []c
 test "LayoutMetadata byte offsets match physical layouts" {
     const unit_tiles: [pjrt.DefaultMemoryLayout.MAX_TILE_DIMS]i64 = @splat(1);
     const tile_ranks: [pjrt.DefaultMemoryLayout.MAX_NUM_TILES]usize = @splat(Shape.MAX_RANK);
+    // Cas de test : forme, layout memoire et taille de bloc.
     const Case = struct { shape: Shape, layout: pjrt.MemoryLayout, block_size: usize };
     const cases = [_]Case{
         .{ .shape = .init(.{}, .i32), .layout = .{ .strides = .{ .byte_strides = &.{} } }, .block_size = 1 },
@@ -1421,6 +1437,7 @@ test "HostAccessible.View nested tiles" {
 // Vérifie les layouts denses, transposés, strided et tuilés partiels.
 test "HostAccessible.View dense, transposed, strided and partial-rank tiled layouts" {
     const shape_ = Shape.init(.{ 2, 3 }, .i32);
+    // Cas de test : layout, taille de bloc et valeurs attendues.
     const Case = struct { layout: pjrt.MemoryLayout, block_size: usize, expected: []const i32 };
     const cases = [_]Case{
         .{
@@ -1500,6 +1517,7 @@ test "HostAccessible.View row-major layouts return one block across rows and rep
 
 // Vérifie que les shards denses s'arrêtent aux trous de l'ordre row-major global.
 test "HostAccessible.View dense shards stop at gaps in global row-major order" {
+    // Cas de test de shards denses : formes, taille de bloc, origines et valeurs attendues.
     const Case = struct {
         shape: Shape,
         shard_shape: Shape,
@@ -1563,6 +1581,7 @@ test "HostAccessible.View dense shards stop at gaps in global row-major order" {
     }
 }
 
+// Fixture de test : tableau 4x6 reparti en 2x3 shards, avec 4 replicas supplementaires.
 /// A 4x6 array split into 2x3 shards. Shards 4 to 7 are separate copies of shards 0 to 3.
 const TestShards = struct {
     storage: [8][8]i32 = @splat(@splat(-1)),
@@ -1648,6 +1667,7 @@ test "HostAccessible.View blocks visit partial global ranges in every shard" {
     try std.testing.expectEqual(99, fixture.storage[3][4]);
     try std.testing.expectEqual(99, fixture.storage[7][4]);
 
+    // Cas de test : pas de decalage et valeurs attendues.
     const Case = struct { step: i32, expected: [18]i32 };
     const cases = [_]Case{
         .{ .step = 3, .expected = .{ 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55, 58 } },
@@ -1979,6 +1999,7 @@ test "HostAccessible executions read shared inputs on every device" {
     const platform = testing.env();
     const api = platform.pjrt_api;
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
+    // Module de test incrementant une entree host_pinned en passant par le device.
     const Test = struct {
         // Fonction de test qui incrémente une entrée host_pinned en passant par le device.
         fn increment(input: zml.Tensor) zml.Tensor {
@@ -2215,6 +2236,7 @@ test "HostAccessible await after executable donation permits the next host updat
     const io = std.testing.io;
     const platform = testing.env();
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
+    // Module de test incrementant en reutilisant le buffer hote.
     const Test = struct {
         // Fonction de test qui incrémente en réutilisant le buffer hôte.
         fn increment(input: zml.Tensor) zml.Tensor {
@@ -2269,6 +2291,7 @@ test "HostAccessible await follows an output that doesn't reuse the pinned alloc
     const io = std.testing.io;
     const platform = testing.env();
     const shape_ = Shape.init(.{ 3, 5 }, .i32);
+    // Module de test incrementant sans reutiliser le buffer.
     const Test = struct {
         // Fonction de test qui incrémente sans réutiliser le buffer.
         fn increment(input: zml.Tensor) zml.Tensor {
