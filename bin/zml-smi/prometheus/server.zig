@@ -4,6 +4,8 @@ const DeviceInfo = smi_info.device_info.DeviceInfo;
 const HostInfo = smi_info.host_info.HostInfo;
 const exposition = @import("exposition.zig");
 
+// Serveur d'exposition Prometheus des metriques des appareils et de l'hote sur
+// un ecoute TCP.
 pub const Server = struct {
     io: std.Io,
     devices: []const *DeviceInfo,

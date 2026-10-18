@@ -9,6 +9,7 @@ const StatusLine = @This();
 viewing_device: ?u16,
 use_braille: bool,
 
+// Association touche/description affichee dans la ligne d'etat.
 const Binding = struct {
     key: []const u8,
     desc: []const u8,

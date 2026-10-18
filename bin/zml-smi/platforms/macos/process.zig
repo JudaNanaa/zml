@@ -1,6 +1,7 @@
 const std = @import("std");
 const pi = @import("zml-smi/info").process_info;
 
+// Variante macOS inerte de l'enrichisseur de processus (aucune operation).
 pub const ProcessEnricher = struct {
     // Version macOS inerte de l'enrichisseur de processus : ne fait rien et retourne une valeur vide.
     pub fn init(_: std.mem.Allocator, _: std.Io) !ProcessEnricher {

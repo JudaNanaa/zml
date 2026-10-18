@@ -85,6 +85,8 @@ pub fn drawRichLine(ctx: vxfw.DrawContext, segments: []const vaxis.Cell.Segment,
     return rich.draw(ctx.withConstraints(.{}, .{ .width = max_w, .height = 1 }));
 }
 
+// Dimensions en cellules de terminal (colonnes, lignes) d'une image mise a
+// l'echelle.
 pub const ImageCellSize = struct {
     cols: u16,
     rows: u16,

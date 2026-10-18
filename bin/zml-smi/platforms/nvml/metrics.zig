@@ -9,11 +9,14 @@ const process = @import("process.zig");
 
 const pcie_every: u8 = 4;
 
+// Association d'une GPU a son double buffer d'infos et a son handle NVML.
 const Slot = struct {
     info: *DoubleBuffer(GpuInfo),
     dev: Device,
 };
 
+// Etat partage de la collecte NVML : allocateur, bibliotheque, slots par GPU,
+// liste de processus et suivi temporel.
 const Ctx = struct {
     gpa: std.mem.Allocator,
     nvml: *const Nvml,
@@ -83,6 +86,7 @@ fn pollDevice(db: *DoubleBuffer(GpuInfo), dev: Device, pcie: bool) void {
     db.swap();
 }
 
+// Encapsule le handle NVML d'une GPU et expose des lectures converties en u64.
 const Device = struct {
     nvml: *const Nvml,
     handle: Nvml.Handle,

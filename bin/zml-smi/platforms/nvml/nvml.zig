@@ -11,6 +11,8 @@ pub const ProcessInfo_t = c.nvmlProcessInfo_t;
 
 lib: Fns,
 
+// Table des pointeurs de fonctions NVML resolues dynamiquement
+// depuis libnvidia-ml au moment de l'initialisation.
 const Fns = struct {
     nvmlInit_v2: *const @TypeOf(c.nvmlInit_v2),
     nvmlDeviceGetHandleByIndex_v2: *const @TypeOf(c.nvmlDeviceGetHandleByIndex_v2),

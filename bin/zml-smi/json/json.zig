@@ -11,6 +11,8 @@ pub fn write(writer: *std.Io.Writer, devices: []const *DeviceInfo, processes: []
     try writer.writeAll("\n");
 }
 
+// Enveloppe de reponse JSON regroupant les appareils et les processus a
+// serialiser.
 const Response = struct {
     devices: []const *DeviceInfo,
     processes: []const ProcessInfo,

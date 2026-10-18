@@ -121,6 +121,8 @@ fn buildRow(ptr: *const anyopaque, idx: usize, _: usize) ?vxfw.Widget {
     return .{ .userdata = @ptrCast(&self.merged.items[idx]), .drawFn = drawProcessRow };
 }
 
+// Formats de colonne (largeur et alignement) partages par l'en-tete et les
+// lignes du tableau des processus.
 // Column format strings — shared between header (comptime) and row (runtime).
 const col_fmt = struct {
     const pid = " {s: >7} ";

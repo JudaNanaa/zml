@@ -39,6 +39,7 @@ pub fn start(collector: *Collector) !void {
 
 const pollOnce = poll_metrics.poll(*DoubleBuffer(GpuInfo), Device, metrics);
 
+// Enveloppe un GPU oneAPI avec son arena de poll pour exposer les requetes de metriques.
 const Device = struct {
     oneapi: *OneApi,
     arena: *std.heap.ArenaAllocator,

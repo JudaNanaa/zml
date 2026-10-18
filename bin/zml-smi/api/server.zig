@@ -10,6 +10,8 @@ const ProcessEnricher = if (builtin.os.tag == .macos)
 else
     @import("zml-smi/platforms/linux").process.ProcessEnricher;
 
+// Serveur API HTTP/JSON exposant l'etat des appareils et des processus; conserve
+// l'ecoute TCP et le groupe de connexions.
 pub const Server = struct {
     allocator: std.mem.Allocator,
     io: std.Io,

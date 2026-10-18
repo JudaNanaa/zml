@@ -6,6 +6,7 @@ const Collector = @import("zml-smi/collector").Collector;
 
 const c = std.c;
 
+// Miroir C de la structure vm_statistics64 utilisee par host_statistics64.
 const vm_statistics64 = extern struct {
     free_count: c_uint,
     active_count: c_uint,
@@ -61,6 +62,7 @@ pub fn init(collector: *Collector, info: *HostInfo) !void {
 
 const pollOnce = poll_metrics.poll(*HostInfo, Host, metrics);
 
+// Type sentinelle de la plateforme macOS : expose les accesseurs sysctl (coeurs, memoire).
 const Host = struct {
     // Retourne le nombre de coeurs logiques via sysctl hw.logicalcpu.
     pub fn cpuCores(_: Host) !u64 {

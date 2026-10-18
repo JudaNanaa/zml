@@ -57,6 +57,8 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
     };
 }
 
+// Series d'historique par appareil (utilisation, memoire, temperature,
+// puissance) sous forme de tampons circulaires.
 pub const HistoryBuffers = struct {
     util: []RingBuffer(u64, history_len) = &.{},
     mem_util: []RingBuffer(u64, history_len) = &.{},
@@ -90,6 +92,7 @@ pub const HistoryBuffers = struct {
     }
 };
 
+// Etat partage de la TUI: appareils, hote, historique et listes de processus.
 pub const SystemState = struct {
     devices: []*DeviceInfo,
     host: *HostInfo,
@@ -102,6 +105,7 @@ pub const SystemState = struct {
     io: std.Io,
     tui_refresh_rate: u16,
 
+    // Configuration d'entree pour construire un `SystemState`.
     pub const Config = struct {
         devices: []*DeviceInfo,
         host: *HostInfo,

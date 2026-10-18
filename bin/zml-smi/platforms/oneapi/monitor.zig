@@ -3,8 +3,10 @@ const smi_sysfs = @import("zml-smi/sysfs");
 const Monitor = @This();
 
 pub const bus_device_identifier_len = "0000:00:00.0".len;
+// Handle opaque identifiant un GPU Intel par son index d'enumeration oneAPI.
 pub const Handle = enum(u32) { _ };
 
+// Description d'un GPU Intel : chemins sysfs, BDF PCI et derniers echantillons pour les deltas.
 const Device = struct {
     render_idx: usize,
     drm_path: []const u8,
@@ -18,16 +20,19 @@ const Device = struct {
     energy_prev: ?EnergySample = null,
 };
 
+// Echantillon d'energie consommee (microjoules) horodate en nanosecondes, pour la puissance.
 const EnergySample = struct {
     micro_joules: u64,
     timestamp_ns: u64,
 };
 
+// Echantillon de temps moteur (nanosecondes) horodate, sert au calcul d'occupation.
 pub const EngineSample = struct {
     engine_ns: u64,
     timestamp_ns: u64,
 };
 
+// Usage agrege d'un GPU : memoire en KiB et echantillons des moteurs render/encode/decode.
 const DeviceSample = struct {
     mem_kib: u64 = 0,
     engine: ?EngineSample = null,
@@ -35,6 +40,7 @@ const DeviceSample = struct {
     decoder: ?EngineSample = null,
 };
 
+// Usage d'un processus sur un GPU : pid, index de peripherique, memoire et compteurs moteurs.
 pub const ProcessSample = struct {
     pid: u32,
     device_idx: u16,
@@ -548,6 +554,7 @@ inline fn pcieBandwidthFromLink(gen: u64, width: u64) ?u64 {
     return lane_mb_s * width;
 }
 
+// Valeurs extraites d'un fdinfo DRM pour un processus : memoire et echantillons moteurs.
 const FdinfoSample = struct {
     mem_kib: ?u64 = null,
     engine: ?EngineSample = null,
@@ -555,6 +562,7 @@ const FdinfoSample = struct {
     decoder: ?EngineSample = null,
 };
 
+// Resultat complet d'un fdinfo DRM : BDF, client DRM, memoire et compteurs de cycles.
 const ParsedFdinfo = struct {
     bus_device_identifier: ?[bus_device_identifier_len]u8 = null,
     drm_client_id: ?u64 = null,
@@ -721,6 +729,7 @@ fn processKey(pid: u32, device_idx: u16) u64 {
     return (@as(u64, device_idx) << 32) | pid;
 }
 
+// Composants d'une adresse PCI BDF (domaine, bus, peripherique, fonction) a formater.
 pub const BdfParts = struct {
     domain: u32,
     bus: u32,

@@ -23,18 +23,23 @@ charts: []const ChartEntry = &.{},
 /// Whether this card is highlighted (e.g. hovered).
 highlighted: bool = false,
 
+// Entree d'une ligne "label: valeur" affichee dans une `MetricCard`.
 pub const LineEntry = struct {
     label: []const u8,
     value: []const u8,
     style: vaxis.Cell.Style = theme.value_style,
 };
 
+// Entree d'une barre de jauge (label, valeur 0-100, suffixe optionnel) d'une
+// `MetricCard`.
 pub const GaugeEntry = struct {
     label: []const u8,
     value: u8,
     suffix: ?[]const u8 = null,
 };
 
+// Entree d'un mini-graphique braille (label, valeur, historique, hauteur)
+// d'une `MetricCard`.
 pub const ChartEntry = struct {
     label: []const u8,
     value: u8,

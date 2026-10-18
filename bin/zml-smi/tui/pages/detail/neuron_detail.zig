@@ -49,6 +49,8 @@ pub fn draw(
         .gap = 1,
     };
 
+    // Espace de noms local exposant `f`, qui formate un nombre d'octets optionnel
+    // en " {d} MB".
     // ── HBM Breakdown ───────────────────────────────────────
     const fmt_mb = struct {
         // Formate un nombre d'octets optionnel en " {d} MB" via utils.bytesToMb.

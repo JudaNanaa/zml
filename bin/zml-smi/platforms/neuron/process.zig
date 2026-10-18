@@ -7,6 +7,7 @@ const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.Ar
 const Collector = @import("zml-smi/collector").Collector;
 const UtilAtomic = @import("metrics.zig").UtilAtomic;
 
+// Etat par coeur servant a calculer l'utilisation NC par delta entre deux passes.
 const DeltaState = struct {
     prev_total_us: u64 = 0,
     prev_timestamp: ?std.Io.Timestamp = null,

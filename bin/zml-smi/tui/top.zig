@@ -15,6 +15,7 @@ const StatusLine = @import("widgets/status_line.zig");
 const min_width: u16 = 45;
 const min_height: u16 = 24;
 
+// Etat de defilement d'une vue (ligne et colonne), borne au contenu affiche.
 const ScrollState = struct {
     row: i17 = 0,
     col: i17 = 0,
@@ -42,6 +43,7 @@ const ScrollState = struct {
     }
 };
 
+// Modele principal de la TUI: etat systeme, vue courante et widgets affiches.
 const Model = struct {
     allocator: std.mem.Allocator,
     state: *data.SystemState,

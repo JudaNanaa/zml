@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// Worker de polling: cadence d'echantillonnage, drapeau d'arret atomique et
+// groupe d'IO de la tache de fond.
 pub const Worker = struct {
     poll_interval_ms: u16,
     should_stop: std.atomic.Value(bool) = .init(false),

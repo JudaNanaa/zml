@@ -2,6 +2,7 @@ const DoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer;
 
 pub const HostInfo = DoubleBuffer(HostData);
 
+// Metriques de l'hote: hostname, noyau, CPU, memoire, charge et uptime.
 pub const HostData = struct {
     hostname: ?[]const u8 = null,
     kernel: ?[]const u8 = null,

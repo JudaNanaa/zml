@@ -93,6 +93,8 @@ pub fn start(collector: *Collector) !void {
 
 const pollOnce = poll_metrics.poll(*DoubleBuffer(NeuronInfo), Device, metrics);
 
+// Vue d'un coeur NC d'un device Neuron : chemins sysfs, arene et source
+// d'utilisation partagee.
 const Device = struct {
     io: std.Io,
     arena: *std.heap.ArenaAllocator,

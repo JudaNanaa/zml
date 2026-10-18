@@ -32,6 +32,7 @@ pub fn start(collector: *Collector) !void {
     }
 }
 
+// Nature d'une metrique TPU interrogee aupres du service tpu_info.
 const MetricKind = enum { int, double };
 
 // Reinterroge memoire et utilisation de tous les TPU puis publie les valeurs dans le double buffer.
@@ -96,6 +97,7 @@ fn queryRaw(metric_name: [:0]const u8, comptime kind: MetricKind, out: []?u64) v
 // We need to scan /sys/bus/pci/devices for Google TPU chips.
 // From: https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/blob/c94f463dd3bf99eaecf4f5af46f87cc2a5ff1b22/tpu_info/tpu_info/device.py#L43-L92
 
+// Resultat du scan PCI decrivant une famille de puces TPU detectee.
 const ChipInfo = struct {
     name: []const u8,
     devices_per_chip: u32,
@@ -105,6 +107,7 @@ const ChipInfo = struct {
 const google_pci_vendor_id = "0x1ae0";
 const pci_base = "/sys/bus/pci/devices";
 
+// Entree de la table de correspondance identifiant PCI vers modele de TPU.
 const ChipEntry = struct {
     device_id: []const u8,
     subsystem_id: ?[]const u8 = null,

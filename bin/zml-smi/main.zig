@@ -29,6 +29,8 @@ const tui = smi_tui.top;
 const static_print = smi_tui.print;
 const data = smi_tui.data;
 
+// Options de ligne de commande de zml-smi, avec leurs valeurs par defaut et le
+// texte d'aide.
 const CliArgs = struct {
     top: bool = false,
     csv: bool = false,

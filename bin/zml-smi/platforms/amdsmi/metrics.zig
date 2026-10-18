@@ -32,6 +32,7 @@ pub fn start(collector: *Collector) !void {
 
 const pollOnce = poll_metrics.poll(*DoubleBuffer(GpuInfo), Device, metrics);
 
+// Enveloppe un GPU AMD SMI (pointeur AmdSmi + handle) pour exposer les requetes de metriques.
 const Device = struct {
     amdsmi: *const AmdSmi,
     handle: AmdSmi.Handle,

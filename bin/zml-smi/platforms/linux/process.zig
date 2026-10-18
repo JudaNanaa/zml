@@ -4,6 +4,8 @@ const pi = @import("zml-smi/info").process_info;
 
 const ProcessInfo = pi.ProcessInfo;
 
+// Enrichit les processus avec UID, nom d'utilisateur, RSS, ligne de commande
+// et pourcentage CPU, en conservant les ticks precedents par PID.
 pub const ProcessEnricher = struct {
     gpa: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,

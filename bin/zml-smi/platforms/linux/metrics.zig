@@ -26,6 +26,7 @@ pub fn init(collector: *Collector, info: *HostInfo) !void {
 
 const pollOnce = poll_metrics.poll(*HostInfo, Host, metrics);
 
+// Acces aux metriques hote Linux via /proc et /sys.
 const Host = struct {
     io: std.Io,
     arena: *std.heap.ArenaAllocator,

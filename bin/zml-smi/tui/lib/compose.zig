@@ -4,6 +4,8 @@ const vxfw = vaxis.vxfw;
 
 // ── SurfaceBuilder ─────────────────────────────────────────────────
 
+// Constructeur de surface vxfw accumulant des surfaces enfants positionnees
+// avec un z-index.
 pub const SurfaceBuilder = struct {
     arena: std.mem.Allocator,
     children: std.ArrayList(vxfw.SubSurface),

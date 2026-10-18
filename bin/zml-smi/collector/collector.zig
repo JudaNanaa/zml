@@ -5,6 +5,8 @@ const pi = smi_info.process_info;
 const ProcessDoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer(std.ArrayList(pi.ProcessInfo));
 const Worker = @import("worker.zig").Worker;
 
+// Collecteur central: registre des appareils et des listes de processus, avec
+// un worker de polling.
 pub const Collector = struct {
     device_infos: std.ArrayList(*DeviceInfo) = .empty,
     process_lists: std.ArrayList(*ProcessDoubleBuffer) = .empty,

@@ -13,6 +13,7 @@ pub const ProcInfo = c.amdsmi_proc_info_t;
 lib: Fns,
 gpu_handles: []c.amdsmi_processor_handle,
 
+// Table des pointeurs de fonctions AMD SMI resolues dynamiquement dans libamd_smi.
 const Fns = struct {
     amdsmi_init: *const @TypeOf(c.amdsmi_init),
     amdsmi_get_socket_handles: *const @TypeOf(c.amdsmi_get_socket_handles),

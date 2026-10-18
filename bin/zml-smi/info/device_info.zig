@@ -1,6 +1,8 @@
 const std = @import("std");
 const DoubleBuffer = @import("zml-smi/double_buffer").DoubleBuffer;
 
+// Backends d'appareil supportes (cuda, rocm, oneapi, neuron, tpu); sert de tag
+// a l'union `DeviceInfo`.
 pub const Target = enum {
     cuda,
     rocm,
@@ -9,6 +11,8 @@ pub const Target = enum {
     tpu,
 };
 
+// Union etiquetee par `Target` exposant un double-tampon de metriques propre a
+// chaque backend de facon uniforme.
 pub const DeviceInfo = union(Target) {
     cuda: DoubleBuffer(GpuInfo),
     rocm: DoubleBuffer(GpuInfo),
@@ -25,6 +29,8 @@ pub const DeviceInfo = union(Target) {
     }
 };
 
+// Metriques GPU communes (utilisation, puissance, temperature, horloges,
+// memoire, PCIe) partagees par les backends cuda, rocm et oneapi.
 pub const GpuInfo = struct {
     remote: bool = false,
     name: ?[]const u8 = null,
@@ -64,6 +70,8 @@ pub const GpuInfo = struct {
     pcie_link_width: ?u64 = null,
 };
 
+// Metriques d'un accelerateur Neuron: utilisation, memoire et repartition HBM
+// par categorie.
 pub const NeuronInfo = struct {
     remote: bool = false,
     name: ?[]const u8 = null,
@@ -87,6 +95,7 @@ pub const NeuronInfo = struct {
     nc_uncategorized: ?u64 = null,
 };
 
+// Metriques d'un TPU: utilisation et memoire de l'appareil.
 pub const TpuInfo = struct {
     remote: bool = false,
     name: ?[]const u8 = null,

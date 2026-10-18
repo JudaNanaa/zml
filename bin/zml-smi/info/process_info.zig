@@ -1,3 +1,5 @@
+// Metriques d'un processus client d'un appareil (PID, utilisateur, utilisation,
+// memoire, CPU, RSS).
 pub const ProcessInfo = struct {
     pid: u32 = 0,
     device_idx: u16 = 0,

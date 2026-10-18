@@ -9,6 +9,7 @@ const Nrt = @This();
 
 pub const Error = error{ nrt_error, NrtUnavailable };
 pub const AppInfo = c.struct_neuron_app_info;
+// Type de puce Neuron, aligne sur les valeurs de device_type du runtime NRT.
 pub const DeviceType = enum(c_int) {
     inf1 = 1,
     inf2_trn1 = 2,
@@ -22,11 +23,13 @@ private_lib: PrivateFns,
 handles: []const *c.ndl_device_t,
 device_indexes: []const c_int,
 
+// Pointeurs vers les symboles publics du runtime Neuron resolus par DynLib.
 const Fns = struct {
     nrt_get_total_nc_count: *const @TypeOf(c.nrt_get_total_nc_count),
     nrt_get_version: *const @TypeOf(c.nrt_get_version),
 };
 
+// Pointeurs vers les symboles prives du runtime Neuron resolus via la table ELF.
 const PrivateFns = struct {
     nds_open: *const @TypeOf(c.nds_open),
     ndl_available_devices: *const @TypeOf(c.ndl_available_devices),
@@ -234,6 +237,7 @@ fn resolveFromElf(handle: *anyopaque, io: std.Io, comptime known_sym: [:0]const 
     return result;
 }
 
+// Representation C de struct dl_info telle que renvoyee par dladdr.
 const DlInfo = extern struct {
     dli_fname: [*:0]const u8,
     dli_fbase: *anyopaque,

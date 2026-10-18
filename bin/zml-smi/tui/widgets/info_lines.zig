@@ -27,6 +27,7 @@ const labels = [_][]const u8{
 
 pub const entry_count: u16 = labels.len;
 
+// Paire label/valeur d'une ligne d'information de l'hote.
 const Entry = struct {
     label: []const u8,
     value: []const u8,
