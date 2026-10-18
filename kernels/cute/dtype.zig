@@ -1,6 +1,8 @@
 const std = @import("std");
 const mlir = @import("mlir");
 
+// Énumère les types d'éléments vers lesquels un pointeur `!cute.ptr` peut
+// pointer: entiers et flottants, formats basse précision inclus.
 /// Element types a `!cute.ptr` can point at.
 pub const DType = enum {
     i1,

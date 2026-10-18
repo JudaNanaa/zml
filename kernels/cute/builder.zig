@@ -43,6 +43,7 @@ pub const Dims = stdx.BoundedArray(i64, MAX_RANK);
 
 pub const MemorySpace = cute.MemorySpace;
 
+// Expression d'algebre CuTe assemblee depuis des valeurs Zig; le DSL la serialise en texte pour l'API C de CuTe.
 /// A CuTe algebra expression assembled from Zig values. Kernel authors use
 /// `Builder.expr`, `Builder.basis`, and `Builder.layoutSpec`; only this DSL
 /// layer serializes the expression required by CuTe's C API.
@@ -50,6 +51,7 @@ pub const AlgebraExpr = struct {
     text: []const u8,
 };
 
+// Jetons d'algebre CuTe: placeholder de slice (`_`) ou feuille dynamique (`?`).
 pub const AlgebraToken = enum {
     /// CuTe's slice placeholder (`_`).
     all,
@@ -57,6 +59,7 @@ pub const AlgebraToken = enum {
     dynamic,
 };
 
+// Base scalaire rationnelle `numerator/denominator` appliquee a un chemin de modes CuTe.
 pub const ScaledBasis = struct {
     numerator: i64,
     denominator: i64 = 1,
@@ -64,6 +67,7 @@ pub const ScaledBasis = struct {
     mode_count: u8,
 };
 
+// Entier CuTe dynamique dont la valeur runtime est connue divisible par un diviseur statique (ex. `?{div=128}`).
 /// A dynamic CuTe integer whose runtime value is known to be divisible by a
 /// static amount. CuTe carries this fact in dependent coordinate-tensor types
 /// after tiling and slicing, for example `?{div=128}`.
@@ -71,6 +75,7 @@ pub const ConstrainedDynamic = struct {
     divisible_by: u64,
 };
 
+// Specification de layout CuTe: expressions algebriques de forme et de stride.
 pub const LayoutSpec = struct {
     shape: AlgebraExpr,
     stride: AlgebraExpr,
@@ -81,6 +86,7 @@ pub const LayoutSpec = struct {
     }
 };
 
+// Valeur SSA scalaire du DSL CuTe (equivaut a `Int32`, `Float32`, ... cote Python).
 /// A scalar SSA value (`Int32`, `Float32`, ... in the Python DSL).
 pub const Value = struct {
     inner: *const mlir.Value,
@@ -352,6 +358,7 @@ pub const Value = struct {
     }
 };
 
+// `cute.Layout`: forme et stride statiques suivis cote Zig, evitant des requetes MLIR.
 /// `cute.Layout`: a static shape and stride, carried in Zig so coordinates
 /// and element counts need no MLIR queries.
 pub const Layout = struct {
@@ -377,6 +384,7 @@ pub const Layout = struct {
     }
 };
 
+// `cute.Tensor`: un moteur (pointeur) compose avec un layout; `get`/`set` correspondent a `t[coord]` en Python.
 /// `cute.Tensor`: an engine (pointer) composed with a layout. `get`/`set`
 /// are the Python `t[coord]` / `t[coord] = v`.
 pub const Tensor = struct {
@@ -438,6 +446,7 @@ pub const Tensor = struct {
     }
 };
 
+// Tenseur ou pointeur CuTe dont le layout est derive par le compilateur CuTe (non recalculable en Zig).
 /// A CuTe tensor or pointer with a layout derived by the CuTe compiler.
 pub const View = struct {
     inner: *const mlir.Value,
@@ -465,6 +474,7 @@ pub const View = struct {
     }
 };
 
+// Atome de copie/MMA (ou atome tile): champs SSA immuables, `setField` renvoie une copie mise a jour.
 /// A copy/MMA atom or a tiled atom. Atom fields are immutable SSA values;
 /// `setField` returns the atom carrying the updated runtime field.
 pub const Atom = struct {
@@ -500,6 +510,7 @@ pub const Atom = struct {
     }
 };
 
+// Charge utile d'attribut acceptee par les operations CuTe propres a une cible (chaine, texte a parser, ou brut).
 /// Attribute payload accepted by target-specific CuTe operations.
 pub const Attr = union(enum) {
     str: []const u8,
@@ -516,16 +527,19 @@ pub const Attr = union(enum) {
     }
 };
 
+// Descripteur TMA: atome de transfert associe a son tenseur de coordonnees.
 pub const TmaDescriptor = struct {
     atom: Atom,
     tensor: View,
 };
 
+// Resultat d'une partition TMA: le smem et une vue par cible.
 pub const TmaPartition = struct {
     smem: View,
     targets: []const View,
 };
 
+// Encodage des elements d'un transfert TMA lorsque celui-ci differe du dtype du tenseur.
 /// Element encoding of a TMA transfer when it differs from the tensor dtype.
 pub const TmaFormat = enum {
     default,
@@ -533,6 +547,7 @@ pub const TmaFormat = enum {
     u16,
 };
 
+// Description typee d'un atome TMA tile: dtype, bits par copie, base d'une boite et layout de coordonnees.
 /// Typed description of a tiled TMA atom: the element type, the bits moved
 /// per copy, the basis of one box, and the coordinate layout of the tensor.
 pub const TmaConfig = struct {
@@ -545,11 +560,13 @@ pub const TmaConfig = struct {
     num_multicast: u32 = 1,
 };
 
+// Paire d'atomes d'une MMA block-scaled SM100: l'atome de base et sa version tilee.
 pub const BlockScaledMma = struct {
     atom: Atom,
     tiled: Atom,
 };
 
+// Forme (M/N/K, num_cta, vec_size) de l'instruction MMA SM100 block-scaled MXFP4 x MXFP8.
 /// Shape of the SM100 block-scaled MXFP4 x MXFP8 MMA instruction.
 pub const BlockScaledMmaConfig = struct {
     m: u16 = 128,
@@ -609,8 +626,10 @@ fn blockScaledPayload(b: *Builder, cfg: BlockScaledMmaConfig) []const u8 {
     ) catch @panic("OOM");
 }
 
+// Triplet de scalaires indexant les trois axes (x, y, z) d'une dimension CUDA.
 pub const Index3 = struct { x: Value, y: Value, z: Value };
 
+// Configuration de lancement CUDA construite par l'hote, pouvant etre convertie en Value scalaire.
 pub const LaunchConfig = struct {
     inner: *const mlir.Value,
     kernel: *Builder,
@@ -621,10 +640,12 @@ pub const LaunchConfig = struct {
     }
 };
 
+// Specification d'un argument de kernel: nom et variante de type (pointeur, tenseur, type MLIR ou brut).
 pub const ArgSpec = struct {
     name: []const u8,
     kind: Kind,
 
+    // Variante du type d'argument: pointeur brut, tenseur, type MLIR construit ou argument ABI brut.
     /// XLA passes one raw device pointer per custom-call argument. A `tensor`
     /// argument is that pointer composed with a static layout at the top of
     /// the kernel, the way the Python DSL passes `cute.Tensor` arguments.
@@ -637,16 +658,19 @@ pub const ArgSpec = struct {
         raw: RawSpec,
     };
 
+    // Argument decrit par un type MLIR deja construit (option grid_constant pour TMA).
     pub const MlirTypeSpec = struct {
         type_: *const mlir.Type,
         grid_constant: bool = false,
     };
 
+    // Argument ABI passe par valeur, decrit par un texte de type MLIR (ex. atome tensor-map CUDA).
     pub const RawSpec = struct {
         type_text: []const u8,
         grid_constant: bool = false,
     };
 
+    // Specification d'un argument tenseur: dtype, forme, stride optionnel et alignement.
     pub const TensorSpec = struct {
         dtype: DType,
         shape: []const i64,
@@ -656,6 +680,7 @@ pub const ArgSpec = struct {
     };
 };
 
+// Options de construction d'un layout; stride optionnel (par defaut compact left-most).
 pub const LayoutOpts = struct {
     /// Defaults to CuTe's compact left-most stride, like `cute.make_layout`.
     stride: ?[]const i64 = null,
@@ -678,7 +703,9 @@ pub fn WhileScope(comptime N: usize, comptime M: usize) type {
     return dsl.WhileScope(Builder, Value, N, M);
 }
 
+// Constructeur central du DSL CuTe: detient le contexte MLIR, le module, les arguments et emet les operations.
 pub const Builder = struct {
+    // Type de fonction a emettre: noyau func.func seul, noyau CUDA, ou fonction hote.
     pub const FunctionKind = enum { func_only_kernel, cuda_kernel, host };
 
     allocator: std.mem.Allocator,
@@ -999,6 +1026,7 @@ pub const Builder = struct {
         return self.emit(cuda.cast(self.ctx, cuda.streamType(self.ctx), self.cst(.i64, 0).inner, self.loc()));
     }
 
+    // Parametres d'un lancement CUDA: grille, bloc, smem dynamique, stream, cluster, cooperative et PDL.
     pub const LaunchOptions = struct {
         grid: [3]Value,
         block: [3]Value,
@@ -1284,6 +1312,7 @@ pub const Builder = struct {
         return .{ .inner = result.inner, .kernel = self };
     }
 
+    // Parametres d'un swizzle CuTe `S<bits,base,shift>` applique a l'adresse d'un pointeur.
     pub const Swizzle = struct { bits: i64, base: i64, shift: i64 };
 
     // Materialise un swizzle `S<bits,base,shift>` via `cute.static` (View).
@@ -2106,6 +2135,7 @@ pub const Builder = struct {
     // the kernel receives them as grid-constant arguments and makes them
     // executable before issuing copies.
 
+    // Options d'un TMA load hote: textes de type atome/tenseur, kind, multicast et format.
     pub const TmaLoadOptions = struct {
         atom_type: []const u8,
         tensor_type: []const u8,
@@ -2159,6 +2189,7 @@ pub const Builder = struct {
         };
     }
 
+    // Options d'un TMA store hote: textes de type atome/tenseur et format optionnel.
     pub const TmaStoreOptions = struct {
         atom_type: []const u8,
         tensor_type: []const u8,
@@ -2392,6 +2423,7 @@ pub const Builder = struct {
         self.emitVoid(nvvm.tcgen05_wait(self.ctx, .load, self.loc()));
     }
 
+    // Options d'allocation TMEM: mode deux CTA et allocation exclusive.
     pub const TmemOptions = struct { two_cta: bool = false, exclusive: bool = false };
 
     // Emet `cute_nvgpu.arch.sm100.alloc_tmem` (colonnes, pointeur detenteur), options two_cta/exclusive.
@@ -2429,6 +2461,7 @@ pub const Builder = struct {
         ));
     }
 
+    // Options d'un chargement TMEM: num_dp, num_b, num_rep et empaquetage 16 bits.
     pub const TmemLoadOptions = struct {
         num_dp: u16,
         num_b: u16,
@@ -2868,6 +2901,7 @@ pub const Builder = struct {
         return self.emit(vector.from_elements(self.ctx, &inner, self.wordsType(n), self.loc()));
     }
 
+    // Options de chargement: `invariant` pour une lecture en cache non coherente (ld.global.nc).
     pub const LoadOptions = struct {
         /// Read-only for the whole kernel (global: non-coherent `ld.global.nc`).
         invariant: bool = false,

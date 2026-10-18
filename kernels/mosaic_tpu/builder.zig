@@ -45,6 +45,8 @@ pub const pipeline = @import("pipeline.zig");
 // Value — a handle to an MLIR value inside the kernel body.
 // =============================================================================
 
+// Poignee sur une valeur SSA MLIR; reference son Builder proprietaire pour
+// permettre les operations fluides (arithmetique, casts, chargements).
 /// MLIR SSA value with an optional back-pointer to its `Builder` for fluent ops.
 pub const Value = struct {
     inner: *const mlir.Value,
@@ -292,11 +294,15 @@ pub const Value = struct {
 // Arg spec — describes one function parameter.
 // =============================================================================
 
+// Specification d'un parametre de kernel (nom + variante `Kind`) utilisee pour
+// construire la signature du `func.func`.
 /// Per-arg specification for building `func.func`'s signature.
 pub const ArgSpec = struct {
     name: []const u8,
     kind: Kind,
 
+    // Variante d'argument: scalaire, iterateur de grille, memref, tableau de
+    // semaphores ou semaphore simple.
     pub const Kind = union(enum) {
         /// Plain scalar — typically used for grid sizes / dynamic dims passed
         /// in by the runtime. `.{ .scalar = .i32 }`.
@@ -319,10 +325,14 @@ pub const ArgSpec = struct {
         sem: SemKind,
     };
 
+    // Options d'un argument iterateur: semantique de dimension optionnelle
+    // (parallel/reduction...) annotee sur l'index de boucle.
     pub const IterOpts = struct {
         semantics: ?DimensionSemantics = null,
     };
 
+    // Description d'un argument memref: forme, dtype, memory space, windowing,
+    // persistance et role Pallas (input/output/scratch/scalar_prefetch).
     pub const RefSpec = struct {
         shape: []const i64,
         dtype: DType,
@@ -341,8 +351,12 @@ pub const ArgSpec = struct {
         role: Role = .input,
     };
 
+    // Role Pallas d'un operand: entree, sortie, scratch (invisible aux
+    // transforms) ou prefetch scalaire.
     pub const Role = enum { input, output, scratch, scalar_prefetch };
 
+    // Parametres de fenetre Pallas pour un memref: taille de bloc, pipeline_mode,
+    // revisit_mode, element_window et valeurs de retour des `transform_N`.
     pub const WindowSpec = struct {
         /// `null` ⇒ use the operand's full shape (trivial window).
         /// Determines `window_bounds` and the `transform_N` arity.
@@ -360,6 +374,8 @@ pub const ArgSpec = struct {
         transform_returns: ?[]const TransformReturn = null,
     };
 
+    // Valeur de retour d'un slot de `transform_N`: constante zero ou le
+    // N-ieme program-id de la grille.
     /// One return slot of a `transform_N` body. Mirrors what
     /// `lower_jaxpr_to_transform_func` produces — typically a select of
     /// program-ids, scalar-prefetch loads, or constants. We only encode
@@ -372,13 +388,19 @@ pub const ArgSpec = struct {
         program_id: usize,
     };
 
+    // Padding bas/haut par dimension pour `#tpu.element_window`, utilise par
+    // `window_kind` dans les window_params.
     pub const ElementWindowSpec = struct {
         pad_low: []const i64,
         pad_high: []const i64,
     };
 
+    // Type de semaphore: regulier (`!tpu.semaphore`) ou DMA
+    // (`!tpu.dma_semaphore`).
     pub const SemKind = enum { regular, dma };
 
+    // Description d'un tableau de semaphores en memoire semaphore (forme +
+    // type de semaphore), classe `.scratch` par Pallas.
     pub const SemArraySpec = struct {
         shape: []const i64,
         kind: SemKind = .dma,
@@ -391,6 +413,8 @@ pub const FinishError = error{ InvalidMlir, MlirUnexpected } || std.mem.Allocato
 // Named-param structs.
 // =============================================================================
 
+// Options de `tpu.vector_load`: strides par dimension et masque elementwise
+// optionnel (`vector<...xi1>`).
 pub const VectorLoadOpts = struct {
     /// Per-dim load stride. Pass `&.{}` for unit-strided.
     strides: []const i32 = &.{},
@@ -399,6 +423,8 @@ pub const VectorLoadOpts = struct {
     mask: ?Value = null,
 };
 
+// Options de `tpu.vector_store`: strides par dimension, masque optionnel et
+// bascule atomique `add`.
 pub const VectorStoreOpts = struct {
     strides: []const i32 = &.{},
     mask: ?Value = null,
@@ -407,6 +433,8 @@ pub const VectorStoreOpts = struct {
     add: bool = false,
 };
 
+// Options de `tpu.matmul`: transposes, hint de transpose, precision de
+// contraction et `dot_dimension_numbers` optionnels.
 pub const MatmulOpts = struct {
     transpose_lhs: bool = false,
     transpose_rhs: bool = false,
@@ -417,21 +445,26 @@ pub const MatmulOpts = struct {
     dimension_numbers: ?*const mlir.Attribute = null,
 };
 
+// Options de reduction: dimension cible (0 par defaut).
 pub const ReduceOpts = struct {
     /// Reduction dim. Defaults to 0.
     dim: i64 = 0,
 };
 
+// Options de `tpu.sort`: sens de tri (croissant ou decroissant).
 pub const SortOpts = struct {
     descending: bool = false,
 };
 
+// Identifiants optionnels (device/core/subcore) pour `tpu.sem_signal`.
 pub const SemSignalOpts = struct {
     device_id: ?Value = null,
     core_id: ?Value = null,
     subcore_id: ?Value = null,
 };
 
+// Options de `tpu.enqueue_dma`: semaphore source, ids device/core/subcore,
+// priorite et ordonnancement strict.
 pub const EnqueueDmaOpts = struct {
     source_semaphore: ?Value = null,
     device_id: ?Value = null,
@@ -441,17 +474,22 @@ pub const EnqueueDmaOpts = struct {
     strict_ordering: bool = false,
 };
 
+// Options de `tpu.wait_dma2`: ids device/core et ordonnancement strict.
 pub const WaitDma2Opts = struct {
     device_id: ?Value = null,
     core_id: ?Value = null,
     strict_ordering: bool = false,
 };
 
+// Options de `tpu.reciprocal`: approximation rapide et couverture pleine
+// plage.
 pub const ReciprocalOpts = struct {
     approx: bool = false,
     full_range: bool = false,
 };
 
+// Options de rotation (`tpu.dynamic_rotate`): amount, dimension et stride
+// optionnel avec sa dimension.
 pub const RotateOpts = struct {
     amount: i32,
     dimension: i32,
@@ -459,6 +497,8 @@ pub const RotateOpts = struct {
     stride_dimension: ?i32 = null,
 };
 
+// Options de cast: mode d'arrondi pour les variantes `tpu.*` et bascule
+// `bitcast` (swap a largeur identique).
 pub const CastOpts = struct {
     /// Forwarded to `tpu.fptosi` / `tpu.fptoui` / etc.
     rounding: ?RoundingMode = null,
@@ -466,6 +506,7 @@ pub const CastOpts = struct {
     bitcast: bool = false,
 };
 
+// Options de min/max: active la propagation des NaN (sinon minnumf/maxnumf).
 pub const MinMaxOpts = struct {
     /// IEEE NaN-propagation toggle. Default is non-propagating (maxnumf/minnumf).
     propagate_nan: bool = false,
@@ -477,6 +518,8 @@ pub const MinMaxOpts = struct {
 
 pub const dialects_needed = [_][]const u8{ "func", "tpu", "arith", "scf", "math", "cf", "memref", "vector", "affine" };
 
+// Builder principal du DSL Mosaic: cree un `func.func`, emet les ops dans le
+// corps courant puis serialise le module via `finish`.
 /// The main DSL builder. Create with `init`, populate the body with helpers,
 /// then call `finish` to get the IR string.
 pub const Builder = struct {
@@ -517,6 +560,8 @@ pub const Builder = struct {
     /// Whether generated transform functions carry `{sc.is_transform_indices}`.
     sc_transform_indices: bool = false,
 
+    // Instantane d'un ref-arg capture a `declareArgs`, utilise par `finish`
+    // pour emettre les stubs `transform_N`.
     /// Per-ref-arg snapshot for `finish`-time `transform_N` stub emission.
     /// `skipped` = ANY/HBM/SEMAPHORE memory space (empty window, no transform).
     pub const RefArgSnapshot = struct {
@@ -526,6 +571,8 @@ pub const Builder = struct {
         transform_returns: ?[]const ArgSpec.TransformReturn = null,
     };
 
+    // Instantane des types memref des refs scalar-prefetch (SMEM), re-emis en
+    // queue d'arguments de chaque corps `transform_N`.
     /// Snapshot of the SMEM scalar-prefetch ref types (after the program-ids)
     /// — repeated as trailing args of every `transform_N` body to mirror
     /// Pallas's `lower_jaxpr_to_transform_func`.
@@ -534,6 +581,8 @@ pub const Builder = struct {
         types: []const *const mlir.Type,
     };
 
+    // Options du Builder: core_type, semantique/bornes de grille, prefetch et
+    // scratch, et emission des window_params/transform stubs Pallas.
     /// Builder-level options. `noinline` is a Zig keyword — write `.{ .@"noinline" = true }`.
     pub const Opts = struct {
         @"noinline": bool = false,
@@ -2403,6 +2452,8 @@ pub const Builder = struct {
         return self.finishOpts(results, .{});
     }
 
+    // Options de finalisation: `canonicalize` lance canonicalize+cse sur le
+    // module avant serialisation.
     pub const FinishOpts = struct {
         /// Run `canonicalize,cse` on the module before serializing — lets
         /// the user code stay one-line-per-Pallas-line and lean on MLIR

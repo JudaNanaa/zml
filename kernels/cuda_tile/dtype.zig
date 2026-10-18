@@ -1,6 +1,9 @@
 const std = @import("std");
 const mlir = @import("mlir");
 
+// Énumère les types d'éléments qu'une tuile `cuda_tile.tile` peut transporter,
+// c'est-à-dire les entiers et flottants (formats basse précision inclus)
+// reconnus par CUDA Tile IR.
 /// Every element type `cuda_tile.tile` accepts (Types.td:
 /// CudaTile_TileElementType). `i4`, `f4e2m1fn` need 13.3; `f8e8m0fnu` needs
 /// 13.2. `i4` is a tile element only — a pointer cannot point at it.

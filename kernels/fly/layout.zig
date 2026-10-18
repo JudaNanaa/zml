@@ -9,12 +9,15 @@ const attributes = fly.attributes;
 /// Enough for any tuple or tile a kernel writes by hand.
 const max_modes = 32;
 
+// Feuille entiere dynamique : largeur en bits et facteur de divisibilite,
+// imprimes en syntaxe `?{i64 div=8}`.
 /// A dynamic integer leaf: `?`, `?{i64}`, `?{div=8}`, `?{i64 div=8}`.
 pub const Dyn = struct {
     width: u8 = 32,
     div: u32 = 1,
 };
 
+// Feuille d'un tuple : entier statique, entier dynamique (Dyn) ou joker `*`.
 /// Static, dynamic, or the `*` wildcard.
 pub const Leaf = union(enum) {
     s: i64,
@@ -51,12 +54,16 @@ fn leafAttr(leaf: Leaf, ctx: *mlir.Context) mlir.Error!*const attributes.IntAttr
     };
 }
 
+// Element de base echelonne (`vE0`, `2E1E2`) : une valeur Leaf et la liste des
+// modes auxquels elle s'applique.
 /// A scaled basis element: `vE0`, `2E1E2`.
 pub const Basis = struct {
     value: Leaf,
     modes: []const i32,
 };
 
+// Tuple d'entiers CuTe/Fly : feuille, element de base ou liste imbriquee de
+// sous-tuples ; c'est le coeur du modele hote de forme et de stride.
 pub const IntTuple = union(enum) {
     leaf: Leaf,
     basis: Basis,
@@ -215,6 +222,7 @@ fn itImpl(comptime v: anytype) IntTuple {
     }
 }
 
+// Layout `forme:stride` : la forme et le stride associes, chacun un IntTuple.
 /// `!fly.layout<shape:stride>`.
 pub const Layout = struct {
     shape: IntTuple,
@@ -386,6 +394,8 @@ fn unflatten(comptime like: IntTuple, values: []const i64, pos: *usize) IntTuple
     }
 }
 
+// Litteral de tuile : feuille, layout, ou modes imbriques `[a|b]` ; sert a
+// decrire les partitions de type CuTe/Fly.
 /// A leaf (`8` or `*`), a layout, or a nested tile.
 pub const Tile = union(enum) {
     leaf: Leaf,
@@ -461,6 +471,7 @@ fn tileImpl(comptime v: anytype) Tile {
     }
 }
 
+// Parametres de swizzle d'adresse `S<mask,base,shift>` applique a un layout.
 /// `S<mask,base,shift>`.
 pub const Swizzle = struct {
     mask: i32,

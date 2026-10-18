@@ -1,6 +1,8 @@
 const std = @import("std");
 const mlir = @import("mlir");
 
+// Énumère les types d'éléments supportés par le backend Mosaic-TPU: entiers et
+// flottants usuels, plus les formats 8 bits f8e4m3fn et f8e5m2.
 pub const DType = enum {
     i1,
     i8,

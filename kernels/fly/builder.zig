@@ -29,6 +29,7 @@ pub const dialects_needed = fly.dialects_needed;
 
 pub const FinishError = error{ InvalidMlir, OutOfMemory } || std.Io.Writer.Error;
 
+// Architecture GPU AMD ciblee par le Builder (CDNA3 gfx942 ou CDNA4 gfx950).
 pub const Arch = enum { gfx942, gfx950 };
 
 pub const Dim = gpu.Dim;
@@ -47,6 +48,8 @@ test {
 // Value
 // =============================================================================
 
+// Valeur SSA FlyDSL : encapsule un type MLIR et son Builder proprietaire, et
+// expose les helpers de haut niveau pour emettre les operations Fly/arithmetiques.
 pub const Value = struct {
     inner: *const mlir.Value,
     kernel: ?*Builder = null,
@@ -579,6 +582,7 @@ pub const Value = struct {
         return k.emit(op);
     }
 
+    // Predicats de comparaison partages par les comparaisons entieres et flottantes.
     pub const Cmp = enum { eq, ne, lt, le, gt, ge };
 
     // `arith.cmpi` signe contre une Value ou un litteral entier.
@@ -634,6 +638,7 @@ pub const Value = struct {
         return k.emit(gpu.shuffle(k.ctx, self.inner, off.inner, wid.inner, mode, k.loc()));
     }
 
+    // Operations de reduction disponibles pour reduire un vecteur en scalaire.
     pub const ReduceKind = enum { add, mul, minf, maxf, minsi, maxsi, and_, or_, xor };
 
     // `vector.reduction` : reduit le vecteur a un scalaire selon ReduceKind.
@@ -668,6 +673,8 @@ pub const Value = struct {
 // Tiled copy / MMA handles
 // =============================================================================
 
+// Handle d'un `!fly.tiled_copy` : associe l'atome de copie a son layout
+// thread-valeur et memorise la tuile M/N utilisee pour le construire.
 /// A `!fly.tiled_copy` plus the tile it was built with.
 pub const TiledCopy = struct {
     value: Value,
@@ -684,6 +691,8 @@ pub const TiledCopy = struct {
     }
 };
 
+// Tranche par-thread d'un TiledCopy : partitionne un tenseur source/destination
+// et retile des fragments de registres pour un thread donne.
 /// Per-thread slice of a TiledCopy.
 pub const ThrCopy = struct {
     tiled_copy: Value,
@@ -708,6 +717,8 @@ pub const ThrCopy = struct {
     }
 };
 
+// Handle d'un `!fly.tiled_mma` : cree les fragments de registres par-thread
+// (operandes A/B et accumulateur C) a partir de l'atome MMA.
 pub const TiledMma = struct {
     value: Value,
 
@@ -716,6 +727,7 @@ pub const TiledMma = struct {
         return .{ .tiled_mma = self.value, .thr = self.value.kern().intTuple(thr_idx) };
     }
 
+    // Options de `makeFragment` : nombre d'etages de pipeline du fragment.
     pub const FragmentOpts = struct {
         stages: ?i32 = null,
     };
@@ -752,6 +764,8 @@ pub const TiledMma = struct {
     }
 };
 
+// Tranche par-thread d'un TiledMma : partitionne les operandes A, B et C pour
+// le thread identifie.
 pub const ThrMma = struct {
     tiled_mma: Value,
     thr: Value,
@@ -781,6 +795,8 @@ pub const ThrMma = struct {
 // Builder
 // =============================================================================
 
+// Contexte d'emission FlyDSL : possede le module MLIR, l'arene d'allocation et
+// la pile de blocs, et expose les helpers de construction GPU/Fly.
 pub const Builder = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
@@ -799,6 +815,8 @@ pub const Builder = struct {
     target: Arch = .gfx942,
     fast_math: bool = false,
 
+    // Description d'un argument de kernel : nom, dtype, espace d'adressage et
+    // dimensions optionnelles (row-major) pour une vue tenseur.
     pub const ArgSpec = struct {
         name: []const u8,
         dtype: DType,
@@ -1247,6 +1265,8 @@ pub const Builder = struct {
         }));
     }
 
+    // Portee de synchronisation d'une operation atomique : intra-workgroup ou
+    // a l'echelle de l'agent GPU (tous les workgroups).
     pub const AtomicScope = enum { workgroup, agent };
 
     // `llvm.atomicrmw add` monotone en i32 sur un pointeur global ou partage ;
@@ -1373,6 +1393,8 @@ pub const Builder = struct {
 
     // ---------------------------------------------------------------- atoms
 
+    // Variante d'operation de copie portee par un atome, selectionnee par taille
+    // en bits : copie universelle, buffer_copy CDNA3, ou buffer_copy vers LDS.
     /// The copy-op type an atom wraps, by bit size.
     pub const CopyOp = union(enum) {
         universal: i32,
@@ -1504,6 +1526,7 @@ pub const Builder = struct {
         return .{ .value = v };
     }
 
+    // Options de `copy` : predicat optionnel controlant quelles tranches sont copiees.
     pub const CopyOpts = struct {
         pred: ?Value = null,
     };
@@ -1796,6 +1819,8 @@ test "vectorAdd builds, verifies and re-parses" {
     try std.testing.expect(reparsed.operation().verify());
 }
 
+// Famille de materiel matriciel ciblee : fixe l'atome MMA (MFMA CDNA3 ou WMMA
+// RDNA) ainsi que les types d'operandes et de tuiles K qui en decoulent.
 /// The matrix atom a device family provides. CDNA has MFMA over f32; RDNA has
 /// WMMA, whose verifier requires M=N=K=16 and rejects f32 operands, so the
 /// operand type and the K tile change with the family, not just the mnemonic.

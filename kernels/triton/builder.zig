@@ -24,6 +24,8 @@ test {
     std.testing.refAllDecls(Value);
 }
 
+// Poignée DSL enveloppant une valeur MLIR (scalaire ou tensor) avec son Builder propriétaire ;
+// expose les opérateurs arithmétiques, comparaisons et helpers de forme/réduction.
 pub const Value = struct {
     inner: *const mlir.Value,
     kernel: ?*Builder = null,
@@ -295,10 +297,12 @@ fn computeReducedType(src_shape: []const i64, axis: i32, elem: *const mlir.Type)
     return .rankedTensor(out.constSlice(), elem);
 }
 
+// Spécification d'un argument de kernel (nom + variante de type) pour déclarer une signature tt.func.
 pub const ArgSpec = struct {
     name: []const u8,
     kind: Kind,
 
+    // Variante du type d'argument : pointeur, scalaire, tenseur, ou variante avec options d'adressage/divisibilité.
     pub const Kind = union(enum) {
         ptr: DType,
         scalar: DType,
@@ -307,12 +311,14 @@ pub const ArgSpec = struct {
         scalar_opts: ScalarOpts,
     };
 
+    // Options d'un argument pointeur : dtype de l'élément pointé, espace d'adressage et divisibilité.
     pub const PtrOpts = struct {
         dtype: DType,
         address_space: i32 = 1,
         divisibility: ?u32 = 16,
     };
 
+    // Options d'un argument scalaire : dtype et divisibilité optionnelle.
     pub const ScalarOpts = struct {
         dtype: DType,
         divisibility: ?u32 = null,
@@ -321,29 +327,35 @@ pub const ArgSpec = struct {
 
 pub const FinishError = error{InvalidMlir} || std.mem.Allocator.Error || std.Io.Writer.Error;
 
+// Options de tt.clampf : politique de propagation des NaN.
 pub const ClampOpts = struct {
     propagate_nan: ttir.PropagateNan = .none,
 };
 
+// Options de tt.histogram : masque optionnel restreignant les éléments comptés.
 pub const HistogramOpts = struct {
     mask: ?Value = null,
 };
 
+// Options de tt.print : impression des valeurs en hexadécimal.
 pub const PrintOpts = struct {
     hex: bool = false,
 };
 
+// Options de réduction (sum/min/max) : axe ciblé (null = tous les axes) et conservation des dimensions.
 /// `axis=null` reduces all dims.
 pub const ReduceOpts = struct {
     axis: ?i32 = null,
     keep_dims: bool = false,
 };
 
+// Options de scan (cumsum/cumprod) : axe parcouru et sens normal ou inversé.
 pub const ScanOpts = struct {
     axis: i32 = 0,
     reverse: bool = false,
 };
 
+// Options de tt.load : masque, valeur de repli, cache, politique d'éviction et accès volatile.
 pub const LoadOpts = struct {
     mask: ?Value = null,
     other: ?Value = null,
@@ -352,75 +364,90 @@ pub const LoadOpts = struct {
     @"volatile": bool = false,
 };
 
+// Options de tt.store : masque, modificateur de cache et politique d'éviction.
 pub const StoreOpts = struct {
     mask: ?Value = null,
     cache_modifier: ttir.CacheModifier = .none,
     eviction_policy: ttir.EvictionPolicy = .normal,
 };
 
+// Options de tt.reshape : réordonnancement autorisé et disposition efficace.
 pub const ReshapeOpts = struct {
     can_reorder: bool = false,
     efficient_layout: bool = false,
 };
 
+// Options de tt.dot : précision des entrées et nombre maximal d'accumulations imprécises.
 pub const DotOpts = struct {
     input_precision: ttir.InputPrecision = .tf32,
     max_num_imprecise_acc: i32 = 0,
 };
 
+// Options de tt.fp_to_fp : mode d'arrondi optionnel de la conversion.
 pub const FpToFpOpts = struct {
     rounding: ?ttir.RoundingMode = null,
 };
 
+// Options de tt.atomic_rmw : masque, sémantique mémoire et portée de synchronisation.
 pub const AtomicRMWOpts = struct {
     mask: ?Value = null,
     sem: ttir.MemSemantic = .acq_rel,
     scope: ttir.MemSyncScope = .gpu,
 };
 
+// Options de tt.atomic_cas : sémantique mémoire et portée de synchronisation.
 pub const AtomicCasOpts = struct {
     sem: ttir.MemSemantic = .acq_rel,
     scope: ttir.MemSyncScope = .gpu,
 };
 
+// Options de tt.dot_scaled : fast-math et packing des facteurs d'échelle lhs/rhs.
 pub const DotScaledOpts = struct {
     fast_math: bool = false,
     lhs_k_pack: bool = true,
     rhs_k_pack: bool = true,
 };
 
+// Options de tt.extern_elementwise : indique si l'appel au symbole externe est pur.
 pub const ExternElementwiseOpts = struct {
     is_pure: bool = true,
 };
 
+// Options de tt.descriptor_load : modificateur de cache et politique d'éviction.
 pub const DescriptorLoadOpts = struct {
     cache_modifier: ttir.CacheModifier = .none,
     eviction_policy: ttir.EvictionPolicy = .normal,
 };
 
+// Options de tt.elementwise_inline_asm : pureté et facteur de packing.
 pub const InlineAsmOpts = struct {
     is_pure: bool = true,
     pack: i32 = 1,
 };
 
+// Options de tt.cat : réordonnancement autorisé et dimension de concaténation.
 pub const CatOpts = struct {
     can_reorder: bool = false,
     dim: i32 = 0,
 };
 
+// Options de cast : mode d'arrondi en descente flottante et bitcast forcé.
 pub const CastOpts = struct {
     fp_downcast_rounding: ?ttir.RoundingMode = null,
     bitcast: bool = false,
 };
 
+// Options de maximum/minimum : politique de propagation des NaN.
 pub const MinMaxOpts = struct {
     propagate_nan: ttir.PropagateNan = .none,
 };
 
+// Options de tt.assert : masque optionnel des lanes concernées.
 pub const DeviceAssertOpts = struct {
     mask: ?Value = null,
 };
 
+// Options de retour conditionnel : émettre le tt.return en ligne au lieu d'un bloc de sortie partagé.
 pub const ReturnIfOpts = struct {
     inline_return: bool = false,
 };
@@ -430,6 +457,8 @@ pub fn ForScope(comptime N: usize) type {
     return dsl.ForScope(Builder, Value, N);
 }
 
+// Poignée d'un retour conditionnel manuel (openReturnIf) : blocs de retour et de continuation,
+// terminés par yieldReturn.
 pub const ReturnIfScope = struct {
     kernel: *Builder,
     ret_block: *mlir.Block,
@@ -510,6 +539,8 @@ pub fn ScanArgs(comptime CtxT: type) type {
 
 pub const dialects_needed = [_][]const u8{ "func", "tt", "arith", "scf", "math", "cf", "llvm" };
 
+// Constructeur de kernel Triton : possède le module MLIR, la fonction tt.func, la pile de blocs et l'arène ;
+// expose les opérations Triton/arith/math/scf comme méthodes DSL.
 pub const Builder = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
@@ -521,6 +552,7 @@ pub const Builder = struct {
     exit_block: ?*mlir.Block = null,
     block_stack: std.ArrayList(*mlir.Block),
 
+    // Options de déclaration de fonction : marque la tt.func comme noinline.
     /// `noinline` is a Zig keyword — write `.{ .@"noinline" = true }`.
     pub const Opts = struct {
         @"noinline": bool = false,
@@ -1089,7 +1121,9 @@ pub const Builder = struct {
         const in_shape = input.shape();
         const result_ty: *const mlir.Type = computeReducedType(in_shape.constSlice(), axis, elem);
         const is_float = input.isFloatElem();
+        // Contexte figé du combinateur : nature flottante de l'entrée et genre d'opération (kind).
         const Ctx = struct { is_float: bool, kind: @TypeOf(kind) };
+        // Sélectionne et expose le combinateur (fonction c) selon le contexte figé.
         const combine = struct {
             // Combinateur interne pour tt.reduce : addf/addi, maxnumf/maxsi ou minnumf/minsi selon kind et type flottant.
             fn c(kk: *Builder, lhs: Value, rhs: Value, cc: Ctx) Value {
@@ -1142,7 +1176,9 @@ pub const Builder = struct {
     fn scanDispatch(self: *Builder, src: Value, opts: ScanOpts, comptime kind: enum { sum, prod }) Value {
         const elem = src.elemType();
         const is_float = src.isFloatElem();
+        // Contexte figé du combinateur : nature flottante de l'entrée et genre d'opération (kind).
         const Ctx = struct { is_float: bool, kind: @TypeOf(kind) };
+        // Sélectionne et expose le combinateur (fonction c) selon le contexte figé.
         const combine = struct {
             // Combinateur interne pour tt.scan : addf/addi (somme) ou mulf/muli (produit) selon kind et type flottant.
             fn c(kk: *Builder, lhs: Value, rhs: Value, cc: Ctx) Value {

@@ -38,6 +38,7 @@ pub const dialects_needed = [_][]const u8{"cuda_tile"};
 
 pub const FinishError = error{InvalidMlir} || std.mem.Allocator.Error || std.Io.Writer.Error;
 
+// Valeur SSA du DSL cuda_tile : enveloppe une valeur MLIR et son Builder propriétaire, avec l'arithmétique et les vues sur les tiles.
 pub const Value = struct {
     inner: *const mlir.Value,
     kernel: ?*Builder = null,
@@ -297,17 +298,21 @@ pub const Value = struct {
     }
 };
 
+// Résultat d'un chargement mémoire : le tile lu accompagné de son token d'ordonnancement.
 pub const Loaded = struct {
     tile: Value,
     token: Value,
 };
 
+// Identifiant de bloc sur trois axes CUDA (x, y, z), chacun un scalaire du kernel.
 pub const BlockId = struct { x: Value, y: Value, z: Value };
 
+// Spécification d'un paramètre du kernel : nom logique et nature du pointeur d'argument.
 pub const ArgSpec = struct {
     name: []const u8,
     kind: Kind,
 
+    // Nature d'un argument : pointeur brut d'un DType, ou pointeur avec options d'alignement.
     /// XLA passes one raw device pointer per custom-call argument, so every
     /// parameter is a rank-0 `tile<ptr<T>>` and views are built inside the
     /// kernel. A scalar reaches the kernel through a pointer (`loadPtr` on a
@@ -317,6 +322,7 @@ pub const ArgSpec = struct {
         ptr_opts: PtrOpts,
     };
 
+    // Options d'un pointeur d'argument : type élément et facteur d'alignement `div_by` raffiné par `assume`.
     /// `div_by` becomes a `cuda_tile.assume #cuda_tile.div_by<N>` at the top
     /// of the entry, and `arg(i)` returns the refined value. XLA guarantees
     /// only 16 bytes on the pointer it passes.
@@ -326,29 +332,35 @@ pub const ArgSpec = struct {
     };
 };
 
+// Options globales du kernel : hints d'optimisation posés sur l'opération d'entrée.
 pub const Opts = struct {
     hints: []const EntryHint = &.{},
 };
 
+// Options partagées des opérations flottantes : mode d'arrondi et flush-to-zero.
 pub const FloatOpts = struct {
     rounding: RoundingMode = .nearest_even,
     flush_to_zero: bool = false,
 };
 
+// Options des min/max flottants : propagation des NaN et flush-to-zero.
 pub const MinMaxOpts = struct {
     propagate_nan: bool = false,
     flush_to_zero: bool = false,
 };
 
+// Options des opérations entières : comportement en cas de dépassement.
 pub const IntOpts = struct {
     overflow: IntegerOverflow = .none,
 };
 
+// Options de la division entière : signedness et mode d'arrondi optionnel.
 pub const DivIOpts = struct {
     signedness: Signedness = .signed,
     rounding: ?RoundingMode = null,
 };
 
+// Options de conversion de flottants (ftof/itof) : arrondi optionnel et signedness.
 /// `rounding` null picks the target's legal default: `nearest_even`, except
 /// `f8e8m0fnu`, which the dialect only lets you reach with `zero` or
 /// `positive_inf`.
@@ -357,22 +369,26 @@ pub const CastOpts = struct {
     signedness: Signedness = .signed,
 };
 
+// Options de la conversion flottant -> entier : seule la signedness est configurable.
 /// `ftoi` admits exactly one rounding mode (`nearest_int_to_zero`), so only
 /// the signedness is a choice.
 pub const FToIOpts = struct {
     signedness: Signedness = .signed,
 };
 
+// Options des opérations MMA : activation de l'accumulateur rapide (`fast_acc`).
 pub const MmaOpts = struct {
     /// 13.3 only.
     fast_acc: bool = false,
 };
 
+// Options de partition d'une vue : valeur de padding des bords irréguliers et remappage des dimensions.
 pub const PartitionOpts = struct {
     padding: ?PaddingValue = .zero,
     dim_map: []const i32 = &.{},
 };
 
+// Options d'un chargement depuis une vue : ordre/portée mémoire, token et hints de chargement/stockage.
 pub const LoadOpts = struct {
     ordering: MemoryOrdering = .weak,
     scope: ?MemoryScope = null,
@@ -382,6 +398,7 @@ pub const LoadOpts = struct {
 
 pub const StoreOpts = LoadOpts;
 
+// Options d'un chargement via un tile de pointeurs : mask, padding, mémoire et hints de pointeur.
 /// The pointer arm takes `latency` hints only; `allow_tma` is a view-op hint.
 pub const LoadPtrOpts = struct {
     mask: ?Value = null,
@@ -392,6 +409,7 @@ pub const LoadPtrOpts = struct {
     hints: []const PtrLoadStoreHint = &.{},
 };
 
+// Options d'un stockage via un tile de pointeurs : mask, ordre mémoire et token.
 pub const StorePtrOpts = struct {
     mask: ?Value = null,
     ordering: MemoryOrdering = .weak,
@@ -400,6 +418,7 @@ pub const StorePtrOpts = struct {
     hints: []const PtrLoadStoreHint = &.{},
 };
 
+// Options des opérations atomiques : ordre et portée mémoire, mask et token.
 pub const AtomicOpts = struct {
     ordering: MemoryOrdering = .acq_rel,
     scope: MemoryScope = .device,
@@ -407,6 +426,7 @@ pub const AtomicOpts = struct {
     token: ?Value = null,
 };
 
+// Options d'une réduction atomique dans une vue : portée mémoire et token.
 /// `atomic_red_view_tko` is relaxed-only, scoped to the block or device, and
 /// has no mask operand — the view's padding decides what is touched.
 pub const RedViewOpts = struct {
@@ -414,17 +434,20 @@ pub const RedViewOpts = struct {
     token: ?Value = null,
 };
 
+// Options d'allocation : alignement en octets et placement en mémoire globale.
 pub const AllocaOpts = struct {
     alignment: i64 = 16,
     global: bool = false,
 };
 
+// Options d'une globale au niveau module : alignement, constance et visibilité du symbole.
 pub const GlobalOpts = struct {
     alignment: ?i64 = null,
     constant: bool = false,
     visibility: ?ct.SymbolVisibility = null,
 };
 
+// Options d'un scan : parcours inverse optionnel.
 pub const ScanOpts = struct {
     reverse: bool = false,
 };
@@ -496,6 +519,7 @@ pub fn ScanMultiArgs(comptime CtxT: type) type {
     };
 }
 
+// Constructeur d'IR cuda_tile : détient le contexte/module MLIR, l'arène, la pile de blocs et les helpers d'émission.
 pub const Builder = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
@@ -1010,6 +1034,7 @@ pub const Builder = struct {
         return self.emit(ct.make_tensor_view(self.ctx, base.inner, &.{}, &.{}, ty, self.loc()));
     }
 
+    // Dimension d'une tensor view : statique (valeur i64) ou dynamique (Value runtime).
     pub const Dim = union(enum) {
         static: i64,
         dynamic: Value,
@@ -1776,6 +1801,7 @@ pub const Builder = struct {
         return self.emitMulti(ct.scan(self.ctx, self.innerSlice(args.srcs), @intCast(args.axis), args.reverse, args.identities, body, result_types, self.loc()), args.srcs.len);
     }
 
+    // Réductions et scans intégrés disponibles : somme, maximum, minimum et produit.
     const ReduceKind = enum { sum, max, min, prod };
 
     // Fonction de combinaison generique (somme/produit/max/min) selon le type elementaire.
@@ -1813,6 +1839,7 @@ pub const Builder = struct {
 
     // Reduction integree avec `combineKind` ; construit le body et appelle `reduce`.
     fn reduceKind(self: *Builder, src: Value, axis: usize, comptime kind: ReduceKind) Value {
+        // Struct locale exposant le callback `combine` (methode `c`) utilise par `reduce`.
         const combine = struct {
             // Callback `combine` pour `reduceKind` : applique `combineKind` du kind capture sur (element, accumulateur).
             fn c(k: *Builder, element: Value, acc: Value, _: void) Value {
@@ -1841,6 +1868,7 @@ pub const Builder = struct {
 
     // Scan integre avec `combineKind` ; construit le body et appelle `scan`.
     fn scanKind(self: *Builder, src: Value, axis: usize, opts: ScanOpts, comptime kind: ReduceKind) Value {
+        // Struct locale exposant le callback `combine` (methode `c`) utilise par `scan`.
         const combine = struct {
             // Callback `combine` pour `scanKind` : applique `combineKind` du kind capture.
             fn c(k: *Builder, element: Value, acc: Value, _: void) Value {

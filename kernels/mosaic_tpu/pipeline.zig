@@ -23,6 +23,8 @@ const FinishError = builder.FinishError;
 /// `ShapedType::kDynamic` — sentinel for a `?` dim in a memref shape.
 const kDyn: i64 = std.math.minInt(i64);
 
+// Entree de `pl.BlockSpec.block_shape`: dimension fenetree (blocked),
+// supprimee (squeezed) ou bornee (bounded_slice).
 /// One entry of `pl.BlockSpec.block_shape`.
 pub const BlockDim = union(enum) {
     /// `pl.Blocked(n)` — windowed dim of size `n`.
@@ -33,6 +35,8 @@ pub const BlockDim = union(enum) {
     bounded_slice: i64,
 };
 
+// Entree renvoyee par `pl.BlockSpec.index_map`: index scalaire (blocked/
+// squeezed) ou tranche {start,size} (bounded_slice).
 /// One entry returned by `pl.BlockSpec.index_map`.
 pub const BlockIndex = union(enum) {
     /// `pl.ds(idx*block, block)` — for `.blocked`/`.squeezed` dims.
@@ -47,11 +51,15 @@ pub const IndexMapFn = *const fn (b: *Builder, indices: []const Value, ctx: ?*an
 /// Working window for one pipeline operand. Body must re-emit
 /// `memref_slice`/`squeeze` at each use site. `slot == null` ⇒ trivial-windowing;
 /// `buf == null` ⇒ no operand.
+// Fenetre de travail d'un operand de pipeline: buffer memref + slot courant;
+// `slot == null` indique un windowing trivial.
 pub const RefWindow = struct { buf: ?Value = null, slot: ?Value = null };
 
 /// The pipeline body — `pallas_call`'s inner kernel.
 pub const BodyFn = *const fn (b: *Builder, grid_indices: []const Value, refs: []const RefWindow, scratches: []const Value, ctx: ?*anyopaque) FinishError!void;
 
+// Surcharges optionnelles des operations DMA d'un buffer; les operations non
+// specifiees gardent le comportement standard du pipeline.
 // Optional overrides for a buffered reference's DMA operations.
 // Unspecified operations retain the standard pipeline behavior.
 pub const BufferedRefStrategy = struct {
@@ -62,6 +70,8 @@ pub const BufferedRefStrategy = struct {
     wait_out: ?*const fn (br: *BufferedRef, b: *Builder, indices: []const Value, ctx: ?*anyopaque) void = null,
 };
 
+// Specification d'un operand de pipeline (`pl.BlockSpec`): forme complete,
+// dtype, block_shape/index_map optionnels, memory space et strategie de DMA.
 /// `pl.BlockSpec` for one pipeline operand. `null` slot ↔ `None` spec.
 pub const PipeSpec = struct {
     full_shape: []const i64,
@@ -89,6 +99,8 @@ pub const PipeSpec = struct {
     buffer_type: ?BufferType = null,
 };
 
+// Options de `emitPipeline`: corps du kernel, grille dynamique (i32),
+// specifications d'entree/sortie et activation des scopes de trace.
 pub const PipelineOpts = struct {
     body: BodyFn,
     body_ctx: ?*anyopaque = null,
@@ -263,8 +275,11 @@ pub fn emitPipeline(
     _ = tpu.region(b.ctx, region_block, &.{}, b.loc()).appendTo(b.currentBlock());
 }
 
+// Sens d'un buffer de pipeline: entree, sortie, ou entree/sortie combinee.
 pub const BufferType = enum { input, output, input_output };
 
+// Buffer VMEM (double-buffer) et semaphores DMA d'un operand: alloue la
+// fenetre, gere les slots scf.for et les copies DMA synchrones/asynchrones.
 /// VMEM double-buffer + DMA semaphores for one pipeline operand.
 pub const BufferedRef = struct {
     spec: PipeSpec,
@@ -396,6 +411,8 @@ pub const BufferedRef = struct {
     // Lie les arguments du corps `scf.for` aux champs de slots du buffer; renvoie l'index suivant.
     fn bindSlotsAt(self: *BufferedRef, b: *Builder, body: *mlir.Block, start: usize) usize {
         var k = start;
+        // Petit helper local qui consomme le prochain argument de bloc et
+        // renvoie le Value correspondant.
         const arg = struct {
             // Helper local: prend le prochain argument de `body_` a l'index `i.*`, l'incremente et renvoie le Value.
             fn f(b_: *Builder, body_: *mlir.Block, i: *usize) Value {
@@ -455,6 +472,8 @@ pub const BufferedRef = struct {
     // Lit les resultats du `scf.for` dans les champs de slots du buffer; renvoie l'index suivant.
     fn readbackSlots(self: *BufferedRef, b: *Builder, for_op: *mlir.Operation, start: usize) usize {
         var k = start;
+        // Petit helper local qui consomme le prochain resultat d'operation et
+        // renvoie le Value correspondant.
         const take = struct {
             // Helper local: prend le prochain resultat de `op` a l'index `i.*`, l'incremente et renvoie le Value.
             fn f(b_: *Builder, op: *mlir.Operation, i: *usize) Value {
@@ -492,6 +511,8 @@ pub const BufferedRef = struct {
         @panic("emitPipeline: index_map required for non-trivial windowing");
     }
 
+    // Tranche DMA par dimension: base `{base, size?}`; `size == null` signifie
+    // dimension statique complete.
     /// Per `block_shape` dim: `{base, size?}`. `size == null` ⇒ static-full.
     /// `static_zero_start` enables prologue shortcut (Python-int 0 start folds).
     const DmaSlice = struct { base: []Value, size: []?Value };
@@ -822,6 +843,8 @@ pub const BufferedRef = struct {
     }
 };
 
+// Planificateur prologue/boucle/epilogue des copies+attentes DMA: precalcule
+// les indices prev/next/prefetch et decide quelles copies emettre par etape.
 /// Prologue/loop/epilogue copy+wait schedule.
 const Scheduler = struct {
     step: Value,
@@ -1195,6 +1218,7 @@ test "trivial input-output ref is copied in and out" {
     }, &.{});
     defer b.deinit();
 
+    // Corps de kernel no-op ({}) utilise comme `BodyFn` dans ce test.
     const noOpBody = struct {
         // Corps no-op utilise comme `BodyFn` dans le test.
         fn call(

@@ -1,6 +1,8 @@
 const std = @import("std");
 const mlir = @import("mlir");
 
+// Énumère les types d'éléments supportés par le backend Triton: entiers et
+// flottants usuels, y compris les formats 8 bits fn/fnuz.
 pub const DType = enum {
     i1,
     i8,

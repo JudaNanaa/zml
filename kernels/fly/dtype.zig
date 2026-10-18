@@ -1,6 +1,8 @@
 const std = @import("std");
 const mlir = @import("mlir");
 
+// Énumère les types d'éléments gérés par le backend Fly: entiers et flottants,
+// y compris les formats 8 bits fn/fnuz du matériel AMD.
 pub const DType = enum {
     i1,
     i8,
