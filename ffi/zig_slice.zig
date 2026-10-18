@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("c");
 
+// Convertit entre une tranche Zig et la representation C zig_slice (pointeur, longueur).
 pub const ZigSlice = struct {
     // Convertit une tranche Zig en zig_slice C (pointeur et longueur).
     pub fn from(slice: anytype) c.zig_slice {

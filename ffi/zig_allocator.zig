@@ -2,6 +2,7 @@ const std = @import("std");
 
 const c = @import("c");
 
+// Expose un std.mem.Allocator Zig sous la forme du type C zig_allocator (alloc/free).
 pub const ZigAllocator = struct {
     // Construit le wrapper C zig_allocator a partir d'un Allocator Zig.
     pub inline fn from(allocator: std.mem.Allocator) c.zig_allocator {

@@ -12,6 +12,7 @@ test {
     std.testing.refAllDecls(@This());
 }
 
+// Espace de noms des utilitaires comptime de l'interface PJRT (tailles de struct C, valeurs par defaut).
 pub const meta = struct {
     // Calcule, par reflexion comptime, la taille du struct C correspondant (champ _STRUCT_SIZE).
     // We could calculate it like PJRT does, but it turns out that some of those
@@ -95,7 +96,9 @@ fn InnerMixin(comptime innerT: type) type {
     };
 }
 
+// Pointeur vers l'API PJRT d'un plugin, exposant ses fonctions et extensions.
 pub const Api = struct {
+    // Version majeure et mineure de l'API PJRT exposee par le plugin.
     pub const Version = struct {
         major: i64,
         minor: i64,
@@ -199,7 +202,9 @@ pub const Api = struct {
         return ret;
     }
 
+    // Namespace des types lies aux extensions PJRT (type, union et iterateur).
     pub const Extensions = struct {
+        // Type d'extension PJRT connu (custom call, profiler, layouts, ffi, etc.).
         pub const Type = enum(c.PJRT_Extension_Type) {
             custom_call = c.PJRT_Extension_Type_Gpu_Custom_Call,
             profiler = c.PJRT_Extension_Type_Profiler,
@@ -212,6 +217,7 @@ pub const Api = struct {
             unknown = c.PJRT_Extension_Type_Unknown,
         };
 
+        // Union etiquetee pointant vers le pointeur d'extension correspondant a chaque Type.
         pub const Extension = union(Type) {
             custom_call: *const c.PJRT_Gpu_Custom_Call,
             profiler: *const c.PJRT_Profiler_Extension,
@@ -224,6 +230,7 @@ pub const Api = struct {
             unknown: *const c.PJRT_Extension_Base,
         };
 
+        // Iterateur parcourant la liste chainee des extensions du plugin PJRT.
         pub const Iterator = struct {
             current: ?*const c.PJRT_Extension_Base,
 
@@ -271,6 +278,7 @@ pub const Api = struct {
 
     // Renvoie la version StableHLO annoncee par le plugin (mise en cache), ou null si absente.
     pub fn stablehloCurrentVersion(self: *const Api) ?[]const u8 {
+        // Etat statique servant de cache pour la version StableHLO annoncee par le plugin.
         const state = struct {
             var buf: [32]u8 = undefined;
             var str: ?[:0]const u8 = null;
@@ -335,6 +343,7 @@ pub const Api = struct {
     }
 };
 
+// Code d'erreur PJRT, reflet de l'enumeration C PJRT_Error_Code.
 pub const ErrorCode = enum(c.PJRT_Error_Code) {
     cancelled = c.PJRT_Error_Code_CANCELLED,
     unknown = c.PJRT_Error_Code_UNKNOWN,
@@ -376,6 +385,7 @@ pub const ErrorCode = enum(c.PJRT_Error_Code) {
     }
 };
 
+// Handle opaque vers une erreur PJRT, dont on peut lire le code et le message.
 pub const Error = opaque {
     const inner = InnerMixin(c.PJRT_Error).inner;
 
@@ -405,6 +415,7 @@ pub const Error = opaque {
 
 pub const ClientInitError = error{LoadingFailed} || ApiError;
 
+// Specification de forme (dimensions et type d'element) pour creer un tampon.
 pub const ShapeSpec = extern struct {
     comptime {
         std.debug.assert(@sizeOf(ShapeSpec) == @sizeOf(c.PJRT_ShapeSpec));
@@ -434,11 +445,14 @@ pub const ShapeSpec = extern struct {
     }
 };
 
+// Handle opaque vers un flux d'execution PJRT.
 pub const Stream = opaque {};
 
+// Handle opaque vers un client PJRT, point d'entree vers appareils, memoires et compilations.
 pub const Client = opaque {
     const inner = InnerMixin(c.PJRT_Client).inner;
 
+    // Format de programme accepte a la compilation (HLO ou MLIR).
     pub const ProgramFormat = enum {
         hlo,
         mlir,
@@ -485,6 +499,7 @@ pub const Client = opaque {
         return @ptrCast(ret.addressable_devices[0..ret.num_addressable_devices]);
     }
 
+    // Arguments de compilation d'un programme: bytecode, format et options.
     pub const CompileArgs = struct {
         bytecode: []const u8,
         bytecode_format: ProgramFormat,
@@ -514,6 +529,7 @@ pub const Client = opaque {
         return future.await(io);
     }
 
+    // Arguments de copie d'un tampon hote vers un appareil ou une memoire.
     pub const BufferFromHostBufferArgs = struct {
         data: [*]const u8,
         buffer_type: BufferType,
@@ -559,6 +575,7 @@ pub const Client = opaque {
         return @ptrCast(ret.loaded_executable.?);
     }
 
+    // Arguments de creation d'un tampon pointant sur une zone memoire d'appareil existante.
     pub const CreateViewOfDeviceBufferArgs = struct {
         device_buffer_ptr: *anyopaque,
         dims: []const i64,
@@ -623,6 +640,7 @@ pub const Client = opaque {
         });
     }
 
+    // Arguments de creation de tampons vides et du gestionnaire de transferts asynchrones associe.
     pub const CreateBuffersForAsyncHostToDeviceArgs = struct {
         shape_specs: []const ShapeSpec,
         device_layouts: ?[]*const MemoryLayout = null,
@@ -700,6 +718,7 @@ pub const Client = opaque {
         return try DefaultMemoryLayout.parseSerialized(serialized);
     }
 
+    // Arguments de creation d'un tampon non initialise sur un appareil ou une memoire.
     pub const CreateUninitializedBufferArgs = struct {
         dims: []const i64,
         element_type: BufferType,
@@ -726,9 +745,11 @@ pub const Client = opaque {
     }
 };
 
+// Handle opaque vers un appareil PJRT (GPU, CPU...).
 pub const Device = opaque {
     const inner = InnerMixin(c.PJRT_Device).inner;
 
+    // Attributs nommes d'un appareil, avec la fonction chargee de les liberer.
     pub const Attributes = struct {
         values: []const NamedValue,
         state: *c.PJRT_Device_Attributes,
@@ -817,6 +838,7 @@ pub const Device = opaque {
         return @ptrCast(ret.memory);
     }
 
+    // Statistiques d'usage memoire d'un appareil (octets utilises, reserves, limites...).
     pub const MemoryStats = struct {
         /// Number of bytes in use.
         bytes_in_use: u64,
@@ -870,6 +892,7 @@ pub const Device = opaque {
     }
 };
 
+// Handle opaque vers la description d'un appareil (id, type, attributs).
 pub const DeviceDescription = opaque {
     const inner = InnerMixin(c.PJRT_DeviceDescription).inner;
 
@@ -937,6 +960,7 @@ pub const DeviceDescription = opaque {
 
 pub const GetCostAnalysisError = std.mem.Allocator.Error || ApiError;
 
+// Resultat de serialisation d'un executable: octets et handle a liberer.
 pub const SerializeResult = struct {
     bytes: []const u8,
     handle: *anyopaque,
@@ -950,6 +974,7 @@ pub const SerializeResult = struct {
     }
 };
 
+// Handle opaque vers un contexte d'execution reutilisable pour des donnees utilisateur.
 pub const ExecuteContext = opaque {
     // Detruit le contexte d'execution PJRT.
     pub fn deinit(self: *ExecuteContext, api: *const Api) void {
@@ -959,6 +984,7 @@ pub const ExecuteContext = opaque {
     }
 };
 
+// Handle opaque vers un executable compile, serialisable et analysable en cout.
 pub const Executable = opaque {
     const inner = InnerMixin(c.PJRT_Executable).inner;
 
@@ -991,6 +1017,7 @@ pub const Executable = opaque {
         };
     }
 
+    // Statistiques memoire d'un executable compile (code, arguments, sorties, temporaires).
     pub const CompiledMemoryStats = struct {
         /// Mirrors xla::CompiledMemoryStats.
         /// Device default memory (e.g., HBM for GPU/TPU) usage stats.
@@ -1029,6 +1056,7 @@ pub const Executable = opaque {
     }
 };
 
+// Handle opaque vers un executable charge sur des appareils, pret a etre execute.
 pub const LoadedExecutable = opaque {
     const inner = InnerMixin(c.PJRT_LoadedExecutable).inner;
 
@@ -1062,6 +1090,7 @@ pub const LoadedExecutable = opaque {
         return @ptrCast(ret.addressable_devices[0..ret.num_addressable_devices]);
     }
 
+    // Arguments d'execution: listes de tampons d'entree/sortie, evenements et contexte.
     pub const ExecuteArgs = struct {
         num_args: usize,
         arguments: []const [*]const *const Buffer,
@@ -1098,6 +1127,7 @@ pub const LoadedExecutable = opaque {
     }
 };
 
+// Type d'element d'un tampon PJRT (entiers, flottants, complexe, formats f8...).
 pub const BufferType = enum(c.PJRT_Buffer_Type) {
     invalid = c.PJRT_Buffer_Type_INVALID,
     bool = c.PJRT_Buffer_Type_PRED,
@@ -1130,20 +1160,24 @@ pub const BufferType = enum(c.PJRT_Buffer_Type) {
     f4e2m1 = c.PJRT_Buffer_Type_F4E2M1FN,
 };
 
+// Type de layout memoire d'un tampon: tuile (tiled) ou strides.
 pub const MemoryLayoutType = enum(c.PJRT_Buffer_MemoryLayout_Type) {
     tiled = c.PJRT_Buffer_MemoryLayout_Type_Tiled,
     strides = c.PJRT_Buffer_MemoryLayout_Type_Strides,
 };
 
+// Layout memoire d'un tampon, en variante tuilee ou strides.
 pub const MemoryLayout = union(MemoryLayoutType) {
     pub const Type = MemoryLayoutType;
 
+    // Layout memoire tuile: ordre mineur->majeur et dimensions des tuiles.
     pub const Tiled = struct {
         minor_to_major: []const i64,
         tile_dims: []const i64,
         tile_dims_sizes: []const usize,
     };
 
+    // Layout memoire en strides d'octets explicites.
     pub const Strides = struct {
         byte_strides: []const i64,
     };
@@ -1217,6 +1251,7 @@ pub const MemoryLayout = union(MemoryLayoutType) {
     }
 };
 
+// Layout memoire par defaut d'une forme, stocke en tableaux de capacite fixe.
 pub const DefaultMemoryLayout = struct {
     pub const MAX_MINOR_TO_MAJOR: usize = 16;
     pub const MAX_TILE_DIMS: usize = 128;
@@ -1314,6 +1349,7 @@ pub const DefaultMemoryLayout = struct {
     }
 };
 
+// Semantique de validite du tampon hote pendant le transfert vers l'appareil.
 pub const HostBufferSemantics = enum(c.PJRT_HostBufferSemantics) {
     ImmutableOnlyDuringCall = c.PJRT_HostBufferSemantics_kImmutableOnlyDuringCall,
     ImmutableUntilTransferCompletes = c.PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes,
@@ -1321,6 +1357,7 @@ pub const HostBufferSemantics = enum(c.PJRT_HostBufferSemantics) {
     MutableZeroCopy = c.PJRT_HostBufferSemantics_kMutableZeroCopy,
 };
 
+// Handle opaque vers un tampon PJRT (transferts, copie, layout memoire).
 pub const Buffer = opaque {
     const inner = InnerMixin(c.PJRT_Buffer).inner;
 
@@ -1484,6 +1521,7 @@ pub const Buffer = opaque {
     }
 };
 
+// Handle opaque vers un evenement PJRT, avec attente et callbacks.
 pub const Event = opaque {
     const inner = InnerMixin(c.PJRT_Event).inner;
 
@@ -1518,6 +1556,7 @@ pub const Event = opaque {
             return interpretPjrtError(api, err, "PJRT_Event_Await");
         }
 
+        // Etat d'attente d'un evenement: erreur recue, drapeau pret et io de reveil.
         const Ctx = struct {
             err: ?*Error = null,
             event: std.Io.Event = .unset,
@@ -1558,7 +1597,9 @@ pub const Event = opaque {
     }
 };
 
+// Handle opaque vers une memoire PJRT (device, hote epingle ou non epingle).
 pub const Memory = opaque {
+    // Type de memoire PJRT: appareil, hote epingle ou hote non epingle.
     pub const Kind = enum {
         device,
         host_pinned,
@@ -1641,6 +1682,7 @@ pub const Memory = opaque {
     }
 };
 
+// Handle opaque vers un gestionnaire de transferts asynchrones hote->appareil.
 pub const AsyncHostToDeviceTransferManager = opaque {
     const inner = InnerMixin(c.PJRT_AsyncHostToDeviceTransferManager).inner;
 
@@ -1719,6 +1761,7 @@ pub const AsyncHostToDeviceTransferManager = opaque {
     }
 };
 
+// Valeur nommee (nom, type, valeur) echangee avec le plugin PJRT.
 pub const NamedValue = extern struct {
     comptime {
         std.debug.assert(@sizeOf(NamedValue) == @sizeOf(c.PJRT_NamedValue));
@@ -1726,6 +1769,7 @@ pub const NamedValue = extern struct {
 
     inner: c.PJRT_NamedValue,
 
+    // Type de la valeur nommee: chaine, entier, liste d'entiers, flottant ou booleen.
     pub const Kind = enum(c.PJRT_NamedValue_Type) {
         string = c.PJRT_NamedValue_kString,
         int64 = c.PJRT_NamedValue_kInt64,
@@ -1734,6 +1778,7 @@ pub const NamedValue = extern struct {
         bool = c.PJRT_NamedValue_kBool,
     };
 
+    // Union etiquetee de la valeur d'un NamedValue selon son Kind.
     pub const Value = union(Kind) {
         string: []const u8,
         int64: i64,
@@ -1801,9 +1846,11 @@ pub const NamedValue = extern struct {
     }
 };
 
+// Extension FFI du plugin PJRT pour enregistrer handlers et types de custom calls.
 pub const Ffi = extern struct {
     inner: *const c.PJRT_FFI,
 
+    // Donnees utilisateur associees a un type FFI lors d'un contexte d'execution.
     pub const UserData = extern struct {
         type_id: i64,
         user_data: *anyopaque,
@@ -1817,6 +1864,7 @@ pub const Ffi = extern struct {
         }
     };
 
+    // Callbacks (deleter, serialize, deserialize) decrivant un type FFI.
     pub const TypeInfo = struct {
         deleter: ?*const fn (*anyopaque) callconv(.c) void = null,
         serialize: ?*const fn () callconv(.c) void = null,
@@ -1891,6 +1939,7 @@ pub const Ffi = extern struct {
     }
 };
 
+// Profileur PJRT adosse a l'extension profiler du plugin.
 pub const Profiler = struct {
     pjrt_api: *const Api,
     api: *const c.PLUGIN_Profiler_Api,

@@ -8,6 +8,7 @@ export fn _upb_MiniTable_StrongReference_dont_copy_me__upb_internal_use_only(mt:
     _ = &unused;
 }
 
+// Options de serialisation protobuf upb (deterministe, saut des champs inconnus...).
 pub const SerializeOptions = packed struct(c_int) {
     deterministic: bool = false,
     skip_unknown: bool = false,
@@ -21,6 +22,7 @@ pub const SerializeError = error{
     Unknown,
 } || std.mem.Allocator.Error;
 
+// Options de parsing protobuf upb (alias de chaines, validation UTF-8...).
 pub const ParseOptions = packed struct {
     alias_string: bool = false,
     check_required: bool = false,
@@ -126,6 +128,7 @@ pub fn new(comptime UpbType: type, arena: *c.upb_Arena) std.mem.Allocator.Error!
     return @ptrCast(new_fn(arena) orelse return std.mem.Allocator.Error.OutOfMemory);
 }
 
+// Adaptateur reliant l'allocateur upb C a un Allocator Zig.
 pub const Allocator = struct {
     upb_alloc: c.upb_alloc,
     allocator: std.mem.Allocator,

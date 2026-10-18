@@ -17,6 +17,7 @@ comptime {
 /// The signature of a generic custom call.
 pub const Handler = fn (*CallFrame) callconv(.c) ?*Error;
 
+// Version de l'API FFI exposee par le plugin, avec la taille du struct.
 pub const ApiVersion = extern struct {
     pub const major = c.XLA_FFI_API_MAJOR;
     pub const minor = c.XLA_FFI_API_MINOR;
@@ -27,16 +28,19 @@ pub const ApiVersion = extern struct {
     minor_version: i32,
 };
 
+// Type d'extension interne FFI (actuellement les metadonnees).
 pub const ExtensionType = enum(c.XLA_FFI_InternalExtension_Type) {
     metadata = c.XLA_FFI_Extension_Metadata,
 };
 
+// En-tete commun a toute extension FFI (taille, type et maillon suivant).
 pub const ExtensionBase = extern struct {
     struct_size: usize,
     type: ExtensionType,
     next: ?*ExtensionBase,
 };
 
+// Traits d'un handler FFI, dont la compatibilite avec le command buffer.
 // Based of https://github.com/openxla/xla/blob/145f836bd5175dc5dd262f716a0c59af2b0297a0/xla/ffi/api/c_api.h#L449
 pub const HandlerTraits = packed struct(c_uint) {
     /// Calls to FFI handler are safe to trace into the command buffer.
@@ -47,12 +51,14 @@ pub const HandlerTraits = packed struct(c_uint) {
     __unassigned__: u31 = 0,
 };
 
+// Metadonnees portees par l'extension FFI: taille, version d'API et traits.
 pub const Metadata = extern struct {
     struct_size: usize,
     api_version: ApiVersion,
     traits: HandlerTraits,
 };
 
+// Extension FFI exposant les metadonnees du plugin.
 pub const MetadataExtension = extern struct {
     extension_base: ExtensionBase,
     metadata: ?*Metadata,
@@ -81,6 +87,7 @@ fn TransmuteMixin(comptime T: type, comptime InnerT: type) type {
     };
 }
 
+// Handle opaque vers l'API FFI offerte par le plugin (flux, memoire d'appareil...).
 pub const Api = opaque {
     pub const inner = TransmuteMixin(Api, c.XLA_FFI_Api).to;
 
@@ -150,6 +157,7 @@ pub const Api = opaque {
     // * XLA_FFI_State_Get
 };
 
+// Etape d'execution d'un custom call FFI (instanciation, preparation, initialisation, execution).
 pub const ExecutionStage = enum(c.XLA_FFI_ExecutionStage) {
     instantiate = c.XLA_FFI_ExecutionStage_INSTANTIATE,
     prepare = c.XLA_FFI_ExecutionStage_PREPARE,
@@ -157,6 +165,7 @@ pub const ExecutionStage = enum(c.XLA_FFI_ExecutionStage) {
     execute = c.XLA_FFI_ExecutionStage_EXECUTE,
 };
 
+// Handle opaque vers le contexte d'execution d'un appel FFI (donnees, appareil, taches).
 pub const ExecutionContext = opaque {
     pub const inner = TransmuteMixin(ExecutionContext, c.XLA_FFI_InvokeContext).to;
 
@@ -227,6 +236,7 @@ pub const ExecutionContext = opaque {
     }
 };
 
+// Vue d'une zone contigue d'octets (pointeur et longueur).
 pub const ByteSpan = extern struct {
     ptr: [*]const u8,
     len: usize,
@@ -237,6 +247,7 @@ pub const ByteSpan = extern struct {
     }
 };
 
+// Type de donnee FFI, reflet de l'enumeration C XLA_FFI_DataType.
 pub const DataType = enum(c.XLA_FFI_DataType) {
     invalid = c.XLA_FFI_DataType_INVALID,
     bool = c.XLA_FFI_DataType_PRED,
@@ -265,6 +276,7 @@ pub const DataType = enum(c.XLA_FFI_DataType) {
     f4e2m1 = c.XLA_FFI_DataType_F4E2M1FN,
 };
 
+// Tampon FFI (type, donnees, rang, dimensions) manipule par un handler.
 pub const Buffer = extern struct {
     struct_size: usize,
     extension_start: ?*c.XLA_FFI_InternalExtension,
@@ -284,6 +296,7 @@ pub const Buffer = extern struct {
     }
 };
 
+// Liste des tampons d'entree d'un appel FFI.
 pub const Args = extern struct {
     struct_size: usize,
     extension_start: ?*const c.XLA_FFI_InternalExtension,
@@ -291,6 +304,7 @@ pub const Args = extern struct {
     types: [*]const Type,
     ptr: [*]*const Buffer,
 
+    // Type d'un argument FFI (actuellement uniquement buffer).
     pub const Type = enum(c.XLA_FFI_ArgType) {
         buffer = c.XLA_FFI_ArgType_BUFFER,
     };
@@ -301,6 +315,7 @@ pub const Args = extern struct {
     }
 };
 
+// Liste des tampons de sortie d'un appel FFI.
 pub const Rets = extern struct {
     struct_size: usize,
     extension_start: ?*const c.XLA_FFI_InternalExtension,
@@ -308,6 +323,7 @@ pub const Rets = extern struct {
     types: [*]const Type,
     ptr: [*]*const Buffer,
 
+    // Type d'un resultat FFI (actuellement uniquement buffer).
     pub const Type = enum(c.XLA_FFI_RetType) {
         buffer = c.XLA_FFI_RetType_BUFFER,
     };
@@ -318,6 +334,7 @@ pub const Rets = extern struct {
     }
 };
 
+// Type d'attribut FFI: tableau, dictionnaire, scalaire ou chaine.
 pub const AttrType = enum(c.XLA_FFI_AttrType) {
     array = c.XLA_FFI_AttrType_ARRAY,
     dictionary = c.XLA_FFI_AttrType_DICTIONARY,
@@ -325,6 +342,7 @@ pub const AttrType = enum(c.XLA_FFI_AttrType) {
     string = c.XLA_FFI_AttrType_STRING,
 };
 
+// Collection d'attributs nommes passes a un appel FFI.
 pub const Attrs = extern struct {
     struct_size: usize,
     extension_start: ?*ExtensionBase,
@@ -333,12 +351,14 @@ pub const Attrs = extern struct {
     names: [*]const *const ByteSpan,
     ptr: [*]const *const Attr,
 
+    // Union externe de la valeur d'un attribut FFI (scalaire, tableau ou chaine).
     const Attr = extern union {
         scalar: Scalar,
         array: Array,
         string: ByteSpan,
     };
 
+    // Attribut scalaire FFI: type et pointeur vers la valeur.
     pub const Scalar = extern struct {
         dtype: DataType,
         value: *const anyopaque,
@@ -350,6 +370,7 @@ pub const Attrs = extern struct {
         }
     };
 
+    // Attribut tableau FFI: type, longueur et pointeur vers les donnees.
     pub const Array = extern struct {
         dtype: DataType,
         len: usize,
@@ -389,6 +410,7 @@ pub const Attrs = extern struct {
     }
 };
 
+// Trame d'appel FFI: API, contexte, etape, entrees/sorties et attributs du custom call.
 /// All informations needed by the user callback,
 /// including the list of input/ouput buffers to work on.
 pub const CallFrame = extern struct {
@@ -422,6 +444,7 @@ pub const CallFrame = extern struct {
     }
 };
 
+// Code d'erreur FFI, reflet de l'enumeration C XLA_FFI_Error_Code.
 pub const ErrorCode = enum(c.XLA_FFI_Error_Code) {
     cancelled = c.XLA_FFI_Error_Code_CANCELLED,
     unknown = c.XLA_FFI_Error_Code_UNKNOWN,
@@ -463,6 +486,7 @@ pub const ErrorCode = enum(c.XLA_FFI_Error_Code) {
     }
 };
 
+// Handle opaque vers une erreur FFI, creee et detruite via l'API FFI.
 pub const Error = opaque {
     pub const inner = TransmuteMixin(Error, c.XLA_FFI_Error).to;
     pub const fromInner = TransmuteMixin(Error, c.XLA_FFI_Error).from;
@@ -494,6 +518,7 @@ pub const Error = opaque {
     }
 };
 
+// Handle opaque vers un Future FFI, indiquant la disponibilite asynchrone d'un resultat.
 pub const Future = opaque {
     pub const inner = TransmuteMixin(Future, c.XLA_FFI_Future).to;
     pub const fromInner = TransmuteMixin(Future, c.XLA_FFI_Future).from;
