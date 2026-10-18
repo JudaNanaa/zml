@@ -50,6 +50,7 @@ pub fn make(ctx: *mlir.Context, name: []const u8, args: mlir.Operation.MakeArgs)
     };
 }
 
+// Étiquette des types fly reconnus (`memref`, `coord_tensor`, ...) ; `.other` désigne un type non fly.
 pub const TypeKind = enum {
     memref,
     coord_tensor,

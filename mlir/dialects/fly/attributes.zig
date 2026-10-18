@@ -3,6 +3,7 @@ const std = @import("std");
 const c = @import("c");
 const mlir = @import("mlir");
 
+// Attribut `#fly.int` : feuille entière unifiée (statique ou dynamique) du dialecte fly.
 /// `#fly.int`, the unified static/dynamic integer leaf.
 pub const IntAttr = opaque {
     const Self = @This();
@@ -36,6 +37,7 @@ pub const IntAttr = opaque {
     }
 };
 
+// Attribut `#fly.int_tuple` : feuille, élément de base ou imbrication de ceux-ci (formes/strides).
 /// `#fly.int_tuple`: a leaf, a basis element, or a nest of those.
 pub const IntTupleAttr = opaque {
     const Self = @This();
@@ -53,6 +55,7 @@ pub const IntTupleAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de IntTupleAttr : attribut de valeur porteur.
     pub const InitArgs = struct {
         value: *const mlir.Attribute,
     };
@@ -90,6 +93,7 @@ pub const IntTupleAttr = opaque {
     }
 };
 
+// Attribut `#fly.layout` : paire `shape:stride` (deux int_tuples) décrivant un layout.
 /// `#fly.layout`, a `shape:stride` pair.
 pub const LayoutAttr = opaque {
     const Self = @This();
@@ -107,6 +111,7 @@ pub const LayoutAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de LayoutAttr : int_tuples de forme et de strides.
     pub const InitArgs = struct {
         shape: *const IntTupleAttr,
         stride: *const IntTupleAttr,
@@ -119,6 +124,7 @@ pub const LayoutAttr = opaque {
     }
 };
 
+// Attribut `#fly.tile` : un mode, ou une imbrication `[a|b]` de modes.
 /// `#fly.tile`: a mode, or a `[a|b]` nest of modes.
 pub const TileAttr = opaque {
     const Self = @This();
@@ -136,6 +142,7 @@ pub const TileAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de TileAttr : attribut de valeur porteur (mode ou tuple de modes).
     pub const InitArgs = struct {
         value: *const mlir.Attribute,
     };
@@ -152,6 +159,7 @@ pub const TileAttr = opaque {
     }
 };
 
+// Attribut de swizzle `S<mask,base,shift>` appliqué à un espace mémoire.
 /// `S<mask,base,shift>`.
 pub const SwizzleAttr = opaque {
     const Self = @This();
@@ -169,6 +177,7 @@ pub const SwizzleAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de SwizzleAttr : masque, base et décalage du swizzle.
     pub const InitArgs = struct {
         mask: i32,
         base: i32,
@@ -182,6 +191,7 @@ pub const SwizzleAttr = opaque {
     }
 };
 
+// Attribut d'alignement `align<n>`, exprimé en octets.
 /// `align<n>`, in bytes.
 pub const AlignAttr = opaque {
     const Self = @This();
@@ -199,6 +209,7 @@ pub const AlignAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de AlignAttr : valeur d'alignement en octets.
     pub const InitArgs = struct {
         alignment: i32,
     };
@@ -209,8 +220,10 @@ pub const AlignAttr = opaque {
     }
 };
 
+// Espace d'adressage d'un pointeur/memref fly : générique, global, partagé (shared) ou registre.
 pub const AddressSpace = enum(i32) { generic = 0, global = 1, shared = 2, register = 3 };
 
+// Attribut d'espace d'adressage (`global`, `shared`, ...) ; peut aussi référencer un attribut étranger tel que `#fly_rocdl.buffer_desc`.
 /// `global`, `shared`, ... A pointer or memref may also carry a foreign
 /// address-space attribute, such as `#fly_rocdl.buffer_desc`.
 pub const AddressSpaceAttr = opaque {
@@ -229,6 +242,7 @@ pub const AddressSpaceAttr = opaque {
         return self.attribute().format(writer);
     }
 
+    // Arguments d'initialisation de AddressSpaceAttr : espace d'adressage à encoder.
     pub const InitArgs = struct {
         addressSpace: AddressSpace,
     };
@@ -240,6 +254,7 @@ pub const AddressSpaceAttr = opaque {
     }
 };
 
+// Opérande d'une opération MMA (`a`, `b`, `c`, `d`) sélectionné par son indice.
 pub const MmaOperand = enum(i32) { a = 0, b = 1, c = 2, d = 3 };
 
 // Construit l'attribut `#fly.mma_operand` (operande A/B/C/D) via l'API C.
@@ -248,6 +263,7 @@ pub fn mmaOperandAttr(ctx: *mlir.Context, operand: MmaOperand) mlir.Error!*const
     return @ptrCast(result.ptr orelse return error.InvalidMlir);
 }
 
+// Ordre de parcours des boucles GEMM (permutations de K/M/N, éventuellement en serpentin).
 pub const GemmTraversalOrder = enum(i32) {
     kmn = 0,
     knm = 1,

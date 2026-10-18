@@ -10,6 +10,7 @@ fn optAttr(value: anytype) c.MlirAttribute {
     return if (value) |v| v.ptr() else .{ .ptr = null };
 }
 
+// Type `!fly.int_tuple` : tuple d'entiers décrivant les formes/strides, composé de feuilles statiques, dynamiques, `none` ou `basis`.
 /// `!fly.int_tuple`.
 pub const IntTupleType = opaque {
     const Self = @This();
@@ -27,6 +28,7 @@ pub const IntTupleType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de IntTupleType : attribut int_tuple porteur.
     pub const InitArgs = struct {
         attr: *const attributes.IntTupleAttr,
     };
@@ -62,6 +64,7 @@ pub const IntTupleType = opaque {
         return c.mlirFlyIntTupleTypeIsStatic(self.ptr());
     }
 
+    // Feuille d'un int_tuple : valeur statique, dynamique (sans valeur), `none` ou `basis` (base de l'espace des layouts).
     pub const Leaf = union(enum) { static: i64, dynamic, none, basis };
 
     // Lit le leaf : statique (valeur), `none`, `basis` ou dynamique.
@@ -76,6 +79,7 @@ pub const IntTupleType = opaque {
     }
 };
 
+// Type `!fly.layout` : paire forme/strides (shape:stride) décrite par des int_tuples.
 /// `!fly.layout`.
 pub const LayoutType = opaque {
     const Self = @This();
@@ -93,6 +97,7 @@ pub const LayoutType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de LayoutType : attribut layout porteur.
     pub const InitArgs = struct {
         attr: *const attributes.LayoutAttr,
     };
@@ -118,6 +123,7 @@ pub const LayoutType = opaque {
     }
 };
 
+// Type `!fly.composed_layout` : composition d'un layout avec un décalage et un layout interne (layout o offset o layout).
 /// `!fly.composed_layout`.
 pub const ComposedLayoutType = opaque {
     const Self = @This();
@@ -141,6 +147,7 @@ pub const ComposedLayoutType = opaque {
     }
 };
 
+// Type `!fly.tile` : mode ou imbrication de modes (par ex. `[8|64]`), utilisé pour projeter des layouts.
 /// `!fly.tile`.
 pub const TileType = opaque {
     const Self = @This();
@@ -158,6 +165,7 @@ pub const TileType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de TileType : attribut tile porteur.
     pub const InitArgs = struct {
         attr: *const attributes.TileAttr,
     };
@@ -173,6 +181,7 @@ pub const TileType = opaque {
     }
 };
 
+// Type `!fly.swizzle` : nombre magique de swizzle `S<mask,base,shift>` appliqué à un espace d'adressage.
 /// `!fly.swizzle`.
 pub const SwizzleType = opaque {
     const Self = @This();
@@ -190,6 +199,7 @@ pub const SwizzleType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de SwizzleType : attribut swizzle porteur.
     pub const InitArgs = struct {
         attr: *const attributes.SwizzleAttr,
     };
@@ -200,6 +210,7 @@ pub const SwizzleType = opaque {
     }
 };
 
+// Type `!fly.ptr` : pointeur vers un élément, avec espace d'adressage et options d'alignement/swizzle.
 /// `!fly.ptr`.
 pub const PointerType = opaque {
     const Self = @This();
@@ -217,6 +228,7 @@ pub const PointerType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de PointerType : type d'élément, espace d'adressage, alignement et swizzle optionnels.
     pub const InitArgs = struct {
         elemTy: *const mlir.Type,
         addressSpace: *const mlir.Attribute,
@@ -251,6 +263,7 @@ pub const PointerType = opaque {
     }
 };
 
+// Type `!fly.memref` : région mémoire avec type d'élément, espace d'adressage, layout et options d'alignement/swizzle.
 /// `!fly.memref`.
 pub const MemRefType = opaque {
     const Self = @This();
@@ -268,6 +281,7 @@ pub const MemRefType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de MemRefType : élément, espace d'adressage, layout, alignement et swizzle optionnels.
     pub const InitArgs = struct {
         elemTy: *const mlir.Type,
         addressSpace: *const mlir.Attribute,
@@ -298,6 +312,7 @@ pub const MemRefType = opaque {
     }
 };
 
+// Type `!fly.coord_tensor` : tenseur de coordonnées indexé par une base (int_tuple) et un layout.
 /// `!fly.coord_tensor`.
 pub const CoordTensorType = opaque {
     const Self = @This();
@@ -315,6 +330,7 @@ pub const CoordTensorType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de CoordTensorType : base (int_tuple) et attribut de layout.
     pub const InitArgs = struct {
         base: *const attributes.IntTupleAttr,
         layout: *const mlir.Attribute,
@@ -327,6 +343,7 @@ pub const CoordTensorType = opaque {
     }
 };
 
+// Type `!fly.copy_atom` : atome de copie spécialisé (opération de copie + largeur de valeur) avec ses layouts thread/valeur.
 /// `!fly.copy_atom`.
 pub const CopyAtomType = opaque {
     const Self = @This();
@@ -344,6 +361,7 @@ pub const CopyAtomType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de CopyAtomType : type de l'opération de copie et largeur de valeur en bits.
     pub const InitArgs = struct {
         copyOp: *const mlir.Type,
         valBits: i32,
@@ -376,6 +394,7 @@ pub const CopyAtomType = opaque {
     }
 };
 
+// Type `!fly.mma_atom` : atome de MMA encapsulant une opération MMA et exposant forme MNK et layouts thread/valeur.
 /// `!fly.mma_atom`.
 pub const MmaAtomType = opaque {
     const Self = @This();
@@ -393,6 +412,7 @@ pub const MmaAtomType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de MmaAtomType : type de l'opération MMA encapsulée.
     pub const InitArgs = struct {
         mmaOp: *const mlir.Type,
     };
@@ -428,6 +448,7 @@ pub const MmaAtomType = opaque {
     }
 };
 
+// Type `!fly.tiled_copy` : copie tuilée sur les threads et les valeurs, source et destination.
 /// `!fly.tiled_copy`.
 pub const TiledCopyType = opaque {
     const Self = @This();
@@ -456,6 +477,7 @@ pub const TiledCopyType = opaque {
     }
 };
 
+// Type `!fly.tiled_mma` : MMA tuilé sur les threads (taille MNK, layout de threads VMNK, layouts A/B/C).
 /// `!fly.tiled_mma`.
 pub const TiledMmaType = opaque {
     const Self = @This();
@@ -499,6 +521,7 @@ pub const TiledMmaType = opaque {
     }
 };
 
+// Type `!fly.universal_copy` : opération de copie générique (tout layout, taille de valeur donnée).
 /// `!fly.universal_copy`.
 pub const CopyOpUniversalCopyType = opaque {
     const Self = @This();
@@ -516,6 +539,7 @@ pub const CopyOpUniversalCopyType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de CopyOpUniversalCopyType : taille de valeur en bits.
     pub const InitArgs = struct {
         bitSize: i32,
     };

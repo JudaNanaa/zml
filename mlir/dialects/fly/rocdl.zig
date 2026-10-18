@@ -5,6 +5,7 @@ const mlir = @import("mlir");
 
 pub const ops = @import("rocdl_ops.zig");
 
+// Attribut d'espace d'adressage pour pointeurs de descripteurs de tampons (buffer descriptor) dans le dialecte fly_rocdl.
 /// `#fly_rocdl.buffer_desc`, an address space for buffer-descriptor pointers.
 pub const BufferDescAddressAttr = opaque {
     const Self = @This();
@@ -26,6 +27,7 @@ pub const BufferDescAddressAttr = opaque {
     }
 };
 
+// Type fly_rocdl CDNA3 décrivant l'opération de copie de tampon via buffer_load/buffer_store (mode buffer_copy).
 /// `!fly_rocdl.cdna3.buffer_copy`.
 pub const CopyOpCDNA3BufferCopyType = opaque {
     const Self = @This();
@@ -43,6 +45,7 @@ pub const CopyOpCDNA3BufferCopyType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation du type CopyOpCDNA3BufferCopyType (taille en bits, modificateur de cache).
     pub const InitArgs = struct {
         bitSize: i32,
         /// 0 = cached, 2 = non-temporal.
@@ -56,6 +59,7 @@ pub const CopyOpCDNA3BufferCopyType = opaque {
     }
 };
 
+// Type fly_rocdl CDNA3 décrivant une copie tampon vers/depuis LDS (buffer_copy_lds).
 /// `!fly_rocdl.cdna3.buffer_copy_lds`.
 pub const CopyOpCDNA3BufferCopyLDSType = opaque {
     const Self = @This();
@@ -73,6 +77,7 @@ pub const CopyOpCDNA3BufferCopyLDSType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de CopyOpCDNA3BufferCopyLDSType (taille en bits).
     pub const InitArgs = struct {
         bitSize: i32,
     };
@@ -84,6 +89,7 @@ pub const CopyOpCDNA3BufferCopyLDSType = opaque {
     }
 };
 
+// Type fly_rocdl CDNA3 décrivant une instruction MFMA (matrix multiply-add) de AMD CDNA3.
 /// `!fly_rocdl.cdna3.mfma`.
 pub const MmaOpCDNA3MFMAType = opaque {
     const Self = @This();
@@ -101,6 +107,7 @@ pub const MmaOpCDNA3MFMAType = opaque {
         return self.type_().format(writer);
     }
 
+    // Arguments d'initialisation de MmaOpCDNA3MFMAType (dimensions MNK et types des opérandes A/B/accumulateur).
     pub const InitArgs = struct {
         m: i32,
         n: i32,
@@ -117,6 +124,7 @@ pub const MmaOpCDNA3MFMAType = opaque {
     }
 };
 
+// Type fly_rocdl décrivant une instruction WMMA (matrix multiply-add) de AMD GFX11 (RDNA3).
 /// `!fly_rocdl.gfx11.wmma`.
 pub const MmaOpGFX11WMMAType = opaque {
     const Self = @This();
@@ -143,6 +151,7 @@ pub const MmaOpGFX11WMMAType = opaque {
     }
 };
 
+// Type fly_rocdl décrivant une instruction WMMA de AMD GFX120X (RDNA4).
 /// `!fly_rocdl.gfx120x.wmma`.
 pub const MmaOpGFX120XWMMAType = opaque {
     const Self = @This();
@@ -169,6 +178,7 @@ pub const MmaOpGFX120XWMMAType = opaque {
     }
 };
 
+// Arguments d'initialisation communs aux types WMMA GFX11/GFX120X (dimensions MNK, types d'opérandes et options entières).
 /// `signA`/`signB`/`clamp` drive the integer WMMA intrinsics and must stay
 /// false on the float paths.
 pub const WmmaInitArgs = struct {

@@ -17,6 +17,7 @@ pub fn registerDialect(registry: *mlir.DialectRegistry) void {
     dialectHandle().insertDialect(registry);
 }
 
+// Attribut `#sdy.mesh_axis` : un axe nommé du maillage (mesh) avec sa taille.
 pub const MeshAxisAttribute = opaque {
     const M = mlir.Methods(MeshAxisAttribute, c.MlirAttribute);
 
@@ -47,6 +48,7 @@ pub const MeshAxisAttribute = opaque {
     }
 };
 
+// Attribut `#sdy.mesh` : un maillage de dispositifs défini par ses axes et, optionnellement, leurs identifiants.
 pub const MeshAttribute = opaque {
     const M = mlir.Methods(MeshAttribute, c.MlirAttribute);
 
@@ -56,6 +58,7 @@ pub const MeshAttribute = opaque {
     pub const format = M.format(c.mlirAttributePrint);
     pub const isA = M.isA;
 
+    // Description d'un maillage : liste d'axes et identifiants de dispositifs (facultatifs).
     pub const Mesh = struct {
         axes: []const *const MeshAxisAttribute,
         device_ids: []const i64 = &.{},
@@ -79,6 +82,7 @@ pub const MeshAttribute = opaque {
     }
 };
 
+// Attribut `#sdy.sub_axis_info` : décrit un sous-axe (taille du préfixe et taille du sous-axe).
 pub const SubAxisInfoAttribute = opaque {
     const M = mlir.Methods(SubAxisInfoAttribute, c.MlirAttribute);
 
@@ -109,6 +113,7 @@ pub const SubAxisInfoAttribute = opaque {
     }
 };
 
+// Attribut `#sdy.axis_ref` : référence à un axe nommé, éventuellement restreint à un sous-axe.
 pub const AxisRefAttribute = opaque {
     const M = mlir.Methods(AxisRefAttribute, c.MlirAttribute);
 
@@ -146,6 +151,7 @@ pub const AxisRefAttribute = opaque {
     }
 };
 
+// Attribut `#sdy.dimension_sharding` : sharding d'une dimension (axes, drapeau fermé/ouvert, priorité).
 pub const DimensionShardingAttribute = opaque {
     const M = mlir.Methods(DimensionShardingAttribute, c.MlirAttribute);
 
@@ -208,6 +214,7 @@ pub const DimensionShardingAttribute = opaque {
     }
 };
 
+// Description d'un sharding de tenseur : symbole de mesh, shardings par dimension, axes répliqués et non réduits.
 pub const Sharding = struct {
     mesh: []const u8,
     dimensions: []const *const DimensionShardingAttribute,
@@ -215,6 +222,7 @@ pub const Sharding = struct {
     unreduced_axes: []const *const AxisRefAttribute = &.{},
 };
 
+// Attribut `#sdy.sharding` : sharding complet d'un tenseur (mesh, dimensions, axes répliqués/non réduits).
 pub const TensorShardingAttribute = opaque {
     const M = mlir.Methods(TensorShardingAttribute, c.MlirAttribute);
 
@@ -374,6 +382,7 @@ test TensorShardingAttribute {
     }
 }
 
+// Attribut `#sdy.sharding_per_value` : un sharding de tenseur par valeur d'une opération à résultats multiples.
 pub const TensorShardingPerValueAttribute = opaque {
     const M = mlir.Methods(TensorShardingPerValueAttribute, c.MlirAttribute);
 
@@ -431,6 +440,7 @@ test TensorShardingPerValueAttribute {
     );
 }
 
+// Attribut `#sdy<manual_axes{...}>` : ensemble d'axes gérés manuellement par l'utilisateur.
 pub const ManualAxesAttribute = opaque {
     const M = mlir.Methods(ManualAxesAttribute, c.MlirAttribute);
 
