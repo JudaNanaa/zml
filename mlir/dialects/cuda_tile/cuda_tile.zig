@@ -27,6 +27,7 @@ fn attrFromC(a: c.MlirAttribute) *const mlir.Attribute {
 
 const null_attr: c.MlirAttribute = .{ .ptr = null };
 
+// Type `!cuda_tile.ptr<T>` : pointeur type vers la memoire globale, parametre par son type pointe.
 /// `!cuda_tile.ptr<T>` — a typed global-memory pointer.
 pub const PointerType = opaque {
     const M = mlir.Methods(PointerType, c.MlirType);
@@ -53,6 +54,7 @@ pub fn pointerType(ctx: *mlir.Context, pointee_type: *const mlir.Type) *const ml
     return @ptrCast(PointerType.get(ctx, pointee_type));
 }
 
+// Type `!cuda_tile.tile<SHAPExT>` portant les donnees SSA ; rang 0 = scalaire, dimensions en puissances de deux.
 /// `!cuda_tile.tile<SHAPExT>` — every SSA value that carries data. Rank 0 is
 /// the scalar. Dimensions must be powers of two.
 pub const TileType = opaque {
@@ -90,6 +92,7 @@ pub fn tileType(ctx: *mlir.Context, shape: []const i64, elem: *const mlir.Type) 
     return @ptrCast(TileType.get(ctx, shape, elem));
 }
 
+// Type `!cuda_tile.token` : jeton d'ordonnancement produit par toute operation `*_tko`.
 /// `!cuda_tile.token` — the ordering token every `*_tko` op produces.
 pub const TokenType = opaque {
     const M = mlir.Methods(TokenType, c.MlirType);
@@ -111,6 +114,7 @@ pub fn tokenType(ctx: *mlir.Context) *const mlir.Type {
     return @ptrCast(TokenType.get(ctx));
 }
 
+// Type `!cuda_tile.tensor_view<SHAPExT, strides=[...]>` : vue d'un tenseur memoire avec forme et pas ; `?` marque une dimension/stride dynamique.
 /// `!cuda_tile.tensor_view<SHAPExT, strides=[...]>`. `dynamic()` marks a
 /// dimension or stride that arrives as an operand of `make_tensor_view`.
 pub const TensorViewType = opaque {
@@ -178,6 +182,7 @@ fn identityDimMap(dim_map: []const i32, rank: usize) DimMap {
     return out;
 }
 
+// Type `!cuda_tile.partition_view<...>` : decoupe une tensor_view en tuiles ; forme de tuile, padding et dim_map vivent dans le type.
 /// `!cuda_tile.partition_view<tile=(...), padding_value = ..., tensor_view<...>, dim_map=[...]>`.
 /// The tile shape, padding and dim_map all live in the type; the op that
 /// builds one has no attributes of its own.
@@ -228,6 +233,7 @@ pub const PartitionViewType = opaque {
     }
 };
 
+// Type `!cuda_tile.strided_view<...>` (13.3) : vue tuilee parcourant la tensor_view selon des pas de traversee.
 /// `!cuda_tile.strided_view<tile=(...), strides=(...), ...>` (13.3).
 pub const StridedViewType = opaque {
     const M = mlir.Methods(StridedViewType, c.MlirType);
@@ -272,6 +278,7 @@ pub const StridedViewType = opaque {
     }
 };
 
+// Type `!cuda_tile.gather_scatter_view<...>` (13.3) : gather/scatter le long d'une dimension sparse, une tuile par indice.
 /// `!cuda_tile.gather_scatter_view<tile=(...), padding_value=..., tensor_view<...>, sparse_dim=N>`
 /// (13.3): gathers or scatters along `sparseDim`, one tile per index.
 pub const GatherScatterViewType = opaque {
@@ -290,6 +297,7 @@ pub const GatherScatterViewType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction d'une gather_scatter_view : forme de tuile, tensor_view, dimension sparse et padding optionnel.
     pub const InitArgs = struct {
         tileShape: []const i32,
         tensorView: *const TensorViewType,
@@ -371,6 +379,7 @@ fn enumAttribute(comptime getter: anytype, ctx: *mlir.Context, name: []const u8)
     return attrFromC(getter(ctx.ptr(), stringRef(name)));
 }
 
+// Modes d'arrondi flottant (nearest_even, zero, approx, full, ...) portes par l'attribut rounding.
 pub const RoundingMode = enum {
     nearest_even,
     zero,
@@ -386,6 +395,7 @@ pub const RoundingMode = enum {
     }
 };
 
+// Signe d'un entier (signed/unsigned), porte par les operations entieres et les conversions.
 pub const Signedness = enum {
     signed,
     unsigned,
@@ -396,6 +406,7 @@ pub const Signedness = enum {
     }
 };
 
+// Politique de debordement entier (aucun, pas de wrap signe/non signe, pas de wrap).
 pub const IntegerOverflow = enum {
     none,
     no_signed_wrap,
@@ -408,6 +419,7 @@ pub const IntegerOverflow = enum {
     }
 };
 
+// Ordre de comparaison flottante : unordered (NaN autorise) ou ordered.
 pub const ComparisonOrdering = enum {
     unordered,
     ordered,
@@ -418,6 +430,7 @@ pub const ComparisonOrdering = enum {
     }
 };
 
+// Predicat de comparaison (equal, less_than, greater_than, ...) pour cmpf/cmpi.
 pub const ComparisonPredicate = enum {
     equal,
     not_equal,
@@ -432,6 +445,7 @@ pub const ComparisonPredicate = enum {
     }
 };
 
+// Modes de lecture-modification-ecriture atomique (and, or, add, max, xchg, ...).
 pub const AtomicRMWMode = enum {
     @"and",
     @"or",
@@ -450,6 +464,7 @@ pub const AtomicRMWMode = enum {
     }
 };
 
+// Portee memoire d'un acces atomique : bloc de tuiles (tl_blk), device ou systeme (sys).
 pub const MemoryScope = enum {
     tl_blk,
     device,
@@ -461,6 +476,7 @@ pub const MemoryScope = enum {
     }
 };
 
+// Semantique d'ordonnancement memoire (weak, relaxed, acquire, release, acq_rel).
 pub const MemoryOrdering = enum {
     weak,
     relaxed,
@@ -474,6 +490,7 @@ pub const MemoryOrdering = enum {
     }
 };
 
+// Valeur de remplissage des zones hors bornes (zero, neg_zero, nan, +/-inf).
 pub const PaddingValue = enum {
     zero,
     neg_zero,
@@ -487,6 +504,7 @@ pub const PaddingValue = enum {
     }
 };
 
+// Visibilite d'un symbole global : public ou private.
 pub const SymbolVisibility = enum {
     public,
     private,
@@ -499,8 +517,10 @@ pub const SymbolVisibility = enum {
 
 // optimization_hints: one dictionary of hints per architecture.
 
+// Architecture GPU cible des optimization_hints (sm_80 ... sm_121, ou default).
 pub const Arch = enum { default, sm_80, sm_86, sm_87, sm_88, sm_89, sm_90, sm_100, sm_103, sm_110, sm_120, sm_121 };
 
+// Hints d'une entree de noyau : taille du CGA, warps workers et occupation.
 /// Hints `entry` accepts: `num_cta_in_cga` (power of two <= 16),
 /// `num_worker_warps_per_cta` (4 or 8), `occupancy`.
 pub const EntryHint = struct {
@@ -510,6 +530,7 @@ pub const EntryHint = struct {
     occupancy: ?i32 = null,
 };
 
+// Hints des chargements/stockages via vue (TMA autorise, latence).
 /// Hints `load_view_tko` / `store_view_tko` accept.
 pub const LoadStoreHint = struct {
     arch: Arch = .default,
@@ -517,6 +538,7 @@ pub const LoadStoreHint = struct {
     latency: ?i32 = null,
 };
 
+// Hints des chargements/stockages via pointeur : latence seule (pas de TMA).
 /// Hints `load_ptr_tko` / `store_ptr_tko` accept: `latency` only, the
 /// pointer arm cannot use TMA. (The dialect drops unsupported keys silently.)
 pub const PtrLoadStoreHint = struct {
@@ -524,6 +546,7 @@ pub const PtrLoadStoreHint = struct {
     latency: ?i32 = null,
 };
 
+// Attribut `#cuda_tile.optimization_hints<...>` : dictionnaire nom d'architecture -> dictionnaire de hints.
 /// `#cuda_tile.optimization_hints<sm_120 = {num_cta_in_cga = 2}, ...>`: a
 /// dictionary from architecture name to a dictionary of hints.
 pub const OptimizationHintsAttr = opaque {
@@ -542,6 +565,7 @@ pub const OptimizationHintsAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le dictionnaire arch -> hints sous-jacent.
     pub const InitArgs = struct {
         value: *const mlir.DictionaryAttribute,
     };
@@ -589,6 +613,7 @@ pub fn optimizationHints(ctx: *mlir.Context, hints: anytype) *const mlir.Attribu
 
 // assume predicates.
 
+// Attribut `#cuda_tile.div_by<...>` : contrainte de divisibilite, globale ou par groupes (every/along).
 /// `#cuda_tile.div_by<divisor>`, or `<divisor, every E along A>` for a
 /// per-group claim; `every` and `along` are both set or both null.
 pub const DivByAttr = opaque {
@@ -607,6 +632,7 @@ pub const DivByAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : diviseur, et champs optionnels every/along (les deux ensemble ou aucun).
     pub const InitArgs = struct {
         divisor: u64,
         every: ?i64 = null,
@@ -649,6 +675,7 @@ pub fn divBy(ctx: *mlir.Context, divisor: u64, every: ?i64, along: ?i64) *const 
     return attr.attribute();
 }
 
+// Attribut `#cuda_tile.same_elements<[...]>` : taille des groupes d'elements egaux par dimension.
 /// `#cuda_tile.same_elements<[...]>`: per dimension, the size of the groups
 /// of equal elements.
 pub const SameElementsAttr = opaque {
@@ -667,6 +694,7 @@ pub const SameElementsAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : tailles de groupes par dimension.
     pub const InitArgs = struct {
         values: []const i64,
     };
@@ -687,6 +715,7 @@ pub fn sameElements(ctx: *mlir.Context, values: []const i64) *const mlir.Attribu
     return attr.attribute();
 }
 
+// Attribut `#cuda_tile.bounded<lb, ub>` : bornes inferieure/superieure optionnelles.
 /// `#cuda_tile.bounded<lb, ub>`, either side `?` when null.
 pub const BoundedAttr = opaque {
     const Self = @This();
@@ -704,6 +733,7 @@ pub const BoundedAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : bornes lb et ub (chacune `?` si absente).
     pub const InitArgs = struct {
         lb: ?i64 = null,
         ub: ?i64 = null,
@@ -1286,6 +1316,7 @@ pub fn get_num_tile_blocks(ctx: *mlir.Context, location: *const mlir.Location) *
     return threeI32(ctx, "get_num_tile_blocks", location);
 }
 
+// Options d'un symbole global : alignement, drapeau constant et visibilite.
 pub const GlobalOpts = struct {
     alignment: ?i64 = null,
     constant: bool = false,
@@ -1329,6 +1360,7 @@ pub fn module(ctx: *mlir.Context, name: []const u8, body: *mlir.Block, location:
     });
 }
 
+// Arguments d'une entree de noyau : nom, bloc de parametres (tiles rang 0), attributs d'arguments et hints.
 pub const EntryArgs = struct {
     name: []const u8,
     /// The entry block; its arguments are the kernel parameters, every one a
@@ -1550,6 +1582,7 @@ pub fn get_tensor_shape(ctx: *mlir.Context, tensor_view: *const mlir.Value, resu
     });
 }
 
+// Options memoire communes aux acces non atomiques : ordonnancement, portee, token et hints.
 pub const MemOpts = struct {
     ordering: MemoryOrdering = .weak,
     scope: ?MemoryScope = null,
@@ -1566,6 +1599,7 @@ fn memAttrs(ctx: *mlir.Context, opts: MemOpts) Attrs {
     return attrs;
 }
 
+// Petit segment de 0 ou 1 operande optionnel, garde localement pour la duree de l'operation.
 /// An optional operand as a 0- or 1-element segment. Held in a local so the
 /// slice handed to `Operation.make` stays valid.
 const Seg = struct {
@@ -1588,6 +1622,7 @@ fn optional(v: ?*const mlir.Value) Seg {
     return s;
 }
 
+// Operandes d'une operation a segments dimensionnes : valeurs a plat + attribut operandSegmentSizes.
 /// Operands of an `AttrSizedOperandSegments` op, flat plus the
 /// `operandSegmentSizes` the op's properties expect (a DenseI32ArrayAttr).
 const Segments = struct {
@@ -1648,6 +1683,7 @@ pub fn store_view_tko(ctx: *mlir.Context, tile: *const mlir.Value, view: *const 
     });
 }
 
+// Options des chargements via pointeur : masque, valeur de padding et options memoire.
 pub const LoadPtrOpts = struct {
     mask: ?*const mlir.Value = null,
     padding: ?*const mlir.Value = null,
@@ -1676,6 +1712,7 @@ pub fn load_ptr_tko(ctx: *mlir.Context, source: *const mlir.Value, result_type: 
     });
 }
 
+// Options des stockages via pointeur : masque et options memoire.
 pub const StorePtrOpts = struct {
     mask: ?*const mlir.Value = null,
     mem: MemOpts = .{},
@@ -1701,6 +1738,7 @@ pub fn store_ptr_tko(ctx: *mlir.Context, destination: *const mlir.Value, value: 
     });
 }
 
+// Options des atomiques : ordonnancement, portee, masque et token optionnels.
 pub const AtomicOpts = struct {
     ordering: MemoryOrdering = .acq_rel,
     scope: MemoryScope = .device,
@@ -1758,6 +1796,7 @@ pub fn atomic_rmw_tko(ctx: *mlir.Context, pointers: *const mlir.Value, mode: Ato
     });
 }
 
+// Options de atomic_red_view_tko : portee (relaxed uniquement) et token, sans masque.
 /// `atomic_red_view_tko` is relaxed-only, block- or device-scoped, and has
 /// no mask operand.
 pub const RedViewOpts = struct {
