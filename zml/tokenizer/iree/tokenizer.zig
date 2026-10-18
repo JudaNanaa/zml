@@ -101,6 +101,7 @@ fn checkOk(status: c.iree_status_t) !void {
     };
 }
 
+// Tokenizer IREE construit depuis une config HuggingFace; detient l'objet C sous-jacent.
 pub const Tokenizer = struct {
     // TODO: use the ArrayList pattern. Stop copying allocator everywhere
     allocator: std.mem.Allocator,
@@ -178,6 +179,7 @@ pub const Tokenizer = struct {
         return text.data[0..text.size];
     }
 
+    // Encodeur IREE avec son etat et ses tampons de travail alloues cote Zig.
     pub const Encoder = struct {
         tokenizer: *const Tokenizer,
         state_storage: []u8,
@@ -245,6 +247,7 @@ pub const Tokenizer = struct {
             return Writer.init(self, buffer, out);
         }
 
+        // Writer en flux qui pousse les octets recus vers l'encodeur IREE.
         pub const Writer = struct {
             encoder: *Encoder,
             out: *std.Io.Writer,
@@ -396,6 +399,7 @@ pub const Tokenizer = struct {
         }
     };
 
+    // Decodeur IREE avec son etat et son tampon de stockage alloues cote Zig.
     pub const Decoder = struct {
         tokenizer: *const Tokenizer,
         state_storage: []u8,
@@ -532,7 +536,9 @@ pub const Tokenizer = struct {
     };
 };
 
+// Normaliseur IREE: une sequence de normaliseurs HuggingFace et la taille de son etat.
 pub const Normalizer = struct {
+    // Types de normalisation supportes (NFC/NFD/NFKD, accents, casse, remplacement, strip).
     pub const Kind = union(enum) {
         /// Unicode Normalization Form C.
         NFC,
@@ -546,7 +552,9 @@ pub const Normalizer = struct {
         /// Converts text to lowercase.
         Lowercase,
         /// Substitutes occurrences of a literal or regular-expression pattern with the specified content.
+        // Regle de remplacement: motif (regex ou exact) substitue par un contenu.
         Replace: struct {
+            // Mode de correspondance du motif: expression reguliere ou chaine exacte.
             kind: enum {
                 regex,
                 exact,
@@ -555,6 +563,7 @@ pub const Normalizer = struct {
             content: []const u8,
         },
         /// Removes leading and/or trailing whitespace.
+        // Cote(s) a rogner; les bits encodent gauche/droite pour le backend IREE.
         Strip: enum(u8) {
             left = 0b10,
             right = 0b01,
@@ -745,6 +754,7 @@ test "normalizer from Hugging Face" {
     var normalizer = try Normalizer.fromHuggingFaceJson(json);
     defer normalizer.deinit();
 
+    // Cas de test associant une entree a la sortie normalisee attendue.
     const TestCase = struct {
         input: []const u8,
         expected: []const u8,
@@ -839,6 +849,7 @@ test "normalizer sequence preserves composition across tiles" {
 
 // Verifie qu'un echec d'allocation de sequence ne corrompt pas les enfants.
 test "normalizer sequence allocation failure retains child ownership" {
+    // Allocateur factice qui echoue toujours, pour tester la gestion d'erreur.
     const FailAllocator = struct {
         // Allocateur de test qui echoue toujours avec RESOURCE_EXHAUSTED.
         fn control(_: ?*anyopaque, _: c.iree_allocator_command_t, _: ?*const anyopaque, _: [*c]?*anyopaque) callconv(.c) c.iree_status_t {

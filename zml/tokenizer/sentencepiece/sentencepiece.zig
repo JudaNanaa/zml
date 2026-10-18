@@ -49,6 +49,7 @@ fn assertOk(code: c.sentencepiece_util_StatusCode) Error!void {
     };
 }
 
+// Encodeur sentencepiece adosse a un processeur et a un vecteur d'identifiants C++.
 pub const Encoder = struct {
     inner: *SentencePieceProcessor,
     vec: *c.std_vector_int,
@@ -87,6 +88,7 @@ pub const Encoder = struct {
     }
 };
 
+// Decodeur sentencepiece avec vecteur d'identifiants C++ et tampon de chaine.
 pub const Decoder = struct {
     const StringBufferSize = 64;
     const StringBuffer = stdx.BoundedArray(u8, StringBufferSize);
@@ -178,6 +180,7 @@ pub const Decoder = struct {
     }
 };
 
+// Pointeur opaque vers l'objet C++ SentencePieceProcessor, sans champs accessibles en Zig.
 pub const SentencePieceProcessor = opaque {
     // Charge un modele sentencepiece depuis un fichier.
     pub fn fromFile(model: []const u8) !*SentencePieceProcessor {

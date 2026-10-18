@@ -5,6 +5,7 @@ const c = @import("c");
 const platforms = @import("platforms");
 const zffi = @import("ffi");
 
+// Span de trace RAII: demarre a la creation et se termine via `end`.
 pub const Span = struct {
     inner: ?*c.zml_traceme = null,
 

@@ -25,9 +25,11 @@ pub fn profiler(api: *const pjrt.Api, allocator: std.mem.Allocator, io: std.Io, 
     return try .init(allocator, io, inner, options);
 }
 
+// Options de configuration du profileur PJRT, serialisees dans le proto ProfileOptions.
 pub const ProfilerOptions = struct {
     pub const default_version: u32 = 1;
 
+    // Type d'appareil cible du profilage, aligne sur les valeurs du proto TensorFlow.
     pub const DeviceType = enum(i32) {
         unspecified = c.tensorflow_ProfileOptions_UNSPECIFIED,
         cpu = c.tensorflow_ProfileOptions_CPU,
@@ -36,6 +38,7 @@ pub const ProfilerOptions = struct {
         pluggable_device = c.tensorflow_ProfileOptions_PLUGGABLE_DEVICE,
     };
 
+    // Options de trace hote, notamment le masque de filtrage TraceMe.
     pub const TraceOptions = struct {
         host_traceme_filter_mask: ?u64 = null,
 
@@ -52,6 +55,7 @@ pub const ProfilerOptions = struct {
         }
     };
 
+    // Valeur de configuration avancee, typee selon la variante (chaine, booleen ou entier).
     pub const AdvancedConfigValue = union(enum) {
         string: []const u8,
         boolean: bool,
@@ -67,6 +71,7 @@ pub const ProfilerOptions = struct {
         }
     };
 
+    // Paire cle/valeur de configuration avancee transmise au proto ProfileOptions.
     pub const AdvancedConfiguration = struct {
         key: []const u8,
         value: AdvancedConfigValue,
@@ -143,6 +148,7 @@ pub const ProfilerOptions = struct {
     }
 };
 
+// Profileur PJRT actif: etat, chemins de sortie et sous-objet backend optionnel.
 pub const Profiler = struct {
     arena: std.heap.ArenaAllocator,
     allocator: std.mem.Allocator,
@@ -156,6 +162,7 @@ pub const Profiler = struct {
     session_dir: []const u8,
     profile: Profile,
 
+    // Chemins des fichiers de profil produits (protobuf brut et trace Perfetto).
     pub const Profile = struct {
         protobuf_path: []const u8,
         perfetto_path: []const u8,

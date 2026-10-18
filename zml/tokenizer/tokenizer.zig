@@ -5,12 +5,15 @@ pub const sentencepiece = @import("sentencepiece");
 
 const log = std.log.scoped(.@"zml/tokenizer");
 
+// Tags des backends de tokenization disponibles (IREE et sentencepiece).
 const Tokenizers = enum {
     iree,
     sentencepiece,
 };
 
+// Tokenizer polymorphe: selectionne dynamiquement le backend IREE ou sentencepiece.
 pub const Tokenizer = union(Tokenizers) {
+    // Normaliseur de texte polymorphe, avec une variante par backend.
     pub const Normalizer = union(Tokenizers) {
         pub const Kind = iree.Normalizer.Kind;
 
@@ -34,6 +37,7 @@ pub const Tokenizer = union(Tokenizers) {
         }
     };
 
+    // Encodeur de texte polymorphe, exposant une interface commune aux backends.
     pub const Encoder = union(Tokenizers) {
         iree: iree.Tokenizer.Encoder,
         sentencepiece: sentencepiece.Encoder,
@@ -80,6 +84,7 @@ pub const Tokenizer = union(Tokenizers) {
         }
     };
 
+    // Decodeur de tokens polymorphe, exposant une interface commune aux backends.
     pub const Decoder = union(Tokenizers) {
         iree: iree.Tokenizer.Decoder,
         sentencepiece: sentencepiece.Decoder,

@@ -5,6 +5,8 @@ const zml_tokenizer = @import("zml/tokenizer");
 
 const log = std.log.scoped(.@"//zml/tokenizer");
 
+// Options de ligne de commande du binaire de test du tokenizer: chemin du
+// modele, invite a encoder et tokens attendus optionnels.
 const Flags = struct {
     tokenizer: []const u8,
     prompt: []const u8,
