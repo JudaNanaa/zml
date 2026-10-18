@@ -153,6 +153,7 @@ fn project(x: Tensor, linear: zml.nn.Linear, ids: Tensor, opts: Options, dtype: 
     return result;
 }
 
+// Options de l'implémentation de référence StableHLO du MoE.
 pub const Options = struct {
     activation: zml.moe.Activation,
     quantize_input: bool = false,
@@ -202,6 +203,7 @@ pub fn fusedExperts(input: Tensor, ids: Tensor, weights: Tensor, gate_up: zml.nn
 
 // Vérifie l'arrondi des milieux vers les indices d'encodage pairs en E2M1.
 test "MoE compliance: FP4 midpoint rounding" {
+    // Conteneur local exposant roundFp4 au compilateur pour le test.
     const Local = struct {
         // Applique roundFp4 au tenseur de test.
         fn call(x: Tensor) Tensor {

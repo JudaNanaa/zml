@@ -8,6 +8,7 @@ const Shape = zml.Shape;
 const Placement = @import("fused_experts.zig").RoutingWeightPlacement;
 const reference = @import("stablehlo.zig");
 
+// Cas de test paramétrant compilation et comparaison au modèle de référence.
 const Case = struct {
     backend: zml.moe.Backend,
     activation: zml.moe.Activation = .{ .swiglu = .{} },
@@ -143,6 +144,7 @@ fn linear(shape: Shape, scheme: ?zml.Quantization.Scheme, bias: bool, multiplier
     };
 }
 
+// Paire de projections gate_up/down d'un cas de test.
 const ExpertFixture = struct {
     gate_up: zml.nn.Linear,
     down: zml.nn.Linear,
@@ -238,6 +240,7 @@ fn prepareForBackend(canonical: ExpertFixture, backend: zml.moe.Backend) ExpertF
     return prepared;
 }
 
+// Sortie réelle et sortie de référence à comparer.
 const Outputs = struct { actual: Tensor, expected: Tensor };
 
 // Exécute le MoE testé et la référence StableHLO, puis renvoie les deux sorties.
@@ -292,6 +295,7 @@ const clipped_swiglu = [_]zml.moe.Activation{
     .{ .swiglu = .{ .limit = 7 } },
 };
 
+// Formes d'un cas de test (lot, jetons, top-k, largeur, experts).
 const FixtureShape = struct {
     batch: i64 = 1,
     tokens: i64 = 1,
@@ -314,11 +318,13 @@ const specialized_shapes = [_]FixtureShape{
     .{ .width = 5120, .intermediate = 2304, .experts = 2, .batch = 2, .tokens = 17, .topk = 2 },
 };
 
+// Schéma de quantification et type d'activation d'un cas.
 const Format = struct {
     scheme: ?zml.Quantization.Scheme = null,
     activation_dtype: zml.DataType = .bf16,
 };
 
+// Matrice de cas d'un backend, dimensionnée par ses options.
 const Matrix = struct {
     formats: []const Format = &.{.{}},
     activations: []const zml.moe.Activation,
@@ -367,6 +373,7 @@ const Matrix = struct {
     }
 };
 
+// Réglages du pipeline producteurs/consommateurs des tests.
 const Options = struct {
     producers: usize = 16,
     consumers: usize = 1,
@@ -374,16 +381,19 @@ const Options = struct {
     executable_queue_capacity: usize = 16,
 };
 
+// Cas de test indexé dans la file de compilation.
 const CaseJob = struct {
     index: usize,
     case: Case,
 };
 
+// Exécutable compilé associé à un cas, prêt à être exécuté.
 const ExecutableJob = struct {
     job: CaseJob,
     exe: zml.Exe,
 };
 
+// Résultat d'un cas : réussi, ignoré ou échec de compilation/vérification.
 const Result = struct {
     case: Case,
     outcome: union(enum) {
@@ -394,6 +404,7 @@ const Result = struct {
     },
 };
 
+// Pipeline de tests producteurs/consommateurs par backend.
 const Pipeline = struct {
     platform: *const zml.Platform,
 

@@ -96,7 +96,9 @@ pub fn prepareRouting(topk_ids: Tensor, num_experts: i64, block_size_m: i64) sha
     };
 }
 
+// Noyau d'alignement des jetons par blocs d'experts.
 const Align = struct {
+    // Sorties de l'alignement : jetons triés, expert par bloc et total rempli.
     const Result = struct {
         sorted_token_ids: Tensor,
         expert_ids: Tensor,
@@ -144,6 +146,7 @@ const Align = struct {
         return .{ .sorted_token_ids = result.sorted_token_ids, .expert_ids = result.expert_ids, .num_tokens_post_pad = result.num_tokens_post_pad, .cumsum = result.cumsum };
     }
 
+    // Configuration du noyau d'alignement Fly.
     const Config = struct {
         routes: i64,
         experts: i64,
@@ -237,7 +240,9 @@ const Align = struct {
     }
 };
 
+// Tri des routes par expert via un curseur atomique par expert.
 const Sort = struct {
+    // Sorties du tri : jetons triés et cumsum par expert.
     const Result = struct {
         sorted_token_ids: Tensor,
         cumsum: Tensor,
@@ -270,6 +275,7 @@ const Sort = struct {
         return .{ .sorted_token_ids = result.sorted_token_ids, .cumsum = result.cumsum };
     }
 
+    // Configuration du noyau de tri Fly.
     const Config = struct {
         routes: i64,
         experts: i64,

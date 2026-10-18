@@ -6,6 +6,7 @@ const Tensor = zml.Tensor;
 
 const log = std.log.scoped(.@"zml/moe/metal");
 
+// Options du backend Metal : activation, échelles et nombre global d'experts.
 pub const Options = struct {
     activation: zml.moe.Activation,
     global_num_experts: i64 = -1,
@@ -21,6 +22,7 @@ fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.routing_weight_placement == .after_down, "Non-Triton MoE backends require routing weights after the down projection", .{});
 }
 
+// Mode de quantification déduit du type des poids.
 const QuantMode = enum { none, fp8, nvfp4 };
 
 // Détermine le mode de quantification à partir du type des poids.

@@ -9,6 +9,7 @@ const log = std.log.scoped(.@"zml/moe/cutlass_flashinfer");
 
 pub const auto_tactic: i32 = -1;
 
+// Options de construction du graphe pour le backend FlashInfer CUTLASS.
 pub const Options = struct {
     /// Device used at graph-construction time to select the architecture
     /// library and size the XLA-owned scratch buffer.
@@ -42,6 +43,7 @@ pub fn validateOptions(opts: zml.moe.Options) void {
     stdx.debug.assert(opts.activation.swiglu.scale == null, "flashinfer_cutlass backend requires swiglu scale to be null", .{});
 }
 
+// Tenseurs d'entrée NVFP4/FP4 du noyau FlashInfer (activations, poids, échelles).
 const Input = struct {
     hidden_states: zml.Tensor,
     fc1_weights: zml.Tensor,
@@ -56,6 +58,7 @@ const Input = struct {
     fc2_global: zml.Tensor,
 };
 
+// Variante d'entrée BF16 sans échelles par blocs.
 const Bf16Input = struct {
     hidden_states: zml.Tensor,
     fc1_weights: zml.Tensor,
@@ -64,11 +67,13 @@ const Bf16Input = struct {
     topk_ids: zml.Tensor,
 };
 
+// Formes de la sortie et du tampon de travail réservés à XLA.
 const Output = struct {
     output: zml.Shape,
     workspace: zml.Shape,
 };
 
+// Attributs scalaires du noyau FlashInfer (géométrie, activation, tactiques).
 const Attributes = struct {
     runners: u64 = 0,
     num_tokens: i64,
@@ -84,11 +89,13 @@ const Attributes = struct {
     gemm2_tactic: i32,
 };
 
+// API FlashInfer et instance de runner associée à un appareil.
 const DeviceRunner = struct {
     api: *fi_cutlass_moe.Api,
     runner: *fi_cutlass_moe.Runner,
 };
 
+// Variantes de précision des poids exposées par FlashInfer.
 pub const Variant = enum {
     bf16xbf16,
     nvfp4xnvfp4,
@@ -96,6 +103,7 @@ pub const Variant = enum {
 
 const max_num_devices = zml.platform.Platform.MAX_NUM_DEVICES;
 
+// Runners FlashInfer indexés par variante puis par appareil.
 pub const Runners = struct {
     runners: [std.meta.fields(Variant).len][max_num_devices]?DeviceRunner =
         @splat(@splat(null)),

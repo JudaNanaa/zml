@@ -80,6 +80,7 @@ pub fn fusedExperts(
         context.body(input.shape());
 }
 
+// Contexte d'exécution du MoE CuTe MXFP4 (entrées, poids, échelles, top-k).
 const Context = struct {
     input: zml.Tensor,
     ids: zml.Tensor,

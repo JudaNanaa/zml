@@ -65,6 +65,7 @@ pub fn fusedExperts(
         context.body(input.shape());
 }
 
+// Contexte d'exécution du MoE MXFP4 Triton (entrées, géométrie, routage).
 const Context = struct {
     input: zml.Tensor,
     ids: zml.Tensor,

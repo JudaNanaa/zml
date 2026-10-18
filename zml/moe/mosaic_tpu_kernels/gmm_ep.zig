@@ -43,7 +43,9 @@ fn ceilDivPosI32(b: *mtt.Builder, x: mtt.Value, y: mtt.Value) mtt.Value {
     return b.divsi(b.addi(x, b.subi(y, b.lift(@as(i32, 1)))), y);
 }
 
+// Configuration du GEMM groupé (expert parallèle) : dimensions, tuiles, fusion.
 pub const Cfg = struct {
+    // Activation fusionnée à l'épilogue du GMM.
     pub const FuseAct = enum {
         none,
         silu,
@@ -118,11 +120,13 @@ fn validateConfig(cfg: Cfg) void {
     std.debug.assert(cfg.acc_dtype == .f32);
 }
 
+// Métadonnées d'un groupe : identifiant de groupe et décalage M.
 const Meta = struct {
     group_id: mtt.Value,
     m_offset: mtt.Value,
 };
 
+// Contexte de pipeline passé aux mappeurs d'indices de blocs.
 const PipeCtx = struct {
     cfg: Cfg,
     meta: Meta,

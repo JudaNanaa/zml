@@ -87,6 +87,7 @@ fn callMfma(input: Tensor, weight: Tensor, scales: Tensor, sorted_ids: Tensor, e
     }).output.reshape(output);
 }
 
+// Configuration du noyau MXFP4 Fly (géométrie, tuiles, étages partagés).
 const Config = struct {
     tokens: i64,
     experts: i64,
@@ -271,6 +272,7 @@ fn vectorView(tensor: Value, offset: Value, comptime n: i64) Value {
     return tensor.emitIter().addOffset(offset).view(fly.L(n, 1));
 }
 
+// État et méthodes de chargement des tuiles A/poids en mémoire partagée.
 const TileLoader = struct {
     a: Value,
     weight: Value,
@@ -336,7 +338,9 @@ fn decodeWeight(b: *Builder, word: Value, scale: Value) Value {
     return magnitude.bitcast(.i32).bitOr(signs).bitcast(.f32).mul(scale).to(.bf16);
 }
 
+// GEMV MXFP4 compact pour un petit nombre de routes.
 const Gemv = struct {
+    // Tuilage du GEMV : lignes, voies et facteur de déroulage.
     // Packed-word GEMV derived from the supplied moe-mi300x/fly_word.py algorithm.
     // Several rows share a CTA, and the shorter down projection uses subwaves to
     // expose independent outputs without paying for a full wave reduction per row.
@@ -375,6 +379,7 @@ const Gemv = struct {
         }).output.reshape(output);
     }
 
+    // Configuration d'émission du noyau GEMV MXFP4.
     const EmitConfig = struct {
         unroll: usize,
         rows: usize,

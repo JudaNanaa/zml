@@ -7,6 +7,7 @@ const tri = zml.kernel.triton;
 const B = tri.Builder;
 const V = tri.Value;
 
+// Configuration du MoE FP4 x FP8 émis par le DSL Triton.
 pub const Config = struct {
     tokens: i64,
     hidden: i64,
@@ -42,6 +43,7 @@ pub const Config = struct {
     }
 };
 
+// Tenseurs d'entrée du MoE MXFP4 (activations, routage, poids, échelles).
 pub const Inputs = struct {
     x: zml.Tensor,
     ids: zml.Tensor,
@@ -117,6 +119,7 @@ fn ld(b: *B, p: V, mask: V, dt: tri.DType, other: i64) V {
     return b.loadOpts(p, .{ .mask = mask, .other = if (p.isTensor()) b.full(p.shape().constSlice(), other, dt) else b.liftAs(other, dt) });
 }
 
+// Configuration du GEMM spécialisée sur la largeur physique des échelles.
 // Scale rows can be tightly packed or padded. Specialize the GEMM on their
 // physical width without imposing an alignment requirement on the tensor.
 const GemmConfig = struct {
@@ -127,6 +130,7 @@ const GemmConfig = struct {
 const Quant = tri.Kernel(Config, .{ .name = "mxfp4_triton_quant", .inputs = &.{"x"}, .outputs = &.{ "q", "s" }, .run = quantInput });
 const Route = tri.Kernel(Config, .{ .name = "mxfp4_triton_route", .inputs = &.{"ids"}, .outputs = &.{ "counts", "pos" }, .run = route });
 const RouteAtomic = tri.Kernel(Config, .{ .name = "mxfp4_triton_route_atomic", .inputs = &.{ "ids", "zeros" }, .outputs = &.{ "counts", "pos" }, .run = routeAtomic });
+// Configuration du noyau de planification (groupes d'experts, capacité).
 // The same device code serves both backends; only the group geometry differs.
 const ScheduleConfig = struct {
     moe: Config,
@@ -381,6 +385,7 @@ fn down(b: *B, c: GemmConfig) tri.FinishError!void {
     return gemm(b, c.moe, .down, c.scale_stride);
 }
 
+// Projection ciblée par un noyau : gate_up ou down.
 const Projection = enum { gate_up, down };
 
 // Émet le GEMM groupé MXFP4 (gate_up ou down) via le DSL Triton.

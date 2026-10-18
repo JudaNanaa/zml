@@ -12,6 +12,7 @@ const log = std.log.scoped(.@"zml/moe/mosaic_tpu");
 var gate_up_transpose: std.atomic.Value(bool) = .init(false);
 var down_transpose: std.atomic.Value(bool) = .init(false);
 
+// Options du backend Mosaic TPU : activation, carte d'experts, échelles et biais.
 pub const Options = struct {
     activation: zml.moe.Activation,
     global_num_experts: i64 = -1,

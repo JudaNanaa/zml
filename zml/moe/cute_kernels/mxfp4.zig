@@ -7,6 +7,7 @@ const zml = @import("../../zml.zig");
 const cute = zml.kernel.cute;
 const B = cute.Builder;
 
+// Configuration de la quantification MXFP8 groupée par expert.
 pub const GroupedQuantConfig = struct {
     tokens: i64,
     hidden: i64,
@@ -18,6 +19,7 @@ pub const GroupedQuantConfig = struct {
     direct: bool = false,
 };
 
+// Configuration de la réduction top-k finale (combine).
 pub const CombineConfig = struct {
     tokens: i64,
     hidden: i64,

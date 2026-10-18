@@ -26,9 +26,11 @@ fn blockFloor16(v: Value) Value {
 // per_token_group_quant_fp8
 // =============================================================================
 
+// Quantification FP8 par groupes de jetons et son noyau.
 /// Direct port of Python `per_token_group_quant_fp8` — per-token-group
 /// float8 quantization.
 pub const PerTokenGroupQuantFp8 = struct {
+    // Configuration de la quantification FP8 par groupes de jetons.
     pub const Cfg = struct {
         input_dtype: DType,
         output_dtype: DType,
@@ -190,9 +192,11 @@ fn writeZerosToOutput(
 // fused_moe_kernel
 // =============================================================================
 
+// GEMM routé MoE : BF16, MXFP4/MXFP8 et FP8 à échelles.
 /// Routed GEMM supporting BF16, MXFP4, MXFP8, and per-tensor, per-channel, or
 /// 128x128 block-scaled FP8 weights.
 pub const FusedMoe = struct {
+    // Configuration du noyau fused_moe_kernel.
     pub const Cfg = struct {
         a_dtype: DType,
         b_dtype: DType,
@@ -642,10 +646,12 @@ test "FusedMoe emits each FP8 and MXFP4 scaling path" {
 // moe_align_block_size_kernel
 // =============================================================================
 
+// Alignement des blocs d'experts : histogramme, cumsum, affectation.
 /// Direct port of Python `moe_align_block_size_kernel`. pid==0 runs the
 /// histogram + cumsum + block-to-expert assignment pass; pid==1 fills
 /// sorted_token_ids with NUMEL.
 pub const MoeAlignBlockSize = struct {
+    // Configuration du noyau d'alignement des blocs d'experts.
     pub const Cfg = struct {
         numel: usize,
         num_experts: usize,
@@ -772,10 +778,12 @@ pub const MoeAlignBlockSize = struct {
 // count_and_sort_expert_tokens_kernel
 // =============================================================================
 
+// Comptage et tri atomique des jetons par expert.
 /// Direct port of Python `count_and_sort_expert_tokens_kernel`. Each program
 /// atomically bumps `cumsum[expert]`, writing its block's token offsets into
 /// `sorted_token_ids` at the returned rank.
 pub const CountAndSortExpertTokens = struct {
+    // Configuration du noyau de comptage et tri par expert.
     pub const Cfg = struct {
         numel: usize,
         num_experts: usize,

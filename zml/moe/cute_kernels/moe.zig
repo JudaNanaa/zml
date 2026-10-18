@@ -11,6 +11,7 @@ const triton_mxfp4 = @import("../triton_mxfp4.zig");
 pub const boundary = @import("mxfp4.zig");
 pub const persistent = @import("persistent_mxfp4.zig");
 
+// Tenseurs d'entrée du MoE CuTe MXFP8 x MXFP4.
 pub const Inputs = struct {
     /// `[tokens, hidden]` BF16.
     x: zml.Tensor,
@@ -79,6 +80,7 @@ fn capacity(tokens: i64, topk: i64, experts: i64, group: i64) i64 {
     return @divTrunc(tokens * topk + group - 1, group) + experts - 1;
 }
 
+// Emplacement de chaque route dans les opérandes du GEMM groupé.
 /// Where each route lives in the grouped GEMM operands.
 const Routing = struct {
     /// Expert groups, i.e. the GEMMs' L extent.

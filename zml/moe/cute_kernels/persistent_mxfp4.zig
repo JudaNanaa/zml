@@ -20,6 +20,7 @@ const V = cute.Value;
 
 const accumulator_stages = 2;
 
+// Plan de mémoire partagée d'une largeur de tuile N donnée.
 /// Shared-memory plan of the Python kernel for one tile width, copied from
 /// its generated `SharedStorage` (`smem.struct_fields`).  The A/B ring depth
 /// is whatever fits next to the two C epilogue stages; the fused epilogues
@@ -175,6 +176,7 @@ pub const Tile = struct {
         const arena = b.arena.allocator();
         const s: i64 = @intCast(self.stages);
         const out = arena.alloc([]const u8, 11) catch @panic("OOM");
+        // Champ anonyme (nom, taille, offset) décrivant le smem CuTe.
         const Field = struct { []const u8, i64, i64 };
         const list = [_]Field{
             .{ "ab_full_mbar_ptr", 8 * s, 0 },
@@ -196,6 +198,7 @@ pub const Tile = struct {
     }
 };
 
+// Vues des tampons A/B, échelles, accumulateur et barrières d'un étage.
 const StageStorage = struct {
     a: V,
     b: V,
@@ -208,6 +211,7 @@ const StageStorage = struct {
     accumulator_empty_barriers: V,
 };
 
+// Vues de destination des copies d'un étage et ses barrières.
 const StageBuffers = struct {
     a_destination: cute.View,
     b_destination: cute.View,
@@ -217,6 +221,7 @@ const StageBuffers = struct {
     mma_barrier: V,
 };
 
+// Vues des opérandes A/B et échelles d'un étage du pipeline.
 const StagedOperands = struct {
     a: cute.View,
     b: cute.View,
@@ -224,6 +229,7 @@ const StagedOperands = struct {
     sfb: cute.View,
 };
 
+// Épilogue exécuté par les warps 0-3 sur chaque tuile d'accumulateur.
 /// What the epilogue warps do with each finished 128xN accumulator tile.
 pub const Epilogue = enum {
     /// Up projection: clamped SwiGLU of the interleaved gate/up rows, BF16
@@ -238,6 +244,7 @@ pub const Epilogue = enum {
     route_rows,
 };
 
+// Configuration du GEMM MXFP4 persistant et de son épilogue.
 pub const Config = struct {
     experts: i64,
     /// GEMM output rows (4608 for gate/up, 5120 for down).
@@ -301,6 +308,7 @@ const DownRows = cute.Program(Config, .{
     .run = buildProgram,
 });
 
+// Tenseurs d'entrée du GEMM MXFP4 persistant.
 pub const Inputs = struct {
     weight: zml.Tensor,
     schedule: zml.Tensor,
@@ -455,6 +463,7 @@ fn Layouts(comptime tile: Tile) type {
     };
 }
 
+// Types de memref device des opérandes d'épilogue indexés par route.
 /// Device memrefs of the route-indexed epilogue operands.
 const EpilogueTypes = struct {
     sizes: *const mlir.Type,
@@ -797,11 +806,13 @@ fn barrierAt(b: *B, base: V, stage: V) V {
     ).value();
 }
 
+// Position dans le pipeline logiciel : index d'étage et phase de barrière.
 const PipelinePosition = struct {
     index: V,
     phase: V,
 };
 
+// État scalaire du planificateur persistant CUTLASS (une CTA).
 /// Scalar form of CUTLASS's StaticPersistentTileScheduler state for the
 /// one-CTA DeepSeek specialization.  Python carries the decoded M/N/L
 /// coordinate, validity predicate, linear work index, and executed-tile
@@ -817,6 +828,7 @@ const PersistentWork = struct {
     executed: V,
 };
 
+// Routes directes d'un seul jeton, une tuile par route valide.
 /// Direct routing (one token) runs one single-row group per route. Routes
 /// owned by other expert-parallel ranks carry expert -1: the persistent tiles
 /// cover the valid routes only, in route order, so they do not occupy a wave.
@@ -1114,6 +1126,7 @@ fn tupleOf(array: anytype) Tuple(@TypeOf(array[0]), array.len) {
     return out;
 }
 
+// Objets de la boucle principale MXFP4 pour un étage du pipeline.
 /// SM100 MXFP4 mainloop objects of one pipeline stage, produced by
 /// `StagedMxfp4Mainloop.atStage`. The dependent CuTe result types are
 /// centralized here; callers only provide tensors and the allocated
@@ -1138,6 +1151,7 @@ const Mxfp4Mainloop = struct {
     }
 };
 
+// Objets de boucle principale MXFP4 valables pour tout le pipeline.
 /// Pipeline-wide SM100 MXFP4 mainloop objects.  CUTLASS derives the UMMA and
 /// S2T descriptors from the complete staged tensors once, then slices those
 /// descriptors at the current PipelineState index.  Keeping the stage mode in
@@ -1464,6 +1478,7 @@ fn view(b: *B, value: V) cute.View {
     return .{ .inner = value.inner, .kernel = b };
 }
 
+// Opérandes de l'épilogue, dont les champs actifs dépendent de l'épilogue.
 /// Epilogue operands; which fields are set depends on the `Epilogue`.
 const EpilogueOperands = struct {
     group_sizes: cute.View,
@@ -1603,6 +1618,7 @@ fn mxScale(b: *B, maximum: V) struct { exponent: V, inverse: V } {
     return .{ .exponent = exponent, .inverse = b.cst(.i32, 254).sub(exponent).shl(23).bitCast(.f32) };
 }
 
+// Données de routage par ligne réparties sur les voies d'un warp.
 /// Per-row routing data of one expert group, spread across a warp: lane `l`
 /// holds routed row `l` of the group. Columns index it with `shuffleIdx`.
 const RoutedLanes = struct {

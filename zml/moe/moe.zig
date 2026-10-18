@@ -24,6 +24,7 @@ test {
     _ = @import("tests.zig");
 }
 
+// Contrat de disposition des poids d'experts partagé entre le packer et forwardMoe.
 /// How a backend expects the expert weights to be stored
 /// The packer writes this layout and forwardMoe reads it
 pub const ExpertsLayout = struct {
@@ -34,6 +35,7 @@ pub const ExpertsLayout = struct {
     /// Backend specific transformation of the weights and scales.
     packing: Packing,
 
+    // Variantes de transformation des poids et échelles selon le backend.
     pub const Packing = enum {
         /// Experts stacked as stored in the checkpoint.
         plain,
@@ -44,6 +46,7 @@ pub const ExpertsLayout = struct {
     };
 };
 
+// Variantes d'activation supportées par la couche MoE.
 pub const ActivationKind = enum {
     /// Gelu activation function
     gelu,
@@ -61,6 +64,7 @@ pub const ActivationKind = enum {
     geglu_tanh,
 };
 
+// Activation sélectionnée avec ses paramètres optionnels (limite, échelle, biais).
 pub const Activation = union(ActivationKind) {
     gelu: void,
     relu: void,
@@ -77,6 +81,7 @@ pub const Activation = union(ActivationKind) {
     geglu_tanh: void,
 };
 
+// Backends MoE disponibles et politique de sélection automatique.
 pub const Backend = enum {
     stablehlo,
     cute_mxfp4,
@@ -184,6 +189,7 @@ pub const Backend = enum {
     }
 };
 
+// Options communes aux implémentations MoE (activation, quantification, routage).
 pub const Options = struct {
     activation: Activation,
     /// Quantize activations for Triton FP8 GEMMs; false keeps BF16 activations.

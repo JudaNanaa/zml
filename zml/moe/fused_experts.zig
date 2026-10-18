@@ -84,9 +84,12 @@ pub fn fusedExperts(
     );
 }
 
+// Disposition des projections gate/up : concaténées ou entrelacées.
 pub const ProjectionLayout = enum { concatenated, interleaved };
+// Moment d'application des poids de routage, avant ou après la projection down.
 pub const RoutingWeightPlacement = enum { before_down, after_down };
 
+// Arguments d'une passe d'experts fusionnés pour les backends Triton et Fly.
 pub const FusedExpertsArgs = struct {
     hidden_states: Tensor,
     gate_up: zml.nn.Linear,
@@ -229,6 +232,7 @@ test "SwiGLU uses FP32 math for concatenated and interleaved BF16 inputs" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
     const platform = zml.testing.env();
+    // Expose applyActivation au compilateur pour le test SwiGLU.
     const Local = struct {
         // Applique l'activation demandée au tenseur de test.
         fn forward(x: Tensor, layout: ProjectionLayout, activation: zml.moe.Activation) Tensor {
@@ -264,6 +268,7 @@ test "SwiGLU uses FP32 math for concatenated and interleaved BF16 inputs" {
     }
 }
 
+// Options du GEMM MoE routé transmises au noyau via K.call.
 /// Build the inputs tuple for FusedMoe and invoke it via `K.call(...)`.
 pub const GemmOptions = struct {
     input: Tensor,
@@ -287,7 +292,9 @@ test "FP8 routed GEMM with bias matches dequantized weights" {
     const platform = zml.testing.env();
     if (platform.target != .cuda) return error.SkipZigTest;
 
+    // Réalise le GEMM routé réel et sa référence déquantifiée pour le test.
     const Local = struct {
+        // Paire sortie réelle / sortie de référence comparée par le test.
         const Outputs = struct { actual: Tensor, expected: Tensor };
 
         // Étend les échelles de blocs à la forme complète des poids.
@@ -417,6 +424,7 @@ test "fused experts support BF16 and MXFP4 layouts, bias, and routing weights" {
     const io = std.testing.io;
     const platform = zml.testing.env();
     if (platform.target != .cuda) return error.SkipZigTest;
+    // Construit un MoE synthétique BF16/MXFP4 et renvoie sa sortie.
     const Local = struct {
         // Construit un MoE synthétique et renvoie sa sortie.
         fn forward(x: Tensor, layout: ProjectionLayout, placement: RoutingWeightPlacement, storage_dtype: DataType) Tensor {
@@ -497,6 +505,7 @@ test "fused experts support BF16 and MXFP4 layouts, bias, and routing weights" {
     }
 }
 
+// Résultat du routage : tables triées par expert et compteurs d'affectations.
 pub const Routing = struct {
     sorted_token_ids: Tensor,
     expert_ids: Tensor,
@@ -510,6 +519,7 @@ pub const Routing = struct {
 // Config / validation helpers
 // =============================================================================
 
+// Paramètres de lancement du GEMM routé (tuiles, warps, étages).
 pub const LaunchConfig = struct {
     block_size_m: usize,
     block_size_n: usize,
