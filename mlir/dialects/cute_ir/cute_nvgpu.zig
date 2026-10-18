@@ -8,6 +8,7 @@ const cute = @import("cute_ir.zig");
 
 pub const dialect_namespace = "cute_nvgpu";
 
+// Type opaque de base du dialecte `cute_nvgpu`, enveloppe non typée d'un `mlir.Type`.
 pub const NVGPUType = opaque {
     const M = mlir.Methods(NVGPUType, c.MlirType);
 
@@ -35,6 +36,7 @@ pub fn typeFromPayload(comptime T: type, ctx: *mlir.Context, payload: []const u8
 
 // Enums, generated from the dialect's .td files; values are the compiler's.
 
+// Numéro d'architecture NVGpu (sm_52, sm_90, sm_100, sm_103, sm_107, ...).
 /// NVGpu arch number like sm_103.
 pub const Arch = enum(u32) {
     sm_52 = 520,
@@ -48,6 +50,7 @@ pub const Arch = enum(u32) {
     sm_107 = 1070,
 };
 
+// Champs stockés dans le type d'atome de copie Bulk Load (global→shared).
 /// Fields stored in Bulk Load Copy Atom type.
 pub const AtomCopyFieldBulkCopyG2S = enum(u32) {
     tma_bar = 1,
@@ -55,68 +58,81 @@ pub const AtomCopyFieldBulkCopyG2S = enum(u32) {
     cache_policy = 7,
 };
 
+// Champs stockés dans le type d'atome de copie Bulk Store (shared→global).
 /// Fields stored in Bulk Store Copy Atom type.
 pub const AtomCopyFieldBulkCopyS2G = enum(u32) {
     byte_mask = 4,
     cache_policy = 7,
 };
 
+// Champs stockés dans le type d'atome de copie CTA→Cluster.
 /// Fields stored in Bulk CTA to Cluster Copy Atom type.
 pub const AtomCopyFieldBulkCopyS2S = enum(u32) {
     tma_bar = 1,
     cta_rank = 5,
 };
 
+// Champs stockés dans `CopyAtomDsmemStoreType` (stockage DSMEM).
 /// Fields stored in CopyAtomDsmemStoreType.
 pub const AtomCopyFieldDsmemStore = enum(u32) {
     mbar_ptr = 8,
 };
 
+// Champs stockés dans `CopyAtomG2RType` (chargement global→registre).
 /// Fields stored in CopyAtomG2RType.
 pub const AtomCopyFieldLoadGlobal = enum(u32) {
     cache_policy = 7,
 };
 
+// Champs stockés dans `CopyAtomNonExec2DGather4TmaLoadType`.
 /// Fields stored in CopyAtomNonExec2DGather4TmaLoadType.
 pub const AtomCopyFieldNonExec2DGather4TmaLoad = enum(u32) {
     tma_desc = 3,
 };
 
+// Champs stockés dans `CopyAtomNonExec2DScatter4TmaStoreType`.
 /// Fields stored in CopyAtomNonExec2DScatter4TmaStoreType.
 pub const AtomCopyFieldNonExec2DScatter4TmaStore = enum(u32) {
     tma_desc = 3,
 };
 
+// Champs stockés dans `CopyAtomNonExecIm2ColTmaLoadType`.
 /// Fields stored in CopyAtomNonExecIm2ColTmaLoadType.
 pub const AtomCopyFieldNonExecIm2ColTmaLoad = enum(u32) {
     im2col_tma_desc = 6,
 };
 
+// Champs stockés dans `CopyAtomNonExecIm2ColTmaStoreType`.
 /// Fields stored in CopyAtomNonExecIm2ColTmaStoreType.
 pub const AtomCopyFieldNonExecIm2ColTmaStore = enum(u32) {
     im2col_tma_desc = 6,
 };
 
+// Champs stockés dans `CopyAtomNonExecTiledTmaLoadType`.
 /// Fields stored in CopyAtomNonExecTiledTmaLoadType.
 pub const AtomCopyFieldNonExecTiledTmaLoad = enum(u32) {
     tma_desc = 3,
 };
 
+// Champs stockés dans `CopyAtomNonExecTiledTmaReduceType`.
 /// Fields stored in CopyAtomNonExecTiledTmaReduceType.
 pub const AtomCopyFieldNonExecTiledTmaReduce = enum(u32) {
     tma_desc = 3,
 };
 
+// Champs stockés dans `CopyAtomNonExecTiledTmaStoreType`.
 /// Fields stored in CopyAtomNonExecTiledTmaStoreType.
 pub const AtomCopyFieldNonExecTiledTmaStore = enum(u32) {
     tma_desc = 3,
 };
 
+// Champs stockés dans `CopyAtomR2GType` (stockage registre→global).
 /// Fields stored in CopyAtomR2GType.
 pub const AtomCopyFieldStoreGlobal = enum(u32) {
     cache_policy = 7,
 };
 
+// Champs stockés dans le type d'atome de copie TMA Load.
 /// Fields stored in Tma Load Copy Atom type.
 pub const AtomCopyFieldTmaLoad = enum(u32) {
     tma_descriptor_ptr = 0,
@@ -126,6 +142,7 @@ pub const AtomCopyFieldTmaLoad = enum(u32) {
     g_stride = 9,
 };
 
+// Champs stockés dans le type d'atome de copie TMA Reduce.
 /// Fields stored in Tma Reduce Copy Atom type.
 pub const AtomCopyFieldTmaReduce = enum(u32) {
     tma_descriptor_ptr = 0,
@@ -133,6 +150,7 @@ pub const AtomCopyFieldTmaReduce = enum(u32) {
     g_stride = 9,
 };
 
+// Champs stockés dans le type d'atome de copie TMA Store.
 /// Fields stored in Tma Store Copy Atom type.
 pub const AtomCopyFieldTmaStore = enum(u32) {
     tma_descriptor_ptr = 0,
@@ -140,6 +158,7 @@ pub const AtomCopyFieldTmaStore = enum(u32) {
     g_stride = 9,
 };
 
+// Champs stockés dans les types d'atomes MMA pour SM100.
 /// Fields stored in MMA Atom types for SM100.
 pub const AtomMmaFieldSM100 = enum(u32) {
     accum_c = 0,
@@ -148,6 +167,7 @@ pub const AtomMmaFieldSM100 = enum(u32) {
     disable_output_lane = 6,
 };
 
+// Champs stockés dans les atomes MMA SM100 block-scaled.
 /// Fields stored in MMA Atom types for SM100 (block scaled).
 pub const AtomMmaFieldSM100BlockScaled = enum(u32) {
     accum_c = 0,
@@ -157,6 +177,7 @@ pub const AtomMmaFieldSM100BlockScaled = enum(u32) {
     sf_b = 4,
 };
 
+// Champs stockés dans les atomes MMA SM100 block-scaled sparse.
 /// Fields stored in MMA Atom types for SM100 (block scaled).
 pub const AtomMmaFieldSM100BlockScaledSparse = enum(u32) {
     accum_c = 0,
@@ -167,6 +188,7 @@ pub const AtomMmaFieldSM100BlockScaledSparse = enum(u32) {
     e = 5,
 };
 
+// Champs stockés dans les atomes MMA sparse SM100.
 /// Fields stored in sparse MMA Atom types for SM100.
 pub const AtomMmaFieldSM100Sparse = enum(u32) {
     accum_c = 0,
@@ -175,22 +197,26 @@ pub const AtomMmaFieldSM100Sparse = enum(u32) {
     e = 5,
 };
 
+// Champs stockés dans les atomes MMA SM120 block-scaled.
 /// Fields stored in MMA Atom types for SM120 (block scaled).
 pub const AtomMmaFieldSM120BlockScaled = enum(u32) {
     sf_a = 0,
     sf_b = 1,
 };
 
+// Champs stockés dans les atomes MMA SM80.
 /// Fields stored in MMA Atom types for SM80.
 pub const AtomMmaFieldSM80Sparse = enum(u32) {
     e = 0,
 };
 
+// Champs stockés dans les atomes MMA SM90.
 /// Fields stored in MMA Atom types for SM90.
 pub const AtomMmaFieldSM90 = enum(u32) {
     accum_c = 0,
 };
 
+// Opération binaire pour les instructions MMA mono-bit.
 /// Binary operation for single-bit MMA operations.
 pub const BinaryOp = enum(u32) {
     none = 0,
@@ -198,6 +224,7 @@ pub const BinaryOp = enum(u32) {
     and_popc = 2,
 };
 
+// Priorité d'éviction du cache CuTe.
 /// Cute Cache Eviction Priority kind.
 pub const CacheEvictionPriority = enum(u32) {
     EVICT_NORMAL = 0,
@@ -207,6 +234,7 @@ pub const CacheEvictionPriority = enum(u32) {
     NO_ALLOCATE = 4,
 };
 
+// Modes de diffusion des instructions `utccp` (shared→tensor).
 /// Broadcast modes for the different utccp instructions.
 pub const CopyS2TBroadcast = enum(u32) {
     none = 0,
@@ -215,6 +243,7 @@ pub const CopyS2TBroadcast = enum(u32) {
     x4 = 3,
 };
 
+// Différents types de chargements TMA en mode gather/scatter.
 /// The various kinds of TMA loads in gather/scatter mode.
 pub const GatherScatterTmaLoad = enum(u32) {
     sm_100 = 0,
@@ -223,6 +252,7 @@ pub const GatherScatterTmaLoad = enum(u32) {
     sm_100_2sm_multicast = 3,
 };
 
+// Différents types de chargements TMA en mode im2col.
 /// The various kinds of TMA loads in im2col mode.
 pub const Im2ColTmaLoad = enum(u32) {
     sm_90 = 0,
@@ -231,6 +261,7 @@ pub const Im2ColTmaLoad = enum(u32) {
     sm_100_2sm_multicast = 3,
 };
 
+// Options de taille de préchargement L2 CuTe.
 /// CuTe L2 prefetch size options.
 pub const L2PrefetchSize = enum(u32) {
     NONE = 0,
@@ -240,12 +271,14 @@ pub const L2PrefetchSize = enum(u32) {
     SIZE_256B = 4,
 };
 
+// Type de précision d'accumulation pour `multimem.ld_reduce`.
 /// multimem ld_reduce accumulation precision kind.
 pub const LdReduceAccPrecisionKind = enum(u32) {
     F16 = 0,
     F32 = 1,
 };
 
+// Motif `sz` de LDSM décrivant la taille de bit.
 /// LDSM's sz pattern, describing the bit size.
 pub const LdsmSzPattern = enum(u32) {
     u16 = 0,
@@ -258,6 +291,7 @@ pub const LdsmSzPattern = enum(u32) {
     u8 = 7,
 };
 
+// Modes de cache pour les instructions de chargement.
 /// Cache modes for the load instructions.
 pub const LoadCacheMode = enum(u32) {
     always = 0,
@@ -267,12 +301,14 @@ pub const LoadCacheMode = enum(u32) {
     none = 4,
 };
 
+// Options de débordement entier pour les MMA.
 /// MMA overflow options.
 pub const MMAIntOverflow = enum(u32) {
     satfinite = 1,
     wrapped = 0,
 };
 
+// Type d'ordre mémoire.
 /// Memory Ordering kind.
 pub const MemOrderKind = enum(u32) {
     WEAK = 0,
@@ -286,6 +322,7 @@ pub const MemOrderKind = enum(u32) {
     VOLATILE = 8,
 };
 
+// Type de portée mémoire CuTe.
 /// Cute Memory Scope kind.
 pub const MemScopeKind = enum(u32) {
     CTA = 0,
@@ -294,6 +331,7 @@ pub const MemScopeKind = enum(u32) {
     SYS = 3,
 };
 
+// Opérations du collecteur MMA.
 /// Enums for the mma collector op.
 pub const MmaCollectorOp = enum(u32) {
     discard = 0,
@@ -302,6 +340,7 @@ pub const MmaCollectorOp = enum(u32) {
     use = 3,
 };
 
+// Types de fragment MMA.
 /// Enums for the mma frag type.
 pub const MmaFragKind = enum(u32) {
     smem_desc = 0,
@@ -313,6 +352,7 @@ pub const MmaFragKind = enum(u32) {
     rmem = 6,
 };
 
+// Type de réduction TMA (instruction TMASTORE).
 /// Op for the TMASTORE instruction.
 pub const ReductionKind = enum(u32) {
     ADD = 0,
@@ -325,17 +365,20 @@ pub const ReductionKind = enum(u32) {
     XOR = 7,
 };
 
+// Type d'espace mémoire partagé CuTe.
 /// CuTe Shared Space kind.
 pub const SharedSpace = enum(u32) {
     CTA = 0,
     CLUSTER = 1,
 };
 
+// Format des métadonnées des MMA sparse.
 /// Metadata format used in sparse MMA.
 pub const SparseMetadataFormat = enum(u32) {
     tid = 0,
 };
 
+// Modes de cache pour les instructions de stockage.
 /// Cache modes for the store instructions.
 pub const StoreCacheMode = enum(u32) {
     write_back = 0,
@@ -345,6 +388,7 @@ pub const StoreCacheMode = enum(u32) {
     none = 4,
 };
 
+// Différents types de chargements TMA en mode tiled.
 /// The various kinds of TMA loads in tiled mode.
 pub const TiledTmaLoad = enum(u32) {
     sm_90 = 0,
@@ -353,6 +397,7 @@ pub const TiledTmaLoad = enum(u32) {
     sm_100_2sm_multicast = 3,
 };
 
+// Format de données TMA (bits 74-71 du descripteur).
 /// Bits 74-71 of the TMA descriptor.
 pub const TmaDataFormat = enum(u32) {
     U8 = 0,
@@ -373,6 +418,7 @@ pub const TmaDataFormat = enum(u32) {
     TF32_FTZ_RN = 15,
 };
 
+// Modes de l'instruction de chargement TMA.
 /// Modes for the TMA load instruction.
 pub const TmaLoadMode = enum(u32) {
     tiled = 0,
@@ -382,6 +428,7 @@ pub const TmaLoadMode = enum(u32) {
     gather4 = 4,
 };
 
+// Modes de l'instruction de stockage TMA.
 /// Modes for the TMA store instruction.
 pub const TmaStoreMode = enum(u32) {
     tiled = 0,
@@ -389,6 +436,7 @@ pub const TmaStoreMode = enum(u32) {
     scatter4 = 2,
 };
 
+// Modes d'allocation de la mémoire tensor (tmem).
 /// Modes for the Tmem allocation.
 pub const TmemAllocMode = enum(u32) {
     Interleaved = 0,
@@ -398,6 +446,7 @@ pub const TmemAllocMode = enum(u32) {
     SfDuplicated_2x2 = 4,
 };
 
+// Opération de réduction de l'instruction de chargement tmem.
 /// Reduce operation for the Tmem load instruction.
 pub const TmemLoadRedOp = enum(u32) {
     max = 0,
@@ -408,6 +457,7 @@ pub const TmemLoadRedOp = enum(u32) {
 
 // Types and attributes, generated from the dialect's .td files.
 
+// Type opaque MLIR `!cute_nvgpu.atom.bulk_copy_g2s` : atome de copie Bulk (TMA non tensorielle) global→shared.
 /// `!cute_nvgpu.atom.bulk_copy_g2s`: Bulk (TMA non-tensor) copy atom.
 pub const CopyAtomBulkCopyG2SType = opaque {
     const Self = @This();
@@ -425,6 +475,7 @@ pub const CopyAtomBulkCopyG2SType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomBulkCopyG2SType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -450,6 +501,7 @@ pub const CopyAtomBulkCopyG2SType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.bulk_copy_s2g` : atome de copie Bulk (TMA non tensorielle) shared→global.
 /// `!cute_nvgpu.atom.bulk_copy_s2g`: Bulk (TMA non-tensor) copy atom.
 pub const CopyAtomBulkCopyS2GType = opaque {
     const Self = @This();
@@ -467,6 +519,7 @@ pub const CopyAtomBulkCopyS2GType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomBulkCopyS2GType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -492,6 +545,7 @@ pub const CopyAtomBulkCopyS2GType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.bulk_copy_s2s` : atome de copie Bulk (TMA non tensorielle) CTA→Cluster.
 /// `!cute_nvgpu.atom.bulk_copy_s2s`: Bulk (TMA non-tensor) copy atom.
 pub const CopyAtomBulkCopyS2SType = opaque {
     const Self = @This();
@@ -509,6 +563,7 @@ pub const CopyAtomBulkCopyS2SType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomBulkCopyS2SType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -529,6 +584,7 @@ pub const CopyAtomBulkCopyS2SType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.dsmem_store` : atome de stockage en mémoire partagée distribuée.
 /// `!cute_nvgpu.atom.dsmem_store`: Distributed shared-memory store atom.
 pub const CopyAtomDsmemStoreType = opaque {
     const Self = @This();
@@ -546,6 +602,7 @@ pub const CopyAtomDsmemStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomDsmemStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -566,6 +623,7 @@ pub const CopyAtomDsmemStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.g2r` : atome de chargement global→registre.
 /// `!cute_nvgpu.atom.g2r`: Global-to-register load atom.
 pub const CopyAtomG2RType = opaque {
     const Self = @This();
@@ -583,6 +641,7 @@ pub const CopyAtomG2RType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomG2RType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -638,6 +697,7 @@ pub const CopyAtomG2RType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.im2col_tma_load` : atome de chargement TMA im2col exécutable.
 /// `!cute_nvgpu.atom.im2col_tma_load`: Executable im2col TMA load atom.
 pub const CopyAtomIm2ColTmaLoadType = opaque {
     const Self = @This();
@@ -655,6 +715,7 @@ pub const CopyAtomIm2ColTmaLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomIm2ColTmaLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -695,6 +756,7 @@ pub const CopyAtomIm2ColTmaLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.im2col_tma_store` : atome de stockage TMA im2col exécutable.
 /// `!cute_nvgpu.atom.im2col_tma_store`: Executable im2col TMA store atom.
 pub const CopyAtomIm2ColTmaStoreType = opaque {
     const Self = @This();
@@ -712,6 +774,7 @@ pub const CopyAtomIm2ColTmaStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomIm2ColTmaStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -742,6 +805,7 @@ pub const CopyAtomIm2ColTmaStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.ldsm` : atome `ldmatrix`.
 /// `!cute_nvgpu.atom.ldsm`: ldmatrix atom.
 pub const CopyAtomLdsmType = opaque {
     const Self = @This();
@@ -759,6 +823,7 @@ pub const CopyAtomLdsmType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomLdsmType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         mode: *const mlir.Attribute,
@@ -794,6 +859,7 @@ pub const CopyAtomLdsmType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_2d_gather4_tma_load` : chargement TMA gather4 2-D non exécutable.
 /// `!cute_nvgpu.atom.non_exec_2d_gather4_tma_load`: Non-executable 2-D gather4 TMA load atom.
 pub const CopyAtomNonExec2DGather4TmaLoadType = opaque {
     const Self = @This();
@@ -811,6 +877,7 @@ pub const CopyAtomNonExec2DGather4TmaLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExec2DGather4TmaLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         kind: GatherScatterTmaLoad,
         valType: *const mlir.Type,
@@ -847,6 +914,7 @@ pub const CopyAtomNonExec2DGather4TmaLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_2d_scatter4_tma_store` : stockage TMA scatter4 2-D non exécutable.
 /// `!cute_nvgpu.atom.non_exec_2d_scatter4_tma_store`: Non-executable 2-D scatter4 TMA store atom.
 pub const CopyAtomNonExec2DScatter4TmaStoreType = opaque {
     const Self = @This();
@@ -864,6 +932,7 @@ pub const CopyAtomNonExec2DScatter4TmaStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExec2DScatter4TmaStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -895,6 +964,7 @@ pub const CopyAtomNonExec2DScatter4TmaStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_im2col_tma_load` : chargement TMA im2col non exécutable.
 /// `!cute_nvgpu.atom.non_exec_im2col_tma_load`: Non-executable im2col TMA load atom.
 pub const CopyAtomNonExecIm2ColTmaLoadType = opaque {
     const Self = @This();
@@ -912,6 +982,7 @@ pub const CopyAtomNonExecIm2ColTmaLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExecIm2ColTmaLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         kind: Im2ColTmaLoad,
         valType: *const mlir.Type,
@@ -948,6 +1019,7 @@ pub const CopyAtomNonExecIm2ColTmaLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_im2col_tma_store` : stockage TMA im2col non exécutable.
 /// `!cute_nvgpu.atom.non_exec_im2col_tma_store`: Non-executable im2col TMA store atom.
 pub const CopyAtomNonExecIm2ColTmaStoreType = opaque {
     const Self = @This();
@@ -965,6 +1037,7 @@ pub const CopyAtomNonExecIm2ColTmaStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExecIm2ColTmaStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -996,6 +1069,7 @@ pub const CopyAtomNonExecIm2ColTmaStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_tiled_tma_load` : chargement TMA tiled non exécutable.
 /// `!cute_nvgpu.atom.non_exec_tiled_tma_load`: Non-executable tiled TMA load atom.
 pub const CopyAtomNonExecTiledTmaLoadType = opaque {
     const Self = @This();
@@ -1013,6 +1087,7 @@ pub const CopyAtomNonExecTiledTmaLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExecTiledTmaLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         kind: TiledTmaLoad,
         valType: *const mlir.Type,
@@ -1049,6 +1124,7 @@ pub const CopyAtomNonExecTiledTmaLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_tiled_tma_reduce` : réduction TMA tiled non exécutable.
 /// `!cute_nvgpu.atom.non_exec_tiled_tma_reduce`: Non-executable tiled TMA reduce atom.
 pub const CopyAtomNonExecTiledTmaReduceType = opaque {
     const Self = @This();
@@ -1066,6 +1142,7 @@ pub const CopyAtomNonExecTiledTmaReduceType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExecTiledTmaReduceType` via son accesseur `get`.
     pub const InitArgs = struct {
         kind: ReductionKind,
         valType: *const mlir.Type,
@@ -1102,6 +1179,7 @@ pub const CopyAtomNonExecTiledTmaReduceType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.non_exec_tiled_tma_store` : stockage TMA tiled non exécutable.
 /// `!cute_nvgpu.atom.non_exec_tiled_tma_store`: Non-executable tiled TMA store atom.
 pub const CopyAtomNonExecTiledTmaStoreType = opaque {
     const Self = @This();
@@ -1119,6 +1197,7 @@ pub const CopyAtomNonExecTiledTmaStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomNonExecTiledTmaStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -1150,6 +1229,7 @@ pub const CopyAtomNonExecTiledTmaStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.r2g` : atome de stockage registre→global.
 /// `!cute_nvgpu.atom.r2g`: Register-to-global store atom.
 pub const CopyAtomR2GType = opaque {
     const Self = @This();
@@ -1167,6 +1247,7 @@ pub const CopyAtomR2GType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomR2GType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -1212,6 +1293,7 @@ pub const CopyAtomR2GType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.r2s` : atome de stockage registre→shared.
 /// `!cute_nvgpu.atom.r2s`: Register-to-shared store atom.
 pub const CopyAtomR2SType = opaque {
     const Self = @This();
@@ -1229,6 +1311,7 @@ pub const CopyAtomR2SType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomR2SType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -1264,6 +1347,7 @@ pub const CopyAtomR2SType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.s2r` : atome de chargement shared→registre.
 /// `!cute_nvgpu.atom.s2r`: Shared-to-register load atom.
 pub const CopyAtomS2RType = opaque {
     const Self = @This();
@@ -1281,6 +1365,7 @@ pub const CopyAtomS2RType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomS2RType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -1316,6 +1401,7 @@ pub const CopyAtomS2RType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.simt_async_copy` : atome de copie `cp.async` (SIMT).
 /// `!cute_nvgpu.atom.simt_async_copy`: cp.async copy atom.
 pub const CopyAtomSIMTAsyncCopyType = opaque {
     const Self = @This();
@@ -1333,6 +1419,7 @@ pub const CopyAtomSIMTAsyncCopyType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSIMTAsyncCopyType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         cache: LoadCacheMode,
@@ -1358,6 +1445,7 @@ pub const CopyAtomSIMTAsyncCopyType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.simt_multimem_ld_reduce` : atome `multimem.ld_reduce`.
 /// `!cute_nvgpu.atom.simt_multimem_ld_reduce`: multimem.ld_reduce atom.
 pub const CopyAtomSIMTMultimemLdReduceType = opaque {
     const Self = @This();
@@ -1375,6 +1463,7 @@ pub const CopyAtomSIMTMultimemLdReduceType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSIMTMultimemLdReduceType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -1415,6 +1504,7 @@ pub const CopyAtomSIMTMultimemLdReduceType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.simt_multimem_red` : atome `multimem.red`.
 /// `!cute_nvgpu.atom.simt_multimem_red`: multimem.red atom.
 pub const CopyAtomSIMTMultimemRedType = opaque {
     const Self = @This();
@@ -1432,6 +1522,7 @@ pub const CopyAtomSIMTMultimemRedType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSIMTMultimemRedType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -1467,6 +1558,7 @@ pub const CopyAtomSIMTMultimemRedType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.simt_multimem_st` : atome `multimem.st`.
 /// `!cute_nvgpu.atom.simt_multimem_st`: multimem.st atom.
 pub const CopyAtomSIMTMultimemStType = opaque {
     const Self = @This();
@@ -1484,6 +1576,7 @@ pub const CopyAtomSIMTMultimemStType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSIMTMultimemStType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -1514,6 +1607,7 @@ pub const CopyAtomSIMTMultimemStType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.universal_copy` : atome de copie universel (SIMT).
 /// `!cute_nvgpu.atom.universal_copy`: Universal (SIMT) copy atom.
 pub const CopyAtomSIMTSyncCopyType = opaque {
     const Self = @This();
@@ -1531,6 +1625,7 @@ pub const CopyAtomSIMTSyncCopyType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSIMTSyncCopyType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int = 0,
@@ -1561,6 +1656,7 @@ pub const CopyAtomSIMTSyncCopyType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.s2t_copy` : atome `tcgen05.cp` (shared→tensor memory).
 /// `!cute_nvgpu.atom.s2t_copy`: tcgen05.cp (shared to tensor memory) atom.
 pub const CopyAtomSM100CopyS2TType = opaque {
     const Self = @This();
@@ -1578,6 +1674,7 @@ pub const CopyAtomSM100CopyS2TType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM100CopyS2TType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1613,6 +1710,7 @@ pub const CopyAtomSM100CopyS2TType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.sm100_s2t_copy_v2` : atome `tcgen05.cp` avec mode majeur de la mémoire partagée.
 /// `!cute_nvgpu.atom.sm100_s2t_copy_v2`: tcgen05.cp atom with the shared-memory major mode.
 pub const CopyAtomSM100S2TCopyV2Type = opaque {
     const Self = @This();
@@ -1630,6 +1728,7 @@ pub const CopyAtomSM100S2TCopyV2Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM100S2TCopyV2Type` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1670,6 +1769,7 @@ pub const CopyAtomSM100S2TCopyV2Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tmem_load` : atome `tcgen05.ld`.
 /// `!cute_nvgpu.atom.tmem_load`: tcgen05.ld atom.
 pub const CopyAtomSM100TmemLoadType = opaque {
     const Self = @This();
@@ -1687,6 +1787,7 @@ pub const CopyAtomSM100TmemLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM100TmemLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1722,6 +1823,7 @@ pub const CopyAtomSM100TmemLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tmem_store` : atome `tcgen05.st`.
 /// `!cute_nvgpu.atom.tmem_store`: tcgen05.st atom.
 pub const CopyAtomSM100TmemStoreType = opaque {
     const Self = @This();
@@ -1739,6 +1841,7 @@ pub const CopyAtomSM100TmemStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM100TmemStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1774,6 +1877,7 @@ pub const CopyAtomSM100TmemStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tmem_load_spcompress` : chargement tmem SM107 avec compression sparse.
 /// `!cute_nvgpu.atom.tmem_load_spcompress`: SM107 tensor-memory load with sparse compression.
 pub const CopyAtomSM107TmemLoadSPCompressType = opaque {
     const Self = @This();
@@ -1791,6 +1895,7 @@ pub const CopyAtomSM107TmemLoadSPCompressType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM107TmemLoadSPCompressType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1836,6 +1941,7 @@ pub const CopyAtomSM107TmemLoadSPCompressType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tmem_load_red` : atome `tcgen05.ld.red`.
 /// `!cute_nvgpu.atom.tmem_load_red`: tcgen05.ld.red atom.
 pub const CopyAtomSM10xTmemLoadRedType = opaque {
     const Self = @This();
@@ -1853,6 +1959,7 @@ pub const CopyAtomSM10xTmemLoadRedType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomSM10xTmemLoadRedType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         numDp: c_int,
@@ -1898,6 +2005,7 @@ pub const CopyAtomSM10xTmemLoadRedType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.stsm` : atome `stmatrix`.
 /// `!cute_nvgpu.atom.stsm`: stmatrix atom.
 pub const CopyAtomStsmType = opaque {
     const Self = @This();
@@ -1915,6 +2023,7 @@ pub const CopyAtomStsmType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomStsmType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         mode: *const mlir.Attribute,
@@ -1945,6 +2054,7 @@ pub const CopyAtomStsmType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tma_load` : atome de chargement TMA exécutable.
 /// `!cute_nvgpu.atom.tma_load`: Executable TMA load atom.
 pub const CopyAtomTmaLoadType = opaque {
     const Self = @This();
@@ -1962,6 +2072,7 @@ pub const CopyAtomTmaLoadType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomTmaLoadType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         sparsity: c_int = 1,
@@ -2022,6 +2133,7 @@ pub const CopyAtomTmaLoadType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tma_reduce` : atome de réduction TMA exécutable.
 /// `!cute_nvgpu.atom.tma_reduce`: Executable TMA reduce atom.
 pub const CopyAtomTmaReduceType = opaque {
     const Self = @This();
@@ -2039,6 +2151,7 @@ pub const CopyAtomTmaReduceType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomTmaReduceType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         copyBits: c_int,
@@ -2079,6 +2192,7 @@ pub const CopyAtomTmaReduceType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.tma_store` : atome de stockage TMA exécutable.
 /// `!cute_nvgpu.atom.tma_store`: Executable TMA store atom.
 pub const CopyAtomTmaStoreType = opaque {
     const Self = @This();
@@ -2096,6 +2210,7 @@ pub const CopyAtomTmaStoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyAtomTmaStoreType` via son accesseur `get`.
     pub const InitArgs = struct {
         valType: *const mlir.Type,
         sparsity: c_int = 1,
@@ -2146,6 +2261,7 @@ pub const CopyAtomTmaStoreType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm100.mma_bs_sp` : atome MMA UMMA block-scaled sparse SM100.
 /// `!cute_nvgpu.sm100.mma_bs_sp`: SM100 block-scaled sparse UMMA MMA atom.
 pub const MmaAtomSM100UMMABlockScaledSparseType = opaque {
     const Self = @This();
@@ -2163,6 +2279,7 @@ pub const MmaAtomSM100UMMABlockScaledSparseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM100UMMABlockScaledSparseType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2238,6 +2355,7 @@ pub const MmaAtomSM100UMMABlockScaledSparseType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm100.mma_bs` : atome MMA UMMA block-scaled SM100.
 /// `!cute_nvgpu.sm100.mma_bs`: SM100 block-scaled UMMA MMA atom.
 pub const MmaAtomSM100UMMABlockScaledType = opaque {
     const Self = @This();
@@ -2255,6 +2373,7 @@ pub const MmaAtomSM100UMMABlockScaledType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM100UMMABlockScaledType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2325,6 +2444,7 @@ pub const MmaAtomSM100UMMABlockScaledType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm100.mma_sp` : atome MMA UMMA sparse SM100.
 /// `!cute_nvgpu.sm100.mma_sp`: SM100 sparse UMMA MMA atom.
 pub const MmaAtomSM100UMMASparseType = opaque {
     const Self = @This();
@@ -2342,6 +2462,7 @@ pub const MmaAtomSM100UMMASparseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM100UMMASparseType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2412,6 +2533,7 @@ pub const MmaAtomSM100UMMASparseType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm100.mma` : atome MMA UMMA SM100.
 /// `!cute_nvgpu.sm100.mma`: SM100 UMMA MMA atom.
 pub const MmaAtomSM100UMMAType = opaque {
     const Self = @This();
@@ -2429,6 +2551,7 @@ pub const MmaAtomSM100UMMAType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM100UMMAType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2489,6 +2612,7 @@ pub const MmaAtomSM100UMMAType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.mma_bs_sp` : atome MMA UMMA block-scaled sparse SM107.
 /// `!cute_nvgpu.sm107.mma_bs_sp`: SM107 block-scaled sparse UMMA MMA atom.
 pub const MmaAtomSM107UMMABlockScaledSparseType = opaque {
     const Self = @This();
@@ -2506,6 +2630,7 @@ pub const MmaAtomSM107UMMABlockScaledSparseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM107UMMABlockScaledSparseType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2586,6 +2711,7 @@ pub const MmaAtomSM107UMMABlockScaledSparseType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.mma_bs` : atome MMA UMMA block-scaled SM107.
 /// `!cute_nvgpu.sm107.mma_bs`: SM107 block-scaled UMMA MMA atom.
 pub const MmaAtomSM107UMMABlockScaledType = opaque {
     const Self = @This();
@@ -2603,6 +2729,7 @@ pub const MmaAtomSM107UMMABlockScaledType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM107UMMABlockScaledType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2678,6 +2805,7 @@ pub const MmaAtomSM107UMMABlockScaledType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.mma_sp` : atome MMA UMMA sparse SM107.
 /// `!cute_nvgpu.sm107.mma_sp`: SM107 sparse UMMA MMA atom.
 pub const MmaAtomSM107UMMASparseType = opaque {
     const Self = @This();
@@ -2695,6 +2823,7 @@ pub const MmaAtomSM107UMMASparseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM107UMMASparseType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2775,6 +2904,7 @@ pub const MmaAtomSM107UMMASparseType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.mma` : atome MMA UMMA SM107.
 /// `!cute_nvgpu.sm107.mma`: SM107 UMMA MMA atom.
 pub const MmaAtomSM107UMMAType = opaque {
     const Self = @This();
@@ -2792,6 +2922,7 @@ pub const MmaAtomSM107UMMAType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM107UMMAType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         numCta: c_int,
@@ -2862,6 +2993,7 @@ pub const MmaAtomSM107UMMAType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.SM120.mma_bs` : atome MMA `mma.sync` block-scaled SM120.
 /// `!cute_nvgpu.SM120.mma_bs`: SM120 block-scaled mma.sync MMA atom.
 pub const MmaAtomSM120BlockScaledType = opaque {
     const Self = @This();
@@ -2879,6 +3011,7 @@ pub const MmaAtomSM120BlockScaledType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM120BlockScaledType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         vecSize: c_int,
@@ -2924,6 +3057,7 @@ pub const MmaAtomSM120BlockScaledType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm80.sparse_mma` : atome MMA `mma.sync` sparse SM80.
 /// `!cute_nvgpu.sm80.sparse_mma`: SM80 sparse mma.sync MMA atom.
 pub const MmaAtomSM80SparseType = opaque {
     const Self = @This();
@@ -2941,6 +3075,7 @@ pub const MmaAtomSM80SparseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM80SparseType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         aType: *const mlir.Type,
@@ -2981,6 +3116,7 @@ pub const MmaAtomSM80SparseType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm80.mma` : atome MMA `mma.sync` SM80.
 /// `!cute_nvgpu.sm80.mma`: SM80 mma.sync MMA atom.
 pub const MmaAtomSM80Type = opaque {
     const Self = @This();
@@ -2998,6 +3134,7 @@ pub const MmaAtomSM80Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM80Type` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         aType: *const mlir.Type,
@@ -3038,6 +3175,7 @@ pub const MmaAtomSM80Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm89.mma` : atome MMA `mma.sync` fp8 SM89.
 /// `!cute_nvgpu.sm89.mma`: SM89 fp8 mma.sync MMA atom.
 pub const MmaAtomSM89Type = opaque {
     const Self = @This();
@@ -3055,6 +3193,7 @@ pub const MmaAtomSM89Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM89Type` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         aType: *const mlir.Type,
@@ -3085,6 +3224,7 @@ pub const MmaAtomSM89Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm90.mma` : atome MMA `wgmma` SM90.
 /// `!cute_nvgpu.sm90.mma`: SM90 wgmma MMA atom.
 pub const MmaAtomSM90Type = opaque {
     const Self = @This();
@@ -3102,6 +3242,7 @@ pub const MmaAtomSM90Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaAtomSM90Type` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         aMajor: cute.MajorMode,
@@ -3162,6 +3303,7 @@ pub const MmaAtomSM90Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm103.smem_desc_circular` : descripteur circulaire de mémoire partagée SM103 (layout en octets).
 /// `!cute_nvgpu.sm103.smem_desc_circular`: Circular shared-memory descriptor over a block layout in bytes.
 pub const SmemDescCircularSM103Type = opaque {
     const Self = @This();
@@ -3179,6 +3321,7 @@ pub const SmemDescCircularSM103Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SmemDescCircularSM103Type` via son accesseur `get`.
     pub const InitArgs = struct {
         blockLayoutBytes: *const mlir.Attribute,
     };
@@ -3194,6 +3337,7 @@ pub const SmemDescCircularSM103Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.smem_desc_circular` : descripteur circulaire de mémoire partagée SM107 (layout en octets).
 /// `!cute_nvgpu.sm107.smem_desc_circular`: Circular shared-memory descriptor over a block layout in bytes.
 pub const SmemDescCircularSM107Type = opaque {
     const Self = @This();
@@ -3211,6 +3355,7 @@ pub const SmemDescCircularSM107Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SmemDescCircularSM107Type` via son accesseur `get`.
     pub const InitArgs = struct {
         blockLayoutBytes: *const mlir.Attribute,
     };
@@ -3226,6 +3371,7 @@ pub const SmemDescCircularSM107Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.sm107.smem_desc` : descripteur de mémoire partagée SM107.
 /// `!cute_nvgpu.sm107.smem_desc`: SM107 shared-memory descriptor.
 pub const SmemDescSM107Type = opaque {
     const Self = @This();
@@ -3243,6 +3389,7 @@ pub const SmemDescSM107Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SmemDescSM107Type` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `!sm107.smem_desc` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -3253,6 +3400,7 @@ pub const SmemDescSM107Type = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.smem_desc` : descripteur de mémoire partagée UMMA/GMMA.
 /// `!cute_nvgpu.smem_desc`: UMMA/GMMA shared-memory descriptor.
 pub const SmemDescType = opaque {
     const Self = @This();
@@ -3270,6 +3418,7 @@ pub const SmemDescType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SmemDescType` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `!smem_desc` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -3280,6 +3429,7 @@ pub const SmemDescType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.smem_desc_view` : itérateur de descripteur de mémoire partagée portant un layout.
 /// `!cute_nvgpu.smem_desc_view`: Shared-memory descriptor iterator with a layout.
 pub const SmemDescViewType = opaque {
     const Self = @This();
@@ -3297,6 +3447,7 @@ pub const SmemDescViewType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SmemDescViewType` via son accesseur `get`.
     pub const InitArgs = struct {
         desc: *const mlir.Type,
         layout: *const mlir.Attribute,
@@ -3317,6 +3468,7 @@ pub const SmemDescViewType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.tma_descriptor_im2col` : descripteur TMA im2col.
 /// `!cute_nvgpu.tma_descriptor_im2col`: Im2col TMA descriptor.
 pub const TmaDescriptorIm2ColType = opaque {
     const Self = @This();
@@ -3334,6 +3486,7 @@ pub const TmaDescriptorIm2ColType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmaDescriptorIm2ColType` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `!tma_descriptor_im2col` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -3344,6 +3497,7 @@ pub const TmaDescriptorIm2ColType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.tma_descriptor_tiled` : descripteur TMA tiled.
 /// `!cute_nvgpu.tma_descriptor_tiled`: Tiled TMA descriptor.
 pub const TmaDescriptorTiledType = opaque {
     const Self = @This();
@@ -3361,6 +3515,7 @@ pub const TmaDescriptorTiledType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmaDescriptorTiledType` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `!tma_descriptor_tiled` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -3371,6 +3526,7 @@ pub const TmaDescriptorTiledType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.atom.universal_fma` : atome MMA FMA universel.
 /// `!cute_nvgpu.atom.universal_fma`: Universal FMA MMA atom.
 pub const UniversalFmaAtomType = opaque {
     const Self = @This();
@@ -3388,6 +3544,7 @@ pub const UniversalFmaAtomType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `UniversalFmaAtomType` via son accesseur `get`.
     pub const InitArgs = struct {
         shapeMnk: *const mlir.Attribute,
         aType: *const mlir.Type,
@@ -3418,6 +3575,7 @@ pub const UniversalFmaAtomType = opaque {
     }
 };
 
+// Type opaque MLIR `!cute_nvgpu.workid_response` : réponse work-id du contrôle de lancement de cluster.
 /// `!cute_nvgpu.workid_response`: Cluster launch control work-id response.
 pub const WorkIdResponseType = opaque {
     const Self = @This();
@@ -3435,6 +3593,7 @@ pub const WorkIdResponseType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `WorkIdResponseType` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `!workid_response` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -3445,6 +3604,7 @@ pub const WorkIdResponseType = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_bulkg2s` : champs de l'atome de copie Bulk Load.
 /// `#cute_nvgpu.atom_copy_field_bulkg2s`: Fields stored in Bulk Load Copy Atom type.
 pub const AtomCopyFieldBulkCopyG2SAttr = opaque {
     const Self = @This();
@@ -3462,6 +3622,7 @@ pub const AtomCopyFieldBulkCopyG2SAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldBulkCopyG2SAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldBulkCopyG2S,
     };
@@ -3477,6 +3638,7 @@ pub const AtomCopyFieldBulkCopyG2SAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_bulks2g` : champs de l'atome de copie Bulk Store.
 /// `#cute_nvgpu.atom_copy_field_bulks2g`: Fields stored in Bulk Store Copy Atom type.
 pub const AtomCopyFieldBulkCopyS2GAttr = opaque {
     const Self = @This();
@@ -3494,6 +3656,7 @@ pub const AtomCopyFieldBulkCopyS2GAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldBulkCopyS2GAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldBulkCopyS2G,
     };
@@ -3509,6 +3672,7 @@ pub const AtomCopyFieldBulkCopyS2GAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_bulks2s` : champs de l'atome de copie CTA→Cluster.
 /// `#cute_nvgpu.atom_copy_field_bulks2s`: Fields stored in Bulk CTA to Cluster Copy Atom type.
 pub const AtomCopyFieldBulkCopyS2SAttr = opaque {
     const Self = @This();
@@ -3526,6 +3690,7 @@ pub const AtomCopyFieldBulkCopyS2SAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldBulkCopyS2SAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldBulkCopyS2S,
     };
@@ -3541,6 +3706,7 @@ pub const AtomCopyFieldBulkCopyS2SAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_dsmem_store` : champs de `CopyAtomDsmemStoreType`.
 /// `#cute_nvgpu.atom_copy_field_dsmem_store`: Fields stored in CopyAtomDsmemStoreType.
 pub const AtomCopyFieldDsmemStoreAttr = opaque {
     const Self = @This();
@@ -3558,6 +3724,7 @@ pub const AtomCopyFieldDsmemStoreAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldDsmemStoreAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldDsmemStore,
     };
@@ -3573,6 +3740,7 @@ pub const AtomCopyFieldDsmemStoreAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_g2r` : champs de `CopyAtomG2RType`.
 /// `#cute_nvgpu.atom_copy_field_g2r`: Fields stored in CopyAtomG2RType.
 pub const AtomCopyFieldLoadGlobalAttr = opaque {
     const Self = @This();
@@ -3590,6 +3758,7 @@ pub const AtomCopyFieldLoadGlobalAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldLoadGlobalAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldLoadGlobal,
     };
@@ -3605,6 +3774,7 @@ pub const AtomCopyFieldLoadGlobalAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_2d_gather4_tma_load` : champs de `CopyAtomNonExec2DGather4TmaLoadType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_2d_gather4_tma_load`: Fields stored in CopyAtomNonExec2DGather4TmaLoadType.
 pub const AtomCopyFieldNonExec2DGather4TmaLoadAttr = opaque {
     const Self = @This();
@@ -3622,6 +3792,7 @@ pub const AtomCopyFieldNonExec2DGather4TmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExec2DGather4TmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExec2DGather4TmaLoad,
     };
@@ -3637,6 +3808,7 @@ pub const AtomCopyFieldNonExec2DGather4TmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_2d_scatter4_tma_store` : champs de `CopyAtomNonExec2DScatter4TmaStoreType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_2d_scatter4_tma_store`: Fields stored in CopyAtomNonExec2DScatter4TmaStoreType.
 pub const AtomCopyFieldNonExec2DScatter4TmaStoreAttr = opaque {
     const Self = @This();
@@ -3654,6 +3826,7 @@ pub const AtomCopyFieldNonExec2DScatter4TmaStoreAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExec2DScatter4TmaStoreAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExec2DScatter4TmaStore,
     };
@@ -3669,6 +3842,7 @@ pub const AtomCopyFieldNonExec2DScatter4TmaStoreAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_im2col_tma_load` : champs de `CopyAtomNonExecIm2ColTmaLoadType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_im2col_tma_load`: Fields stored in CopyAtomNonExecIm2ColTmaLoadType.
 pub const AtomCopyFieldNonExecIm2ColTmaLoadAttr = opaque {
     const Self = @This();
@@ -3686,6 +3860,7 @@ pub const AtomCopyFieldNonExecIm2ColTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExecIm2ColTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExecIm2ColTmaLoad,
     };
@@ -3701,6 +3876,7 @@ pub const AtomCopyFieldNonExecIm2ColTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_im2col_tma_store` : champs de `CopyAtomNonExecIm2ColTmaStoreType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_im2col_tma_store`: Fields stored in CopyAtomNonExecIm2ColTmaStoreType.
 pub const AtomCopyFieldNonExecIm2ColTmaStoreAttr = opaque {
     const Self = @This();
@@ -3718,6 +3894,7 @@ pub const AtomCopyFieldNonExecIm2ColTmaStoreAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExecIm2ColTmaStoreAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExecIm2ColTmaStore,
     };
@@ -3733,6 +3910,7 @@ pub const AtomCopyFieldNonExecIm2ColTmaStoreAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_tma_load` : champs de `CopyAtomNonExecTiledTmaLoadType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_tma_load`: Fields stored in CopyAtomNonExecTiledTmaLoadType.
 pub const AtomCopyFieldNonExecTiledTmaLoadAttr = opaque {
     const Self = @This();
@@ -3750,6 +3928,7 @@ pub const AtomCopyFieldNonExecTiledTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExecTiledTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExecTiledTmaLoad,
     };
@@ -3765,6 +3944,7 @@ pub const AtomCopyFieldNonExecTiledTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_tma_reduce` : champs de `CopyAtomNonExecTiledTmaReduceType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_tma_reduce`: Fields stored in CopyAtomNonExecTiledTmaReduceType.
 pub const AtomCopyFieldNonExecTiledTmaReduceAttr = opaque {
     const Self = @This();
@@ -3782,6 +3962,7 @@ pub const AtomCopyFieldNonExecTiledTmaReduceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExecTiledTmaReduceAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExecTiledTmaReduce,
     };
@@ -3797,6 +3978,7 @@ pub const AtomCopyFieldNonExecTiledTmaReduceAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_non_exec_tma_store` : champs de `CopyAtomNonExecTiledTmaStoreType`.
 /// `#cute_nvgpu.atom_copy_field_non_exec_tma_store`: Fields stored in CopyAtomNonExecTiledTmaStoreType.
 pub const AtomCopyFieldNonExecTiledTmaStoreAttr = opaque {
     const Self = @This();
@@ -3814,6 +3996,7 @@ pub const AtomCopyFieldNonExecTiledTmaStoreAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldNonExecTiledTmaStoreAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldNonExecTiledTmaStore,
     };
@@ -3829,6 +4012,7 @@ pub const AtomCopyFieldNonExecTiledTmaStoreAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_r2g` : champs de `CopyAtomR2GType`.
 /// `#cute_nvgpu.atom_copy_field_r2g`: Fields stored in CopyAtomR2GType.
 pub const AtomCopyFieldStoreGlobalAttr = opaque {
     const Self = @This();
@@ -3846,6 +4030,7 @@ pub const AtomCopyFieldStoreGlobalAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldStoreGlobalAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldStoreGlobal,
     };
@@ -3861,6 +4046,7 @@ pub const AtomCopyFieldStoreGlobalAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_tmaload` : champs de l'atome de copie TMA Load.
 /// `#cute_nvgpu.atom_copy_field_tmaload`: Fields stored in Tma Load Copy Atom type.
 pub const AtomCopyFieldTmaLoadAttr = opaque {
     const Self = @This();
@@ -3878,6 +4064,7 @@ pub const AtomCopyFieldTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldTmaLoad,
     };
@@ -3893,6 +4080,7 @@ pub const AtomCopyFieldTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_tmareduce` : champs de l'atome de copie TMA Reduce.
 /// `#cute_nvgpu.atom_copy_field_tmareduce`: Fields stored in Tma Reduce Copy Atom type.
 pub const AtomCopyFieldTmaReduceAttr = opaque {
     const Self = @This();
@@ -3910,6 +4098,7 @@ pub const AtomCopyFieldTmaReduceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldTmaReduceAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldTmaReduce,
     };
@@ -3925,6 +4114,7 @@ pub const AtomCopyFieldTmaReduceAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_copy_field_tmastore` : champs de l'atome de copie TMA Store.
 /// `#cute_nvgpu.atom_copy_field_tmastore`: Fields stored in Tma Store Copy Atom type.
 pub const AtomCopyFieldTmaStoreAttr = opaque {
     const Self = @This();
@@ -3942,6 +4132,7 @@ pub const AtomCopyFieldTmaStoreAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomCopyFieldTmaStoreAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomCopyFieldTmaStore,
     };
@@ -3957,6 +4148,7 @@ pub const AtomCopyFieldTmaStoreAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm100` : champs des atomes MMA SM100.
 /// `#cute_nvgpu.atom_mma_field_sm100`: Fields stored in MMA Atom types for SM100.
 pub const AtomMmaFieldSM100Attr = opaque {
     const Self = @This();
@@ -3974,6 +4166,7 @@ pub const AtomMmaFieldSM100Attr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM100Attr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM100,
     };
@@ -3989,6 +4182,7 @@ pub const AtomMmaFieldSM100Attr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm100_block_scaled` : champs des atomes MMA SM100 block-scaled.
 /// `#cute_nvgpu.atom_mma_field_sm100_block_scaled`: Fields stored in MMA Atom types for SM100 (block scaled).
 pub const AtomMmaFieldSM100BlockScaledAttr = opaque {
     const Self = @This();
@@ -4006,6 +4200,7 @@ pub const AtomMmaFieldSM100BlockScaledAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM100BlockScaledAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM100BlockScaled,
     };
@@ -4021,6 +4216,7 @@ pub const AtomMmaFieldSM100BlockScaledAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm100_block_scaled_sparse` : champs des atomes MMA SM100 block-scaled sparse.
 /// `#cute_nvgpu.atom_mma_field_sm100_block_scaled_sparse`: Fields stored in MMA Atom types for SM100 (block scaled).
 pub const AtomMmaFieldSM100BlockScaledSparseAttr = opaque {
     const Self = @This();
@@ -4038,6 +4234,7 @@ pub const AtomMmaFieldSM100BlockScaledSparseAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM100BlockScaledSparseAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM100BlockScaledSparse,
     };
@@ -4053,6 +4250,7 @@ pub const AtomMmaFieldSM100BlockScaledSparseAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm100_sparse` : champs des atomes MMA sparse SM100.
 /// `#cute_nvgpu.atom_mma_field_sm100_sparse`: Fields stored in sparse MMA Atom types for SM100.
 pub const AtomMmaFieldSM100SparseAttr = opaque {
     const Self = @This();
@@ -4070,6 +4268,7 @@ pub const AtomMmaFieldSM100SparseAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM100SparseAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM100Sparse,
     };
@@ -4085,6 +4284,7 @@ pub const AtomMmaFieldSM100SparseAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm120_block_scaled` : champs des atomes MMA SM120 block-scaled.
 /// `#cute_nvgpu.atom_mma_field_sm120_block_scaled`: Fields stored in MMA Atom types for SM120 (block scaled).
 pub const AtomMmaFieldSM120BlockScaledAttr = opaque {
     const Self = @This();
@@ -4102,6 +4302,7 @@ pub const AtomMmaFieldSM120BlockScaledAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM120BlockScaledAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM120BlockScaled,
     };
@@ -4117,6 +4318,7 @@ pub const AtomMmaFieldSM120BlockScaledAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm80_sparse` : champs des atomes MMA SM80.
 /// `#cute_nvgpu.atom_mma_field_sm80_sparse`: Fields stored in MMA Atom types for SM80.
 pub const AtomMmaFieldSM80SparseAttr = opaque {
     const Self = @This();
@@ -4134,6 +4336,7 @@ pub const AtomMmaFieldSM80SparseAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM80SparseAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM80Sparse,
     };
@@ -4149,6 +4352,7 @@ pub const AtomMmaFieldSM80SparseAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.atom_mma_field_sm90` : champs des atomes MMA SM90.
 /// `#cute_nvgpu.atom_mma_field_sm90`: Fields stored in MMA Atom types for SM90.
 pub const AtomMmaFieldSM90Attr = opaque {
     const Self = @This();
@@ -4166,6 +4370,7 @@ pub const AtomMmaFieldSM90Attr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `AtomMmaFieldSM90Attr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: AtomMmaFieldSM90,
     };
@@ -4181,6 +4386,7 @@ pub const AtomMmaFieldSM90Attr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.bin_op` : opération binaire MMA mono-bit.
 /// `#cute_nvgpu.bin_op`: Binary operation for single-bit MMA operations.
 pub const BinaryOpAttr = opaque {
     const Self = @This();
@@ -4198,6 +4404,7 @@ pub const BinaryOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `BinaryOpAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: BinaryOp,
     };
@@ -4213,6 +4420,7 @@ pub const BinaryOpAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.copy_s2t_broadcast_mode` : mode de diffusion des instructions `utccp`.
 /// `#cute_nvgpu.copy_s2t_broadcast_mode`: Broadcast modes for the different utccp instructions.
 pub const CopyS2TBroadcastAttr = opaque {
     const Self = @This();
@@ -4230,6 +4438,7 @@ pub const CopyS2TBroadcastAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `CopyS2TBroadcastAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: CopyS2TBroadcast,
     };
@@ -4245,6 +4454,7 @@ pub const CopyS2TBroadcastAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.gather_scatter_tma_load` : type de chargement TMA gather/scatter.
 /// `#cute_nvgpu.gather_scatter_tma_load`: The various kinds of TMA loads in gather/scatter mode.
 pub const GatherScatterTmaLoadAttr = opaque {
     const Self = @This();
@@ -4262,6 +4472,7 @@ pub const GatherScatterTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `GatherScatterTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: GatherScatterTmaLoad,
     };
@@ -4277,6 +4488,7 @@ pub const GatherScatterTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.im2col_tma_load` : type de chargement TMA im2col.
 /// `#cute_nvgpu.im2col_tma_load`: The various kinds of TMA loads in im2col mode.
 pub const Im2ColTmaLoadAttr = opaque {
     const Self = @This();
@@ -4294,6 +4506,7 @@ pub const Im2ColTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `Im2ColTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: Im2ColTmaLoad,
     };
@@ -4309,6 +4522,7 @@ pub const Im2ColTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.ld_reduce_acc_precision_kind` : précision d'accumulation `multimem.ld_reduce`.
 /// `#cute_nvgpu.ld_reduce_acc_precision_kind`: multimem ld_reduce accumulation precision kind.
 pub const LdReduceAccPrecisionKindAttr = opaque {
     const Self = @This();
@@ -4326,6 +4540,7 @@ pub const LdReduceAccPrecisionKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `LdReduceAccPrecisionKindAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: LdReduceAccPrecisionKind,
     };
@@ -4341,6 +4556,7 @@ pub const LdReduceAccPrecisionKindAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.ldsm_sz_pattern` : motif `sz` de LDSM.
 /// `#cute_nvgpu.ldsm_sz_pattern`: LDSM's sz pattern, describing the bit size.
 pub const LdsmSzPatternAttr = opaque {
     const Self = @This();
@@ -4358,6 +4574,7 @@ pub const LdsmSzPatternAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `LdsmSzPatternAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: LdsmSzPattern,
     };
@@ -4373,6 +4590,7 @@ pub const LdsmSzPatternAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.load_cache_mode` : mode de cache de chargement.
 /// `#cute_nvgpu.load_cache_mode`: Cache modes for the load instructions.
 pub const LoadCacheModeAttr = opaque {
     const Self = @This();
@@ -4390,6 +4608,7 @@ pub const LoadCacheModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `LoadCacheModeAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: LoadCacheMode,
     };
@@ -4405,6 +4624,7 @@ pub const LoadCacheModeAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.mma_int_overflow` : option de débordement entier MMA.
 /// `#cute_nvgpu.mma_int_overflow`: MMA overflow options.
 pub const MMAIntOverflowAttr = opaque {
     const Self = @This();
@@ -4422,6 +4642,7 @@ pub const MMAIntOverflowAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MMAIntOverflowAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: MMAIntOverflow,
     };
@@ -4437,6 +4658,7 @@ pub const MMAIntOverflowAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.major` : mode majeur des opérations MMA.
 /// `#cute_nvgpu.major`: Major mode for MMA operations.
 pub const MajorModeAttr = opaque {
     const Self = @This();
@@ -4454,6 +4676,7 @@ pub const MajorModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MajorModeAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: cute.MajorMode,
     };
@@ -4469,6 +4692,7 @@ pub const MajorModeAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.mma_collector_op` : opérateur du collecteur MMA.
 /// `#cute_nvgpu.mma_collector_op`: Enums for the mma collector op.
 pub const MmaCollectorOpAttr = opaque {
     const Self = @This();
@@ -4486,6 +4710,7 @@ pub const MmaCollectorOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaCollectorOpAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: MmaCollectorOp,
     };
@@ -4501,6 +4726,7 @@ pub const MmaCollectorOpAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.mma_frag_kind` : type de fragment MMA.
 /// `#cute_nvgpu.mma_frag_kind`: Enums for the mma frag type.
 pub const MmaFragKindAttr = opaque {
     const Self = @This();
@@ -4518,6 +4744,7 @@ pub const MmaFragKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `MmaFragKindAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: MmaFragKind,
     };
@@ -4533,6 +4760,7 @@ pub const MmaFragKindAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.not_implemented_frg` : fragment d'atome non implémenté (sentinelle).
 /// `#cute_nvgpu.not_implemented_frg`: Fragment of an atom that has none.
 pub const NotImplementedFrgAttr = opaque {
     const Self = @This();
@@ -4550,6 +4778,7 @@ pub const NotImplementedFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `NotImplementedFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {};
     // Construit `#not_implemented_frg` via l'API C à partir des `InitArgs` `args`.
     // Renvoie `error.InvalidMlir` si le handle C est nul.
@@ -4560,6 +4789,7 @@ pub const NotImplementedFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tma_reduce_kind` : type de réduction TMA.
 /// `#cute_nvgpu.tma_reduce_kind`: Op for the TMASTORE instruction.
 pub const ReductionKindAttr = opaque {
     const Self = @This();
@@ -4577,6 +4807,7 @@ pub const ReductionKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `ReductionKindAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: ReductionKind,
     };
@@ -4592,6 +4823,7 @@ pub const ReductionKindAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.rmem_frg` : fragment registre-mémoire d'un opérande MMA.
 /// `#cute_nvgpu.rmem_frg`: Register-memory fragment of an MMA operand.
 pub const RmemFrgAttr = opaque {
     const Self = @This();
@@ -4609,6 +4841,7 @@ pub const RmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `RmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         valueType: *const mlir.Type,
         operand: cute.MmaOperand,
@@ -4634,6 +4867,7 @@ pub const RmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm100.circular_smem_frg` : fragment de mémoire partagée circulaire SM100.
 /// `#cute_nvgpu.arch.sm100.circular_smem_frg`: SM100 circular shared-memory fragment.
 pub const SM100CircularSmemFrgAttr = opaque {
     const Self = @This();
@@ -4651,6 +4885,7 @@ pub const SM100CircularSmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM100CircularSmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         majorMode: cute.MajorMode,
     };
@@ -4666,6 +4901,7 @@ pub const SM100CircularSmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm100.smem_frg` : fragment de mémoire partagée SM100.
 /// `#cute_nvgpu.arch.sm100.smem_frg`: SM100 shared-memory fragment.
 pub const SM100SmemFrgAttr = opaque {
     const Self = @This();
@@ -4683,6 +4919,7 @@ pub const SM100SmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM100SmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         majorMode: cute.MajorMode,
     };
@@ -4698,6 +4935,7 @@ pub const SM100SmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm100.tmem_e_frg` : fragment de métadonnées sparse en mémoire tensor SM100.
 /// `#cute_nvgpu.arch.sm100.tmem_e_frg`: SM100 tensor-memory sparse-metadata fragment.
 pub const SM100TmemEFrgAttr = opaque {
     const Self = @This();
@@ -4715,6 +4953,7 @@ pub const SM100TmemEFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM100TmemEFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         aType: *const mlir.Type,
         eType: *const mlir.Type,
@@ -4735,6 +4974,7 @@ pub const SM100TmemEFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm100.tmem_frg` : fragment de mémoire tensor SM100.
 /// `#cute_nvgpu.arch.sm100.tmem_frg`: SM100 tensor-memory fragment.
 pub const SM100TmemFrgAttr = opaque {
     const Self = @This();
@@ -4752,6 +4992,7 @@ pub const SM100TmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM100TmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         dataType: *const mlir.Type,
         storageType: *const mlir.Type,
@@ -4782,6 +5023,7 @@ pub const SM100TmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm100.tmem_sf_frg` : fragment de facteur d'échelle en mémoire tensor SM100.
 /// `#cute_nvgpu.arch.sm100.tmem_sf_frg`: SM100 tensor-memory scale-factor fragment.
 pub const SM100TmemSfFrgAttr = opaque {
     const Self = @This();
@@ -4799,6 +5041,7 @@ pub const SM100TmemSfFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM100TmemSfFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         sfType: *const mlir.Type,
         sfVecSize: c_int,
@@ -4834,6 +5077,7 @@ pub const SM100TmemSfFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm107.smem_frg` : fragment de mémoire partagée SM107.
 /// `#cute_nvgpu.arch.sm107.smem_frg`: SM107 shared-memory fragment.
 pub const SM107SmemFrgAttr = opaque {
     const Self = @This();
@@ -4851,6 +5095,7 @@ pub const SM107SmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM107SmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         majorMode: cute.MajorMode,
     };
@@ -4866,6 +5111,7 @@ pub const SM107SmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.arch.sm90.smem_frg` : fragment de mémoire partagée SM90.
 /// `#cute_nvgpu.arch.sm90.smem_frg`: SM90 shared-memory fragment.
 pub const SM90SmemFrgAttr = opaque {
     const Self = @This();
@@ -4883,6 +5129,7 @@ pub const SM90SmemFrgAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `SM90SmemFrgAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         majorMode: cute.MajorMode,
     };
@@ -4898,6 +5145,7 @@ pub const SM90SmemFrgAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tiled_tma_load` : type de chargement TMA tiled.
 /// `#cute_nvgpu.tiled_tma_load`: The various kinds of TMA loads in tiled mode.
 pub const TiledTmaLoadAttr = opaque {
     const Self = @This();
@@ -4915,6 +5163,7 @@ pub const TiledTmaLoadAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TiledTmaLoadAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TiledTmaLoad,
     };
@@ -4930,6 +5179,7 @@ pub const TiledTmaLoadAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tma_data_format` : format de données TMA (bits 74-71).
 /// `#cute_nvgpu.tma_data_format`: Bits 74-71 of the TMA descriptor.
 pub const TmaDataFormatAttr = opaque {
     const Self = @This();
@@ -4947,6 +5197,7 @@ pub const TmaDataFormatAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmaDataFormatAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TmaDataFormat,
     };
@@ -4962,6 +5213,7 @@ pub const TmaDataFormatAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tma_load_mode` : mode de chargement TMA.
 /// `#cute_nvgpu.tma_load_mode`: Modes for the TMA load instruction.
 pub const TmaLoadModeAttr = opaque {
     const Self = @This();
@@ -4979,6 +5231,7 @@ pub const TmaLoadModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmaLoadModeAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TmaLoadMode,
     };
@@ -4994,6 +5247,7 @@ pub const TmaLoadModeAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tma_store_mode` : mode de stockage TMA.
 /// `#cute_nvgpu.tma_store_mode`: Modes for the TMA store instruction.
 pub const TmaStoreModeAttr = opaque {
     const Self = @This();
@@ -5011,6 +5265,7 @@ pub const TmaStoreModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmaStoreModeAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TmaStoreMode,
     };
@@ -5026,6 +5281,7 @@ pub const TmaStoreModeAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tmem_alloc_mode` : mode d'allocation de la mémoire tensor.
 /// `#cute_nvgpu.tmem_alloc_mode`: Modes for the Tmem allocation.
 pub const TmemAllocModeAttr = opaque {
     const Self = @This();
@@ -5043,6 +5299,7 @@ pub const TmemAllocModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmemAllocModeAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TmemAllocMode,
     };
@@ -5058,6 +5315,7 @@ pub const TmemAllocModeAttr = opaque {
     }
 };
 
+// Attribut MLIR `#cute_nvgpu.tmem_load_red_op` : opération de réduction du chargement tmem.
 /// `#cute_nvgpu.tmem_load_red_op`: Reduce operation for the Tmem load instruction.
 pub const TmemLoadRedOpAttr = opaque {
     const Self = @This();
@@ -5075,6 +5333,7 @@ pub const TmemLoadRedOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation (InitArgs) pour construire l'opaque `TmemLoadRedOpAttr` via son accesseur `get`.
     pub const InitArgs = struct {
         value: TmemLoadRedOp,
     };

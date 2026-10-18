@@ -13,6 +13,7 @@ pub const dialect_handle = "cuda";
 
 // Enums, generated from the dialect's .td files; values are the compiler's.
 
+// Portabilité du code compilé (portable, conditionnelle ou limitée à une famille d'architectures).
 /// Enumerated type describing portability.
 pub const ArchPortability = enum(u32) {
     portable = 0,
@@ -20,6 +21,7 @@ pub const ArchPortability = enum(u32) {
     family = 2,
 };
 
+// Attributs de périphérique CUDA réglables via le dialecte (`cudaDeviceGetAttribute`).
 /// Enumerated type describing CUDA device attributes can be set through Cuda Dialect.
 pub const CUDeviceAttr = enum(u32) {
     maxThreadsPerBlock = 1,
@@ -162,6 +164,7 @@ pub const CUDeviceAttr = enum(u32) {
     cudaDevAttrOversizedSharedMemoryPerBlock = 150,
 };
 
+// Attributs de fonction CUDA (`CU_FUNC_ATTRIBUTE_*`) exposés par le dialecte.
 /// Enumerated type describing CUDA function attributes can be set through Cuda Dialect.
 pub const CUFunctionAttribute = enum(u32) {
     max_threads_per_block = 0,
@@ -182,6 +185,7 @@ pub const CUFunctionAttribute = enum(u32) {
     cluster_scheduling_policy_preference = 15,
 };
 
+// ABI de la bibliothèque hôte (LP64, ILP64, LLP64).
 /// Enumerated of the host library ABI.
 pub const CudaABI = enum(u32) {
     LP64 = 0,
@@ -189,6 +193,7 @@ pub const CudaABI = enum(u32) {
     LLP64 = 2,
 };
 
+// Propriété d'accès L2 pour `cudaAccessPolicyWindow` (`hitProp`/`missProp`).
 /// Specifies performance hint with cudaAccessPolicyWindow for hitProp and missProp members.
 pub const CudaAccessProperty = enum(u32) {
     cudaAccessPropertyNormal = 0,
@@ -196,6 +201,7 @@ pub const CudaAccessProperty = enum(u32) {
     cudaAccessPropertyPersisting = 2,
 };
 
+// Politique d'ordonnancement des clusters CUDA.
 /// Enumerated type describing CUDA cluster scheduling policy.
 pub const CudaClusterSchedulingPolicy = enum(u32) {
     cudaClusterSchedulingPolicyDefault = 0,
@@ -203,11 +209,13 @@ pub const CudaClusterSchedulingPolicy = enum(u32) {
     cudaClusterSchedulingPolicyLoadBalancing = 2,
 };
 
+// Attributs de fonction CUDA supplémentaires exposés par le dialecte.
 /// Enumerated type describing CUDA function attributes can be set through Cuda Dialect.
 pub const CudaFuncAttribute = enum(u32) {
     cudaFuncAttributeSharedMemoryMode = 16,
 };
 
+// Identifiants d'attributs de lancement (miroir de `CudaLaunchAttributeID`).
 /// Enumerated type mirroring CudaLaunchAttributeID from CUDA Runtime API.
 pub const CudaLaunchAttributeID = enum(u32) {
     cudaLaunchAttributeIgnore = 0,
@@ -228,12 +236,14 @@ pub const CudaLaunchAttributeID = enum(u32) {
     cudaLaunchAttributeNvlinkUtilCentricScheduling = 16,
 };
 
+// Domaine de synchronisation mémoire d'un lancement (défaut ou distant).
 /// Enumerated type describing CUDA memory sync domain.
 pub const CudaLaunchMemSyncDomain = enum(u32) {
     cudaLaunchMemSyncDomainDefault = 0,
     cudaLaunchMemSyncDomainRemote = 1,
 };
 
+// Mode de gestion de la mémoire partagée d'une fonction CUDA.
 /// Enumerated type describing CUDA shared memory modes.
 pub const CudaSharedMemoryMode = enum(u32) {
     cudaSharedMemoryModeDefault = 0,
@@ -243,6 +253,7 @@ pub const CudaSharedMemoryMode = enum(u32) {
     cudaSharedMemoryModePreferOversizedSharedMemory = 4,
 };
 
+// Politique de synchronisation pour l'attente sur un flux CUDA.
 /// Enumerated type describing CUDA synchronization policy.
 pub const CudaSynchronizationPolicy = enum(u32) {
     cudaSyncPolicyAuto = 0,
@@ -251,6 +262,7 @@ pub const CudaSynchronizationPolicy = enum(u32) {
     cudaSyncPolicyBlockingSync = 3,
 };
 
+// Format d'un exécutable CUDA (texte, ELF, bitcode, fatbin).
 /// Enumerated type describing the format of an executable.
 pub const ExecutableFormat = enum(u32) {
     text = 0,
@@ -259,6 +271,7 @@ pub const ExecutableFormat = enum(u32) {
     fatbin = 3,
 };
 
+// Représentation du code d'un exécutable (SASS, PTX, NVVM, LTO IR, MLIR...).
 /// Enumerated type describing the representation of an executable.
 pub const ExecutableRepresentation = enum(u32) {
     sass = 0,
@@ -270,6 +283,7 @@ pub const ExecutableRepresentation = enum(u32) {
     hostobj = 7,
 };
 
+// Architecture GPU cible (compute capability, ex. `sm_90`).
 /// Enumerated type denoting a GPU Architecture.
 pub const GpuArchitecture = enum(u32) {
     sm_80 = 80,
@@ -287,6 +301,7 @@ pub const GpuArchitecture = enum(u32) {
     sm_121 = 121,
 };
 
+// Sens d'une copie mémoire CUDA (hôte ↔ périphérique).
 /// Enumerated type describing memcpy directions.
 pub const MemcpyKind = enum(u32) {
     HostToHost = 0,
@@ -296,6 +311,7 @@ pub const MemcpyKind = enum(u32) {
     Default = 4,
 };
 
+// Mode de capture d'un flux CUDA (global, thread-local, relâché).
 /// Enumerated type describing CUDA stream capture modes.
 pub const StreamCaptureModeEnum = enum(u32) {
     Global = 0,
@@ -305,6 +321,7 @@ pub const StreamCaptureModeEnum = enum(u32) {
 
 // Types and attributes, generated from the dialect's .td files.
 
+// Attribut `#cuda.assume_kernel_attr` : indique si `cuda.launch` peut supposer que son appelé est un kernel.
 /// `#cuda.assume_kernel_attr`: Whether `cuda.launch` may assume its callee is a kernel
 pub const AssumeKernelAttr = opaque {
     const Self = @This();
@@ -322,6 +339,7 @@ pub const AssumeKernelAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         value: bool,
     };
@@ -336,6 +354,7 @@ pub const AssumeKernelAttr = opaque {
     }
 };
 
+// Attribut `#cuda.compute_target` : représentation, portabilité et architectures d'un exécutable compilé.
 /// `#cuda.compute_target`: Representation, portability and architectures of a compiled executable
 pub const ComputeTargetAttr = opaque {
     const Self = @This();
@@ -353,6 +372,7 @@ pub const ComputeTargetAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         representation: ExecutableRepresentation,
         portability: ArchPortability,
@@ -381,6 +401,7 @@ pub const ComputeTargetAttr = opaque {
     }
 };
 
+// Attribut `#cuda.dev_max_shared_memory_optin` : maximum opt-in de mémoire partagée par bloc.
 /// `#cuda.dev_max_shared_memory_optin`: The device's opt-in maximum of shared memory per block
 pub const DevMaxSharedMemoryOptinAttr = opaque {
     const Self = @This();
@@ -398,6 +419,7 @@ pub const DevMaxSharedMemoryOptinAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit l'attribut `#cuda.dev_max_shared_memory_optin` via `c.mlirCudaDevMaxSharedMemoryOptinAttrGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -407,6 +429,7 @@ pub const DevMaxSharedMemoryOptinAttr = opaque {
     }
 };
 
+// Attribut `#cuda.device_attributes` : liste des attributs de périphérique CUDA.
 /// `#cuda.device_attributes`: CUDA device attributes
 pub const DeviceAttributesAttr = opaque {
     const Self = @This();
@@ -424,6 +447,7 @@ pub const DeviceAttributesAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         values: *const mlir.Attribute,
     };
@@ -438,6 +462,7 @@ pub const DeviceAttributesAttr = opaque {
     }
 };
 
+// Attribut `#cuda.executable` : format d'un exécutable compilé.
 /// `#cuda.executable`: Format of a compiled executable
 pub const ExecutableAttr = opaque {
     const Self = @This();
@@ -455,6 +480,7 @@ pub const ExecutableAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         format: ExecutableFormat,
     };
@@ -469,6 +495,7 @@ pub const ExecutableAttr = opaque {
     }
 };
 
+// Attribut `#cuda.func_attributes` : attributs de fonction CUDA d'un kernel.
 /// `#cuda.func_attributes`: CUDA function attributes of a kernel
 pub const FuncAttributesAttr = opaque {
     const Self = @This();
@@ -486,6 +513,7 @@ pub const FuncAttributesAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         values: *const mlir.Attribute,
     };
@@ -500,6 +528,7 @@ pub const FuncAttributesAttr = opaque {
     }
 };
 
+// Type `!cuda.arch_set` : ensemble d'architectures GPU.
 /// `!cuda.arch_set`: `!cuda.arch_set`
 pub const ArchSetType = opaque {
     const Self = @This();
@@ -517,6 +546,7 @@ pub const ArchSetType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.arch_set` via `c.mlirCudaArchSetTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -526,6 +556,7 @@ pub const ArchSetType = opaque {
     }
 };
 
+// Type `!cuda.event` : handle d'événement CUDA.
 /// `!cuda.event`: `Event` represents CUDA event
 pub const EventType = opaque {
     const Self = @This();
@@ -543,6 +574,7 @@ pub const EventType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.event` via `c.mlirCudaEventTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -552,6 +584,7 @@ pub const EventType = opaque {
     }
 };
 
+// Type `!cuda.graph_device_node` : handle de nœud de graphe côté périphérique.
 /// `!cuda.graph_device_node`: `GraphDeviceNode` represents CUDA device node handle for device-side node update
 pub const GraphDeviceNodeType = opaque {
     const Self = @This();
@@ -569,6 +602,7 @@ pub const GraphDeviceNodeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.graph_device_node` via `c.mlirCudaGraphDeviceNodeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -578,6 +612,7 @@ pub const GraphDeviceNodeType = opaque {
     }
 };
 
+// Type `!cuda.graph_exec` : handle d'exécution de graphe CUDA.
 /// `!cuda.graph_exec`: CUDA Graph Execution
 pub const GraphExecType = opaque {
     const Self = @This();
@@ -595,6 +630,7 @@ pub const GraphExecType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.graph_exec` via `c.mlirCudaGraphExecTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -604,6 +640,7 @@ pub const GraphExecType = opaque {
     }
 };
 
+// Type `!cuda.graph_node` : handle de nœud de graphe CUDA.
 /// `!cuda.graph_node`: CUDA Graph Node handle
 pub const GraphNodeType = opaque {
     const Self = @This();
@@ -621,6 +658,7 @@ pub const GraphNodeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.graph_node` via `c.mlirCudaGraphNodeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -630,6 +668,7 @@ pub const GraphNodeType = opaque {
     }
 };
 
+// Type `!cuda.graph` : handle de graphe CUDA.
 /// `!cuda.graph`: CUDA Graph
 pub const GraphType = opaque {
     const Self = @This();
@@ -647,6 +686,7 @@ pub const GraphType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.graph` via `c.mlirCudaGraphTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -656,6 +696,7 @@ pub const GraphType = opaque {
     }
 };
 
+// Type `!cuda.int` : entier dont la largeur suit l'ABI entière sous-jacente.
 /// `!cuda.int`: `cuda.int` is a integer type with a bitwidth matching the underlying ABI integer bitwidth
 pub const IntType = opaque {
     const Self = @This();
@@ -673,6 +714,7 @@ pub const IntType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.int` via `c.mlirCudaIntTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -682,6 +724,7 @@ pub const IntType = opaque {
     }
 };
 
+// Type `!cuda.kernel` : handle de kernel CUDA.
 /// `!cuda.kernel`: CUDA Kernel handle
 pub const KernelType = opaque {
     const Self = @This();
@@ -699,6 +742,7 @@ pub const KernelType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.kernel` via `c.mlirCudaKernelTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -708,6 +752,7 @@ pub const KernelType = opaque {
     }
 };
 
+// Type `!cuda.launch_cfg` : configuration de lancement extensible (miroir de l'API Runtime).
 /// `!cuda.launch_cfg`: Representation of CUDA's extensible launch configuration mirroring cuda runtime API
 pub const LaunchConfigType = opaque {
     const Self = @This();
@@ -725,6 +770,7 @@ pub const LaunchConfigType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction passés à `get` (champs du type/attribut MLIR).
     pub const InitArgs = struct {
         maxNumAttrs: u32,
     };
@@ -739,6 +785,7 @@ pub const LaunchConfigType = opaque {
     }
 };
 
+// Type `!cuda.library` : handle de bibliothèque CUDA.
 /// `!cuda.library`: CUDA Library handle
 pub const LibraryType = opaque {
     const Self = @This();
@@ -756,6 +803,7 @@ pub const LibraryType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.library` via `c.mlirCudaLibraryTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -765,6 +813,7 @@ pub const LibraryType = opaque {
     }
 };
 
+// Type `!cuda.module` : handle de module CUDA.
 /// `!cuda.module`: CUDA Module handle
 pub const ModuleType = opaque {
     const Self = @This();
@@ -782,6 +831,7 @@ pub const ModuleType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.module` via `c.mlirCudaModuleTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -791,6 +841,7 @@ pub const ModuleType = opaque {
     }
 };
 
+// Type `!cuda.result` : type de résultat des opérations du dialecte.
 /// `!cuda.result`: CUDA Result type
 pub const ResultType = opaque {
     const Self = @This();
@@ -808,6 +859,7 @@ pub const ResultType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.result` via `c.mlirCudaResultTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -817,6 +869,7 @@ pub const ResultType = opaque {
     }
 };
 
+// Type `!cuda.runtime.device_prop` : structure `cudaDeviceProp` (par valeur).
 /// `!cuda.runtime.device_prop`: CUDA cudaDeviceProp struct type (value-typed).
 pub const RuntimeDevicePropType = opaque {
     const Self = @This();
@@ -834,6 +887,7 @@ pub const RuntimeDevicePropType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.device_prop` via `c.mlirCudaRuntimeDevicePropTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -843,6 +897,7 @@ pub const RuntimeDevicePropType = opaque {
     }
 };
 
+// Type `!cuda.runtime.dim_3` : structure `dim3` (par valeur).
 /// `!cuda.runtime.dim_3`: CUDA dim3 struct type (value-typed).
 pub const RuntimeDim3Type = opaque {
     const Self = @This();
@@ -860,6 +915,7 @@ pub const RuntimeDim3Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.dim_3` via `c.mlirCudaRuntimeDim3TypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -869,6 +925,7 @@ pub const RuntimeDim3Type = opaque {
     }
 };
 
+// Type `!cuda.runtime.extent` : structure `cudaExtent` (par valeur).
 /// `!cuda.runtime.extent`: CUDA cudaExtent struct type (value-typed).
 pub const RuntimeExtentType = opaque {
     const Self = @This();
@@ -886,6 +943,7 @@ pub const RuntimeExtentType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.extent` via `c.mlirCudaRuntimeExtentTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -895,6 +953,7 @@ pub const RuntimeExtentType = opaque {
     }
 };
 
+// Type `!cuda.runtime.kernel_node_params` : structure `cudaKernelNodeParams` (par valeur).
 /// `!cuda.runtime.kernel_node_params`: CUDA cudaKernelNodeParams struct type (value-typed).
 pub const RuntimeKernelNodeParamsType = opaque {
     const Self = @This();
@@ -912,6 +971,7 @@ pub const RuntimeKernelNodeParamsType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.kernel_node_params` via `c.mlirCudaRuntimeKernelNodeParamsTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -921,6 +981,7 @@ pub const RuntimeKernelNodeParamsType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference`: `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference`
 pub const RuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceType = opaque {
     const Self = @This();
@@ -938,6 +999,7 @@ pub const RuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceType = opa
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.cluster_scheduling_policy_preference` via `c.mlirCudaRuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -947,6 +1009,7 @@ pub const RuntimeLaunchAttributeValueClusterSchedulingPolicyPreferenceType = opa
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.cooperative` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.cooperative`: `!cuda.runtime.launch_attribute_value.cooperative`
 pub const RuntimeLaunchAttributeValueCooperativeType = opaque {
     const Self = @This();
@@ -964,6 +1027,7 @@ pub const RuntimeLaunchAttributeValueCooperativeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.cooperative` via `c.mlirCudaRuntimeLaunchAttributeValueCooperativeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -973,6 +1037,7 @@ pub const RuntimeLaunchAttributeValueCooperativeType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.mem_sync_domain` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.mem_sync_domain`: `!cuda.runtime.launch_attribute_value.mem_sync_domain`
 pub const RuntimeLaunchAttributeValueMemSyncDomainType = opaque {
     const Self = @This();
@@ -990,6 +1055,7 @@ pub const RuntimeLaunchAttributeValueMemSyncDomainType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.mem_sync_domain` via `c.mlirCudaRuntimeLaunchAttributeValueMemSyncDomainTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -999,6 +1065,7 @@ pub const RuntimeLaunchAttributeValueMemSyncDomainType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling`: `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling`
 pub const RuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingType = opaque {
     const Self = @This();
@@ -1016,6 +1083,7 @@ pub const RuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.nvlink_util_centric_scheduling` via `c.mlirCudaRuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1025,6 +1093,7 @@ pub const RuntimeLaunchAttributeValueNvlinkUtilCentricSchedulingType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode`: `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode`
 pub const RuntimeLaunchAttributeValuePortableClusterSizeModeType = opaque {
     const Self = @This();
@@ -1042,6 +1111,7 @@ pub const RuntimeLaunchAttributeValuePortableClusterSizeModeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.portable_cluster_size_mode` via `c.mlirCudaRuntimeLaunchAttributeValuePortableClusterSizeModeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1051,6 +1121,7 @@ pub const RuntimeLaunchAttributeValuePortableClusterSizeModeType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.priority` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.priority`: `!cuda.runtime.launch_attribute_value.priority`
 pub const RuntimeLaunchAttributeValuePriorityType = opaque {
     const Self = @This();
@@ -1068,6 +1139,7 @@ pub const RuntimeLaunchAttributeValuePriorityType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.priority` via `c.mlirCudaRuntimeLaunchAttributeValuePriorityTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1077,6 +1149,7 @@ pub const RuntimeLaunchAttributeValuePriorityType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed`: `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed`
 pub const RuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedType = opaque {
     const Self = @This();
@@ -1094,6 +1167,7 @@ pub const RuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedType 
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.programmatic_stream_serialization_allowed` via `c.mlirCudaRuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1103,6 +1177,7 @@ pub const RuntimeLaunchAttributeValueProgrammaticStreamSerializationAllowedType 
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.shared_mem_carveout` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.shared_mem_carveout`: `!cuda.runtime.launch_attribute_value.shared_mem_carveout`
 pub const RuntimeLaunchAttributeValueSharedMemCarveoutType = opaque {
     const Self = @This();
@@ -1120,6 +1195,7 @@ pub const RuntimeLaunchAttributeValueSharedMemCarveoutType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.shared_mem_carveout` via `c.mlirCudaRuntimeLaunchAttributeValueSharedMemCarveoutTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1129,6 +1205,7 @@ pub const RuntimeLaunchAttributeValueSharedMemCarveoutType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.shared_memory_mode` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.shared_memory_mode`: `!cuda.runtime.launch_attribute_value.shared_memory_mode`
 pub const RuntimeLaunchAttributeValueSharedMemoryModeType = opaque {
     const Self = @This();
@@ -1146,6 +1223,7 @@ pub const RuntimeLaunchAttributeValueSharedMemoryModeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.shared_memory_mode` via `c.mlirCudaRuntimeLaunchAttributeValueSharedMemoryModeTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1155,6 +1233,7 @@ pub const RuntimeLaunchAttributeValueSharedMemoryModeType = opaque {
     }
 };
 
+// Type `!cuda.runtime.launch_attribute_value.sync_policy` : valeur d'attribut de lancement (runtime).
 /// `!cuda.runtime.launch_attribute_value.sync_policy`: `!cuda.runtime.launch_attribute_value.sync_policy`
 pub const RuntimeLaunchAttributeValueSyncPolicyType = opaque {
     const Self = @This();
@@ -1172,6 +1251,7 @@ pub const RuntimeLaunchAttributeValueSyncPolicyType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.launch_attribute_value.sync_policy` via `c.mlirCudaRuntimeLaunchAttributeValueSyncPolicyTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1181,6 +1261,7 @@ pub const RuntimeLaunchAttributeValueSyncPolicyType = opaque {
     }
 };
 
+// Type `!cuda.runtime.memcpy_3d_params` : structure `cudaMemcpy3DParms` (par valeur).
 /// `!cuda.runtime.memcpy_3d_params`: CUDA cudaMemcpy3DParms struct type (value-typed).
 pub const RuntimeMemcpy3DParamsType = opaque {
     const Self = @This();
@@ -1198,6 +1279,7 @@ pub const RuntimeMemcpy3DParamsType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.memcpy_3d_params` via `c.mlirCudaRuntimeMemcpy3DParamsTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1207,6 +1289,7 @@ pub const RuntimeMemcpy3DParamsType = opaque {
     }
 };
 
+// Type `!cuda.runtime.pitched_ptr` : structure `cudaPitchedPtr` (par valeur).
 /// `!cuda.runtime.pitched_ptr`: CUDA cudaPitchedPtr struct type (value-typed).
 pub const RuntimePitchedPtrType = opaque {
     const Self = @This();
@@ -1224,6 +1307,7 @@ pub const RuntimePitchedPtrType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.pitched_ptr` via `c.mlirCudaRuntimePitchedPtrTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1233,6 +1317,7 @@ pub const RuntimePitchedPtrType = opaque {
     }
 };
 
+// Type `!cuda.runtime.pos` : structure `cudaPos` (par valeur).
 /// `!cuda.runtime.pos`: CUDA cudaPos struct type (value-typed).
 pub const RuntimePosType = opaque {
     const Self = @This();
@@ -1250,6 +1335,7 @@ pub const RuntimePosType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.pos` via `c.mlirCudaRuntimePosTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1259,6 +1345,7 @@ pub const RuntimePosType = opaque {
     }
 };
 
+// Type `!cuda.runtime.uuid` : structure `cudaUUID_t` (par valeur).
 /// `!cuda.runtime.uuid`: CUDA cudaUUID_t struct type (value-typed).
 pub const RuntimeUuidType = opaque {
     const Self = @This();
@@ -1276,6 +1363,7 @@ pub const RuntimeUuidType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.runtime.uuid` via `c.mlirCudaRuntimeUuidTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1285,6 +1373,7 @@ pub const RuntimeUuidType = opaque {
     }
 };
 
+// Type `!cuda.stream` : handle de flux CUDA.
 /// `!cuda.stream`: CUDA Stream
 pub const StreamType = opaque {
     const Self = @This();
@@ -1302,6 +1391,7 @@ pub const StreamType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.stream` via `c.mlirCudaStreamTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -1311,6 +1401,7 @@ pub const StreamType = opaque {
     }
 };
 
+// Type `!cuda.tensor_map` : handle de carte de tenseur CUDA.
 /// `!cuda.tensor_map`: CUDA Tensor Map type
 pub const TensorMapType = opaque {
     const Self = @This();
@@ -1328,6 +1419,7 @@ pub const TensorMapType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Aucun argument de construction (la fonction `get` ne prend aucun champ).
     pub const InitArgs = struct {};
     // Construit le type `!cuda.tensor_map` via `c.mlirCudaTensorMapTypeGet` ; renvoie `error.InvalidMlir` si le pointeur est nul.
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {

@@ -11,8 +11,10 @@ pub const nvgpu = @import("cute_nvgpu.zig");
 pub const nvvm = @import("nvvm.zig");
 pub const cuda = @import("cuda.zig");
 
+// Enumere les genres d'attributs d'algebre CuTe (`#cute.*`) reconnus par le dialecte.
 pub const AttributeKind = enum { int_tuple, coord, shape, stride, layout, tile, composed_layout, swizzle };
 
+// Poignee opaque sur un type MLIR CuTe quelconque, base commune aux types `!cute.*`.
 pub const CuteType = opaque {
     const M = mlir.Methods(CuteType, c.MlirType);
 
@@ -106,6 +108,7 @@ pub fn constrainedIntType(ctx: *mlir.Context, width: enum { i32, i64 }, divisibl
     })).type_();
 }
 
+// Attribut `#cute.int_tuple` : entier scalaire ou tuple recursif d'entiers, stocke sous forme d'expression texte.
 /// Constructors take raw CuTe algebra expressions. Getter strings are owned by
 /// the MLIR context and remain valid until that context is destroyed.
 pub const IntTupleAttr = opaque {
@@ -138,6 +141,7 @@ pub const IntTupleAttr = opaque {
     }
 };
 
+// Attribut `#cute.coord` : coordonnee scalaire, joker `_` ou tuple recursif de coordonnees.
 pub const CoordAttr = opaque {
     const M = mlir.Methods(CoordAttr, c.MlirAttribute);
 
@@ -168,6 +172,7 @@ pub const CoordAttr = opaque {
     }
 };
 
+// Attribut `#cute.shape` : entier scalaire ou tuple recursif de tailles de mode.
 pub const ShapeAttr = opaque {
     const M = mlir.Methods(ShapeAttr, c.MlirAttribute);
 
@@ -198,6 +203,7 @@ pub const ShapeAttr = opaque {
     }
 };
 
+// Attribut `#cute.stride` : element de pas scalaire ou tuple recursif de pas.
 pub const StrideAttr = opaque {
     const M = mlir.Methods(StrideAttr, c.MlirAttribute);
 
@@ -228,6 +234,7 @@ pub const StrideAttr = opaque {
     }
 };
 
+// Attribut `#cute.layout` : paire shape/stride decrivant un layout CuTe.
 pub const LayoutAttr = opaque {
     const M = mlir.Methods(LayoutAttr, c.MlirAttribute);
 
@@ -258,6 +265,7 @@ pub const LayoutAttr = opaque {
     }
 };
 
+// Attribut `#cute.tile` : sequence recursive de layouts et de jokers formant une tuile.
 pub const TileAttr = opaque {
     const M = mlir.Methods(TileAttr, c.MlirAttribute);
 
@@ -288,6 +296,7 @@ pub const TileAttr = opaque {
     }
 };
 
+// Attribut `#cute.composed_layout` : composition de layouts A o offset o B.
 pub const ComposedLayoutAttr = opaque {
     const M = mlir.Methods(ComposedLayoutAttr, c.MlirAttribute);
 
@@ -318,6 +327,7 @@ pub const ComposedLayoutAttr = opaque {
     }
 };
 
+// Attribut `#cute.swizzle` : swizzle CuTe S<num_bits, num_base, num_shift>.
 pub const SwizzleAttr = opaque {
     const M = mlir.Methods(SwizzleAttr, c.MlirAttribute);
 
@@ -350,6 +360,7 @@ pub const SwizzleAttr = opaque {
 
 // Enums, generated from the dialect's .td files; values are the compiler's.
 
+// Espaces d'adressage CuTe pour les memrefs et pointeurs (generic, gmem, smem, rmem, tmem, dsmem, cmem).
 /// Address spaces for CuTe memrefs and pointers.
 pub const AddressSpace = enum(u32) {
     generic = 0,
@@ -361,18 +372,21 @@ pub const AddressSpace = enum(u32) {
     cmem = 4,
 };
 
+// Identifie l'operande d'une copie : source `S` ou destination `D`.
 /// Copy operand ID.
 pub const CopyOperand = enum(u32) {
     S = 0,
     D = 1,
 };
 
+// Mode majeur d'une operation MMA (reduction sur `k` ou sur `mn`).
 /// Major mode for MMA operations.
 pub const MajorMode = enum(u32) {
     k = 0,
     mn = 1,
 };
 
+// Identifie un operande d'atome MMA : A, B, C, D, SFA, SFB ou E.
 /// MMA operand ID.
 pub const MmaOperand = enum(u32) {
     A = 0,
@@ -384,6 +398,7 @@ pub const MmaOperand = enum(u32) {
     E = 6,
 };
 
+// Operation de reduction CuTe : ADD, MUL, MIN ou MAX.
 /// Op for cute reduce operations.
 pub const ReductionOp = enum(u32) {
     ADD = 0,
@@ -394,6 +409,7 @@ pub const ReductionOp = enum(u32) {
 
 // Types and attributes, generated from the dialect's .td files.
 
+// Type `!cute.arith_tuple_iter` : iterateur sur un tuple arithmetique.
 /// `!cute.arith_tuple_iter`: Iterator over an arithmetic tuple.
 pub const ArithTupleIteratorType = opaque {
     const Self = @This();
@@ -411,6 +427,7 @@ pub const ArithTupleIteratorType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : le type du tuple arithmetique a parcourir.
     pub const InitArgs = struct {
         arithTuple: *const mlir.Type,
     };
@@ -425,6 +442,7 @@ pub const ArithTupleIteratorType = opaque {
     }
 };
 
+// Type `!cute.composed_layout` : layout compose A o offset o B.
 /// `!cute.composed_layout`: CuTe composed layout: A ∘ offset ∘ B.
 pub const ComposedLayoutType = opaque {
     const Self = @This();
@@ -442,6 +460,7 @@ pub const ComposedLayoutType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de composition A o offset o B.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -456,6 +475,7 @@ pub const ComposedLayoutType = opaque {
     }
 };
 
+// Type `!cute.i<N>` : entier de largeur quelconque avec divisibilite et puissance-de-deux connues.
 /// `!cute.i<N>`: Integer of any width with known divisibility and power of two.
 pub const ConstrainedIntType = opaque {
     const Self = @This();
@@ -472,6 +492,7 @@ pub const ConstrainedIntType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : divisibilite, largeur en bits et marqueur puissance-de-deux.
     pub const InitArgs = struct {
         divisibility: i64,
         width: c_uint,
@@ -496,6 +517,7 @@ pub const ConstrainedIntType = opaque {
     }
 };
 
+// Type `!cute.coord_tensor` : tuple arithmetique muni d'un layout (tenseur de coordonnees).
 /// `!cute.coord_tensor`: Coordinate tensor: an arithmetic tuple with a layout.
 pub const CoordTensorType = opaque {
     const Self = @This();
@@ -513,6 +535,7 @@ pub const CoordTensorType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : le tuple arithmetique et son layout.
     pub const InitArgs = struct {
         arithTuple: *const mlir.Type,
         layout: *const mlir.Type,
@@ -532,6 +555,7 @@ pub const CoordTensorType = opaque {
     }
 };
 
+// Type `!cute.coord` : entier scalaire, joker `_` ou tuple recursif de coordonnees.
 /// `!cute.coord`: Scalar integer, underscore wildcard, or recursive tuple of coordinates.
 pub const CoordType = opaque {
     const Self = @This();
@@ -549,6 +573,7 @@ pub const CoordType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de coordonnee.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -563,6 +588,7 @@ pub const CoordType = opaque {
     }
 };
 
+// Type `!cute.fast_divmod_divisor` : diviseur precalcule pour les operations divmod rapides.
 /// `!cute.fast_divmod_divisor`: Precomputed divisor of the fast divmod operations.
 pub const FastDivmodDivisorType = opaque {
     const Self = @This();
@@ -580,6 +606,7 @@ pub const FastDivmodDivisorType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : largeur et marqueur puissance-de-deux du diviseur.
     pub const InitArgs = struct {
         width: c_uint,
         isPow2: bool,
@@ -599,6 +626,7 @@ pub const FastDivmodDivisorType = opaque {
     }
 };
 
+// Type `!cute.int_tuple` : entier scalaire ou tuple recursif d'entiers.
 /// `!cute.int_tuple`: Scalar integer or recursive tuple of integers.
 pub const IntTupleType = opaque {
     const Self = @This();
@@ -616,6 +644,7 @@ pub const IntTupleType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut int_tuple sous-jacent.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -630,6 +659,7 @@ pub const IntTupleType = opaque {
     }
 };
 
+// Type `!cute.layout` : layout CuTe, paire shape/stride.
 /// `!cute.layout`: CuTe layout: a shape/stride pair.
 pub const LayoutType = opaque {
     const Self = @This();
@@ -647,6 +677,7 @@ pub const LayoutType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de layout shape/stride.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -661,6 +692,7 @@ pub const LayoutType = opaque {
     }
 };
 
+// Type `!cute.memref` : vue de tenseur, un pointeur muni d'un layout.
 /// `!cute.memref`: Tensor view: a pointer with a layout.
 pub const MemRefType = opaque {
     const Self = @This();
@@ -678,6 +710,7 @@ pub const MemRefType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : le type de pointeur et le type de layout.
     pub const InitArgs = struct {
         ptr: *const mlir.Type,
         layout: *const mlir.Type,
@@ -697,6 +730,7 @@ pub const MemRefType = opaque {
     }
 };
 
+// Type `!cute.ptr` : pointeur avec espace d'adressage, alignement, swizzle et bitlayout.
 /// `!cute.ptr`: Pointer with address space, alignment, swizzle and bit layout.
 pub const PtrType = opaque {
     const Self = @This();
@@ -714,6 +748,7 @@ pub const PtrType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : type de valeur, espace d'adressage, alignement, swizzle et bitlayout optionnels.
     pub const InitArgs = struct {
         valueType: ?*const mlir.Type = null,
         addressSpace: AddressSpace,
@@ -748,6 +783,7 @@ pub const PtrType = opaque {
     }
 };
 
+// Type `!cute.shape` : entier scalaire ou tuple recursif d'extents de mode.
 /// `!cute.shape`: Scalar integer or recursive tuple of shape extents.
 pub const ShapeType = opaque {
     const Self = @This();
@@ -765,6 +801,7 @@ pub const ShapeType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de shape.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -779,6 +816,7 @@ pub const ShapeType = opaque {
     }
 };
 
+// Type `!cute.sparse_elem` : element logique clairsemee stocke dans un type physique.
 /// `!cute.sparse_elem`: Logical sparse element stored in a physical type.
 pub const SparseElemType = opaque {
     const Self = @This();
@@ -796,6 +834,7 @@ pub const SparseElemType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : nombre d'elements logiques et type physique de stockage.
     pub const InitArgs = struct {
         numLogical: c_int,
         physicalType: *const mlir.Type,
@@ -815,6 +854,7 @@ pub const SparseElemType = opaque {
     }
 };
 
+// Type `!cute.stride` : element de pas scalaire ou tuple recursif de pas.
 /// `!cute.stride`: Scalar or recursive tuple of stride elements.
 pub const StrideType = opaque {
     const Self = @This();
@@ -832,6 +872,7 @@ pub const StrideType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de stride.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -846,6 +887,7 @@ pub const StrideType = opaque {
     }
 };
 
+// Type `!cute.swizzle` : swizzle CuTe S<num_bits, num_base, num_shift>.
 /// `!cute.swizzle`: CuTe swizzle: S<num_bits, num_base, num_shift>.
 pub const SwizzleType = opaque {
     const Self = @This();
@@ -863,6 +905,7 @@ pub const SwizzleType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de swizzle S<b,m,s>.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -877,6 +920,7 @@ pub const SwizzleType = opaque {
     }
 };
 
+// Type `!cute.tile` : tuile CuTe, sequence recursive de layouts et de jokers.
 /// `!cute.tile`: CuTe tile: a recursive sequence of layouts and underscores.
 pub const TileType = opaque {
     const Self = @This();
@@ -894,6 +938,7 @@ pub const TileType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'attribut de tuile.
     pub const InitArgs = struct {
         attr: *const mlir.Attribute,
     };
@@ -908,6 +953,7 @@ pub const TileType = opaque {
     }
 };
 
+// Type `!cute.tiled_copy` : atome de copie reparti sur les threads et les valeurs.
 /// `!cute.tiled_copy`: Copy atom tiled over threads and values.
 pub const TiledCopyType = opaque {
     const Self = @This();
@@ -925,6 +971,7 @@ pub const TiledCopyType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : atome de copie, layout copy_tv et tiler MN.
     pub const InitArgs = struct {
         copyAtom: *const mlir.Type,
         layoutCopyTv: *const mlir.Attribute,
@@ -950,6 +997,7 @@ pub const TiledCopyType = opaque {
     pub const getAtom = getCopyAtom;
 };
 
+// Type `!cute.tiled_copy_v2` : atome de copie V2 reparti sur les threads et les valeurs.
 /// `!cute.tiled_copy_v2`: V2 copy atom tiled over threads and values.
 pub const TiledCopyV2Type = opaque {
     const Self = @This();
@@ -967,6 +1015,7 @@ pub const TiledCopyV2Type = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : atome V2, layout copy_tv et tiler MN.
     pub const InitArgs = struct {
         copyAtom: *const mlir.Type,
         layoutCopyTv: *const mlir.Attribute,
@@ -991,6 +1040,7 @@ pub const TiledCopyV2Type = opaque {
     }
 };
 
+// Type `!cute.tiled_mma` : atome MMA reparti sur les modes MNK.
 /// `!cute.tiled_mma`: MMA atom tiled over MNK.
 pub const TiledMmaType = opaque {
     const Self = @This();
@@ -1008,6 +1058,7 @@ pub const TiledMmaType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : atome MMA, layout atomique MNK et permutation MNK optionnelle.
     pub const InitArgs = struct {
         mmaAtom: *const mlir.Type,
         atomLayoutMNK: *const mlir.Attribute,
@@ -1035,6 +1086,7 @@ pub const TiledMmaType = opaque {
     pub const getPermutationMnk = getPermutationMNK;
 };
 
+// Type `!cute.tuple` : tuple non vide de types.
 /// `!cute.tuple`: Non-empty tuple of types.
 pub const TupleType = opaque {
     const Self = @This();
@@ -1052,6 +1104,7 @@ pub const TupleType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments de construction : la liste des types du tuple.
     pub const InitArgs = struct {
         types: []const *const mlir.Type,
     };
@@ -1070,6 +1123,7 @@ pub const TupleType = opaque {
     }
 };
 
+// Attribut `#cute.bitlayout` : disposition binaire des elements d'un pointeur dans un bloc de stockage.
 /// `#cute.bitlayout`: Bit layout of a pointer's elements within a storage chunk.
 pub const BitLayoutAttr = opaque {
     const Self = @This();
@@ -1087,6 +1141,7 @@ pub const BitLayoutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le layout interne du bitlayout.
     pub const InitArgs = struct {
         layout: *const mlir.Attribute,
     };
@@ -1101,6 +1156,7 @@ pub const BitLayoutAttr = opaque {
     }
 };
 
+// Attribut `#cute.copy_atom` : layouts de threads et de valeurs d'un atome de copie.
 /// `#cute.copy_atom`: Thread and value layouts of a copy atom.
 pub const CopyAtomAttr = opaque {
     const Self = @This();
@@ -1118,6 +1174,7 @@ pub const CopyAtomAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : thr_id et layouts source/destination/reference.
     pub const InitArgs = struct {
         thrId: *const mlir.Attribute,
         layoutSrc: *const mlir.Attribute,
@@ -1147,6 +1204,7 @@ pub const CopyAtomAttr = opaque {
     }
 };
 
+// Attribut `#cute.copy_atom_v2` : layouts et fragments de threads/valeurs d'un atome de copie V2.
 /// `#cute.copy_atom_v2`: Thread and value layouts and fragments of a V2 copy atom.
 pub const CopyAtomV2Attr = opaque {
     const Self = @This();
@@ -1164,6 +1222,7 @@ pub const CopyAtomV2Attr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : thr_id, layouts source/destination TV et fragments.
     pub const InitArgs = struct {
         thrId: *const mlir.Attribute,
         layoutSrcTV: *const mlir.Attribute,
@@ -1198,6 +1257,7 @@ pub const CopyAtomV2Attr = opaque {
     }
 };
 
+// Attribut `#cute.mma_atom` : shapes, layouts thread-valeur et fragments d'un atome MMA.
 /// `#cute.mma_atom`: Shapes, thread-value layouts and fragments of an MMA atom.
 pub const MmaAtomAttr = opaque {
     const Self = @This();
@@ -1215,6 +1275,7 @@ pub const MmaAtomAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : shape MNK, thr_id, layouts TV, shapes AMK/BNK/CMN et fragments.
     pub const InitArgs = struct {
         shapeMNK: *const mlir.Attribute,
         thrId: *const mlir.Attribute,
@@ -1279,6 +1340,7 @@ pub const MmaAtomAttr = opaque {
     }
 };
 
+// Attribut `#cute.mx_mma_atom` : atome MMA avec operandes de facteurs d'echelle (SFA/SFB).
 /// `#cute.mx_mma_atom`: MMA atom attribute with scale-factor operands.
 pub const MxMmaAtomAttr = opaque {
     const Self = @This();
@@ -1296,6 +1358,7 @@ pub const MxMmaAtomAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'ensemble des champs (shapes, layouts, fragments) de l'atome MX-MMA.
     pub const InitArgs = struct {
         shapeMNK: *const mlir.Attribute,
         thrId: *const mlir.Attribute,
@@ -1390,6 +1453,7 @@ pub const MxMmaAtomAttr = opaque {
     }
 };
 
+// Attribut `#cute.reduction_op` : operation de reduction CuTe (ADD/MUL/MIN/MAX).
 /// `#cute.reduction_op`: Op for cute reduce operations.
 pub const ReductionOpAttr = opaque {
     const Self = @This();
@@ -1407,6 +1471,7 @@ pub const ReductionOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : la valeur d'enum `ReductionOp`.
     pub const InitArgs = struct {
         value: ReductionOp,
     };
@@ -1421,6 +1486,7 @@ pub const ReductionOpAttr = opaque {
     }
 };
 
+// Attribut `#cute.sparse_mma_atom` : atome MMA clairsemee avec operande E de metadonnees.
 /// `#cute.sparse_mma_atom`: MMA atom attribute with a sparsity-metadata operand.
 pub const SparseMmaAtomAttr = opaque {
     const Self = @This();
@@ -1438,6 +1504,7 @@ pub const SparseMmaAtomAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : champs de l'atome MMA clairsemee, dont shape/layout/fragment E.
     pub const InitArgs = struct {
         shapeMNK: *const mlir.Attribute,
         thrId: *const mlir.Attribute,
@@ -1517,6 +1584,7 @@ pub const SparseMmaAtomAttr = opaque {
     }
 };
 
+// Attribut `#cute.sparse_mx_mma_atom` : atome MMA clairsemee avec facteurs d'echelle et metadonnees.
 /// `#cute.sparse_mx_mma_atom`: MMA atom attribute with scale-factor and metadata operands.
 pub const SparseMxMmaAtomAttr = opaque {
     const Self = @This();
@@ -1534,6 +1602,7 @@ pub const SparseMxMmaAtomAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : l'ensemble des champs de l'atome MMA clairsemee a facteurs d'echelle.
     pub const InitArgs = struct {
         shapeMNK: *const mlir.Attribute,
         thrId: *const mlir.Attribute,

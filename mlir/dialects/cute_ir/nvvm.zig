@@ -13,6 +13,7 @@ pub const dialect_handle = "cute_nvvm";
 
 // Enums, generated from the dialect's .td files; values are the compiler's.
 
+// Opérations atomiques supportées par l'instruction `atom` (and, or, xor, cas, exch, add, inc, dec, min, max, fadd, sub).
 /// operations supported by atom instruction.
 pub const AtomicOpKind = enum(u32) {
     @"and" = 0,
@@ -31,6 +32,7 @@ pub const AtomicOpKind = enum(u32) {
     sub = 13,
 };
 
+// Opération de réduction de barrière NVVM (popc, and, or).
 /// NVVM barrier reduction operation.
 pub const BarrierReduction = enum(u32) {
     popc = 0,
@@ -38,6 +40,7 @@ pub const BarrierReduction = enum(u32) {
     @"or" = 2,
 };
 
+// Type de réduction `redux` de barrière NVVM (and, or, popc).
 /// NVVM barrier redux kind.
 pub const BarrierReduxKind = enum(u32) {
     @"and" = 0,
@@ -45,18 +48,21 @@ pub const BarrierReduxKind = enum(u32) {
     popc = 2,
 };
 
+// Format d'échelle de bloc pour MMA (ue8m0, ue4m3).
 /// MMA Block Scale Format.
 pub const BlockScaleFormat = enum(u32) {
     ue8m0 = 0,
     ue4m3 = 1,
 };
 
+// Nombre de CTA par groupe de cluster (`cta_1`, `cta_2`).
 /// NVVM CTA group kind.
 pub const CTAGroupKind = enum(u32) {
     cta_1 = 0,
     cta_2 = 1,
 };
 
+// Type d'emballage flottant produit par `cvt` (f32, f16x2, e4m3x2, …).
 /// NVVM CVT Pack Float kind.
 pub const CVTPackFloatKind = enum(u32) {
     f32 = 0,
@@ -70,6 +76,7 @@ pub const CVTPackFloatKind = enum(u32) {
     ue8m0x2 = 8,
 };
 
+// Priorité d'éviction du cache (normal, first, last, unchanged, no_allocate).
 /// NVVM Cache Eviction Priority.
 pub const CacheEvictionPriority = enum(u32) {
     evict_normal = 0,
@@ -79,6 +86,7 @@ pub const CacheEvictionPriority = enum(u32) {
     no_allocate = 4,
 };
 
+// Type de requête de contrôle de lancement de cluster (annulation, identifiant du premier CTA).
 /// NVVM ClusterLaunchControlQueryType.
 pub const ClusterLaunchControlQueryType = enum(u32) {
     is_canceled = 0,
@@ -87,6 +95,7 @@ pub const ClusterLaunchControlQueryType = enum(u32) {
     get_first_cta_id_z = 3,
 };
 
+// Opérateur de comparaison signé/non signé (eq, ne, ugt, sgt, …).
 /// Comparison operator encoding.
 pub const CompareOpKind = enum(u32) {
     eq = 0,
@@ -101,11 +110,13 @@ pub const CompareOpKind = enum(u32) {
     sle = 9,
 };
 
+// Type cible de la conversion FP4 (e2m1).
 /// NVVM ConvertFP4Type kind.
 pub const ConvertFP4Type = enum(u32) {
     e2m1 = 0,
 };
 
+// Type cible de la conversion FP8 (e4m3, e5m2, ue8m0, ue5m3).
 /// NVVM ConvertFP8Type kind.
 pub const ConvertFP8Type = enum(u32) {
     e4m3 = 0,
@@ -114,18 +125,21 @@ pub const ConvertFP8Type = enum(u32) {
     ue5m3 = 3,
 };
 
+// Présence et type d'échelle de conversion (none, ue8m0).
 /// NVVM ConvertScale kind.
 pub const ConvertScaleKind = enum(u32) {
     none = 0,
     ue8m0 = 1,
 };
 
+// Signe de l'accumulation pour l'instruction `dot` (signed, unsigned).
 /// NVVM DotAccumulateType.
 pub const DotAccumulateType = enum(u32) {
     signed = 1,
     unsigned = 0,
 };
 
+// Stratégie d'éviction de cache des accès mémoire (normal, first, last, unchanged, no_allocate, none).
 /// NVVM L2 Prefetch Size.
 pub const EvictKind = enum(u32) {
     evict_normal = 0,
@@ -136,6 +150,7 @@ pub const EvictKind = enum(u32) {
     none = 5,
 };
 
+// Mode d'arrondi flottant (rn, rm, rp, rz, rna, rs, none).
 /// NVVM FPRoundingMode kind.
 pub const FPRoundingMode = enum(u32) {
     none = 0,
@@ -147,12 +162,14 @@ pub const FPRoundingMode = enum(u32) {
     rs = 6,
 };
 
+// Action de contrôle de dépendance de grille (wait, launch_dependents).
 /// Action kind for grid dependency control.
 pub const GridDepActionKind = enum(u32) {
     wait = 0,
     launch_dependents = 1,
 };
 
+// Mode d'arrondi entier (rni, rzi, rmi, rpi, none).
 /// NVVM IntegerRoundingMode kind.
 pub const IntegerRoundingMode = enum(u32) {
     none = 0,
@@ -162,6 +179,7 @@ pub const IntegerRoundingMode = enum(u32) {
     rpi = 4,
 };
 
+// Taille de préchargement L2 (64b, 128b, 256b, reserved, none).
 /// NVVM L2 Prefetch Size.
 pub const L2PrefetchSize = enum(u32) {
     none = 0,
@@ -171,6 +189,7 @@ pub const L2PrefetchSize = enum(u32) {
     size_256b = 4,
 };
 
+// Type d'élément manipulé par `ldmatrix`/`stmatrix` (b16, b8, formats compressés).
 /// Element type for ldmatrix and stmatrix.
 pub const LdStMatrixEltType = enum(u32) {
     b16 = 0,
@@ -179,6 +198,7 @@ pub const LdStMatrixEltType = enum(u32) {
     @"b8x16.b4x16_p64" = 3,
 };
 
+// Modificateur de cache de chargement étendu (ca, cg, cs, lu, cv, none).
 /// NVVM load cache modifier kind(Ext).
 pub const LoadCacheModifierExtKind = enum(u32) {
     ca = 0,
@@ -189,6 +209,7 @@ pub const LoadCacheModifierExtKind = enum(u32) {
     none = 5,
 };
 
+// Modificateur de cache de chargement (ca, cg, cs, lu, cv).
 /// NVVM load cache modifier kind.
 pub const LoadCacheModifierKind = enum(u32) {
     ca = 0,
@@ -198,6 +219,7 @@ pub const LoadCacheModifierKind = enum(u32) {
     cv = 4,
 };
 
+// Forme de chargement pour `ldmatrix` (m8n8, m8n16, m16n16).
 /// shape attribute for ldmatrix.
 pub const LoadShape = enum(u32) {
     m8n8 = 0,
@@ -205,6 +227,7 @@ pub const LoadShape = enum(u32) {
     m16n16 = 3,
 };
 
+// Format source pour `ldmatrix` (b8, b4x16_p64, b6x16_p32).
 /// source format for ldmatrix.
 pub const LoadSrcFormat = enum(u32) {
     b6x16_p32 = 0,
@@ -212,12 +235,14 @@ pub const LoadSrcFormat = enum(u32) {
     b8 = 2,
 };
 
+// Disposition (layout) d'une barrière mbarrier (v0, v1).
 /// NVVM MBarrier Layout.
 pub const MBarrierLayout = enum(u32) {
     v0 = 0,
     v1 = 1,
 };
 
+// Phase d'une barrière mbarrier (none, primary, conditional).
 /// NVVM mbarrier phase type.
 pub const MBarrierPhase = enum(u32) {
     none = 0,
@@ -225,18 +250,21 @@ pub const MBarrierPhase = enum(u32) {
     conditional = 2,
 };
 
+// Portée d'une barrière mbarrier (cta, cluster).
 /// NVVM MBarrier scope kind.
 pub const MBarrierScopeKind = enum(u32) {
     cta = 0,
     cluster = 1,
 };
 
+// Espace mémoire d'une barrière mbarrier (cta, cluster).
 /// NVVM MBarrier space kind.
 pub const MBarrierSpaceKind = enum(u32) {
     cta = 0,
     cluster = 1,
 };
 
+// Type de transaction sur une barrière mbarrier (arrive, expect_tx, complete_tx, …).
 /// NVVM MBarrier Transaction kind.
 pub const MBarrierTxnKind = enum(u32) {
     arrive = 0,
@@ -247,12 +275,14 @@ pub const MBarrierTxnKind = enum(u32) {
     complete_tx = 5,
 };
 
+// Type d'attente sur une barrière mbarrier (test, try).
 /// NVVM MBarrier wait kind.
 pub const MBarrierWaitKind = enum(u32) {
     @"test" = 0,
     @"try" = 1,
 };
 
+// Opération binaire de l'instruction MMA (none, xor_popc, and_popc).
 /// MMA binary operations.
 pub const MMAB1Op = enum(u32) {
     none = 0,
@@ -260,6 +290,7 @@ pub const MMAB1Op = enum(u32) {
     and_popc = 2,
 };
 
+// Type d'échelle de bloc MMA (mxf8f6f4, mxf4, mxf4nvf4).
 /// Block Scale Kind.
 pub const MMABlockScaleKind = enum(u32) {
     mxf8f6f4 = 0,
@@ -267,12 +298,14 @@ pub const MMABlockScaleKind = enum(u32) {
     mxf4nvf4 = 2,
 };
 
+// Nombre de CTA impliqués dans une MMA (`cta1`, `cta2`).
 /// MMA CTA count.
 pub const MMACtaCount = enum(u32) {
     cta1 = 1,
     cta2 = 2,
 };
 
+// Fragment MMA manipulé (a, b ou c).
 /// NVVM MMA frag type.
 pub const MMAFrag = enum(u32) {
     a = 0,
@@ -280,23 +313,27 @@ pub const MMAFrag = enum(u32) {
     c = 2,
 };
 
+// Comportement en cas de débordement entier MMA (wrapped, satfinite).
 /// MMA overflow options.
 pub const MMAIntOverflow = enum(u32) {
     satfinite = 1,
     wrapped = 0,
 };
 
+// Type d'opération MMA (f8f6f4).
 /// MMA operation kind.
 pub const MMAKind = enum(u32) {
     f8f6f4 = 0,
 };
 
+// Disposition des opérandes d'une MMA (row, col).
 /// NVVM MMA layout.
 pub const MMALayout = enum(u32) {
     row = 0,
     col = 1,
 };
 
+// Type de données d'une opération MMA (f16, f32, tf32, bf16, entiers, types FP4/FP8, …).
 /// NVVM MMA types.
 pub const MMATypes = enum(u32) {
     f16 = 0,
@@ -317,12 +354,14 @@ pub const MMATypes = enum(u32) {
     e2m1 = 15,
 };
 
+// Mode de synchronisation `match.sync` (any, all).
 /// NVVM match sync kind.
 pub const MatchSyncKind = enum(u32) {
     any = 0,
     all = 1,
 };
 
+// Sémantique d'ordonnancement mémoire (weak, relaxed, acquire, release, acq_rel, sc, …).
 /// NVVM Memory Ordering kind.
 pub const MemOrderKind = enum(u32) {
     weak = 0,
@@ -336,6 +375,7 @@ pub const MemOrderKind = enum(u32) {
     constant = 7,
 };
 
+// Portée mémoire d'un accès (cta, cluster, gpu, sys).
 /// NVVM Memory Scope kind.
 pub const MemScopeKind = enum(u32) {
     cta = 0,
@@ -344,6 +384,7 @@ pub const MemScopeKind = enum(u32) {
     sys = 3,
 };
 
+// Mode de multiplication (hi, lo, wide).
 /// multiply mode attribute.
 pub const MulMode = enum(u32) {
     hi = 0,
@@ -351,6 +392,7 @@ pub const MulMode = enum(u32) {
     wide = 2,
 };
 
+// Espace mémoire NVVM (generic, global, shared, constant, local, tensor, shared_cluster).
 /// NVVM Memory Space.
 pub const NVVMMemorySpace = enum(u32) {
     generic = 0,
@@ -362,6 +404,7 @@ pub const NVVMMemorySpace = enum(u32) {
     shared_cluster = 7,
 };
 
+// Mode de permutation `prmt` (default, f4e, b4e, rc8, ecl, ecr, rc16).
 /// NVVM permute mode.
 pub const PermuteMode = enum(u32) {
     default = 0,
@@ -373,12 +416,14 @@ pub const PermuteMode = enum(u32) {
     rc16 = 6,
 };
 
+// Niveau de cache visé par un préchargement (L1, L2).
 /// NVVM Prefetch Cache Level.
 pub const PrefetchCacheLevel = enum(u32) {
     L1 = 0,
     L2 = 1,
 };
 
+// Type de proxy mémoire asynchrone (alias, async, tensormap, generic, …).
 /// Proxy kind.
 pub const ProxyKind = enum(u32) {
     alias = 0,
@@ -389,6 +434,7 @@ pub const ProxyKind = enum(u32) {
     generic = 5,
 };
 
+// Opération de réduction NVVM (add, and, or, xor, min, max, umin, umax, fmin, fmax).
 /// NVVM Reduction Kind attribute.
 pub const ReductionKind = enum(u32) {
     add = 1,
@@ -403,6 +449,7 @@ pub const ReductionKind = enum(u32) {
     fmax = 10,
 };
 
+// Opération supportée par l'instruction `red` (and, or, xor, add, inc, dec, min, max).
 /// Ops supported by red instruction.
 pub const ReductionOp = enum(u32) {
     @"and" = 0,
@@ -415,6 +462,7 @@ pub const ReductionOp = enum(u32) {
     max = 7,
 };
 
+// Type de donnée supporté par l'instruction `red` (b32/b64, u32/u64, s32/s64, f32/f64, f16, bf16, …).
 /// types supported by red instruction.
 pub const ReductionType = enum(u32) {
     b32 = 0,
@@ -431,6 +479,7 @@ pub const ReductionType = enum(u32) {
     bf16x2 = 11,
 };
 
+// Taille d'élément d'une compression de tenseur creux (b4, b8, b16).
 /// Sparse tensor compression element size.
 pub const SPCompressElemSize = enum(u32) {
     b4 = 4,
@@ -438,23 +487,27 @@ pub const SPCompressElemSize = enum(u32) {
     b16 = 16,
 };
 
+// Type de facteur de compression creuse (sp2to4).
 /// Sparse tensor compression factor type.
 pub const SPCompressFactorType = enum(u32) {
     sp2to4 = 0,
 };
 
+// Taille d'index de compression creuse (b2, b4).
 /// Sparse tensor compression index size.
 pub const SPCompressIndexSize = enum(u32) {
     b2 = 2,
     b4 = 4,
 };
 
+// Opération de compression creuse (min, max).
 /// spcompress operation kind.
 pub const SPCompressOpKind = enum(u32) {
     min = 0,
     max = 1,
 };
 
+// Facteur de répétition de compression creuse (x1 … x128).
 /// Sparse tensor compression repetition factor.
 pub const SPCompressRepFactor = enum(u32) {
     x1 = 1,
@@ -467,6 +520,7 @@ pub const SPCompressRepFactor = enum(u32) {
     x128 = 128,
 };
 
+// Taille d'élément d'une décompression de tenseur creux (b4, b8, b16).
 /// Sparse tensor decompression element size.
 pub const SPDecompressElemSize = enum(u32) {
     b4 = 4,
@@ -474,6 +528,7 @@ pub const SPDecompressElemSize = enum(u32) {
     b16 = 16,
 };
 
+// Type de facteur de décompression creuse (sp1to2 … sp8to16).
 /// Sparse tensor decompression factor type.
 pub const SPDecompressFactorType = enum(u32) {
     sp1to2 = 0,
@@ -488,12 +543,14 @@ pub const SPDecompressFactorType = enum(u32) {
     sp8to16 = 9,
 };
 
+// Taille d'index de décompression creuse (b2, b4).
 /// Sparse tensor decompression index size.
 pub const SPDecompressIndexSize = enum(u32) {
     b2 = 2,
     b4 = 4,
 };
 
+// Facteur de répétition de décompression creuse (x1 … x64).
 /// Sparse tensor decompression repetition factor.
 pub const SPDecompressRepFactor = enum(u32) {
     x1 = 1,
@@ -505,6 +562,7 @@ pub const SPDecompressRepFactor = enum(u32) {
     x64 = 64,
 };
 
+// Mode de saturation (none, satfinite, sat).
 /// NVVM SaturationMode kind.
 pub const SaturationMode = enum(u32) {
     none = 0,
@@ -512,12 +570,14 @@ pub const SaturationMode = enum(u32) {
     sat = 2,
 };
 
+// Type de saturation (none, satfinite).
 /// NVVM SaturationMode kind.
 pub const SaturationModeKind = enum(u32) {
     none = 0,
     satfinite = 1,
 };
 
+// Taille du vecteur d'échelle d'une MMA (x1, x2, x4).
 /// MMA Scale Vector Sizes.
 pub const ScaleVecSize = enum(u32) {
     x1 = 0,
@@ -525,18 +585,21 @@ pub const ScaleVecSize = enum(u32) {
     x4 = 2,
 };
 
+// Action de réglage du nombre maximal de registres (decrease, increase).
 /// NVVM set max register action.
 pub const SetMaxRegisterAction = enum(u32) {
     decrease = 1,
     increase = 0,
 };
 
+// Espace partagé visé (cta, cluster).
 /// Shared memory space.
 pub const SharedSpace = enum(u32) {
     cta = 0,
     cluster = 1,
 };
 
+// Type de permutation `shfl` (bfly, up, down, idx).
 /// NVVM shuffle kind.
 pub const ShflKind = enum(u32) {
     bfly = 0,
@@ -545,11 +608,13 @@ pub const ShflKind = enum(u32) {
     idx = 3,
 };
 
+// Format de parcimonie d'une MMA (thread).
 /// MMA Sparsity Format.
 pub const SparsityFormat = enum(u32) {
     thread = 0,
 };
 
+// Espace d'état NVVM (generic, global, shared_cta, shared_cluster, constant, local, tensor).
 /// NVVM State Space.
 pub const StateSpace = enum(u32) {
     generic = 0,
@@ -561,6 +626,7 @@ pub const StateSpace = enum(u32) {
     tensor = 6,
 };
 
+// Modificateur de cache d'écriture (wb, cg, cs, wt, none).
 /// NVVM store cache modifier kind.
 pub const StoreCacheModifierKind = enum(u32) {
     wb = 0,
@@ -570,18 +636,21 @@ pub const StoreCacheModifierKind = enum(u32) {
     none = 4,
 };
 
+// Forme d'écriture pour `stmatrix` (m8n8, m16n8).
 /// shape attribute for stmatrix.
 pub const StoreShape = enum(u32) {
     m8n8 = 0,
     m16n8 = 2,
 };
 
+// Paramètre de barrière MMA de cluster (a1t0, a0tx).
 /// Cluster MMA Barrier Parameter Type.
 pub const TCBarParam = enum(u32) {
     a1t0 = 0,
     a0tx = 1,
 };
 
+// Mode de chargement TMA (tile, im2col, tile_gather4, …).
 /// NVVM TMA Load Mode.
 pub const TMALoadMode = enum(u32) {
     tile = 0,
@@ -591,6 +660,7 @@ pub const TMALoadMode = enum(u32) {
     tile_gather4 = 4,
 };
 
+// Type de réduction TMA (add, min, max, inc, dec, and, or, xor).
 /// NVVM TMA redux kind.
 pub const TMAReduxKind = enum(u32) {
     add = 0,
@@ -603,6 +673,7 @@ pub const TMAReduxKind = enum(u32) {
     xor = 7,
 };
 
+// Mode d'écriture TMA (tile, im2col, tile_scatter4, …).
 /// NVVM TMA Store Mode.
 pub const TMAStoreMode = enum(u32) {
     tile = 0,
@@ -611,6 +682,7 @@ pub const TMAStoreMode = enum(u32) {
     im2col_w = 3,
 };
 
+// Multicast de `tcgen05.cp` (none, warpx2…, warpx4).
 /// tcgen05 cp multicast.
 pub const Tcgen05CpMulticast = enum(u32) {
     none = 0,
@@ -619,6 +691,7 @@ pub const Tcgen05CpMulticast = enum(u32) {
     warpx4 = 3,
 };
 
+// Forme copiée par `tcgen05.cp` (128x256b, 4x256b, …).
 /// tcgen05 cp shapes.
 pub const Tcgen05CpShape = enum(u32) {
     shape_128x256b = 0,
@@ -628,18 +701,21 @@ pub const Tcgen05CpShape = enum(u32) {
     shape_32x128b = 4,
 };
 
+// Format source de `tcgen05.cp` (b6x16_p32, b4x16_p64).
 /// tcgen05 cp source format.
 pub const Tcgen05CpSrcFormat = enum(u32) {
     b6x16_p32 = 0,
     b4x16_p64 = 1,
 };
 
+// Type de barrière `tcgen05.fence` (before, after).
 /// NVVM Tcgen05 fence kind.
 pub const Tcgen05FenceKind = enum(u32) {
     before = 0,
     after = 1,
 };
 
+// Forme des accès ld/st `tcgen05` (16x64b, 16x128b, …).
 /// allowed 32-bit signless integer cases: 0, 1, 2, 3, 4.
 pub const Tcgen05LdStShape = enum(u32) {
     shape_16x64b = 0,
@@ -649,6 +725,7 @@ pub const Tcgen05LdStShape = enum(u32) {
     shape_16x32bx2 = 4,
 };
 
+// Échelle de bloc `tcgen05.mma` (default, block16, block32).
 /// tcgen05.mma block scale attribute.
 pub const Tcgen05MMABlockScale = enum(u32) {
     default = 0,
@@ -656,6 +733,7 @@ pub const Tcgen05MMABlockScale = enum(u32) {
     block32 = 2,
 };
 
+// Tampon collecteur B de `tcgen05.mma` (b0 … b3).
 /// tcgen05 MMA Collector Buffer B Attribute.
 pub const Tcgen05MMACollectorBBuffer = enum(u32) {
     b0 = 0,
@@ -664,6 +742,7 @@ pub const Tcgen05MMACollectorBBuffer = enum(u32) {
     b3 = 3,
 };
 
+// Opération du tampon collecteur `tcgen05.mma` (discard, lastuse, fill, use).
 /// tcgen05.mma Collector Buffer Operation.
 pub const Tcgen05MMACollectorOp = enum(u32) {
     discard = 0,
@@ -672,6 +751,7 @@ pub const Tcgen05MMACollectorOp = enum(u32) {
     use = 3,
 };
 
+// Type supporté par `tcgen05.mma` (f16, tf32, f8f6f4, i8, mxf8f6f4, …).
 /// tcgen05 MMA Supported Types.
 pub const Tcgen05MMAKind = enum(u32) {
     f16 = 0,
@@ -684,12 +764,14 @@ pub const Tcgen05MMAKind = enum(u32) {
     ti16 = 7,
 };
 
+// Type d'attente `tcgen05` (load, store).
 /// NVVM Tcgen05 wait kind.
 pub const Tcgen05WaitKind = enum(u32) {
     load = 0,
     store = 1,
 };
 
+// Type d'élément d'un tensormap (u8/u16/u32, s32/s64, f16/f32/f64, bf16, tf32, …).
 /// NVVM Tensormap Elemtype.
 pub const TensormapElemtype = enum(u32) {
     u8 = 0,
@@ -710,6 +792,7 @@ pub const TensormapElemtype = enum(u32) {
     b6x16_p32 = 15,
 };
 
+// Champ adressable d'un tensormap (adresse globale, rang, dimensions, strides, elemtype, …).
 /// NVVM Tensormap Field Kind.
 pub const TensormapField = enum(u32) {
     global_address = 0,
@@ -725,12 +808,14 @@ pub const TensormapField = enum(u32) {
     fill_mode = 10,
 };
 
+// Mode de remplissage des zones hors bornes d'un tensormap (zero, oob_nan).
 /// NVVM Tensormap Fill Mode.
 pub const TensormapFillMode = enum(u32) {
     zero = 0,
     oob_nan = 1,
 };
 
+// Disposition entrelacée d'un tensormap (no_interleave, b16, b32).
 /// NVVM Tensormap Interleave Layout.
 pub const TensormapInterleaveLayout = enum(u32) {
     no_interleave = 0,
@@ -738,6 +823,7 @@ pub const TensormapInterleaveLayout = enum(u32) {
     b32 = 2,
 };
 
+// Atomicité du swizzle d'un tensormap (b16, b32, b32_flip_b8, b64).
 /// NVVM Tensormap Swizzle Atomicity.
 pub const TensormapSwizzleAtomicity = enum(u32) {
     b16 = 0,
@@ -746,6 +832,7 @@ pub const TensormapSwizzleAtomicity = enum(u32) {
     b64 = 3,
 };
 
+// Mode de swizzle d'un tensormap (no_swizzling, b32, b64, b128, b96).
 /// NVVM Tensormap Swizzle Mode.
 pub const TensormapSwizzleMode = enum(u32) {
     no_swizzling = 0,
@@ -755,6 +842,7 @@ pub const TensormapSwizzleMode = enum(u32) {
     b96 = 4,
 };
 
+// Disposition de la mémoire tensorielle TMEM (16dp/32dp, 32/64/128/256 bits).
 /// Tensor Memory Layout Enumerated Type.
 pub const TmemLayout = enum(u32) {
     tmem_16dp_128bit = 0,
@@ -765,6 +853,7 @@ pub const TmemLayout = enum(u32) {
     tmem_16dp_32bit_t16_t31 = 5,
 };
 
+// Motif de validation des données (per_16bytes_*, per_element_*, none).
 /// NVVM validate data pattern.
 pub const ValidatePattern = enum(u32) {
     none = 0,
@@ -780,6 +869,7 @@ pub const ValidatePattern = enum(u32) {
     per_16bytes_80000000_paired = 10,
 };
 
+// Type de synchronisation de vote (any, all, ballot, uni).
 /// NVVM vote sync kind.
 pub const VoteSyncKind = enum(u32) {
     any = 0,
@@ -788,18 +878,21 @@ pub const VoteSyncKind = enum(u32) {
     uni = 3,
 };
 
+// Échelle d'entrée WGMMA (one, neg).
 /// WGMMA overflow options.
 pub const WGMMAScaleIn = enum(u32) {
     one = 1,
     neg = 2,
 };
 
+// Échelle de sortie WGMMA (zero, one).
 /// WGMMA input predicate.
 pub const WGMMAScaleOut = enum(u32) {
     zero = 0,
     one = 1,
 };
 
+// Type de données WGMMA (f16, tf32, u8, s8, b1, bf16, e4m3, e5m2, f32, s32).
 /// NVVM WGMMA types.
 pub const WGMMATypes = enum(u32) {
     f16 = 0,
@@ -816,6 +909,7 @@ pub const WGMMATypes = enum(u32) {
 
 // Types and attributes, generated from the dialect's .td files.
 
+// Attribut `#nvvm.atomic_op` : opérations atomiques supportées par l'instruction `atom` (and, or, xor, cas, exch, add, inc, dec, min, max, fadd, sub).
 /// `#nvvm.atomic_op`: operations supported by atom instruction
 pub const AtomicOpKindAttr = opaque {
     const Self = @This();
@@ -833,6 +927,7 @@ pub const AtomicOpKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `AtomicOpKindAttr` : champ `value` de type `AtomicOpKind`.
     pub const InitArgs = struct {
         value: AtomicOpKind,
     };
@@ -847,6 +942,7 @@ pub const AtomicOpKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.reduction` : opération de réduction de barrière NVVM (popc, and, or).
 /// `#nvvm.reduction`: NVVM barrier reduction operation
 pub const BarrierReductionAttr = opaque {
     const Self = @This();
@@ -864,6 +960,7 @@ pub const BarrierReductionAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `BarrierReductionAttr` : champ `value` de type `BarrierReduction`.
     pub const InitArgs = struct {
         value: BarrierReduction,
     };
@@ -878,6 +975,7 @@ pub const BarrierReductionAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.barrier_redux_kind` : type de réduction `redux` de barrière NVVM (and, or, popc).
 /// `#nvvm.barrier_redux_kind`: NVVM barrier redux kind
 pub const BarrierReduxKindAttr = opaque {
     const Self = @This();
@@ -895,6 +993,7 @@ pub const BarrierReduxKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `BarrierReduxKindAttr` : champ `value` de type `BarrierReduxKind`.
     pub const InitArgs = struct {
         value: BarrierReduxKind,
     };
@@ -909,6 +1008,7 @@ pub const BarrierReduxKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.block_scale_format` : format d'échelle de bloc pour MMA (ue8m0, ue4m3).
 /// `#nvvm.block_scale_format`: MMA Block Scale Format
 pub const BlockScaleFormatAttr = opaque {
     const Self = @This();
@@ -926,6 +1026,7 @@ pub const BlockScaleFormatAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `BlockScaleFormatAttr` : champ `value` de type `BlockScaleFormat`.
     pub const InitArgs = struct {
         value: BlockScaleFormat,
     };
@@ -940,6 +1041,7 @@ pub const BlockScaleFormatAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.cta_group` : nombre de CTA par groupe de cluster (`cta_1`, `cta_2`).
 /// `#nvvm.cta_group`: NVVM CTA group kind
 pub const CTAGroupKindAttr = opaque {
     const Self = @This();
@@ -957,6 +1059,7 @@ pub const CTAGroupKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `CTAGroupKindAttr` : champ `value` de type `CTAGroupKind`.
     pub const InitArgs = struct {
         value: CTAGroupKind,
     };
@@ -971,6 +1074,7 @@ pub const CTAGroupKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.packfloat_type` : type d'emballage flottant produit par `cvt` (f32, f16x2, e4m3x2, …).
 /// `#nvvm.packfloat_type`: NVVM CVT Pack Float kind
 pub const CVTPackFloatKindAttr = opaque {
     const Self = @This();
@@ -988,6 +1092,7 @@ pub const CVTPackFloatKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `CVTPackFloatKindAttr` : champ `value` de type `CVTPackFloatKind`.
     pub const InitArgs = struct {
         value: CVTPackFloatKind,
     };
@@ -1002,6 +1107,7 @@ pub const CVTPackFloatKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.cache_eviction_priority` : priorité d'éviction du cache (normal, first, last, unchanged, no_allocate).
 /// `#nvvm.cache_eviction_priority`: NVVM Cache Eviction Priority
 pub const CacheEvictionPriorityAttr = opaque {
     const Self = @This();
@@ -1019,6 +1125,7 @@ pub const CacheEvictionPriorityAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `CacheEvictionPriorityAttr` : champ `value` de type `CacheEvictionPriority`.
     pub const InitArgs = struct {
         value: CacheEvictionPriority,
     };
@@ -1033,6 +1140,7 @@ pub const CacheEvictionPriorityAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.cluster_launch_control_query_type` : type de requête de contrôle de lancement de cluster (annulation, identifiant du premier CTA).
 /// `#nvvm.cluster_launch_control_query_type`: NVVM ClusterLaunchControlQueryType
 pub const ClusterLaunchControlQueryTypeAttr = opaque {
     const Self = @This();
@@ -1050,6 +1158,7 @@ pub const ClusterLaunchControlQueryTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ClusterLaunchControlQueryTypeAttr` : champ `value` de type `ClusterLaunchControlQueryType`.
     pub const InitArgs = struct {
         value: ClusterLaunchControlQueryType,
     };
@@ -1064,6 +1173,7 @@ pub const ClusterLaunchControlQueryTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.op` : opérateur de comparaison signé/non signé (eq, ne, ugt, sgt, …).
 /// `#nvvm.op`: Comparison operator encoding
 pub const CompareOpKindAttr = opaque {
     const Self = @This();
@@ -1081,6 +1191,7 @@ pub const CompareOpKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `CompareOpKindAttr` : champ `value` de type `CompareOpKind`.
     pub const InitArgs = struct {
         value: CompareOpKind,
     };
@@ -1095,6 +1206,7 @@ pub const CompareOpKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.convert_fp4_type` : type cible de la conversion FP4 (e2m1).
 /// `#nvvm.convert_fp4_type`: NVVM ConvertFP4Type kind
 pub const ConvertFP4TypeAttr = opaque {
     const Self = @This();
@@ -1112,6 +1224,7 @@ pub const ConvertFP4TypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ConvertFP4TypeAttr` : champ `value` de type `ConvertFP4Type`.
     pub const InitArgs = struct {
         value: ConvertFP4Type,
     };
@@ -1126,6 +1239,7 @@ pub const ConvertFP4TypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.convert_fp8_type` : type cible de la conversion FP8 (e4m3, e5m2, ue8m0, ue5m3).
 /// `#nvvm.convert_fp8_type`: NVVM ConvertFP8Type kind
 pub const ConvertFP8TypeAttr = opaque {
     const Self = @This();
@@ -1143,6 +1257,7 @@ pub const ConvertFP8TypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ConvertFP8TypeAttr` : champ `value` de type `ConvertFP8Type`.
     pub const InitArgs = struct {
         value: ConvertFP8Type,
     };
@@ -1157,6 +1272,7 @@ pub const ConvertFP8TypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.convert_scale_kind` : présence et type d'échelle de conversion (none, ue8m0).
 /// `#nvvm.convert_scale_kind`: NVVM ConvertScale kind
 pub const ConvertScaleKindAttr = opaque {
     const Self = @This();
@@ -1174,6 +1290,7 @@ pub const ConvertScaleKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ConvertScaleKindAttr` : champ `value` de type `ConvertScaleKind`.
     pub const InitArgs = struct {
         value: ConvertScaleKind,
     };
@@ -1188,6 +1305,7 @@ pub const ConvertScaleKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.dot_accumulate_type` : signe de l'accumulation pour l'instruction `dot` (signed, unsigned).
 /// `#nvvm.dot_accumulate_type`: NVVM DotAccumulateType
 pub const DotAccumulateTypeAttr = opaque {
     const Self = @This();
@@ -1205,6 +1323,7 @@ pub const DotAccumulateTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `DotAccumulateTypeAttr` : champ `value` de type `DotAccumulateType`.
     pub const InitArgs = struct {
         value: DotAccumulateType,
     };
@@ -1219,6 +1338,7 @@ pub const DotAccumulateTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.evict_kind` : stratégie d'éviction de cache des accès mémoire (normal, first, last, unchanged, no_allocate, none).
 /// `#nvvm.evict_kind`: NVVM L2 Prefetch Size
 pub const EvictKindAttr = opaque {
     const Self = @This();
@@ -1236,6 +1356,7 @@ pub const EvictKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `EvictKindAttr` : champ `value` de type `EvictKind`.
     pub const InitArgs = struct {
         value: EvictKind,
     };
@@ -1250,6 +1371,7 @@ pub const EvictKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.fp_rnd_mode` : mode d'arrondi flottant (rn, rm, rp, rz, rna, rs, none).
 /// `#nvvm.fp_rnd_mode`: NVVM FPRoundingMode kind
 pub const FPRoundingModeAttr = opaque {
     const Self = @This();
@@ -1267,6 +1389,7 @@ pub const FPRoundingModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `FPRoundingModeAttr` : champ `value` de type `FPRoundingMode`.
     pub const InitArgs = struct {
         value: FPRoundingMode,
     };
@@ -1281,6 +1404,7 @@ pub const FPRoundingModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.grid_dep_action` : action de contrôle de dépendance de grille (wait, launch_dependents).
 /// `#nvvm.grid_dep_action`: Action kind for grid dependency control
 pub const GridDepActionKindAttr = opaque {
     const Self = @This();
@@ -1298,6 +1422,7 @@ pub const GridDepActionKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `GridDepActionKindAttr` : champ `value` de type `GridDepActionKind`.
     pub const InitArgs = struct {
         value: GridDepActionKind,
     };
@@ -1312,6 +1437,7 @@ pub const GridDepActionKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.int_rnd_mode` : mode d'arrondi entier (rni, rzi, rmi, rpi, none).
 /// `#nvvm.int_rnd_mode`: NVVM IntegerRoundingMode kind
 pub const IntegerRoundingModeAttr = opaque {
     const Self = @This();
@@ -1329,6 +1455,7 @@ pub const IntegerRoundingModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `IntegerRoundingModeAttr` : champ `value` de type `IntegerRoundingMode`.
     pub const InitArgs = struct {
         value: IntegerRoundingMode,
     };
@@ -1343,6 +1470,7 @@ pub const IntegerRoundingModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.l2_prefetch` : taille de préchargement L2 (64b, 128b, 256b, reserved, none).
 /// `#nvvm.l2_prefetch`: NVVM L2 Prefetch Size
 pub const L2PrefetchSizeAttr = opaque {
     const Self = @This();
@@ -1360,6 +1488,7 @@ pub const L2PrefetchSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `L2PrefetchSizeAttr` : champ `value` de type `L2PrefetchSize`.
     pub const InitArgs = struct {
         value: L2PrefetchSize,
     };
@@ -1374,6 +1503,7 @@ pub const L2PrefetchSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.ld_st_matrix_elt_type` : type d'élément manipulé par `ldmatrix`/`stmatrix` (b16, b8, formats compressés).
 /// `#nvvm.ld_st_matrix_elt_type`: Element type for ldmatrix and stmatrix
 pub const LdStMatrixEltTypeAttr = opaque {
     const Self = @This();
@@ -1391,6 +1521,7 @@ pub const LdStMatrixEltTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LdStMatrixEltTypeAttr` : champ `value` de type `LdStMatrixEltType`.
     pub const InitArgs = struct {
         value: LdStMatrixEltType,
     };
@@ -1405,6 +1536,7 @@ pub const LdStMatrixEltTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.load_cache_modifier_ext` : modificateur de cache de chargement étendu (ca, cg, cs, lu, cv, none).
 /// `#nvvm.load_cache_modifier_ext`: NVVM load cache modifier kind(Ext)
 pub const LoadCacheModifierExtKindAttr = opaque {
     const Self = @This();
@@ -1422,6 +1554,7 @@ pub const LoadCacheModifierExtKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LoadCacheModifierExtKindAttr` : champ `value` de type `LoadCacheModifierExtKind`.
     pub const InitArgs = struct {
         value: LoadCacheModifierExtKind,
     };
@@ -1436,6 +1569,7 @@ pub const LoadCacheModifierExtKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.load_cache_modifier` : modificateur de cache de chargement (ca, cg, cs, lu, cv).
 /// `#nvvm.load_cache_modifier`: NVVM load cache modifier kind
 pub const LoadCacheModifierKindAttr = opaque {
     const Self = @This();
@@ -1453,6 +1587,7 @@ pub const LoadCacheModifierKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LoadCacheModifierKindAttr` : champ `value` de type `LoadCacheModifierKind`.
     pub const InitArgs = struct {
         value: LoadCacheModifierKind,
     };
@@ -1467,6 +1602,7 @@ pub const LoadCacheModifierKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.load_shape` : forme de chargement pour `ldmatrix` (m8n8, m8n16, m16n16).
 /// `#nvvm.load_shape`: shape attribute for ldmatrix
 pub const LoadShapeAttr = opaque {
     const Self = @This();
@@ -1484,6 +1620,7 @@ pub const LoadShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LoadShapeAttr` : champ `value` de type `LoadShape`.
     pub const InitArgs = struct {
         value: LoadShape,
     };
@@ -1498,6 +1635,7 @@ pub const LoadShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.load_src_format` : format source pour `ldmatrix` (b8, b4x16_p64, b6x16_p32).
 /// `#nvvm.load_src_format`: source format for ldmatrix
 pub const LoadSrcFormatAttr = opaque {
     const Self = @This();
@@ -1515,6 +1653,7 @@ pub const LoadSrcFormatAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LoadSrcFormatAttr` : champ `value` de type `LoadSrcFormat`.
     pub const InitArgs = struct {
         value: LoadSrcFormat,
     };
@@ -1529,6 +1668,7 @@ pub const LoadSrcFormatAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbarrier_layout` : disposition (layout) d'une barrière mbarrier (v0, v1).
 /// `#nvvm.mbarrier_layout`: NVVM MBarrier Layout
 pub const MBarrierLayoutAttr = opaque {
     const Self = @This();
@@ -1546,6 +1686,7 @@ pub const MBarrierLayoutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierLayoutAttr` : champ `value` de type `MBarrierLayout`.
     pub const InitArgs = struct {
         value: MBarrierLayout,
     };
@@ -1560,6 +1701,7 @@ pub const MBarrierLayoutAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbarrier_phase` : phase d'une barrière mbarrier (none, primary, conditional).
 /// `#nvvm.mbarrier_phase`: NVVM mbarrier phase type
 pub const MBarrierPhaseAttr = opaque {
     const Self = @This();
@@ -1577,6 +1719,7 @@ pub const MBarrierPhaseAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierPhaseAttr` : champ `value` de type `MBarrierPhase`.
     pub const InitArgs = struct {
         value: MBarrierPhase,
     };
@@ -1591,6 +1734,7 @@ pub const MBarrierPhaseAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbar_scope` : portée d'une barrière mbarrier (cta, cluster).
 /// `#nvvm.mbar_scope`: NVVM MBarrier scope kind
 pub const MBarrierScopeKindAttr = opaque {
     const Self = @This();
@@ -1608,6 +1752,7 @@ pub const MBarrierScopeKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierScopeKindAttr` : champ `value` de type `MBarrierScopeKind`.
     pub const InitArgs = struct {
         value: MBarrierScopeKind,
     };
@@ -1622,6 +1767,7 @@ pub const MBarrierScopeKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbar_space` : espace mémoire d'une barrière mbarrier (cta, cluster).
 /// `#nvvm.mbar_space`: NVVM MBarrier space kind
 pub const MBarrierSpaceKindAttr = opaque {
     const Self = @This();
@@ -1639,6 +1785,7 @@ pub const MBarrierSpaceKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierSpaceKindAttr` : champ `value` de type `MBarrierSpaceKind`.
     pub const InitArgs = struct {
         value: MBarrierSpaceKind,
     };
@@ -1653,6 +1800,7 @@ pub const MBarrierSpaceKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbar_txn_kind` : type de transaction sur une barrière mbarrier (arrive, expect_tx, complete_tx, …).
 /// `#nvvm.mbar_txn_kind`: NVVM MBarrier Transaction kind
 pub const MBarrierTxnKindAttr = opaque {
     const Self = @This();
@@ -1670,6 +1818,7 @@ pub const MBarrierTxnKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierTxnKindAttr` : champ `value` de type `MBarrierTxnKind`.
     pub const InitArgs = struct {
         value: MBarrierTxnKind,
     };
@@ -1684,6 +1833,7 @@ pub const MBarrierTxnKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mbar_wait` : type d'attente sur une barrière mbarrier (test, try).
 /// `#nvvm.mbar_wait`: NVVM MBarrier wait kind
 pub const MBarrierWaitKindAttr = opaque {
     const Self = @This();
@@ -1701,6 +1851,7 @@ pub const MBarrierWaitKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MBarrierWaitKindAttr` : champ `value` de type `MBarrierWaitKind`.
     pub const InitArgs = struct {
         value: MBarrierWaitKind,
     };
@@ -1715,6 +1866,7 @@ pub const MBarrierWaitKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_b1op` : opération binaire de l'instruction MMA (none, xor_popc, and_popc).
 /// `#nvvm.mma_b1op`: MMA binary operations
 pub const MMAB1OpAttr = opaque {
     const Self = @This();
@@ -1732,6 +1884,7 @@ pub const MMAB1OpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMAB1OpAttr` : champ `value` de type `MMAB1Op`.
     pub const InitArgs = struct {
         value: MMAB1Op,
     };
@@ -1746,6 +1899,7 @@ pub const MMAB1OpAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.block_scale_kind` : type d'échelle de bloc MMA (mxf8f6f4, mxf4, mxf4nvf4).
 /// `#nvvm.block_scale_kind`: Block Scale Kind
 pub const MMABlockScaleKindAttr = opaque {
     const Self = @This();
@@ -1763,6 +1917,7 @@ pub const MMABlockScaleKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMABlockScaleKindAttr` : champ `value` de type `MMABlockScaleKind`.
     pub const InitArgs = struct {
         value: MMABlockScaleKind,
     };
@@ -1777,6 +1932,7 @@ pub const MMABlockScaleKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_cta_count` : nombre de CTA impliqués dans une MMA (`cta1`, `cta2`).
 /// `#nvvm.mma_cta_count`: MMA CTA count
 pub const MMACtaCountAttr = opaque {
     const Self = @This();
@@ -1794,6 +1950,7 @@ pub const MMACtaCountAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMACtaCountAttr` : champ `value` de type `MMACtaCount`.
     pub const InitArgs = struct {
         value: MMACtaCount,
     };
@@ -1808,6 +1965,7 @@ pub const MMACtaCountAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_frag` : fragment MMA manipulé (a, b ou c).
 /// `#nvvm.mma_frag`: NVVM MMA frag type
 pub const MMAFragAttr = opaque {
     const Self = @This();
@@ -1825,6 +1983,7 @@ pub const MMAFragAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMAFragAttr` : champ `value` de type `MMAFrag`.
     pub const InitArgs = struct {
         value: MMAFrag,
     };
@@ -1839,6 +1998,7 @@ pub const MMAFragAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_int_overflow` : comportement en cas de débordement entier MMA (wrapped, satfinite).
 /// `#nvvm.mma_int_overflow`: MMA overflow options
 pub const MMAIntOverflowAttr = opaque {
     const Self = @This();
@@ -1856,6 +2016,7 @@ pub const MMAIntOverflowAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMAIntOverflowAttr` : champ `value` de type `MMAIntOverflow`.
     pub const InitArgs = struct {
         value: MMAIntOverflow,
     };
@@ -1870,6 +2031,7 @@ pub const MMAIntOverflowAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_kind` : type d'opération MMA (f8f6f4).
 /// `#nvvm.mma_kind`: MMA operation kind
 pub const MMAKindAttr = opaque {
     const Self = @This();
@@ -1887,6 +2049,7 @@ pub const MMAKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMAKindAttr` : champ `value` de type `MMAKind`.
     pub const InitArgs = struct {
         value: MMAKind,
     };
@@ -1901,6 +2064,7 @@ pub const MMAKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_layout` : disposition des opérandes d'une MMA (row, col).
 /// `#nvvm.mma_layout`: NVVM MMA layout
 pub const MMALayoutAttr = opaque {
     const Self = @This();
@@ -1918,6 +2082,7 @@ pub const MMALayoutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMALayoutAttr` : champ `value` de type `MMALayout`.
     pub const InitArgs = struct {
         value: MMALayout,
     };
@@ -1932,6 +2097,7 @@ pub const MMALayoutAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mma_type` : type de données d'une opération MMA (f16, f32, tf32, bf16, entiers, types FP4/FP8, …).
 /// `#nvvm.mma_type`: NVVM MMA types
 pub const MMATypesAttr = opaque {
     const Self = @This();
@@ -1949,6 +2115,7 @@ pub const MMATypesAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMATypesAttr` : champ `value` de type `MMATypes`.
     pub const InitArgs = struct {
         value: MMATypes,
     };
@@ -1963,6 +2130,7 @@ pub const MMATypesAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.match_sync_kind` : mode de synchronisation `match.sync` (any, all).
 /// `#nvvm.match_sync_kind`: NVVM match sync kind
 pub const MatchSyncKindAttr = opaque {
     const Self = @This();
@@ -1980,6 +2148,7 @@ pub const MatchSyncKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MatchSyncKindAttr` : champ `value` de type `MatchSyncKind`.
     pub const InitArgs = struct {
         value: MatchSyncKind,
     };
@@ -1994,6 +2163,7 @@ pub const MatchSyncKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mem_order` : sémantique d'ordonnancement mémoire (weak, relaxed, acquire, release, acq_rel, sc, …).
 /// `#nvvm.mem_order`: NVVM Memory Ordering kind
 pub const MemOrderKindAttr = opaque {
     const Self = @This();
@@ -2011,6 +2181,7 @@ pub const MemOrderKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MemOrderKindAttr` : champ `value` de type `MemOrderKind`.
     pub const InitArgs = struct {
         value: MemOrderKind,
     };
@@ -2025,6 +2196,7 @@ pub const MemOrderKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mem_scope` : portée mémoire d'un accès (cta, cluster, gpu, sys).
 /// `#nvvm.mem_scope`: NVVM Memory Scope kind
 pub const MemScopeKindAttr = opaque {
     const Self = @This();
@@ -2042,6 +2214,7 @@ pub const MemScopeKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MemScopeKindAttr` : champ `value` de type `MemScopeKind`.
     pub const InitArgs = struct {
         value: MemScopeKind,
     };
@@ -2056,6 +2229,7 @@ pub const MemScopeKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.mul_mode` : mode de multiplication (hi, lo, wide).
 /// `#nvvm.mul_mode`: multiply mode attribute
 pub const MulModeAttr = opaque {
     const Self = @This();
@@ -2073,6 +2247,7 @@ pub const MulModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MulModeAttr` : champ `value` de type `MulMode`.
     pub const InitArgs = struct {
         value: MulMode,
     };
@@ -2087,6 +2262,7 @@ pub const MulModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.memory_space` : espace mémoire NVVM (generic, global, shared, constant, local, tensor, shared_cluster).
 /// `#nvvm.memory_space`: NVVM Memory Space
 pub const NVVMMemorySpaceAttr = opaque {
     const Self = @This();
@@ -2104,6 +2280,7 @@ pub const NVVMMemorySpaceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `NVVMMemorySpaceAttr` : champ `value` de type `NVVMMemorySpace`.
     pub const InitArgs = struct {
         value: NVVMMemorySpace,
     };
@@ -2118,6 +2295,7 @@ pub const NVVMMemorySpaceAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.permute_mode` : mode de permutation `prmt` (default, f4e, b4e, rc8, ecl, ecr, rc16).
 /// `#nvvm.permute_mode`: NVVM permute mode
 pub const PermuteModeAttr = opaque {
     const Self = @This();
@@ -2135,6 +2313,7 @@ pub const PermuteModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `PermuteModeAttr` : champ `value` de type `PermuteMode`.
     pub const InitArgs = struct {
         value: PermuteMode,
     };
@@ -2149,6 +2328,7 @@ pub const PermuteModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.prefetch_cache_level` : niveau de cache visé par un préchargement (L1, L2).
 /// `#nvvm.prefetch_cache_level`: NVVM Prefetch Cache Level
 pub const PrefetchCacheLevelAttr = opaque {
     const Self = @This();
@@ -2166,6 +2346,7 @@ pub const PrefetchCacheLevelAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `PrefetchCacheLevelAttr` : champ `value` de type `PrefetchCacheLevel`.
     pub const InitArgs = struct {
         value: PrefetchCacheLevel,
     };
@@ -2180,6 +2361,7 @@ pub const PrefetchCacheLevelAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.proxy_kind` : type de proxy mémoire asynchrone (alias, async, tensormap, generic, …).
 /// `#nvvm.proxy_kind`: Proxy kind
 pub const ProxyKindAttr = opaque {
     const Self = @This();
@@ -2197,6 +2379,7 @@ pub const ProxyKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ProxyKindAttr` : champ `value` de type `ProxyKind`.
     pub const InitArgs = struct {
         value: ProxyKind,
     };
@@ -2211,6 +2394,7 @@ pub const ProxyKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.reduction_kind` : opération de réduction NVVM (add, and, or, xor, min, max, umin, umax, fmin, fmax).
 /// `#nvvm.reduction_kind`: NVVM Reduction Kind attribute
 pub const ReductionKindAttr = opaque {
     const Self = @This();
@@ -2228,6 +2412,7 @@ pub const ReductionKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ReductionKindAttr` : champ `value` de type `ReductionKind`.
     pub const InitArgs = struct {
         value: ReductionKind,
     };
@@ -2242,6 +2427,7 @@ pub const ReductionKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.red_op` : opération supportée par l'instruction `red` (and, or, xor, add, inc, dec, min, max).
 /// `#nvvm.red_op`: Ops supported by red instruction
 pub const ReductionOpAttr = opaque {
     const Self = @This();
@@ -2259,6 +2445,7 @@ pub const ReductionOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ReductionOpAttr` : champ `value` de type `ReductionOp`.
     pub const InitArgs = struct {
         value: ReductionOp,
     };
@@ -2273,6 +2460,7 @@ pub const ReductionOpAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.red_type` : type de donnée supporté par l'instruction `red` (b32/b64, u32/u64, s32/s64, f32/f64, f16, bf16, …).
 /// `#nvvm.red_type`: types supported by red instruction
 pub const ReductionTypeAttr = opaque {
     const Self = @This();
@@ -2290,6 +2478,7 @@ pub const ReductionTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ReductionTypeAttr` : champ `value` de type `ReductionType`.
     pub const InitArgs = struct {
         value: ReductionType,
     };
@@ -2304,6 +2493,7 @@ pub const ReductionTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spcomp_elem_size` : taille d'élément d'une compression de tenseur creux (b4, b8, b16).
 /// `#nvvm.spcomp_elem_size`: Sparse tensor compression element size
 pub const SPCompressElemSizeAttr = opaque {
     const Self = @This();
@@ -2321,6 +2511,7 @@ pub const SPCompressElemSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPCompressElemSizeAttr` : champ `value` de type `SPCompressElemSize`.
     pub const InitArgs = struct {
         value: SPCompressElemSize,
     };
@@ -2335,6 +2526,7 @@ pub const SPCompressElemSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spcomp_factor` : type de facteur de compression creuse (sp2to4).
 /// `#nvvm.spcomp_factor`: Sparse tensor compression factor type
 pub const SPCompressFactorTypeAttr = opaque {
     const Self = @This();
@@ -2352,6 +2544,7 @@ pub const SPCompressFactorTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPCompressFactorTypeAttr` : champ `value` de type `SPCompressFactorType`.
     pub const InitArgs = struct {
         value: SPCompressFactorType,
     };
@@ -2366,6 +2559,7 @@ pub const SPCompressFactorTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spcomp_index_size` : taille d'index de compression creuse (b2, b4).
 /// `#nvvm.spcomp_index_size`: Sparse tensor compression index size
 pub const SPCompressIndexSizeAttr = opaque {
     const Self = @This();
@@ -2383,6 +2577,7 @@ pub const SPCompressIndexSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPCompressIndexSizeAttr` : champ `value` de type `SPCompressIndexSize`.
     pub const InitArgs = struct {
         value: SPCompressIndexSize,
     };
@@ -2397,6 +2592,7 @@ pub const SPCompressIndexSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spcomp_op_kind` : opération de compression creuse (min, max).
 /// `#nvvm.spcomp_op_kind`: spcompress operation kind
 pub const SPCompressOpKindAttr = opaque {
     const Self = @This();
@@ -2414,6 +2610,7 @@ pub const SPCompressOpKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPCompressOpKindAttr` : champ `value` de type `SPCompressOpKind`.
     pub const InitArgs = struct {
         value: SPCompressOpKind,
     };
@@ -2428,6 +2625,7 @@ pub const SPCompressOpKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spcomp_rep_factor` : facteur de répétition de compression creuse (x1 … x128).
 /// `#nvvm.spcomp_rep_factor`: Sparse tensor compression repetition factor
 pub const SPCompressRepFactorAttr = opaque {
     const Self = @This();
@@ -2445,6 +2643,7 @@ pub const SPCompressRepFactorAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPCompressRepFactorAttr` : champ `value` de type `SPCompressRepFactor`.
     pub const InitArgs = struct {
         value: SPCompressRepFactor,
     };
@@ -2459,6 +2658,7 @@ pub const SPCompressRepFactorAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spdecomp_elem_size` : taille d'élément d'une décompression de tenseur creux (b4, b8, b16).
 /// `#nvvm.spdecomp_elem_size`: Sparse tensor decompression element size
 pub const SPDecompressElemSizeAttr = opaque {
     const Self = @This();
@@ -2476,6 +2676,7 @@ pub const SPDecompressElemSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPDecompressElemSizeAttr` : champ `value` de type `SPDecompressElemSize`.
     pub const InitArgs = struct {
         value: SPDecompressElemSize,
     };
@@ -2490,6 +2691,7 @@ pub const SPDecompressElemSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spdecomp_factor` : type de facteur de décompression creuse (sp1to2 … sp8to16).
 /// `#nvvm.spdecomp_factor`: Sparse tensor decompression factor type
 pub const SPDecompressFactorTypeAttr = opaque {
     const Self = @This();
@@ -2507,6 +2709,7 @@ pub const SPDecompressFactorTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPDecompressFactorTypeAttr` : champ `value` de type `SPDecompressFactorType`.
     pub const InitArgs = struct {
         value: SPDecompressFactorType,
     };
@@ -2521,6 +2724,7 @@ pub const SPDecompressFactorTypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spdecomp_index_size` : taille d'index de décompression creuse (b2, b4).
 /// `#nvvm.spdecomp_index_size`: Sparse tensor decompression index size
 pub const SPDecompressIndexSizeAttr = opaque {
     const Self = @This();
@@ -2538,6 +2742,7 @@ pub const SPDecompressIndexSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPDecompressIndexSizeAttr` : champ `value` de type `SPDecompressIndexSize`.
     pub const InitArgs = struct {
         value: SPDecompressIndexSize,
     };
@@ -2552,6 +2757,7 @@ pub const SPDecompressIndexSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.spdecomp_rep_factor` : facteur de répétition de décompression creuse (x1 … x64).
 /// `#nvvm.spdecomp_rep_factor`: Sparse tensor decompression repetition factor
 pub const SPDecompressRepFactorAttr = opaque {
     const Self = @This();
@@ -2569,6 +2775,7 @@ pub const SPDecompressRepFactorAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SPDecompressRepFactorAttr` : champ `value` de type `SPDecompressRepFactor`.
     pub const InitArgs = struct {
         value: SPDecompressRepFactor,
     };
@@ -2583,6 +2790,7 @@ pub const SPDecompressRepFactorAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.sat_mode` : mode de saturation (none, satfinite, sat).
 /// `#nvvm.sat_mode`: NVVM SaturationMode kind
 pub const SaturationModeAttr = opaque {
     const Self = @This();
@@ -2600,6 +2808,7 @@ pub const SaturationModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SaturationModeAttr` : champ `value` de type `SaturationMode`.
     pub const InitArgs = struct {
         value: SaturationMode,
     };
@@ -2614,6 +2823,7 @@ pub const SaturationModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.sat` : type de saturation (none, satfinite).
 /// `#nvvm.sat`: NVVM SaturationMode kind
 pub const SaturationModeKindAttr = opaque {
     const Self = @This();
@@ -2631,6 +2841,7 @@ pub const SaturationModeKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SaturationModeKindAttr` : champ `value` de type `SaturationModeKind`.
     pub const InitArgs = struct {
         value: SaturationModeKind,
     };
@@ -2645,6 +2856,7 @@ pub const SaturationModeKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.scale_vec_size` : taille du vecteur d'échelle d'une MMA (x1, x2, x4).
 /// `#nvvm.scale_vec_size`: MMA Scale Vector Sizes
 pub const ScaleVecSizeAttr = opaque {
     const Self = @This();
@@ -2662,6 +2874,7 @@ pub const ScaleVecSizeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ScaleVecSizeAttr` : champ `value` de type `ScaleVecSize`.
     pub const InitArgs = struct {
         value: ScaleVecSize,
     };
@@ -2676,6 +2889,7 @@ pub const ScaleVecSizeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.action` : action de réglage du nombre maximal de registres (decrease, increase).
 /// `#nvvm.action`: NVVM set max register action
 pub const SetMaxRegisterActionAttr = opaque {
     const Self = @This();
@@ -2693,6 +2907,7 @@ pub const SetMaxRegisterActionAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SetMaxRegisterActionAttr` : champ `value` de type `SetMaxRegisterAction`.
     pub const InitArgs = struct {
         value: SetMaxRegisterAction,
     };
@@ -2707,6 +2922,7 @@ pub const SetMaxRegisterActionAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.shared_space` : espace partagé visé (cta, cluster).
 /// `#nvvm.shared_space`: Shared memory space
 pub const SharedSpaceAttr = opaque {
     const Self = @This();
@@ -2724,6 +2940,7 @@ pub const SharedSpaceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SharedSpaceAttr` : champ `value` de type `SharedSpace`.
     pub const InitArgs = struct {
         value: SharedSpace,
     };
@@ -2738,6 +2955,7 @@ pub const SharedSpaceAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.shfl_kind` : type de permutation `shfl` (bfly, up, down, idx).
 /// `#nvvm.shfl_kind`: NVVM shuffle kind
 pub const ShflKindAttr = opaque {
     const Self = @This();
@@ -2755,6 +2973,7 @@ pub const ShflKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ShflKindAttr` : champ `value` de type `ShflKind`.
     pub const InitArgs = struct {
         value: ShflKind,
     };
@@ -2769,6 +2988,7 @@ pub const ShflKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.sparsity_format` : format de parcimonie d'une MMA (thread).
 /// `#nvvm.sparsity_format`: MMA Sparsity Format
 pub const SparsityFormatAttr = opaque {
     const Self = @This();
@@ -2786,6 +3006,7 @@ pub const SparsityFormatAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `SparsityFormatAttr` : champ `value` de type `SparsityFormat`.
     pub const InitArgs = struct {
         value: SparsityFormat,
     };
@@ -2800,6 +3021,7 @@ pub const SparsityFormatAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.state_space` : espace d'état NVVM (generic, global, shared_cta, shared_cluster, constant, local, tensor).
 /// `#nvvm.state_space`: NVVM State Space
 pub const StateSpaceAttr = opaque {
     const Self = @This();
@@ -2817,6 +3039,7 @@ pub const StateSpaceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `StateSpaceAttr` : champ `value` de type `StateSpace`.
     pub const InitArgs = struct {
         value: StateSpace,
     };
@@ -2831,6 +3054,7 @@ pub const StateSpaceAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.store_cache_modifier` : modificateur de cache d'écriture (wb, cg, cs, wt, none).
 /// `#nvvm.store_cache_modifier`: NVVM store cache modifier kind
 pub const StoreCacheModifierKindAttr = opaque {
     const Self = @This();
@@ -2848,6 +3072,7 @@ pub const StoreCacheModifierKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `StoreCacheModifierKindAttr` : champ `value` de type `StoreCacheModifierKind`.
     pub const InitArgs = struct {
         value: StoreCacheModifierKind,
     };
@@ -2862,6 +3087,7 @@ pub const StoreCacheModifierKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.store_shape` : forme d'écriture pour `stmatrix` (m8n8, m16n8).
 /// `#nvvm.store_shape`: shape attribute for stmatrix
 pub const StoreShapeAttr = opaque {
     const Self = @This();
@@ -2879,6 +3105,7 @@ pub const StoreShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `StoreShapeAttr` : champ `value` de type `StoreShape`.
     pub const InitArgs = struct {
         value: StoreShape,
     };
@@ -2893,6 +3120,7 @@ pub const StoreShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.TCBarParam` : paramètre de barrière MMA de cluster (a1t0, a0tx).
 /// `#nvvm.TCBarParam`: Cluster MMA Barrier Parameter Type
 pub const TCBarParamAttr = opaque {
     const Self = @This();
@@ -2910,6 +3138,7 @@ pub const TCBarParamAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TCBarParamAttr` : champ `value` de type `TCBarParam`.
     pub const InitArgs = struct {
         value: TCBarParam,
     };
@@ -2924,6 +3153,7 @@ pub const TCBarParamAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tma_load_mode` : mode de chargement TMA (tile, im2col, tile_gather4, …).
 /// `#nvvm.tma_load_mode`: NVVM TMA Load Mode
 pub const TMALoadModeAttr = opaque {
     const Self = @This();
@@ -2941,6 +3171,7 @@ pub const TMALoadModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TMALoadModeAttr` : champ `value` de type `TMALoadMode`.
     pub const InitArgs = struct {
         value: TMALoadMode,
     };
@@ -2955,6 +3186,7 @@ pub const TMALoadModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tma_redux_kind` : type de réduction TMA (add, min, max, inc, dec, and, or, xor).
 /// `#nvvm.tma_redux_kind`: NVVM TMA redux kind
 pub const TMAReduxKindAttr = opaque {
     const Self = @This();
@@ -2972,6 +3204,7 @@ pub const TMAReduxKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TMAReduxKindAttr` : champ `value` de type `TMAReduxKind`.
     pub const InitArgs = struct {
         value: TMAReduxKind,
     };
@@ -2986,6 +3219,7 @@ pub const TMAReduxKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tma_store_mode` : mode d'écriture TMA (tile, im2col, tile_scatter4, …).
 /// `#nvvm.tma_store_mode`: NVVM TMA Store Mode
 pub const TMAStoreModeAttr = opaque {
     const Self = @This();
@@ -3003,6 +3237,7 @@ pub const TMAStoreModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TMAStoreModeAttr` : champ `value` de type `TMAStoreMode`.
     pub const InitArgs = struct {
         value: TMAStoreMode,
     };
@@ -3017,6 +3252,7 @@ pub const TMAStoreModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_cp_multicast` : multicast de `tcgen05.cp` (none, warpx2…, warpx4).
 /// `#nvvm.tcgen05_cp_multicast`: tcgen05 cp multicast
 pub const Tcgen05CpMulticastAttr = opaque {
     const Self = @This();
@@ -3034,6 +3270,7 @@ pub const Tcgen05CpMulticastAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05CpMulticastAttr` : champ `value` de type `Tcgen05CpMulticast`.
     pub const InitArgs = struct {
         value: Tcgen05CpMulticast,
     };
@@ -3048,6 +3285,7 @@ pub const Tcgen05CpMulticastAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_cp_shape` : forme copiée par `tcgen05.cp` (128x256b, 4x256b, …).
 /// `#nvvm.tcgen05_cp_shape`: tcgen05 cp shapes
 pub const Tcgen05CpShapeAttr = opaque {
     const Self = @This();
@@ -3065,6 +3303,7 @@ pub const Tcgen05CpShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05CpShapeAttr` : champ `value` de type `Tcgen05CpShape`.
     pub const InitArgs = struct {
         value: Tcgen05CpShape,
     };
@@ -3079,6 +3318,7 @@ pub const Tcgen05CpShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_cp_src_fmt` : format source de `tcgen05.cp` (b6x16_p32, b4x16_p64).
 /// `#nvvm.tcgen05_cp_src_fmt`: tcgen05 cp source format
 pub const Tcgen05CpSrcFormatAttr = opaque {
     const Self = @This();
@@ -3096,6 +3336,7 @@ pub const Tcgen05CpSrcFormatAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05CpSrcFormatAttr` : champ `value` de type `Tcgen05CpSrcFormat`.
     pub const InitArgs = struct {
         value: Tcgen05CpSrcFormat,
     };
@@ -3110,6 +3351,7 @@ pub const Tcgen05CpSrcFormatAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_fence` : type de barrière `tcgen05.fence` (before, after).
 /// `#nvvm.tcgen05_fence`: NVVM Tcgen05 fence kind
 pub const Tcgen05FenceKindAttr = opaque {
     const Self = @This();
@@ -3127,6 +3369,7 @@ pub const Tcgen05FenceKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05FenceKindAttr` : champ `value` de type `Tcgen05FenceKind`.
     pub const InitArgs = struct {
         value: Tcgen05FenceKind,
     };
@@ -3141,6 +3384,7 @@ pub const Tcgen05FenceKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_ldst_shape` : forme des accès ld/st `tcgen05` (16x64b, 16x128b, …).
 /// `#nvvm.tcgen05_ldst_shape`: allowed 32-bit signless integer cases: 0, 1, 2, 3, 4
 pub const Tcgen05LdStShapeAttr = opaque {
     const Self = @This();
@@ -3158,6 +3402,7 @@ pub const Tcgen05LdStShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05LdStShapeAttr` : champ `value` de type `Tcgen05LdStShape`.
     pub const InitArgs = struct {
         value: Tcgen05LdStShape,
     };
@@ -3172,6 +3417,7 @@ pub const Tcgen05LdStShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_mma_block_scale` : échelle de bloc `tcgen05.mma` (default, block16, block32).
 /// `#nvvm.tcgen05_mma_block_scale`: tcgen05.mma block scale attribute
 pub const Tcgen05MMABlockScaleAttr = opaque {
     const Self = @This();
@@ -3189,6 +3435,7 @@ pub const Tcgen05MMABlockScaleAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05MMABlockScaleAttr` : champ `value` de type `Tcgen05MMABlockScale`.
     pub const InitArgs = struct {
         value: Tcgen05MMABlockScale,
     };
@@ -3203,6 +3450,7 @@ pub const Tcgen05MMABlockScaleAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_mma_collectorb` : tampon collecteur B de `tcgen05.mma` (b0 … b3).
 /// `#nvvm.tcgen05_mma_collectorb`: tcgen05 MMA Collector Buffer B Attribute
 pub const Tcgen05MMACollectorBBufferAttr = opaque {
     const Self = @This();
@@ -3220,6 +3468,7 @@ pub const Tcgen05MMACollectorBBufferAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05MMACollectorBBufferAttr` : champ `value` de type `Tcgen05MMACollectorBBuffer`.
     pub const InitArgs = struct {
         value: Tcgen05MMACollectorBBuffer,
     };
@@ -3234,6 +3483,7 @@ pub const Tcgen05MMACollectorBBufferAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_mma_collectorop` : opération du tampon collecteur `tcgen05.mma` (discard, lastuse, fill, use).
 /// `#nvvm.tcgen05_mma_collectorop`: tcgen05.mma Collector Buffer Operation
 pub const Tcgen05MMACollectorOpAttr = opaque {
     const Self = @This();
@@ -3251,6 +3501,7 @@ pub const Tcgen05MMACollectorOpAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05MMACollectorOpAttr` : champ `value` de type `Tcgen05MMACollectorOp`.
     pub const InitArgs = struct {
         value: Tcgen05MMACollectorOp,
     };
@@ -3265,6 +3516,7 @@ pub const Tcgen05MMACollectorOpAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_mma_kind` : type supporté par `tcgen05.mma` (f16, tf32, f8f6f4, i8, mxf8f6f4, …).
 /// `#nvvm.tcgen05_mma_kind`: tcgen05 MMA Supported Types
 pub const Tcgen05MMAKindAttr = opaque {
     const Self = @This();
@@ -3282,6 +3534,7 @@ pub const Tcgen05MMAKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05MMAKindAttr` : champ `value` de type `Tcgen05MMAKind`.
     pub const InitArgs = struct {
         value: Tcgen05MMAKind,
     };
@@ -3296,6 +3549,7 @@ pub const Tcgen05MMAKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tcgen05_wait` : type d'attente `tcgen05` (load, store).
 /// `#nvvm.tcgen05_wait`: NVVM Tcgen05 wait kind
 pub const Tcgen05WaitKindAttr = opaque {
     const Self = @This();
@@ -3313,6 +3567,7 @@ pub const Tcgen05WaitKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `Tcgen05WaitKindAttr` : champ `value` de type `Tcgen05WaitKind`.
     pub const InitArgs = struct {
         value: Tcgen05WaitKind,
     };
@@ -3327,6 +3582,7 @@ pub const Tcgen05WaitKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_elemtype` : type d'élément d'un tensormap (u8/u16/u32, s32/s64, f16/f32/f64, bf16, tf32, …).
 /// `#nvvm.tensormap_elemtype`: NVVM Tensormap Elemtype
 pub const TensormapElemtypeAttr = opaque {
     const Self = @This();
@@ -3344,6 +3600,7 @@ pub const TensormapElemtypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapElemtypeAttr` : champ `value` de type `TensormapElemtype`.
     pub const InitArgs = struct {
         value: TensormapElemtype,
     };
@@ -3358,6 +3615,7 @@ pub const TensormapElemtypeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_field` : champ adressable d'un tensormap (adresse globale, rang, dimensions, strides, elemtype, …).
 /// `#nvvm.tensormap_field`: NVVM Tensormap Field Kind
 pub const TensormapFieldAttr = opaque {
     const Self = @This();
@@ -3375,6 +3633,7 @@ pub const TensormapFieldAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapFieldAttr` : champ `value` de type `TensormapField`.
     pub const InitArgs = struct {
         value: TensormapField,
     };
@@ -3389,6 +3648,7 @@ pub const TensormapFieldAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_fill_mode` : mode de remplissage des zones hors bornes d'un tensormap (zero, oob_nan).
 /// `#nvvm.tensormap_fill_mode`: NVVM Tensormap Fill Mode
 pub const TensormapFillModeAttr = opaque {
     const Self = @This();
@@ -3406,6 +3666,7 @@ pub const TensormapFillModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapFillModeAttr` : champ `value` de type `TensormapFillMode`.
     pub const InitArgs = struct {
         value: TensormapFillMode,
     };
@@ -3420,6 +3681,7 @@ pub const TensormapFillModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_interleave_layout` : disposition entrelacée d'un tensormap (no_interleave, b16, b32).
 /// `#nvvm.tensormap_interleave_layout`: NVVM Tensormap Interleave Layout
 pub const TensormapInterleaveLayoutAttr = opaque {
     const Self = @This();
@@ -3437,6 +3699,7 @@ pub const TensormapInterleaveLayoutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapInterleaveLayoutAttr` : champ `value` de type `TensormapInterleaveLayout`.
     pub const InitArgs = struct {
         value: TensormapInterleaveLayout,
     };
@@ -3451,6 +3714,7 @@ pub const TensormapInterleaveLayoutAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_swizzle_atomicity` : atomicité du swizzle d'un tensormap (b16, b32, b32_flip_b8, b64).
 /// `#nvvm.tensormap_swizzle_atomicity`: NVVM Tensormap Swizzle Atomicity
 pub const TensormapSwizzleAtomicityAttr = opaque {
     const Self = @This();
@@ -3468,6 +3732,7 @@ pub const TensormapSwizzleAtomicityAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapSwizzleAtomicityAttr` : champ `value` de type `TensormapSwizzleAtomicity`.
     pub const InitArgs = struct {
         value: TensormapSwizzleAtomicity,
     };
@@ -3482,6 +3747,7 @@ pub const TensormapSwizzleAtomicityAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.tensormap_swizzle_mode` : mode de swizzle d'un tensormap (no_swizzling, b32, b64, b128, b96).
 /// `#nvvm.tensormap_swizzle_mode`: NVVM Tensormap Swizzle Mode
 pub const TensormapSwizzleModeAttr = opaque {
     const Self = @This();
@@ -3499,6 +3765,7 @@ pub const TensormapSwizzleModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TensormapSwizzleModeAttr` : champ `value` de type `TensormapSwizzleMode`.
     pub const InitArgs = struct {
         value: TensormapSwizzleMode,
     };
@@ -3513,6 +3780,7 @@ pub const TensormapSwizzleModeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.TmemLayout` : disposition de la mémoire tensorielle TMEM (16dp/32dp, 32/64/128/256 bits).
 /// `#nvvm.TmemLayout`: Tensor Memory Layout Enumerated Type
 pub const TmemLayoutAttr = opaque {
     const Self = @This();
@@ -3530,6 +3798,7 @@ pub const TmemLayoutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TmemLayoutAttr` : champ `value` de type `TmemLayout`.
     pub const InitArgs = struct {
         value: TmemLayout,
     };
@@ -3544,6 +3813,7 @@ pub const TmemLayoutAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.validate_pattern` : motif de validation des données (per_16bytes_*, per_element_*, none).
 /// `#nvvm.validate_pattern`: NVVM validate data pattern
 pub const ValidatePatternAttr = opaque {
     const Self = @This();
@@ -3561,6 +3831,7 @@ pub const ValidatePatternAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `ValidatePatternAttr` : champ `value` de type `ValidatePattern`.
     pub const InitArgs = struct {
         value: ValidatePattern,
     };
@@ -3575,6 +3846,7 @@ pub const ValidatePatternAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.vote_sync_kind` : type de synchronisation de vote (any, all, ballot, uni).
 /// `#nvvm.vote_sync_kind`: NVVM vote sync kind
 pub const VoteSyncKindAttr = opaque {
     const Self = @This();
@@ -3592,6 +3864,7 @@ pub const VoteSyncKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `VoteSyncKindAttr` : champ `value` de type `VoteSyncKind`.
     pub const InitArgs = struct {
         value: VoteSyncKind,
     };
@@ -3606,6 +3879,7 @@ pub const VoteSyncKindAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.wgmma_scale_in` : échelle d'entrée WGMMA (one, neg).
 /// `#nvvm.wgmma_scale_in`: WGMMA overflow options
 pub const WGMMAScaleInAttr = opaque {
     const Self = @This();
@@ -3623,6 +3897,7 @@ pub const WGMMAScaleInAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `WGMMAScaleInAttr` : champ `value` de type `WGMMAScaleIn`.
     pub const InitArgs = struct {
         value: WGMMAScaleIn,
     };
@@ -3637,6 +3912,7 @@ pub const WGMMAScaleInAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.wgmma_scale_out` : échelle de sortie WGMMA (zero, one).
 /// `#nvvm.wgmma_scale_out`: WGMMA input predicate
 pub const WGMMAScaleOutAttr = opaque {
     const Self = @This();
@@ -3654,6 +3930,7 @@ pub const WGMMAScaleOutAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `WGMMAScaleOutAttr` : champ `value` de type `WGMMAScaleOut`.
     pub const InitArgs = struct {
         value: WGMMAScaleOut,
     };
@@ -3668,6 +3945,7 @@ pub const WGMMAScaleOutAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.wgmma_type` : type de données WGMMA (f16, tf32, u8, s8, b1, bf16, e4m3, e5m2, f32, s32).
 /// `#nvvm.wgmma_type`: NVVM WGMMA types
 pub const WGMMATypesAttr = opaque {
     const Self = @This();
@@ -3685,6 +3963,7 @@ pub const WGMMATypesAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `WGMMATypesAttr` : champ `value` de type `WGMMATypes`.
     pub const InitArgs = struct {
         value: WGMMATypes,
     };
@@ -3699,6 +3978,7 @@ pub const WGMMATypesAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.ld_st_matrix_shape` : forme matricielle (`m`, `n`) de `ldmatrix`, `stmatrix` et `movmatrix`.
 /// `#nvvm.ld_st_matrix_shape`: Matrix shape of ldmatrix, stmatrix and movmatrix
 pub const LdStMatrixShapeAttr = opaque {
     const Self = @This();
@@ -3716,6 +3996,7 @@ pub const LdStMatrixShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `LdStMatrixShapeAttr` : dimensions `m` et `n`.
     pub const InitArgs = struct {
         m: c_int,
         n: c_int,
@@ -3735,6 +4016,7 @@ pub const LdStMatrixShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.shape` : forme (`m`, `n`, `k`) d'une opération MMA.
 /// `#nvvm.shape`: Shape of an MMA operation
 pub const MMAShapeAttr = opaque {
     const Self = @This();
@@ -3752,6 +4034,7 @@ pub const MMAShapeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `MMAShapeAttr` : dimensions `m`, `n` et `k`.
     pub const InitArgs = struct {
         m: c_int,
         n: c_int,
@@ -3776,6 +4059,7 @@ pub const MMAShapeAttr = opaque {
     }
 };
 
+// Attribut `#nvvm.target` : cible GPU d'un module NVVM (triple, chip, features, flags, link, verifyTarget).
 /// `#nvvm.target`: GPU target of an NVVM module
 pub const TargetAttr = opaque {
     const Self = @This();
@@ -3793,6 +4077,7 @@ pub const TargetAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments d'initialisation de `TargetAttr` : paramètres de cible GPU (triple, chip, features, flags, link, verifyTarget).
     pub const InitArgs = struct {
         O: c_int = 2,
         triple: []const u8 = "nvptx64-nvidia-cuda",
