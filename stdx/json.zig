@@ -263,6 +263,7 @@ pub fn fillDefaultStructValues(comptime T: type, r: *T) !void {
 
 // Teste la sérialisation d'unions à types hétérogènes (union non taguée).
 test "union" {
+    // Union non taguée aux membres de types distincts, parsée selon le type de la valeur JSON.
     const Answer = union(enum) {
         number: i32,
         numbers: []const i32,
@@ -276,6 +277,7 @@ test "union" {
         pub const jsonStringify = Helpers.jsonStringify;
     };
 
+    // Message de test associant une question à une réponse polymorphe.
     const Message = struct {
         question: []const u8,
         answer: Answer,
@@ -320,6 +322,7 @@ test "union" {
 
 // Vérifie que les chaînes parsées dans une union peuvent être libérées par l'appelant.
 test "strings in union can be freed" {
+    // Union de test (chaîne ou entier) pour vérifier la libération des chaînes parsées.
     const Answer = union(enum) {
         string: []const u8,
         number: u32,
@@ -329,6 +332,7 @@ test "strings in union can be freed" {
         pub const jsonParseFromValue = Helpers.jsonParseFromValue;
         pub const jsonStringify = Helpers.jsonStringify;
     };
+    // Structure de test regroupant deux réponses de types variables.
     const Struct = struct {
         answer1: Answer,
         answer2: Answer,
@@ -352,6 +356,7 @@ test "strings in union can be freed" {
 
 // Teste la sérialisation d'unions étiquetées (`TaggedUnionHelpers`).
 test "tagged union" {
+    // Union taguée de test où le champ `type` sélectionne le membre à parser.
     const Message = union(enum) {
         faq: struct {
             question: []const u8,

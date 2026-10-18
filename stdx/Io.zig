@@ -1,6 +1,8 @@
 const std = @import("std");
 
+// Espace de noms des opérations de fichier bâties sur un `std.Io.Dir` (lecture et jointure de chemins).
 pub const Dir = struct {
+    // Utilitaires de jointure de plusieurs chemins en un seul buffer (`bufJoin`, `bufJoinZ`).
     pub const path = struct {
         // Joint `paths` en un chemin écrit dans `buf` (échec si le buffer est trop petit).
         pub fn bufJoin(buf: []u8, paths: []const []const u8) ![]u8 {
@@ -25,6 +27,7 @@ pub const Dir = struct {
     }
 };
 
+// Groupe asynchrone limitant à `limit` le nombre de tâches simultanées.
 pub const LimitedGroup = struct {
     limit: usize,
     in_flight: std.atomic.Value(usize) = .init(0),
@@ -90,6 +93,7 @@ pub const LimitedGroup = struct {
     }
 };
 
+// Comme `LimitedGroup`, mais avec une file de jetons allouée dynamiquement pour appliquer la limite.
 pub const AllocatingLimitedConcurrentGroup = struct {
     allocator: std.mem.Allocator,
 
@@ -152,6 +156,7 @@ pub const AllocatingLimitedConcurrentGroup = struct {
     }
 };
 
+// Utilitaires de conversion de durée `std.Io.Duration` : division et fréquences en Hz.
 pub const Duration = struct {
     // Divise une durée `std.Io.Duration` par `rhs`.
     pub fn div(self: std.Io.Duration, rhs: u64) std.Io.Duration {

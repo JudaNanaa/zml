@@ -397,6 +397,7 @@ fn parse_value_size(flag: []const u8, value: []const u8) ByteSize {
     };
 }
 
+// Unité de taille en octets (octet, KiB, MiB, GiB, TiB) mémorisant son multiplicateur.
 pub const ByteUnit = enum(u64) {
     bytes = 1,
     kib = 1024,
@@ -412,6 +413,7 @@ const ByteSizeParseError = error{
     BytesOverflow,
 };
 
+// Taille exprimée en valeur et unité, avec parsing et conversion en octets.
 pub const ByteSize = struct {
     value: u64,
     unit: ByteUnit = .bytes,

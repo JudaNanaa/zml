@@ -47,6 +47,7 @@ fn FmtSlice(T: type) type {
     };
 }
 
+// Enveloppe de formatage pour une liste de chaînes `[]const []const u8`.
 pub const FmtStrings = struct {
     strings: []const []const u8,
 
@@ -61,6 +62,7 @@ pub const FmtStrings = struct {
     }
 };
 
+// Enveloppe de formatage pour une liste de chaînes C `[*:0]const u8`.
 pub const FmtZeroStrings = struct {
     strings: []const [*:0]const u8,
 

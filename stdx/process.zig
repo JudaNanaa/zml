@@ -3,6 +3,7 @@ const std = @import("std");
 // Déclaration FFI de `dladdr` : renseigne `Dl_info` sur le symbole contenant `addr`.
 extern fn dladdr(addr: *anyopaque, info: *Dl_info) c_int;
 
+// Structure C `Dl_info` remplie par `dladdr` (fichier, base, nom et adresse du symbole).
 const Dl_info = extern struct {
     dli_fname: [*c]const u8,
     dli_fbase: *anyopaque,

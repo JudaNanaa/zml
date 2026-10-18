@@ -1,5 +1,6 @@
 const std = @import("std");
 
+// Durée en nanosecondes avec utilitaires de division et de conversion en fréquence (Hz).
 pub const Duration = struct {
     ns: u64 = 0,
 
@@ -26,6 +27,7 @@ pub const Duration = struct {
     pub const format = formatDuration;
 };
 
+// Chronomètre haute résolution basé sur `std.time.Timer` avec mesure par `lap`/`read`.
 pub const Timer = struct {
     inner: std.time.Timer,
 

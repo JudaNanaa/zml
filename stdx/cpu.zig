@@ -23,6 +23,7 @@ pub fn pinProcessToNumaNode(io: std.Io, node: u32) !usize {
     return pinProcessToCpuSet(io, set);
 }
 
+// Ensemble des CPU accessibles au thread appelant, ordonné pour alimenter les pools de workers.
 /// CPUs the calling thread may run on, ordered for worker pools.
 pub const AllowedCores = struct {
     /// Allowed CPU ids: one per physical core first, then the remaining SMT
@@ -221,6 +222,7 @@ fn linuxReadTopology(io: std.Io, cpu: usize, name: []const u8, buf: []u8) ![]con
 /// identifies the physical core of `cpus[i]`. Returns the number of physical
 /// cores, which is also the size of the first round.
 fn orderBySiblings(allocator: std.mem.Allocator, cpus: []usize, leaders: []const usize) !usize {
+    // Entrée de tri associant à un CPU son tour de placement et son identifiant.
     const Entry = struct {
         round: usize,
         cpu: usize,
@@ -269,6 +271,7 @@ test "CPU lists respect mask boundaries" {
     try std.testing.expectError(error.InvalidCpuList, parseCpuList("1-2-3", &set));
 }
 
+// Regroupe les helpers et cas de test d'affinité CPU (spécifiques à Linux).
 const AffinityTest = struct {
     const CpuSet = std.os.linux.cpu_set_t;
 
@@ -291,6 +294,7 @@ const AffinityTest = struct {
     // Épingle des threads et vérifie que l'affinité process-wide préserve les liaisons plus étroites.
     fn check(caller: CpuSet, worker: CpuSet, node: CpuSet, expected: CpuSet) !void {
         const io = std.testing.io;
+        // Thread de test s'épinglant lui-même, puis attendant l'ordre d'arrêt.
         const Worker = struct {
             io: std.Io,
             set: CpuSet,
@@ -401,6 +405,7 @@ test "natural order treats every CPU as physical" {
 
 // Vérifie que l'ordonnancement par frères SMT place un CPU par cœur physique d'abord.
 test "sibling order puts one CPU per physical core first" {
+    // Cas de test : CPUs, leaders de cœur, ordre attendu et nombre de cœurs physiques.
     const Case = struct { cpus: []const usize, leaders: []const usize, expected: []const usize, physical_count: usize };
     const cases = [_]Case{
         // Siblings numbered after all cores (typical Intel).

@@ -88,6 +88,7 @@ pub fn SPSC(comptime T: type) type {
 test SPSC {
     const testing = std.testing;
 
+    // Élément de test : maillon simple exposant un champ `next` vers le suivant.
     // Types
     const Elem = struct {
         const Self = @This();
@@ -209,6 +210,7 @@ pub fn MPSC(comptime T: type) type {
 test MPSC {
     const testing = std.testing;
 
+    // Élément de test : maillon simple exposant un champ `next` vers le suivant.
     // Types
     const Elem = struct {
         const Self = @This();
@@ -312,6 +314,7 @@ pub fn ArrayQueue(comptime T: type, comptime size: usize) type {
             }
         }
 
+        // État interne de la file circulaire : vide, un élément, ou plusieurs.
         const State = enum { empty, one, many };
         // Détermine l'état interne (vide, un élément, plusieurs).
         inline fn state(self: Self) State {
