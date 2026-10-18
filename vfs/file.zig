@@ -60,12 +60,16 @@ fn switchToDirectIO(file: std.Io.File) DirectIoError!void {
     }
 }
 
+// Backend VFS pour le système de fichiers local, avec prise en charge optionnelle
+// de l'E/S directe (O_DIRECT) sur les plateformes qui l'exposent.
 pub const File = struct {
+    // Configuration du backend fichier : activation et alignement de l'E/S directe.
     pub const Config = struct {
         direct_io: bool = true,
         direct_io_alignment: std.mem.Alignment = .fromByteUnits(4 * 1024),
     };
 
+    // Décrit un fichier ouvert : descripteur normal plus descripteur direct optionnel.
     const Handle = struct {
         inner_handle: std.Io.File.Handle,
         inner_flags: std.Io.File.Flags,

@@ -2,6 +2,8 @@ const std = @import("std");
 
 const stdx = @import("stdx");
 
+// Type de base partagé par les backends VFS : enveloppe un std.Io et fournit
+// les implémentations par défaut de la vtable que chaque backend surcharge.
 pub const VFSBase = struct {
     inner: std.Io,
 

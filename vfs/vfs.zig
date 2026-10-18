@@ -14,6 +14,7 @@ const log = std.log.scoped(.@"zml/vfs");
 const CWD_HANDLE: u32 = 0;
 
 const VFS = @This();
+// Entrée de la table des handles du VFS : index, backend associé et drapeaux de fichier.
 const Handle = struct { handle: u32, backend_idx: ?usize, flags: std.Io.File.Flags = .{ .nonblocking = false } };
 
 allocator: std.mem.Allocator,

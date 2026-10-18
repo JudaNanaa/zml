@@ -2,6 +2,8 @@ const std = @import("std");
 
 const stdx = @import("stdx");
 
+// Paramètres de configuration d'un pool de lecture parallèle : taille des chunks,
+// nombre de workers, capacité de file et politique de réessai.
 pub const InitOpts = struct {
     chunk_size: usize,
     num_workers: usize,
@@ -11,6 +13,7 @@ pub const InitOpts = struct {
     retry_max_delay: std.Io.Duration,
 };
 
+// Résultat d'un job de lecture : succès, ou nouvel essai avec délai éventuel.
 pub const Status = union(enum) {
     success,
     retry_after: ?std.Io.Duration,
@@ -21,6 +24,7 @@ pub const Status = union(enum) {
     }
 };
 
+// État atomique partagé d'un lot de jobs : compteur en attente et première erreur.
 pub const BatchState = struct {
     pending: std.atomic.Value(u32),
     err: std.atomic.Value(u16) = .init(0),
@@ -163,6 +167,7 @@ pub fn Pool(comptime Job: type) type {
     };
 }
 
+// Composants numériques d'un en-tête Content-Range (début, fin, total).
 pub const ContentRange = struct {
     start: u64,
     end: u64,

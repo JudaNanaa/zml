@@ -32,6 +32,7 @@ fn isOnGCP(io: std.Io) !bool {
     );
 }
 
+// Réponse du serveur OAuth2 : access token et durée de validité en secondes.
 const OAuthToken = struct {
     // https://developers.google.com/identity/protocols/oauth2#size
     const Size = 2048;
@@ -40,7 +41,10 @@ const OAuthToken = struct {
     expires_in: u64,
 };
 
+// Credentials Google Cloud, soit un utilisateur autorisé, soit un compte de
+// service, soit le serveur de métadonnées de l'instance.
 const Credentials = union(enum) {
+    // Credentials OAuth2 d'un utilisateur autorisé (client, refresh token, etc.).
     const AuthorizedUser = struct {
         type: []const u8,
         client_id: []const u8,
@@ -51,7 +55,9 @@ const Credentials = union(enum) {
         universe_domain: []const u8,
     };
 
+    // Credentials d'un compte de service Google, servant à signer des assertions JWT.
     const ServiceAccount = struct {
+        // Assertion JWT signée auprès de Google pour obtenir un jeton de compte de service.
         pub const JwtAssertion = struct {
             iss: []const u8,
             scope: []const u8 = "https://www.googleapis.com/auth/devstorage.read_only",
@@ -123,12 +129,17 @@ const Credentials = union(enum) {
     }
 };
 
+// État de lecture d'un répertoire GCS : index courant et liste des objets.
 const ReadState = struct { index: usize, objects: [][]const u8 };
 
+// Backend VFS pour Google Cloud Storage, avec authentification OAuth2 et
+// lectures parallèles de chunks via des requêtes HTTP Range.
 pub const GCS = struct {
+    // Regroupe les types du pool de lecture parallèle utilisés par le backend GCS.
     const ParallelRead = struct {
         const Pool = parallel_read.Pool(Job);
 
+        // Contexte partagé d'un lot de lectures parallèles : état, backend et requête.
         const Batch = struct {
             state: parallel_read.BatchState,
             backend: *GCS,
@@ -137,6 +148,7 @@ pub const GCS = struct {
             authorization: std.http.Client.Request.Headers.Value,
         };
 
+        // Un chunk à télécharger : bornes, buffers cibles et lot associé.
         const Job = struct {
             data: []const []u8,
             file_offset: u64,
@@ -266,6 +278,7 @@ pub const GCS = struct {
         };
     };
 
+    // Jeton d'authentification mis en cache avec son en-tête et sa date d'expiration.
     const Token = struct {
         header: []u8,
         expires_at: std.Io.Timestamp,
@@ -277,13 +290,16 @@ pub const GCS = struct {
         }
     };
 
+    // Configuration du backend GCS : credentials, endpoint et région.
     pub const Config = struct {
         credentials: ?Credentials = null,
         endpoint_uri: std.Uri,
         region: []const u8 = "auto",
     };
 
+    // Décrit un fichier ou répertoire GCS ouvert : type, URI, position et taille.
     const Handle = struct {
+        // Indique si le handle GCS désigne un fichier ou un répertoire.
         pub const Type = enum { file, directory };
 
         type: Type,
@@ -319,6 +335,7 @@ pub const GCS = struct {
     dir_read_states: std.AutoHashMapUnmanaged(*std.Io.Dir.Reader, ReadState) = .{},
     base: VFSBase,
 
+    // Options d'initialisation du backend GCS (credentials, endpoint, pool de lecture).
     pub const InitOpts = struct {
         credentials: ?union(enum) {
             json: *std.Io.Reader,

@@ -7,6 +7,8 @@ const VFSBase = @import("base.zig").VFSBase;
 
 const log = std.log.scoped(.@"zml/vfs/s3");
 
+// Signataire AWS Signature Version 4 : clés, région et service pour générer
+// l'en-tête d'autorisation des requêtes S3.
 pub const AwsSigV4 = struct {
     access_key: ?[]const u8,
     secret_key: ?[]const u8,
@@ -142,12 +144,17 @@ pub const AwsSigV4 = struct {
     }
 };
 
+// État de lecture d'un répertoire S3 : index courant et liste des objets.
 const ReadState = struct { index: usize, objects: [][]const u8 };
 
+// Backend VFS pour Amazon S3 (et endpoints compatibles), avec lectures parallèles
+// de chunks via des requêtes HTTP Range signées AWS SigV4.
 pub const S3 = struct {
+    // Regroupe les types du pool de lecture parallèle utilisés par le backend S3.
     const ParallelRead = struct {
         const Pool = parallel_read.Pool(Job);
 
+        // Contexte partagé d'un lot de lectures parallèles : état, backend, URI et URL.
         const Batch = struct {
             state: parallel_read.BatchState,
             backend: *S3,
@@ -155,6 +162,7 @@ pub const S3 = struct {
             url: []const u8,
         };
 
+        // Un chunk à télécharger : bornes, buffers cibles et lot associé.
         const Job = struct {
             data: []const []u8,
             file_offset: u64,
@@ -306,6 +314,7 @@ pub const S3 = struct {
         };
     };
 
+    // Options d'initialisation du backend S3 (pool de lecture parallèle).
     pub const InitOpts = struct {
         read_pool: parallel_read.InitOpts = .{
             .chunk_size = 16 << 20,
@@ -317,6 +326,7 @@ pub const S3 = struct {
         },
     };
 
+    // Configuration du backend S3 : clés d'accès, endpoint, région et service.
     pub const Config = struct {
         access_key: ?[]const u8 = null,
         secret_key: ?[]const u8 = null,
@@ -325,7 +335,9 @@ pub const S3 = struct {
         auth_service: []const u8 = "s3",
     };
 
+    // Décrit un fichier ou répertoire S3 ouvert : type, URI, position et taille.
     const Handle = struct {
+        // Indique si le handle S3 désigne un fichier ou un répertoire.
         pub const Type = enum { file, directory };
 
         type: Type,

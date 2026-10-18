@@ -6,8 +6,12 @@ const VFSBase = @import("base.zig").VFSBase;
 
 const log = std.log.scoped(.@"zml/vfs/http");
 
+// Backend VFS générique pour HTTP(S) : lecture de ressources distantes via
+// requêtes HEAD et GET avec en-tête Range.
 pub const HTTP = struct {
+    // Décrit une ressource HTTP ouverte : type, URI, position et taille.
     const Handle = struct {
+        // Indique si le handle HTTP désigne un fichier ou un répertoire.
         pub const Type = enum {
             file,
             directory,
@@ -37,6 +41,7 @@ pub const HTTP = struct {
         }
     };
 
+    // Schéma d'URL utilisé par le backend HTTP.
     const Protocol = enum { http, https };
 
     allocator: std.mem.Allocator,
@@ -436,6 +441,7 @@ pub const HTTP = struct {
         return try reader.readSliceShort(data[0]);
     }
 
+    // Composants numériques d'un en-tête HTTP Content-Range (début, fin, total).
     const ContentRange = struct {
         start: u64,
         end: u64,

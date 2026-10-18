@@ -7,9 +7,11 @@ const VFSBase = @import("base.zig").VFSBase;
 
 const log = std.log.scoped(.@"zml/vfs/hf");
 
+// Regroupe les types du pool de lecture parallèle utilisés par le backend HF.
 const ParallelRead = struct {
     const Pool = parallel_read.Pool(Job);
 
+    // Contexte partagé d'un lot de lectures parallèles : état, URI et autorisation.
     const Batch = struct {
         state: parallel_read.BatchState,
         uri: std.Uri,
@@ -17,6 +19,7 @@ const ParallelRead = struct {
         authorization: std.http.Client.Request.Headers.Value,
     };
 
+    // Un chunk à télécharger : bornes, buffers cibles et lot associé.
     pub const Job = struct {
         data: []const []u8,
         file_offset: u64,
@@ -157,10 +160,12 @@ const ParallelRead = struct {
     };
 };
 
+// Constantes et types décrivant l'API HTTP de Hugging Face (arbres de dépôts).
 pub const API = struct {
     const TREE_URL_TEMPLATE = "https://huggingface.co/api/models/{[repo]s}/{[model]s}/tree/{[rev]s}/{[path]s}?expand=false&recursive=true&limit=1000";
     const LFS_FILE_URL_TEMPLATE = "https://huggingface.co/{[repo]s}/{[model]s}/resolve/{[rev]s}/{[path]s}";
 
+    // Entrée de l'arbre renvoyée par l'API HF : identifiant, chemin, type et taille.
     pub const Tree = struct {
         oid: []const u8,
         path: []const u8,
@@ -169,8 +174,10 @@ pub const API = struct {
     };
 };
 
+// État de lecture d'un répertoire HF : enfants courants et index de progression.
 const ReadState = struct { children: []const TreeNode, index: usize };
 
+// Nœud de l'arbre de fichiers d'un dépôt HF (nom, type, taille et enfants).
 pub const TreeNode = struct {
     name: []const u8,
     kind: std.Io.File.Kind,
@@ -187,6 +194,7 @@ pub const TreeNode = struct {
     }
 };
 
+// Clé d'identification d'un dépôt HF (repo, modèle, révision) pour le cache.
 const RepoKey = struct {
     repo: []const u8,
     model: []const u8,
@@ -203,7 +211,9 @@ const RepoKey = struct {
     }
 };
 
+// Backend VFS pour Hugging Face : résolution des dépôts et lectures via HTTP Range.
 pub const HF = struct {
+    // Options d'initialisation du backend HF (pool de lecture parallèle).
     pub const InitOpts = struct {
         read_pool: parallel_read.InitOpts = .{
             // Chunk size needs to be big enough to avoid hitting the rate limits of HF.
@@ -216,6 +226,7 @@ pub const HF = struct {
         },
     };
 
+    // Composants d'une URI HF : dépôt, modèle, révision et chemin interne.
     pub const Repo = struct {
         repo: []const u8,
         model: []const u8,
@@ -244,7 +255,9 @@ pub const HF = struct {
         }
     };
 
+    // Décrit un fichier ou répertoire HF ouvert : type, URI, position et taille.
     const Handle = struct {
+        // Indique si le handle HF désigne un fichier ou un répertoire.
         pub const Type = enum { file, directory };
 
         type: Type,
