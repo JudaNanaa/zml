@@ -23,6 +23,7 @@ pub fn registerMosaicSerdePass() void {
 // Types — !tpu.semaphore, !tpu.dma_semaphore, !tpu.float8_exmy<...>
 // =============================================================================
 
+// Type de semaphore TPU `!tpu.semaphore` (synchronisation entre coeurs).
 /// `!tpu.semaphore`.
 pub const SemaphoreType = opaque {
     const Self = @This();
@@ -40,6 +41,7 @@ pub const SemaphoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments (vides) pour construire le type `!tpu.semaphore`.
     pub const InitArgs = struct {};
     // Cree le type `!tpu.semaphore` via l'API C (`InvalidMlir` si null).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -56,6 +58,7 @@ pub fn semaphoreType(ctx: *mlir.Context) *const mlir.Type {
     return ty.type_();
 }
 
+// Type de semaphore DMA TPU `!tpu.dma_semaphore` (transferts asynchrones).
 /// `!tpu.dma_semaphore`.
 pub const DMASemaphoreType = opaque {
     const Self = @This();
@@ -73,6 +76,7 @@ pub const DMASemaphoreType = opaque {
     pub fn type_(self: *const Self) *const mlir.Type {
         return @ptrCast(self);
     }
+    // Arguments (vides) pour construire le type `!tpu.dma_semaphore`.
     pub const InitArgs = struct {};
     // Cree le type `!tpu.dma_semaphore` via l'API C (`InvalidMlir` si null).
     pub fn get(ctx: *mlir.Context, args: InitArgs) mlir.Error!*const Self {
@@ -89,6 +93,7 @@ pub fn dmaSemaphoreType(ctx: *mlir.Context) *const mlir.Type {
     return ty.type_();
 }
 
+// Type flottant Mosaic Float8 `!tpu.float8_exmy<T>` parametre par le type sous-jacent.
 /// `!tpu.float8_exmy<UnderlyingType>` — Mosaic Float8 type.
 pub const Float8EXMYType = opaque {
     const M = mlir.Methods(Float8EXMYType, c.MlirType);
@@ -119,6 +124,7 @@ pub fn float8ExmyType(ctx: *mlir.Context, underlying: *const mlir.Type) *const m
 // Attributes
 // =============================================================================
 
+// Type de reduction pour all_reduce/reduce_index/scan (somme, extrema, argmax/argmin).
 /// Reduction kind for `tpu.all_reduce`, `tpu.reduce_index`, `tpu.scan`.
 pub const ReductionKind = enum(u32) {
     sum = 0,
@@ -155,6 +161,7 @@ pub const ReductionKind = enum(u32) {
     }
 };
 
+// Attribut `#tpu.reduction_kind<...>` encapsulant une ReductionKind.
 /// `#tpu.reduction_kind<...>`.
 pub const ReductionKindAttr = opaque {
     const Self = @This();
@@ -172,6 +179,7 @@ pub const ReductionKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : la valeur de reduction.
     pub const InitArgs = struct {
         value: ReductionKind,
     };
@@ -186,6 +194,7 @@ pub const ReductionKindAttr = opaque {
     }
 };
 
+// Precision de calcul de `tpu.matmul` (bf16, fp32, bf16x3).
 /// Matmul precision setting of `tpu.matmul`.
 pub const ContractPrecision = enum(u32) {
     bf16 = 0,
@@ -199,6 +208,7 @@ pub const ContractPrecision = enum(u32) {
     }
 };
 
+// Attribut `#tpu.contract_precision<...>` encapsulant une ContractPrecision.
 /// `#tpu.contract_precision<...>`.
 pub const ContractPrecisionAttr = opaque {
     const Self = @This();
@@ -216,6 +226,7 @@ pub const ContractPrecisionAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : la precision de contrat.
     pub const InitArgs = struct {
         value: ContractPrecision,
     };
@@ -230,6 +241,7 @@ pub const ContractPrecisionAttr = opaque {
     }
 };
 
+// Mode d'arrondi des conversions float<->int (vers zero, au plus proche pair).
 /// Rounding mode of `tpu.fptosi` / `tpu.fptoui` / etc.
 pub const RoundingMode = enum(u32) {
     towards_zero = 0,
@@ -242,6 +254,7 @@ pub const RoundingMode = enum(u32) {
     }
 };
 
+// Attribut `#tpu.rounding_mode<...>` encapsulant un RoundingMode.
 /// `#tpu.rounding_mode<...>`.
 pub const RoundingModeAttr = opaque {
     const Self = @This();
@@ -259,6 +272,7 @@ pub const RoundingModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le mode d'arrondi.
     pub const InitArgs = struct {
         value: RoundingMode,
     };
@@ -273,6 +287,7 @@ pub const RoundingModeAttr = opaque {
     }
 };
 
+// Coeur cible d'un kernel, des DMA distants et de `tpu.sem_signal`.
 /// Target core of a kernel, remote DMAs and `tpu.sem_signal`.
 pub const CoreType = enum(u32) {
     tc = 0,
@@ -286,6 +301,7 @@ pub const CoreType = enum(u32) {
     }
 };
 
+// Attribut `#tpu.core_type<...>` encapsulant un CoreType.
 /// `#tpu.core_type<...>`.
 pub const CoreTypeAttr = opaque {
     const Self = @This();
@@ -303,6 +319,7 @@ pub const CoreTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le type de coeur.
     pub const InitArgs = struct {
         value: CoreType,
     };
@@ -317,6 +334,7 @@ pub const CoreTypeAttr = opaque {
     }
 };
 
+// Semantique d'une dimension de grille (parallele, arbitraire, par coeur/sous-coeur).
 /// Grid dimension semantics annotation.
 pub const DimensionSemantics = enum(u32) {
     parallel = 0,
@@ -331,6 +349,7 @@ pub const DimensionSemantics = enum(u32) {
     }
 };
 
+// Attribut `#tpu.dimension_semantics<...>` encapsulant une DimensionSemantics.
 /// `#tpu.dimension_semantics<...>`.
 pub const DimensionSemanticsAttr = opaque {
     const Self = @This();
@@ -348,6 +367,7 @@ pub const DimensionSemanticsAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : la semantique de dimension.
     pub const InitArgs = struct {
         value: DimensionSemantics,
     };
@@ -362,6 +382,7 @@ pub const DimensionSemanticsAttr = opaque {
     }
 };
 
+// Mode de buffering d'une entree `window_params` (synchrone ou double tampon).
 /// Buffering mode of a `window_params` entry.
 pub const PipelineMode = enum(u32) {
     synchronous = 1,
@@ -374,6 +395,7 @@ pub const PipelineMode = enum(u32) {
     }
 };
 
+// Attribut `#tpu.pipeline_mode<...>` encapsulant un PipelineMode.
 /// `#tpu.pipeline_mode<...>`.
 pub const PipelineModeAttr = opaque {
     const Self = @This();
@@ -391,6 +413,7 @@ pub const PipelineModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le mode de pipeline.
     pub const InitArgs = struct {
         value: PipelineMode,
     };
@@ -405,6 +428,7 @@ pub const PipelineModeAttr = opaque {
     }
 };
 
+// Mode de revisite d'un bloc `window_params` (immediat ou quelconque).
 /// Block revisit mode of a `window_params` entry.
 pub const RevisitMode = enum(u32) {
     immediate = 0,
@@ -417,6 +441,7 @@ pub const RevisitMode = enum(u32) {
     }
 };
 
+// Attribut `#tpu.revisit_mode<...>` encapsulant un RevisitMode.
 /// `#tpu.revisit_mode<...>`.
 pub const RevisitModeAttr = opaque {
     const Self = @This();
@@ -434,6 +459,7 @@ pub const RevisitModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : le mode de revisite.
     pub const InitArgs = struct {
         value: RevisitMode,
     };
@@ -448,6 +474,7 @@ pub const RevisitModeAttr = opaque {
     }
 };
 
+// Espace memoire d'un memref (vmem, smem, hbm, cmem, host, ...).
 /// Memory space of a memref, `#tpu.memory_space<...>`.
 pub const MemorySpace = enum(u32) {
     any = 0xffff_ffff,
@@ -466,6 +493,7 @@ pub const MemorySpace = enum(u32) {
     }
 };
 
+// Attribut `#tpu.memory_space<value[, core_type]>` : espace memoire d'un type memref.
 /// `#tpu.memory_space<value[, core_type]>` — passed as the `memory_space` of a memref's type.
 pub const MemorySpaceAttr = opaque {
     const Self = @This();
@@ -483,6 +511,7 @@ pub const MemorySpaceAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : espace memoire et core type optionnel.
     pub const InitArgs = struct {
         value: MemorySpace,
         coreType: ?CoreType = null,
@@ -505,6 +534,7 @@ pub const MemorySpaceAttr = opaque {
     }
 };
 
+// Attribut `#tpu.element_window<[pad_low], [pad_high]>` : padding de fenetre par argument.
 /// `#tpu.element_window<[pad_low], [pad_high]>` — per-arg window padding.
 pub const ElementWindowAttr = opaque {
     const Self = @This();
@@ -522,6 +552,7 @@ pub const ElementWindowAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : listes de padding bas et haut.
     pub const InitArgs = struct {
         padLow: []const i64,
         padHigh: []const i64,
@@ -566,6 +597,7 @@ pub fn elementWindowAttribute(
     return attr.attribute();
 }
 
+// Attribut `#tpu.dot_dimension_numbers<...>` : mapping des dimensions de `tpu.matmul`.
 /// `#tpu.dot_dimension_numbers<...>` — the dimension mapping of `tpu.matmul`.
 pub const DotDimensionNumbersAttr = opaque {
     const Self = @This();
@@ -583,6 +615,7 @@ pub const DotDimensionNumbersAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction : dimensions contractees/non contractees, ordre de sortie et batch.
     pub const InitArgs = struct {
         lhsContractingDims: []const i64,
         rhsContractingDims: []const i64,
@@ -745,6 +778,7 @@ pub fn scan(
     });
 }
 
+// Options de `tpu.sort` : tri descendant ou non.
 pub const SortOpts = struct {
     descending: bool = false,
 };
@@ -780,6 +814,7 @@ pub fn sort(
 // Memory — load / store / vector_load / vector_store / strided_*
 // =============================================================================
 
+// Options de `tpu.load` : masque et pas par sous-lane.
 pub const LoadOpts = struct {
     sublane_mask: []const bool,
     sublane_stride: i32 = 1,
@@ -811,6 +846,7 @@ pub fn load(
     });
 }
 
+// Options de `tpu.store` : masque, pas par sous-lane et accumulation (`add`).
 pub const StoreOpts = struct {
     sublane_mask: []const bool,
     sublane_stride: i32 = 1,
@@ -850,6 +886,7 @@ pub fn store(
     });
 }
 
+// Options de `tpu.vector_load` : pas de chargement par dimension.
 pub const VectorLoadOpts = struct {
     /// Per-dim load stride. Pass `&.{}` for unit-strided.
     strides: []const i32 = &.{},
@@ -887,6 +924,7 @@ pub fn vector_load(
     });
 }
 
+// Options de `tpu.vector_store` : pas par dimension et accumulation (`add`).
 pub const VectorStoreOpts = struct {
     strides: []const i32 = &.{},
     add: bool = false,
@@ -972,6 +1010,7 @@ pub fn strided_store(
 // Compute — matmul, iota, reciprocal, casts
 // =============================================================================
 
+// Options de `tpu.matmul` : transpositions, precision et dimension_numbers optionnels.
 pub const MatmulOpts = struct {
     /// Deprecated when `dimension_numbers` is provided.
     transpose_lhs: bool = false,
@@ -1035,6 +1074,7 @@ pub fn iota(
     });
 }
 
+// Options de `tpu.reciprocal` : approximation et plage complete.
 pub const ReciprocalOpts = struct {
     approx: bool = false,
     full_range: bool = false,
@@ -1180,6 +1220,7 @@ pub fn broadcast_in_sublanes(
     });
 }
 
+// Options de `tpu.dynamic_rotate` : dimension, stride et stride_dimension optionnels.
 pub const DynamicRotateOpts = struct {
     dimension: i32,
     stride: ?i32 = null,
@@ -1214,6 +1255,7 @@ pub fn dynamic_rotate(
 // Memref-shaped ops — slice / squeeze / reshape / bitcast / reinterpret_cast
 // =============================================================================
 
+// Arguments de `tpu.memref_slice` : indices de base et tailles dynamiques optionnelles.
 pub const MemRefSliceArgs = struct {
     /// `base_idx` count must equal source memref rank.
     base_idx: []const *const mlir.Value,
@@ -1411,6 +1453,7 @@ pub fn sem_wait(
     });
 }
 
+// Options de `tpu.sem_signal` : device_id, core_id et subcore_id optionnels.
 pub const SemSignalOpts = struct {
     device_id: ?*const mlir.Value = null,
     core_id: ?*const mlir.Value = null,
@@ -1464,6 +1507,7 @@ pub fn barrier(
     });
 }
 
+// Options de `tpu.enqueue_dma` : semaphore source, ids optionnels, priorite et ordre.
 pub const EnqueueDmaOpts = struct {
     source_semaphore: ?*const mlir.Value = null,
     device_id: ?*const mlir.Value = null,
@@ -1518,6 +1562,7 @@ pub fn enqueue_dma(
     });
 }
 
+// Options de `tpu.wait_dma2` : device_id et core_id optionnels, ordonnancement strict.
 pub const WaitDma2Opts = struct {
     device_id: ?*const mlir.Value = null,
     core_id: ?*const mlir.Value = null,

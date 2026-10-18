@@ -8,6 +8,7 @@ const stdx = @import("stdx");
 // Types — !tt.ptr<T, addr_space>
 // =============================================================================
 
+// Type `!tt.ptr<T, addr_space>` : pointeur Triton vers T avec espace d'adressage.
 pub const PointerType = opaque {
     const M = mlir.Methods(PointerType, c.MlirType);
 
@@ -43,6 +44,7 @@ pub fn pointerType(pointee_type: *const mlir.Type, address_space: i32) *const ml
 // !tt.tensordesc<tensor<SHAPExELEM>> — TMA descriptor type.
 // -----------------------------------------------------------------------------
 
+// Type `!tt.tensordesc<tensor<...>>` : descripteur TMA (layout partage optionnel).
 pub const TensorDescType = opaque {
     const M = mlir.Methods(TensorDescType, c.MlirType);
 
@@ -83,14 +85,21 @@ pub fn tensorDescType(
 // Enum attributes
 // =============================================================================
 
+// Axe de grille programme (x/y/z) pour `#tt.program_dim<...>`.
 pub const ProgramIDDim = enum(i32) { x = 0, y = 1, z = 2 };
+// Modificateur de cache des chargements pour `#tt.cache_modifier<...>`.
 pub const CacheModifier = enum(i32) { none = 1, ca = 2, cg = 3, wb = 4, cs = 5, wt = 6, cv = 7 };
+// Politique d'eviction de cache pour `#tt.eviction_policy<...>`.
 pub const EvictionPolicy = enum(i32) { normal = 1, evict_first = 2, evict_last = 3 };
+// Option de remplissage des bords (zero ou NaN) pour `#tt.padding_option<...>`.
 pub const PaddingOption = enum(i32) { pad_zero = 1, pad_nan = 2 };
+// Mode d'arrondi flottant (vers zero, au plus proche pair) pour `#tt.rounding_mode<...>`.
 pub const RoundingMode = enum(i32) { rtz = 0, rtne = 1 };
+// Precision des entrees du matmul (tf32, tf32x3, ieee, bf16x3/6).
 pub const InputPrecision = enum(i32) { tf32 = 0, tf32x3 = 1, ieee = 2, bf16x3 = 3, bf16x6 = 4 };
 
 /// Atomic read-modify-write operations.
+// Operations atomiques lecture-modification-ecriture pour `#tt.rmw_op<...>`.
 pub const RMWOp = enum(i32) {
     and_ = 1,
     or_ = 2,
@@ -105,6 +114,7 @@ pub const RMWOp = enum(i32) {
 };
 
 /// Memory ordering semantics.
+// Semantique d'ordre memoire (relaxed, acquire, release, acq_rel).
 pub const MemSemantic = enum(i32) {
     relaxed = 1,
     acquire = 2,
@@ -113,6 +123,7 @@ pub const MemSemantic = enum(i32) {
 };
 
 /// Memory sync scope.
+// Portee de synchronisation memoire (gpu, cta, sys).
 pub const MemSyncScope = enum(i32) {
     gpu = 1,
     cta = 2,
@@ -120,12 +131,14 @@ pub const MemSyncScope = enum(i32) {
 };
 
 /// NaN propagation for clampf. 0xFFFF is the exact .td encoding.
+// Propagation des NaN dans clampf : `none` ou `all` (0xFFFF, encodage .td exact).
 pub const PropagateNan = enum(i32) {
     none = 0,
     all = 0xFFFF,
 };
 
 /// Packed FP element types for tt.dot_scaled.
+// Types d'elements flottants empactes (e4m3, e5m2, ...) pour `tt.dot_scaled`.
 pub const ScaleDotElemType = enum(i32) {
     e4m3 = 0,
     e5m2 = 1,
@@ -137,6 +150,7 @@ pub const ScaleDotElemType = enum(i32) {
 };
 
 /// Reduction kind for tt.descriptor_reduce.
+// Type de reduction (add, min, max, inc, dec, and/or/xor) pour `tt.descriptor_reduce`.
 pub const DescriptorReduceKind = enum(i32) {
     add = 1,
     min = 2,
@@ -213,7 +227,9 @@ pub fn descriptorReduceKind(ctx: *mlir.Context, v: DescriptorReduceKind) *const 
 // =============================================================================
 
 /// Args for building a `tt.func` op.
+// Arguments de construction d'un `tt.func` : nom, args/resultats, corps et visibilite.
 pub const FuncOpArgs = struct {
+    // Visibilite d'une fonction `tt.func` : publique ou privee.
     pub const Visibility = enum { public, private };
 
     name: []const u8,

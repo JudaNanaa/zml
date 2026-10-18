@@ -122,6 +122,7 @@ pub fn clamp(ctx: *mlir.Context, min: *const mlir.Value, value: *const mlir.Valu
     });
 }
 
+// Options de l'op `stablehlo.composite` : nom, symbole de decomposition, attributs et version.
 pub const CompositeOpts = struct {
     name: []const u8,
     decomposition: []const u8,
@@ -152,6 +153,7 @@ pub fn composite(
     });
 }
 
+// Precision d'un produit scalaire pour dot_general : fast/high/highest ou algorithme explicite.
 pub const DotPrecision = union(enum) {
     fast,
     high,
@@ -180,6 +182,7 @@ pub const DotPrecision = union(enum) {
     }
 };
 
+// Description d'un algorithme de dot : precision d'accumulation, composants et ops primitives.
 pub const DotAlgorithm = struct {
     accumulation: mlir.FloatTypes,
     // Note stablehlo distinguish between left/right component_count
@@ -410,6 +413,7 @@ pub fn gather(
     );
 }
 
+// Arguments de `stablehlo.scatter` : dimensions de fenetre, insertion, batch et mapping d'indices.
 pub const ScatterArgs = struct {
     update_window_dims: []const i64,
     inserted_window_dims: []const i64,
@@ -534,6 +538,7 @@ pub fn dynamic_slice(
     });
 }
 
+// Marges de remplissage de `stablehlo.pad` : basse, haute et interieure par dimension.
 pub const PadOpts = struct {
     low: []const i64,
     high: []const i64,
@@ -555,6 +560,7 @@ pub fn pad(ctx: *mlir.Context, value: *const mlir.Value, padding_value: *const m
     });
 }
 
+// Options de `stablehlo.triangular_solve` : cote, triangle bas, diagonale unite, transposee.
 pub const TriangularSolveOpts = struct {
     left_side: bool,
     lower: bool,
@@ -578,6 +584,7 @@ pub fn triangular_solve(ctx: *mlir.Context, value: *const mlir.Value, other: *co
     });
 }
 
+// Options de `stablehlo.fft` : type de transformee et longueurs par dimension.
 pub const FftOpts = struct {
     kind: FftType.Type,
     length: []const i64,
@@ -597,6 +604,7 @@ pub fn fft(ctx: *mlir.Context, value: *const mlir.Value, opts: FftOpts, location
     });
 }
 
+// Attribut `#stablehlo.rng_distribution` : distribution aleatoire UNIFORM ou NORMAL.
 pub const RngDistribution = opaque {
     const M = mlir.Methods(RngDistribution, c.MlirAttribute);
 
@@ -605,6 +613,7 @@ pub const RngDistribution = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Distribution aleatoire supportee : uniforme ou normale.
     pub const Type = enum {
         UNIFORM,
         NORMAL,
@@ -629,6 +638,7 @@ pub fn rngDistribution(ctx: *mlir.Context, value: RngDistribution.Type) *const m
     return @ptrCast(RngDistribution.get(ctx, value));
 }
 
+// Attribut `#stablehlo.rng_algorithm` : algorithme de generation aleatoire.
 pub const RngAlgorithm = opaque {
     const M = mlir.Methods(RngAlgorithm, c.MlirAttribute);
 
@@ -637,6 +647,7 @@ pub const RngAlgorithm = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Algorithme de RNG disponible : par defaut, Threefry ou Philox.
     pub const Type = enum {
         DEFAULT,
         THREE_FRY,
@@ -756,6 +767,7 @@ pub fn get_tuple_element(ctx: *mlir.Context, tuple_value: *const mlir.Value, ind
     });
 }
 
+// Options de `stablehlo.convolution` : fenetre, paddings, dilations, dimensions et precisions.
 pub const ConvolutionOpts = struct {
     window_strides: []const i64,
     pad_value: []const i64,
@@ -823,10 +835,12 @@ pub fn convolution(
     });
 }
 
+// Options de `stablehlo.custom_call` : cible, effets de bord, api_version, backend_config, layouts.
 pub const CustomCallOpts = struct {
     pub const MAX_OPERANDS = 64;
     pub const MAX_RESULTS = 16;
 
+    // Version d'ABI du custom call : original, status_returning, status_returning_unified, typed_ffi.
     pub const ApiVersion = enum(i32) {
         original = 1,
         status_returning = 2,
@@ -834,6 +848,7 @@ pub const CustomCallOpts = struct {
         typed_ffi = 4,
     };
 
+    // Configuration backend du custom call, dont la variante depend de l'api_version.
     pub const BackendConfig = union(ApiVersion) {
         original: []const u8,
         status_returning: []const u8,
@@ -841,6 +856,7 @@ pub const CustomCallOpts = struct {
         typed_ffi: *const mlir.Attribute,
     };
 
+    // Alias liant un resultat du custom call a un operande d'entree (mise a jour in-place).
     pub const OutputOperandAlias = struct {
         output_index: i64,
         operand_index: i64,
@@ -1023,6 +1039,7 @@ pub fn partition_id(ctx: *mlir.Context, location: *const mlir.Location) *mlir.Op
     });
 }
 
+// Attribut `#stablehlo.dot_dimension_numbers` : dimensions de batching et contraction LHS/RHS.
 pub const DotDimensionNumbersAttribute = opaque {
     const M = mlir.Methods(DotDimensionNumbersAttribute, mlir.Attribute);
 
@@ -1031,6 +1048,7 @@ pub const DotDimensionNumbersAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Listes de dimensions (batching et contraction) pour `dot_dimension_numbers`.
     pub const InitArgs = struct {
         lhs_batching_dimensions: []const i64,
         rhs_batching_dimensions: []const i64,
@@ -1100,6 +1118,7 @@ pub fn dotDimensionNumbersAttribute(ctx: *mlir.Context, args: DotDimensionNumber
     return @ptrCast(DotDimensionNumbersAttribute.init(ctx, args));
 }
 
+// Attribut `#stablehlo.gather_dimension_numbers` decrivant le mapping de `stablehlo.gather`.
 pub const GatherDimensionNumbersAttribute = opaque {
     const M = mlir.Methods(GatherDimensionNumbersAttribute, mlir.Attribute);
 
@@ -1212,6 +1231,7 @@ pub fn gatherDimensionNumbersAttribute(
     ));
 }
 
+// Attribut `#stablehlo.conv_dimension_numbers` : mapping batch/feature/spatial entree, noyau, sortie.
 pub const ConvDimensionNumbersAttribute = opaque {
     const M = mlir.Methods(ConvDimensionNumbersAttribute, mlir.Attribute);
 
@@ -1220,6 +1240,7 @@ pub const ConvDimensionNumbersAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Dimensions batch/feature/spatiales de l'entree, du noyau et de la sortie d'une convolution.
     pub const InitArgs = struct {
         input_batch_dimension: i64,
         input_feature_dimension: i64,
@@ -1318,6 +1339,7 @@ pub fn convDimensionNumbersAttribute(ctx: *mlir.Context, args: ConvDimensionNumb
     return @ptrCast(ConvDimensionNumbersAttribute.init(ctx, args));
 }
 
+// Attribut `#stablehlo.output_operand_alias` : indices de tuple liant sortie et operande.
 pub const OutputOperandAliasAttribute = opaque {
     const M = mlir.Methods(OutputOperandAliasAttribute, c.MlirAttribute);
 
@@ -1326,6 +1348,7 @@ pub const OutputOperandAliasAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Indices de tuple (sortie, operande) decrivant un alias sortie/operande.
     pub const InitArgs = struct {
         output_tuple_indices: []const i64 = &.{},
         operand_index: i64,
@@ -1351,6 +1374,7 @@ pub fn outputOperandAliasAttribute(ctx: *mlir.Context, args: OutputOperandAliasA
     return @ptrCast(OutputOperandAliasAttribute.get(ctx, args));
 }
 
+// Attribut `#stablehlo.precision` : precision de calcul (DEFAULT, HIGH, HIGHEST).
 pub const PrecisionAttribute = opaque {
     const M = mlir.Methods(PrecisionAttribute, mlir.Attribute);
 
@@ -1359,6 +1383,7 @@ pub const PrecisionAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Niveau de precision de calcul : par defaut, haute ou tres haute.
     pub const Precision = enum {
         DEFAULT,
         HIGH,
@@ -1382,6 +1407,7 @@ pub fn precisionAttribute(ctx: *mlir.Context, precision: PrecisionAttribute.Prec
     return @ptrCast(PrecisionAttribute.init(ctx, precision));
 }
 
+// Attribut `#stablehlo.comparison_direction` : sens de comparaison (EQ, NE, GE, GT, LE, LT).
 pub const ComparisonDirection = opaque {
     const M = mlir.Methods(ComparisonDirection, c.MlirAttribute);
 
@@ -1390,6 +1416,7 @@ pub const ComparisonDirection = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Sens de comparaison : egalite, non-egalite et inegalites.
     pub const Direction = enum {
         EQ,
         NE,
@@ -1416,6 +1443,7 @@ pub fn comparisonDirection(ctx: *mlir.Context, value: ComparisonDirection.Direct
     return @ptrCast(ComparisonDirection.init(ctx, value));
 }
 
+// Attribut `#stablehlo.comparison_type` : interpretation des operandes compares.
 pub const CompareType = opaque {
     const M = mlir.Methods(CompareType, c.MlirAttribute);
 
@@ -1424,6 +1452,7 @@ pub const CompareType = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Type de comparaison : signe, non signe, flottant ou ordre total.
     pub const Type = enum {
         SIGNED,
         UNSIGNED,
@@ -1448,6 +1477,7 @@ pub fn compareType(ctx: *mlir.Context, value: CompareType.Type) *const mlir.Attr
     return @ptrCast(CompareType.init(ctx, value));
 }
 
+// Attribut `#stablehlo.transpose` : mode de transposition d'une operation lineaire.
 pub const TransposeAttribute = opaque {
     const M = mlir.Methods(TransposeAttribute, mlir.Attribute);
 
@@ -1456,6 +1486,7 @@ pub const TransposeAttribute = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Mode de transposition : aucune, transposee ou adjointe.
     pub const Type = enum {
         NO_TRANSPOSE,
         TRANSPOSE,
@@ -1479,6 +1510,7 @@ pub fn transposeAttribute(ctx: *mlir.Context, value: TransposeAttribute.Type) *c
     return @ptrCast(TransposeAttribute.init(ctx, value));
 }
 
+// Attribut `#stablehlo.fft_type` : type de transformee de Fourier.
 pub const FftType = opaque {
     const M = mlir.Methods(FftType, mlir.Attribute);
 
@@ -1487,6 +1519,7 @@ pub const FftType = opaque {
     pub const eql = M.eql(c.mlirAttributeEqual);
     pub const format = M.format(c.mlirAttributePrint);
 
+    // Type de transformee de Fourier : FFT/IFFT et variantes reelles RFFT/IRFFT.
     pub const Type = enum {
         FFT,
         IFFT,
@@ -1535,6 +1568,7 @@ pub fn smallerVersion(version1: []const u8, version2: []const u8) []const u8 {
 
 // Renvoie la version courante du dialecte StableHLO.
 pub fn currentVersion() []const u8 {
+    // Etat local (tampon) ou le runtime StableHLO ecrit la version courante.
     const state = struct {
         var buf: [32]u8 = undefined;
     };
@@ -1543,6 +1577,7 @@ pub fn currentVersion() []const u8 {
 
 // Renvoie la version minimale supportee du dialecte StableHLO.
 pub fn minimumVersion() []const u8 {
+    // Etat local (tampon) ou le runtime StableHLO ecrit la version minimale supportee.
     const state = struct {
         var buf: [32]u8 = undefined;
     };
@@ -1605,6 +1640,7 @@ pub fn returns(ctx: *mlir.Context, values: []const *const mlir.Value, location: 
     });
 }
 
+// Type de canal de communication collective : collective ou send_recv.
 pub const ChannelType = enum(i64) {
     collective = 0,
     send_recv = 1,
