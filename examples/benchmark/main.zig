@@ -13,6 +13,7 @@ pub fn benchmark(a: zml.Tensor, b: zml.Tensor) zml.Tensor {
 // Point d'entrée du benchmark : lit les arguments CLI, sélectionne la plateforme,
 // compile le noyau, prépare des buffers aléatoires et mesure les GFLOP/s.
 pub fn main(init: std.process.Init) !void {
+    // Options CLI du benchmark : taille de la matrice carrée et type de données.
     const CliArgs = struct {
         pub const help =
             \\ benchmark --size=4096 --dtype=f16

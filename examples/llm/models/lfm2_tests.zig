@@ -10,6 +10,8 @@ pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
+// Arguments de la ligne de commande du test LFM2 : depot de modele, fixtures
+// d'activations et backend d'attention optionnel.
 const Args = struct {
     model: []const u8,
     activations: []const u8,
@@ -132,6 +134,8 @@ pub fn run(
     }
 }
 
+// Contexte de test regroupant plateforme, store d'activations, metadonnees d'attention
+// et mesh, utilise pour valider chaque couche contre les fixtures.
 const TestContext = struct {
     allocator: std.mem.Allocator,
     io: std.Io,

@@ -13,6 +13,7 @@ pub const qwen3_5_moe = @import("models/qwen3_5_moe.zig");
 
 const log = std.log.scoped(.llm);
 
+// Types de modeles supportes, determines par le champ `model_type` de `config.json`.
 pub const ModelType = enum {
     lfm2,
     llama,
@@ -20,10 +21,14 @@ pub const ModelType = enum {
     qwen3_5_moe,
 };
 
+// Vue minimale de `config.json` ne contenant que `model_type`, suffisante pour
+// detecter l'architecture avant de parser la config complete.
 const RawConfig = struct {
     model_type: []const u8,
 };
 
+// Union taguee des modeles charges, une variante par architecture, exposant les
+// operations communes (init, buffers, compilation) sur la variante active.
 pub const LoadedModel = union(ModelType) {
     lfm2: lfm2.LoadedModel,
     llama: llama.LoadedModel,
@@ -108,7 +113,10 @@ pub const LoadedModel = union(ModelType) {
     }
 };
 
+// Modele compile, agnostique de l'architecture : union interne des modeles compiles
+// par variante et longueur de sequence retenue.
 pub const CompiledModel = struct {
+    // Union interne des modeles compiles, une variante par type d'architecture.
     const Inner = union(ModelType) {
         lfm2: lfm2.inference.CompiledModel,
         llama: llama.inference.CompiledModel,
@@ -148,6 +156,7 @@ pub const CompiledModel = struct {
     }
 };
 
+// Union des buffers de poids, une variante par architecture, pour le modele actif.
 pub const Buffers = union(ModelType) {
     lfm2: lfm2.Buffers,
     llama: llama.Buffers,
@@ -155,7 +164,10 @@ pub const Buffers = union(ModelType) {
     qwen3_5_moe: qwen3_5_moe.Buffers,
 };
 
+// Session d'inference agnostique : union interne des sessions par variante et
+// longueur de sequence, deleguant prefill, decodage et tokenisation a la variante.
 pub const Session = struct {
+    // Union interne des sessions, une variante par type d'architecture.
     const Inner = union(ModelType) {
         lfm2: lfm2.Session,
         llama: llama.Session,

@@ -10,6 +10,8 @@ pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
+// Arguments de la ligne de commande du test LLaMA : depot de modele et chemin des
+// fixtures d'activations.
 const Args = struct {
     model: []const u8,
     activations: []const u8,
@@ -117,6 +119,8 @@ fn testLayer(
     // `zml.nn.Linear.forward` takes an explicit output dtype; every other layer here
     // is `fn (self, Tensor) Tensor`.
     const Layer = @TypeOf(layer);
+    // Adaptateur d'appel uniforme : expose un `forward` homogene pour toutes les
+    // couches testees, y compris Linear.
     const Call = struct {
         // Adaptateur d'appel uniforme : Linear.forward exige un dtype de sortie alors
         // que les autres couches sont de type fn(self, Tensor) Tensor.

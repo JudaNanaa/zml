@@ -13,6 +13,8 @@ pub const std_options: std.Options = .{
 
 const log = std.log.scoped(.llm);
 
+// Arguments de la ligne de commande du binaire llm : chemin du modele, prompt
+// optionnel, longueur de sequence, top-k, backend d'attention et profilage.
 const Args = struct {
     model: []const u8,
     prompt: ?[]const u8 = null,

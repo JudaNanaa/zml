@@ -8,11 +8,13 @@ pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
+// Modèle MNIST : deux couches denses (fc1 puis fc2) enchaînées pour classifier un chiffre.
 /// Model definition
 const Mnist = struct {
     fc1: Layer,
     fc2: Layer,
 
+    // Couche dense élémentaire : poids, biais et passe avant (produit scalaire puis ReLU).
     const Layer = struct {
         weight: zml.Tensor,
         bias: zml.Tensor,

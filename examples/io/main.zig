@@ -9,6 +9,7 @@ pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
+// Sous-commandes supportées par l'outil de système de fichiers virtuel (VFS).
 const Command = enum { cat, tree, ls, cp, stat, realpath, safetensors, load };
 
 // -- ls hf://openai/gpt-oss-20b@6cee5e8
@@ -157,6 +158,7 @@ pub fn main(init: std.process.Init) !void {
             try stdout_writer.interface.flush();
         },
         .load => {
+            // Mode de chargement des tenseurs : répliqué sur tous les appareils ou partitionné.
             const MeshType = enum { replicated, sharded };
 
             const mesh_type: MeshType = std.meta.stringToEnum(MeshType, it.next() orelse "sharded") orelse return error.InvalidMesheKind;
@@ -176,6 +178,7 @@ pub fn main(init: std.process.Init) !void {
             var store: zml.io.TensorStore = .fromRegistry(allocator, &registry, &.{tensor_parallel});
             defer store.deinit();
 
+            // Modèle générique regroupant tous les tenseurs du registre dans une liste.
             const AllTensorsModel = struct {
                 tensors: []zml.Tensor,
             };
@@ -229,6 +232,7 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
+// Compteurs de dossiers et de fichiers accumulés pendant le parcours d'une arborescence.
 const TreeCounts = struct {
     dirs: usize = 0,
     files: usize = 0,
@@ -281,6 +285,7 @@ fn printTree(io: std.Io, writer: *std.Io.Writer, dir: std.Io.Dir, prefix: []cons
     }
 }
 
+// Nœud d'un arbre de tenseurs safetensors, identifié par son nom et portant un tenseur optionnel.
 const TensorNode = struct {
     name: []const u8,
     children: std.StringArrayHashMapUnmanaged(*TensorNode) = .empty,

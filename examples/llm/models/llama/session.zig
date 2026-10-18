@@ -5,6 +5,7 @@ const zml = @import("zml");
 const inference = @import("inference.zig");
 const model = @import("model.zig");
 
+// Session d'inference LLaMA : cache KV, indices de token, RNG et runners prefill/decode.
 pub const Session = struct {
     allocator: std.mem.Allocator,
     io: std.Io,

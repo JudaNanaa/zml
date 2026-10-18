@@ -8,6 +8,8 @@ const inference = @import("inference.zig");
 
 const log = std.log.scoped(.llama);
 
+// Configuration LLaMA parsee depuis `config.json` : dimensions, attention, RoPE et
+// tokens speciaux.
 pub const Config = struct {
     bos_token_id: u32,
     eos_token_id: EosTokens,
@@ -23,6 +25,7 @@ pub const Config = struct {
     tie_word_embeddings: bool = false,
     rope_scaling: zml.nn.RopeOpts.Scaling = .{ .default = .{} },
 
+    // Forme du token de fin de sequence dans la config : entier unique ou liste.
     pub const EosTokens = union(enum) {
         int: u32,
         ints: []u32,
@@ -34,11 +37,14 @@ pub const Config = struct {
     };
 };
 
+// Options de construction du modele : strategie d'echantillonnage optionnelle et
+// longueur maximale de sequence.
 const Options = struct {
     sampling_strategy: ?zml.nn.SamplingStrategy,
     max_seq_len: u32,
 };
 
+// Modele LLaMA charge depuis un depot : modele interne et config parse associee.
 pub const LoadedModel = struct {
     inner: Model,
     parsed_config: std.json.Parsed(Config),
@@ -130,6 +136,8 @@ pub const LoadedModel = struct {
 
 pub const Buffers = zml.Bufferized(Model);
 
+// Modele LLaMA de haut niveau : tete lm_head optionnelle, modele interne et options
+// de generation, avec nommage HuggingFace.
 /// Llama architecture, using huggingface transformers naming.
 /// Dimensions of activations: {.b, .s, .d}
 pub const Model = struct {
@@ -250,6 +258,7 @@ pub const Model = struct {
     }
 };
 
+// Coeur du modele LLaMA : embedding des tokens, norme finale et couches Transformer.
 const Llama = struct {
     embed_tokens: zml.nn.TokenEmbedding,
     norm: RmsNorm,
@@ -330,14 +339,17 @@ const Llama = struct {
     }
 };
 
+// Sous-modele d'embedding des tokens, avec entrees/sorties typees pour la compilation.
 pub const EmbedTokens = struct {
     embed_tokens: zml.nn.TokenEmbedding,
 
+    // Entree de l'embedding : couche d'embedding et tokens.
     pub const Input = struct {
         embedding: EmbedTokens,
         tokens: zml.Tensor,
     };
 
+    // Sortie de l'embedding : hidden states des tokens.
     pub const Output = struct {
         hidden: zml.Tensor,
     };
@@ -351,6 +363,8 @@ pub const EmbedTokens = struct {
     }
 };
 
+// Tete de sortie LLaMA : projection lm_head ou poids d'embedding lies, norme finale
+// et strategie d'echantillonnage.
 pub const LmHead = struct {
     lm_head: ?zml.nn.Linear,
     embed_tokens: zml.nn.TokenEmbedding,
@@ -367,6 +381,7 @@ pub const LmHead = struct {
         };
     }
 
+    // Entree de la tete de sortie : poids, norme, hidden states, tokens et RNG.
     pub const Input = struct {
         lm_head: LmHead,
         hidden: zml.Tensor,
@@ -374,6 +389,7 @@ pub const LmHead = struct {
         rng: zml.Tensor.Rng,
     };
 
+    // Sortie de la tete de sortie : prochain token echantillonne et RNG mis a jour.
     pub const Output = struct {
         tokens: zml.Tensor,
         rng: zml.Tensor.Rng,
@@ -402,6 +418,7 @@ pub const LmHead = struct {
     }
 };
 
+// Couche Transformer LLaMA : pre/post layernorms, auto-attention et MLP SwiGLU.
 pub const TransformerLayer = struct {
     input_layernorm: RmsNorm,
     self_attn: SelfAttn,
@@ -426,6 +443,8 @@ pub const TransformerLayer = struct {
         Mlp.unloadBuffers(&self.mlp);
     }
 
+    // Entree d'une couche Transformer : poids, hidden states, indice de token, cache
+    // KV et parametres d'attention.
     pub const Input = struct {
         layer: TransformerLayer,
         hidden: zml.Tensor,
@@ -436,6 +455,7 @@ pub const TransformerLayer = struct {
         attention_parameters: zml.attention.Parameters,
     };
 
+    // Sortie d'une couche Transformer : hidden states et cache KV mis a jour.
     pub const Output = struct {
         hidden: zml.Tensor,
         kv_cache: KvCache,
@@ -475,6 +495,7 @@ pub const TransformerLayer = struct {
     }
 };
 
+// Normalisation RMS avec poids appris et epsilon, appliquee le long de l'axe .d.
 const RmsNorm = struct {
     weight: zml.Tensor,
     eps: f32,
@@ -501,6 +522,7 @@ const RmsNorm = struct {
     }
 };
 
+// MLP SwiGLU LLaMA : projections up/gate/down.
 const Mlp = struct {
     up_proj: zml.nn.Linear, // (dim -> hidden_dim)
     gate_proj: zml.nn.Linear, // (dim -> hidden_dim)
@@ -529,6 +551,7 @@ const Mlp = struct {
     }
 };
 
+// Auto-attention LLaMA : projections q/k/v/o, normes optionnelles et RoPE.
 const SelfAttn = struct {
     q_proj: zml.nn.Linear,
     k_proj: zml.nn.Linear,
@@ -645,6 +668,7 @@ const SelfAttn = struct {
     }
 };
 
+// Cache cles/valeurs par couche pour l'attention.
 pub const KvCache = struct {
     k: zml.Tensor,
     v: zml.Tensor,

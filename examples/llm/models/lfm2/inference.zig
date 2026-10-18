@@ -9,6 +9,8 @@ const model = @import("model.zig");
 
 const log = std.log.scoped(.lfm);
 
+// Parametres de compilation LFM2 : dimensions, RNG, caches KV/conv, metadonnees
+// d'attention, longueur de sequence et meshes.
 pub const CompilationParameters = struct {
     hidden_dim: usize,
     batch_dim: usize,
@@ -54,6 +56,8 @@ pub const CompilationParameters = struct {
 
 pub const CompilationOptions = CompilationParameters;
 
+// Arguments d'execution d'un pas d'inference : io, buffers de tokens, longueur reelle,
+// RNG, caches et metadonnees d'attention.
 pub const Args = struct {
     io: std.Io,
     tokens_buf: *zml.Buffer,
@@ -64,6 +68,8 @@ pub const Args = struct {
     attention_metadata_buffers: zml.Bufferized(zml.attention.Metadata),
 };
 
+// Modele LFM2 compile : modele charge de reference, kernels prefill/decode et
+// parametres de compilation associes.
 pub const CompiledModel = struct {
     loaded_model: *const model.LoadedModel,
     prefill: KernelExe,
@@ -100,6 +106,8 @@ pub const CompiledModel = struct {
 
 pub const Inference = CompiledModel;
 
+// Ensemble des executables de noyaux LFM2 : embedding, couche conv, couche attention
+// et tete d'echantillonnage.
 pub const KernelExe = struct {
     embed: zml.FnExe(model.TokenEmbedding.forward),
     conv: zml.FnExe(model.DecoderLayer.forward),
@@ -115,6 +123,8 @@ pub const KernelExe = struct {
     }
 };
 
+// Runners lies aux buffers de poids pour chaque noyau (embedding, une entree par
+// couche, echantillonnage).
 pub const KernelRunner = struct {
     embed: zml.FnExe(model.TokenEmbedding.forward).Runner(.{.embedding}),
     layers: []zml.FnExe(model.DecoderLayer.forward).Runner(.{.layer}),

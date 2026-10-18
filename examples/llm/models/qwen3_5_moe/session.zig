@@ -5,6 +5,7 @@ const zml = @import("zml");
 const inference = @import("inference.zig");
 const model = @import("model.zig");
 
+// Session d'inference : runners, buffers de cache KV/RNG, tokenizer et parametres de generation.
 pub const Session = struct {
     allocator: std.mem.Allocator,
     io: std.Io,

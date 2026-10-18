@@ -11,16 +11,19 @@ pub const std_options: std.Options = .{
     },
 };
 
+// Mode de maillage CLI : « auto » (topologie réelle) ou « mock » (topologie simulée).
 const CliMesh = enum {
     auto,
     mock,
 };
 
+// Options CLI du démo de sharding : partitionneur optionnel et mode de maillage.
 const CliArgs = struct {
     partitioner: ?zml.Sharding.Partitioner = null,
     mesh: CliMesh = .auto,
 };
 
+// Modèle de démonstration : une couche dense (poids + biais) et sa passe avant partitionnée.
 const DemoModel = struct {
     w: zml.Tensor, // {feature, hidden}
     b: zml.Tensor, // {hidden}

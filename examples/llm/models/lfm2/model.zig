@@ -8,6 +8,8 @@ const inference = @import("inference.zig");
 
 const log = std.log.scoped(.lfm);
 
+// Configuration LFM2 parsee depuis `config.json` : dimensions, types de couches,
+// parametres de convolution, RoPE et tokens speciaux.
 pub const Config = struct {
     architectures: []const []const u8,
     block_auto_adjust_ff_dim: bool,
@@ -47,6 +49,7 @@ pub const Config = struct {
     vocab_size: u32,
 };
 
+// Modele LFM2 charge depuis un depot : modele interne et config parse associee.
 pub const LoadedModel = struct {
     inner: Model,
     parsed_config: std.json.Parsed(Config),
@@ -132,6 +135,8 @@ pub const LoadedModel = struct {
 
 pub const Buffers = zml.Bufferized(Model);
 
+// Modele LFM2 complet : embedding des tokens, tete de sortie et couches decodeur
+// (conv ou attention) comptees par type.
 pub const Model = struct {
     embed_tokens: TokenEmbedding,
     lm_head: LmHead,
@@ -274,14 +279,17 @@ pub const Model = struct {
     }
 };
 
+// Couche d'embedding des tokens : matrice de poids vocab x dimension model.
 pub const TokenEmbedding = struct {
     weight: zml.Tensor,
 
+    // Entree du forward d'embedding : couche d'embedding et tokens d'entree.
     pub const Input = struct {
         embedding: TokenEmbedding,
         tokens: zml.Tensor,
     };
 
+    // Sortie du forward d'embedding : hidden states des tokens.
     pub const Output = struct {
         hidden: zml.Tensor,
     };
@@ -305,10 +313,13 @@ pub const TokenEmbedding = struct {
     }
 };
 
+// Tete de sortie LFM2 : RmsNorm final, projection vers le vocabulaire et
+// echantillonnage du prochain token.
 pub const LmHead = struct {
     embedding_norm: RmsNorm,
     sampling_strategy: zml.nn.SamplingStrategy,
 
+    // Entree de la tete de sortie : poids, norme, hidden states, tokens et RNG.
     pub const Input = struct {
         lm_head: LmHead,
         embed_tokens: TokenEmbedding,
@@ -317,6 +328,7 @@ pub const LmHead = struct {
         rng: zml.Tensor.Rng,
     };
 
+    // Sortie de la tete de sortie : prochain token echantillonne et RNG mis a jour.
     pub const Output = struct {
         tokens: zml.Tensor,
         rng: zml.Tensor.Rng,
@@ -344,15 +356,20 @@ pub const LmHead = struct {
     }
 };
 
+// Nature d'une couche de decodeur LFM2 : convolution courte ou attention complete.
 pub const OperatorKind = enum { conv, full_attention };
+// Operateur concret d'une couche decodeur, variant selon le type de couche.
 const Operator = union(enum) { conv: ShortConv, self_attn: Attention };
 
+// Couche decodeur LFM2 : operateur (conv ou attention), normes et feed-forward SwiGLU.
 pub const DecoderLayer = struct {
     operator: Operator,
     operator_norm: RmsNorm,
     ffn_norm: RmsNorm,
     feed_forward: Mlp,
 
+    // Entree d'une couche decodeur : poids, hidden states, positions, caches et
+    // parametres d'attention/convolution.
     pub const Input = struct {
         layer: DecoderLayer,
         hidden: zml.Tensor,
@@ -366,6 +383,7 @@ pub const DecoderLayer = struct {
         conv_parameters: ConvParameters,
     };
 
+    // Sortie d'une couche decodeur : hidden states et indices de cache mis a jour.
     pub const Output = struct {
         hidden: zml.Tensor,
         cache: Cache,
@@ -457,8 +475,10 @@ pub const DecoderLayer = struct {
     }
 };
 
+// Parametres de la convolution courte, indiquant la phase prefill ou decode.
 pub const ConvParameters = struct { is_prefill: bool };
 
+// Convolution courte LFM2 : projections d'entree/sortie et noyau, avec cache d'etat.
 pub const ShortConv = struct {
     in_proj: Linear,
     out_proj: Linear,
@@ -532,6 +552,7 @@ pub const ShortConv = struct {
     }
 };
 
+// Attention LFM2 : projections q/k/v/o, layernorms q/k et options RoPE.
 pub const Attention = struct {
     q_proj: Linear,
     k_proj: Linear,
@@ -632,6 +653,7 @@ pub const Attention = struct {
     }
 };
 
+// Caches d'inference LFM2 : etat de convolution courte et cache cles/valeurs.
 pub const Cache = struct {
     conv: ConvCache,
     kv: KvCache,
@@ -653,6 +675,7 @@ pub const Cache = struct {
     }
 };
 
+// Cache de l'etat glissant de la convolution courte.
 pub const ConvCache = struct {
     state: zml.Tensor,
 
@@ -681,6 +704,7 @@ pub const ConvCache = struct {
     }
 };
 
+// Cache cles/valeurs par couche pour l'attention.
 pub const KvCache = struct {
     k: zml.Tensor,
     v: zml.Tensor,
@@ -728,6 +752,7 @@ pub const KvCache = struct {
     }
 };
 
+// Projection lineaire : poids, biais optionnel et tags d'entree/sortie.
 pub const Linear = struct {
     weight: zml.Tensor,
     bias: ?zml.Tensor = null,
@@ -756,6 +781,7 @@ pub const Linear = struct {
     }
 };
 
+// MLP SwiGLU LFM2 : trois projections (w1, w2, w3).
 const Mlp = struct {
     w1: Linear,
     w2: Linear,
@@ -783,6 +809,7 @@ const Mlp = struct {
     }
 };
 
+// Normalisation RMS avec poids appris et epsilon, appliquee sur un tag donne.
 const RmsNorm = struct {
     weight: zml.Tensor,
     eps: f32,

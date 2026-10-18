@@ -24,6 +24,8 @@ pub fn rememberPrompt(line: [*:0]const u8) void {
     }
 }
 
+// Etat d'une conversation interactive : allocator, io, plateforme, session
+// d'inference du modele compile et buffer des tokens generes.
 pub const Chat = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -67,6 +69,7 @@ pub const Chat = struct {
         self.session.deinit();
     }
 
+    // Options d'un tour de generation unique (activation du profilage Perfetto).
     pub const RunOnceOptions = struct {
         profile: bool = false,
     };

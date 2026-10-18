@@ -8,10 +8,12 @@ const inference = @import("inference.zig");
 
 const log = std.log.scoped(.qwen3_5_moe);
 
+// Configuration de plus haut niveau du modele, regroupant la configuration texte.
 pub const Config = struct {
     text_config: TextConfig,
 };
 
+// Configuration de la tour de texte : dimensions, types de couches, attention, MoE et parametres lineaires.
 pub const TextConfig = struct {
     // General
     num_hidden_layers: i64,
@@ -35,12 +37,14 @@ pub const TextConfig = struct {
     num_experts_per_tok: u32,
 };
 
+// Type de couche : attention lineaire (GatedDeltaNet) ou attention complete (SelfAttn).
 // Each layer uses either: full attention (SelfAttn) or linear attention (GatedDeltaNet).
 pub const LayerType = enum {
     linear_attention,
     full_attention,
 };
 
+// Parametres de RoPE : sections mrope, facteur de rotation partielle et theta.
 pub const RopeParameters = struct {
     mrope_section: [3]i64,
     partial_rotary_factor: f32,
@@ -72,6 +76,7 @@ fn partitionCachedKv(tensor: zml.Tensor, kv_head_meshe: zml.Sharding.DimMeshe) z
     };
 }
 
+// Modele charge en memoire : modele logique et configuration JSON associee.
 pub const LoadedModel = struct {
     inner: Model,
     parsed_config: std.json.Parsed(Config),
@@ -165,9 +170,12 @@ pub const LoadedModel = struct {
 
 pub const Buffers = zml.Bufferized(Model);
 
+// Modele Qwen3.5 MoE : text_model, config, options de generation et tokens speciaux.
 pub const Model = struct {
+    // Options de generation : strategie d'echantillonnage et longueur de sequence maximale.
     pub const GenOptions = struct { sampling_strategy: zml.nn.SamplingStrategy = .{}, max_seq_len: i64 };
 
+    // Identifiants des tokens speciaux de chat Qwen : im_start, im_end et fin de texte.
     pub const SpecialTokens = struct {
         im_start_token_id: u32,
         im_end_token_id: u32,
@@ -253,12 +261,14 @@ pub const Model = struct {
 
 //========================Text model========================
 
+// Sampler : norme finale, tete lm_head et options d'echantillonnage ; compile isolement.
 // Use this intermediate struct to compile sampleTokens without taking the whole TextModel as input
 pub const Sampler = struct {
     norm: RmsNorm,
     lm_head: zml.nn.Linear,
     gen_options: Model.GenOptions,
 
+    // Entrees du sampler : sampler, etats caches, RNG et index de token.
     pub const Input = struct {
         sampler: Sampler,
         hidden: zml.Tensor,
@@ -266,6 +276,7 @@ pub const Sampler = struct {
         token_index: zml.Tensor,
     };
 
+    // Sorties du sampler : tokens echantillonnes, nouveau RNG et index de token mis a jour.
     pub const Output = struct {
         tokens: zml.Tensor,
         rng: zml.Tensor.Rng,
@@ -286,12 +297,15 @@ pub const Sampler = struct {
     }
 };
 
+// Couche d'embedding : convertit les tokens en etats caches via la table d'embedding.
 pub const EmbedTokens = struct {
+    // Entrees de l'embedding : table d'embedding et tokens a convertir.
     pub const Input = struct {
         embedding: zml.nn.TokenEmbedding,
         tokens: zml.Tensor,
     };
 
+    // Sorties de l'embedding : etats caches produits.
     pub const Output = struct {
         hidden: zml.Tensor,
     };
@@ -302,6 +316,7 @@ pub const EmbedTokens = struct {
     }
 };
 
+// Tour de texte du modele : embedding, pile de couches transformer, norme et lm_head.
 pub const TextModel = struct {
     embed_tokens: zml.nn.TokenEmbedding,
     layers: []TransformerLayer,
@@ -394,7 +409,9 @@ pub const TextModel = struct {
     }
 };
 
+// Une couche transformer : normes, attention (complete ou lineaire) et bloc MoE.
 pub const TransformerLayer = struct {
+    // Variante d'attention de la couche (union taguee par le type d'attention).
     const Attn = union(enum) {
         self_attn: SelfAttn,
         linear_attn: GatedDeltaNet,
@@ -405,6 +422,7 @@ pub const TransformerLayer = struct {
     moe: Moe,
     post_attention_layernorm: RmsNorm,
 
+    // Entrees du forward d'une couche d'attention complete (MoE).
     pub const SelfAttnInput = struct {
         layer: TransformerLayer,
         hidden: zml.Tensor,
@@ -414,11 +432,13 @@ pub const TransformerLayer = struct {
         moe_backend: zml.moe.Backend,
     };
 
+    // Sorties du forward d'une couche d'attention complete : etats caches et cache mis a jour.
     pub const SelfAttnOutput = struct {
         hidden: zml.Tensor,
         cache: KvCache.SelfAttnCache,
     };
 
+    // Entrees du forward d'une couche d'attention lineaire (MoE).
     pub const LinearAttnInput = struct {
         layer: TransformerLayer,
         hidden: zml.Tensor,
@@ -428,6 +448,7 @@ pub const TransformerLayer = struct {
         moe_backend: zml.moe.Backend,
     };
 
+    // Sorties du forward d'une couche d'attention lineaire : etats caches et cache mis a jour.
     pub const LinearAttnOutput = struct {
         hidden: zml.Tensor,
         cache: KvCache.GatedDeltaNetCache,
@@ -551,6 +572,7 @@ pub const TransformerLayer = struct {
     }
 };
 
+// Attention complete multi-tetes : projections q/k/v/o, normes q/k et RoPE.
 pub const SelfAttn = struct {
     q_proj: zml.nn.Linear,
     q_proj_scale: ?zml.Tensor,
@@ -682,6 +704,7 @@ pub const SelfAttn = struct {
     }
 };
 
+// MLP SwiGLU dense : projections up, gate et down.
 pub const Mlp = struct {
     up_proj: zml.nn.Linear,
     up_proj_scale: ?zml.Tensor,
@@ -730,6 +753,7 @@ pub const Mlp = struct {
     }
 };
 
+// Routeur MoE : projection vers les experts et selection top-k des scores.
 const Router = struct {
     router: zml.nn.Linear,
     num_experts_per_tok: u32,
@@ -761,6 +785,7 @@ const Router = struct {
     }
 };
 
+// Couche MoE : experts groupes, expert partage, porte partagee et routeur.
 pub const Moe = struct {
     shared_expert: Mlp,
     shared_expert_gate: zml.nn.Linear,
@@ -839,6 +864,7 @@ pub const Moe = struct {
     }
 };
 
+// Embedding rotatif (RoPE) : frequences, sections mrope et application de la rotation.
 pub const TextRotaryEmbedding = struct {
     rope_opts: zml.nn.RopeOpts,
     rotary_dim: i64,
@@ -917,6 +943,7 @@ pub const TextRotaryEmbedding = struct {
     }
 };
 
+// Attention lineaire GatedDeltaNet : projections, convolution, regle delta recurrente et norme.
 pub const GatedDeltaNet = struct {
     in_proj_qkv: zml.nn.Linear,
     in_proj_qkv_scale: ?zml.Tensor,
@@ -1135,6 +1162,7 @@ pub const GatedDeltaNet = struct {
     }
 };
 
+// RMSNorm simple : normalise les etats caches puis reechelonne par le poids.
 pub const RmsNorm = struct {
     weight: zml.Tensor,
     eps: f32 = 1e-6,
@@ -1159,6 +1187,7 @@ pub const RmsNorm = struct {
     }
 };
 
+// RMSNorm avec porte : normalise, reechelonne puis multiplie par la porte en silu.
 pub const RmsNormGated = struct {
     weight: zml.Tensor,
     eps: f32 = 1e-6,
@@ -1187,11 +1216,13 @@ pub const RmsNormGated = struct {
     }
 };
 
+// Cache KV global du modele : regroupe le cache self-attention et celui de GatedDeltaNet.
 pub const KvCache = struct {
     layer_types: []const LayerType,
     self_attn: SelfAttnCache,
     gated_delta_net: GatedDeltaNetCache,
 
+    // Cache KV de l'attention complete : cles/valeurs par couche et index de couche.
     pub const SelfAttnCache = struct {
         k: zml.Tensor,
         v: zml.Tensor,
@@ -1297,6 +1328,7 @@ pub const KvCache = struct {
         }
     };
 
+    // Cache de GatedDeltaNet : etat de convolution et etat recurrent par couche.
     pub const GatedDeltaNetCache = struct {
         conv_state: zml.Tensor,
         recurrent_state: zml.Tensor,
@@ -1430,6 +1462,7 @@ pub const KvCache = struct {
         GatedDeltaNetCache.deinitBuffer(&self.gated_delta_net);
     }
 
+    // Vue du cache pour une couche : parent complet plus le sous-cache concerne.
     pub const LayerView = struct {
         parent: KvCache,
         cache: union(enum) {

@@ -8,6 +8,7 @@ const model = @import("model.zig");
 const log = std.log.scoped(.qwen3_5);
 const Phase = common.Phase;
 
+// Parametres de compilation : tenseurs de tokens prefill/decode, index de token, cache KV, RNG et seqlen.
 pub const CompilationParameters = struct {
     prefill_tokens: zml.Tensor,
     decode_tokens: zml.Tensor,
@@ -34,6 +35,7 @@ pub const CompilationParameters = struct {
 
 pub const CompilationOptions = CompilationParameters;
 
+// Arguments d'execution d'un pas d'inference : E/S, tokens, index, longueur active, cache KV et RNG.
 pub const Args = struct {
     io: std.Io,
     tokens_buf: *zml.Buffer,
@@ -43,6 +45,7 @@ pub const Args = struct {
     rng_buffers: *zml.Bufferized(zml.Tensor.Rng),
 };
 
+// Modele compile : modele charge, noyaux prefill/decode et parametres de compilation.
 pub const CompiledModel = struct {
     loaded_model: *const model.LoadedModel,
     prefill: KernelExe,
@@ -79,6 +82,7 @@ pub const CompiledModel = struct {
 
 pub const Inference = CompiledModel;
 
+// Executables compiles des quatre noyaux : embedding, attentions et echantillonnage.
 pub const KernelExe = struct {
     embed: zml.FnExe(model.EmbedTokens.forward),
     full_attention: zml.FnExe(model.TransformerLayer.forwardSelfAttn),
@@ -94,6 +98,7 @@ pub const KernelExe = struct {
     }
 };
 
+// Runner de couche : une variante par type d'attention (complete ou lineaire).
 pub const LayerRunner = union(enum) {
     full_attention: zml.FnExe(model.TransformerLayer.forwardSelfAttn).Runner(.{.layer}),
     linear_attention: zml.FnExe(model.TransformerLayer.forwardLinearAttn).Runner(.{.layer}),
@@ -106,6 +111,7 @@ pub const LayerRunner = union(enum) {
     }
 };
 
+// Runners instancies du modele : embedding, liste des couches et sampler.
 pub const KernelRunner = struct {
     embed: zml.FnExe(model.EmbedTokens.forward).Runner(.{.embedding}),
     layers: []LayerRunner,

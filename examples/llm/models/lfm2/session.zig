@@ -5,6 +5,8 @@ const zml = @import("zml");
 const inference = @import("inference.zig");
 const model = @import("model.zig");
 
+// Session d'inference LFM2 : etat d'execution (caches, RNG, token genere) et runners
+// prefill/decode lies au modele compile.
 pub const Session = struct {
     allocator: std.mem.Allocator,
     io: std.Io,

@@ -7,6 +7,7 @@ const model = @import("model.zig");
 
 const log = std.log.scoped(.qwen3_5_moe);
 
+// Parametres de compilation : cache KV, RNG, backend MoE, seqlen, meshes et dump XLA.
 pub const CompilationParameters = struct {
     kv_cache: model.KvCache,
     rng: zml.Tensor.Rng,
@@ -31,11 +32,13 @@ pub const CompilationParameters = struct {
 
 pub const CompilationOptions = CompilationParameters;
 
+// Buffer d'index de couche, tague selon le sous-cache concerne (self-attention ou lineaire).
 pub const LayerIndexBuffer = union(enum) {
     self_attn: zml.Buffer,
     linear_attn: zml.Buffer,
 };
 
+// Arguments d'execution d'un pas d'inference, avec les buffers d'index de couches.
 pub const RunArgs = struct {
     io: std.Io,
     tokens_buffer: *zml.Buffer,
@@ -46,6 +49,7 @@ pub const RunArgs = struct {
     layer_index_buffers: []const LayerIndexBuffer,
 };
 
+// Modele compile : modele charge, noyaux prefill/decode et parametres de compilation.
 pub const CompiledModel = struct {
     loaded_model: *const model.LoadedModel,
     prefill: KernelExe,
@@ -82,6 +86,7 @@ pub const CompiledModel = struct {
 
 pub const Inference = CompiledModel;
 
+// Executables compiles des quatre noyaux : embedding, attentions et echantillonnage.
 pub const KernelExe = struct {
     embed: zml.FnExe(model.EmbedTokens.forward),
     full_attention: zml.FnExe(model.TransformerLayer.forwardSelfAttn),
@@ -97,6 +102,7 @@ pub const KernelExe = struct {
     }
 };
 
+// Runner de couche : une variante par type d'attention (complete ou lineaire).
 pub const LayerRunner = union(enum) {
     full_attention: zml.FnExe(model.TransformerLayer.forwardSelfAttn).Runner(.{.layer}),
     linear_attention: zml.FnExe(model.TransformerLayer.forwardLinearAttn).Runner(.{.layer}),
@@ -109,6 +115,7 @@ pub const LayerRunner = union(enum) {
     }
 };
 
+// Runners instancies du modele : embedding, liste des couches et sampler.
 pub const KernelRunner = struct {
     embed: zml.FnExe(model.EmbedTokens.forward).Runner(.{.embedding}),
     layers: []LayerRunner,

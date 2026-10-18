@@ -2,15 +2,21 @@ const std = @import("std");
 
 const zml = @import("zml");
 
+// Options de creation d'une session d'inference : longueur de sequence et backend
+// d'attention.
 pub const SessionOptions = struct {
     seqlen: u32,
     backend: zml.attention.Backend,
 };
 
+// Options de generation du modele, actuellement la strategie d'echantillonnage des
+// tokens.
 pub const GenerationOptions = struct {
     sampling_strategy: zml.nn.SamplingStrategy = .{},
 };
 
+// Phase d'execution du modele (prefill ou decode), avec helpers pour les messages de
+// compilation et le nommage des programmes de noyaux.
 pub const Phase = enum {
     prefill,
     decode,
@@ -47,6 +53,8 @@ pub const Phase = enum {
     }
 };
 
+// Meshes de sharding du modele : un mesh pour les couches du modele et un pour les
+// experts, adaptes a la topologie de la plateforme.
 pub const Meshes = struct {
     model: *const zml.Mesh,
     experts: *const zml.Mesh,

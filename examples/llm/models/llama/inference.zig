@@ -8,6 +8,8 @@ const model = @import("model.zig");
 const log = std.log.scoped(.llama);
 const Phase = common.Phase;
 
+// Parametres de compilation LLaMA : tenseurs de tokens prefill/decode, cache KV, RNG,
+// metadonnees et parametres d'attention selon le backend.
 pub const CompilationParameters = struct {
     prefill_tokens: zml.Tensor,
     decode_tokens: zml.Tensor,
@@ -68,6 +70,8 @@ pub const CompilationParameters = struct {
 
 pub const CompilationOptions = CompilationParameters;
 
+// Arguments d'execution d'un pas de forward : io, buffers de tokens, indices de token,
+// cache KV, RNG et metadonnees d'attention.
 pub const Args = struct {
     io: std.Io,
     tokens_buf: *zml.Buffer,
@@ -77,6 +81,8 @@ pub const Args = struct {
     attention_metadata_buffers: *const zml.Bufferized(zml.attention.Metadata),
 };
 
+// Modele LLaMA compile : modele charge de reference, kernels prefill/decode et
+// parametres de compilation associes.
 pub const CompiledModel = struct {
     loaded_model: *const model.LoadedModel,
     prefill: KernelExe,
@@ -114,7 +120,11 @@ pub const CompiledModel = struct {
 
 pub const Inference = CompiledModel;
 
+// Forward LLaMA complet expose a la compilation : entrees/sorties typees et fonction
+// de forward (embedding, couches, tete d'echantillonnage).
 const Forward = struct {
+    // Entrees du forward : poids du modele, tokens, indice de token, cache KV, RNG et
+    // parametres d'attention.
     pub const Input = struct {
         weights: model.Model,
         tokens: zml.Tensor,
@@ -125,6 +135,7 @@ const Forward = struct {
         attention_parameters: zml.attention.Parameters,
     };
 
+    // Sorties du forward : prochain token, cache KV et RNG mis a jour.
     pub const Output = struct {
         tokens: zml.Tensor,
         kv_cache: model.KvCache,
@@ -169,6 +180,7 @@ const Forward = struct {
 
 pub const KernelExe = zml.FnExe(Forward.forward);
 
+// Runner du forward lie aux buffers de poids du modele.
 pub const KernelRunner = struct {
     forward: KernelExe.Runner(.{.weights}),
 
