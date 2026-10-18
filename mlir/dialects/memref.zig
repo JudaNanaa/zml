@@ -12,6 +12,8 @@ pub const kDynamic: i64 = std.math.minInt(i64);
 // Allocation — alloc / alloca / dealloc / realloc
 // =============================================================================
 
+// Options d'allocation `memref.alloc`/`memref.alloca` : alignement optionnel en
+// octets.
 pub const AllocOpts = struct {
     alignment: ?i64 = null,
 };
@@ -124,6 +126,7 @@ pub fn realloc(
 // Load / Store — plain (non-affine) memref load/store
 // =============================================================================
 
+// Options de `memref.load` : indication de chargement non temporel.
 pub const LoadOpts = struct {
     /// Hint that the lowering may use a non-temporal load.
     nontemporal: bool = false,
@@ -156,6 +159,7 @@ pub fn load(
     });
 }
 
+// Options de `memref.store` : indication de depot non temporel.
 pub const StoreOpts = struct {
     nontemporal: bool = false,
 };
@@ -193,6 +197,8 @@ pub fn store(
 
 /// Matches `mlir::arith::AtomicRMWKind` (I64EnumAttr) in upstream `Arith` td.
 /// memref.atomic_rmw and affine.parallel both encode reductions through this.
+// Operations de reduction atomique de `memref.atomic_rmw` (add, mul, min/max,
+// and/or...), identiques a `mlir::arith::AtomicRMWKind`.
 pub const AtomicRMWKind = enum(i64) {
     addf = 0,
     addi = 1,
@@ -374,6 +380,8 @@ pub fn view(
 
 /// Mixed static/dynamic offsets-sizes-strides — `static_*` slots holding
 /// `kDynamic` consume one entry from the corresponding `dynamic_*` slice.
+// Arguments de `memref.subview` : offsets/tailles/pas statiques (avec `kDynamic`
+// pour les slots dynamiques) et listes dynamiques associees.
 pub const SubViewArgs = struct {
     static_offsets: []const i64,
     static_sizes: []const i64,
@@ -422,6 +430,8 @@ pub fn subview(
     });
 }
 
+// Arguments de `memref.reinterpret_cast` : nouveaux offset/tailles/pas,
+// statiques ou dynamiques.
 pub const ReinterpretCastArgs = struct {
     static_offsets: []const i64,
     static_sizes: []const i64,
@@ -493,6 +503,8 @@ pub fn reshape(
 /// `reassociation[i]` lists the source dimensions that map into result dim i
 /// (for collapse_shape) or the result dimensions that come from source dim i
 /// (for expand_shape). Each inner slice is stored as an `IntegerAttr` array.
+// Arguments de `memref.expand_shape`/`collapse_shape` : regroupements de
+// dimensions et, pour expand, forme de sortie statique/dynamique.
 pub const ReassociationArgs = struct {
     /// Index groupings.
     reassociation: []const []const i64,
@@ -615,6 +627,8 @@ pub fn copy(
     });
 }
 
+// Options de `memref.prefetch` : lecture/ecriture, indice de localite (0 a 3)
+// et cache de donnees ou d'instructions.
 pub const PrefetchOpts = struct {
     /// True for a write prefetch, false for a read prefetch.
     is_write: bool = false,
@@ -653,7 +667,10 @@ pub fn prefetch(
 // Globals
 // =============================================================================
 
+// Arguments de `memref.global` : nom, type, valeur initiale/constante,
+// alignement et visibilite du symbole.
 pub const GlobalArgs = struct {
+    // Visibilite d'une globale memref : publique, privee ou imbriquee.
     pub const Visibility = enum { public, private, nested };
 
     name: []const u8,

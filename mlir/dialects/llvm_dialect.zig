@@ -8,6 +8,8 @@ const mlir = @import("mlir");
 // =============================================================================
 
 /// Address spaces of `!llvm.ptr<N>` on NVPTX.
+// Espaces d'adressage de `!llvm.ptr<N>` sur NVPTX (generic, global, shared,
+// constant, local, tensor TMEM, shared de cluster).
 pub const NVPTXAddressSpace = enum(u32) {
     generic = 0,
     global = 1,
@@ -69,6 +71,8 @@ pub fn fmul(ctx: *mlir.Context, lhs: *const mlir.Value, rhs: *const mlir.Value, 
 // Memory
 // =============================================================================
 
+// Options de `llvm.load` : alignement optionnel et chargement invariant
+// (memoire non modifiee pendant l'execution du kernel).
 pub const LoadOptions = struct {
     /// Alignment in bytes (none: the natural alignment of the type).
     alignment: ?u64 = null,
@@ -99,6 +103,7 @@ pub fn load(ctx: *mlir.Context, pointer: *const mlir.Value, result_type: *const 
     });
 }
 
+// Options de `llvm.store` : alignement optionnel du depot.
 pub const StoreOptions = struct {
     /// Alignment in bytes (none: the natural alignment of the type).
     alignment: ?u64 = null,
@@ -149,6 +154,8 @@ pub fn call_intrinsic(
     });
 }
 
+// Options de `llvm.inline_asm` : chaine de contraintes LLVM et presence
+// d'effets de bord empechant l'elimination ou la fusion.
 pub const InlineAsmOptions = struct {
     /// LLVM constraint string, e.g. `"=r,r"` (outputs first).
     constraints: []const u8 = "",

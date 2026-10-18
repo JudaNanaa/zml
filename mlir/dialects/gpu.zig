@@ -5,6 +5,7 @@ const mlir = @import("mlir");
 const stdx = @import("stdx");
 
 /// A dimension, either `x`, `y` or `z`.
+// Axe d'indexation GPU (x, y ou z) utilise par les ops d'identifiant.
 pub const Dim = enum(u32) {
     x = 0,
     y = 1,
@@ -12,6 +13,7 @@ pub const Dim = enum(u32) {
 };
 
 /// Indexing modes supported by `gpu.shuffle`.
+// Modes d'indexation supportes par `gpu.shuffle` (xor, down, up, idx).
 pub const ShuffleMode = enum(u32) {
     xor = 0,
     down = 1,
@@ -20,6 +22,7 @@ pub const ShuffleMode = enum(u32) {
 };
 
 /// `#gpu<dim ...>`.
+// Attribut `#gpu.dim<...>` : encapsule un `Dim` pour les ops d'identifiant GPU.
 pub const DimensionAttr = opaque {
     const Self = @This();
     const M = mlir.Methods(Self, c.MlirAttribute);
@@ -36,6 +39,7 @@ pub const DimensionAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction de `#gpu.dim` : l'axe `Dim` a encapsuler.
     pub const InitArgs = struct {
         value: Dim,
     };
@@ -51,6 +55,7 @@ pub const DimensionAttr = opaque {
 };
 
 /// `#gpu<shuffle_mode ...>`.
+// Attribut `#gpu.shuffle_mode<...>` : encapsule un `ShuffleMode`.
 pub const ShuffleModeAttr = opaque {
     const Self = @This();
     const M = mlir.Methods(Self, c.MlirAttribute);
@@ -67,6 +72,7 @@ pub const ShuffleModeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction de `#gpu.shuffle_mode` : le `ShuffleMode`.
     pub const InitArgs = struct {
         value: ShuffleMode,
     };
@@ -94,6 +100,8 @@ pub fn module(ctx: *mlir.Context, name: []const u8, body: *mlir.Block, location:
     });
 }
 
+// Arguments du builder `gpu.func` : nom, types des arguments, corps, marqueur
+// `kernel` et attributs supplementaires.
 pub const FuncArgs = struct {
     name: []const u8,
     args: []const *const mlir.Type,

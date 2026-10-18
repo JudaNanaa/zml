@@ -9,6 +9,8 @@ const stdx = @import("stdx");
 // =============================================================================
 
 /// Kind of combining function for contractions and reductions.
+// Fonction de combinaison des contractions et reductions vectorielles (add,
+// mul, min/max, and, or, xor...), encodee en attribut `#vector.kind`.
 pub const CombiningKind = enum(u32) {
     add = 0,
     mul = 1,
@@ -34,6 +36,8 @@ pub const CombiningKind = enum(u32) {
 };
 
 /// Iterator type of a `vector.contract` dimension.
+// Type d'iteration d'une dimension de `vector.contract` : parallele ou
+// reduction.
 pub const IteratorType = enum(u32) {
     parallel = 0,
     reduction = 1,
@@ -46,6 +50,7 @@ pub const IteratorType = enum(u32) {
 };
 
 /// `#vector.kind<...>`.
+// Attribut `#vector.kind<...>` : encapsule un `CombiningKind`.
 pub const CombiningKindAttr = opaque {
     const Self = @This();
     const M = mlir.Methods(Self, c.MlirAttribute);
@@ -62,6 +67,7 @@ pub const CombiningKindAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction de `#vector.kind` : le `CombiningKind`.
     pub const InitArgs = struct {
         value: CombiningKind,
     };
@@ -77,6 +83,7 @@ pub const CombiningKindAttr = opaque {
 };
 
 /// `#vector.iterator_type<...>`.
+// Attribut `#vector.iterator_type<...>` : encapsule un `IteratorType`.
 pub const IteratorTypeAttr = opaque {
     const Self = @This();
     const M = mlir.Methods(Self, c.MlirAttribute);
@@ -93,6 +100,7 @@ pub const IteratorTypeAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction de `#vector.iterator_type` : l'`IteratorType`.
     pub const InitArgs = struct {
         value: IteratorType,
     };
@@ -203,6 +211,8 @@ pub fn to_elements(
 // Strided slice — extract / insert with offsets/sizes/strides
 // =============================================================================
 
+// Arguments des tranches stridees vectorielles (`vector.extract_strided_slice`
+// et insertion) : offsets, tailles et pas par dimension.
 pub const StridedSliceArgs = struct {
     offsets: []const i64,
     sizes: []const i64,
@@ -457,6 +467,8 @@ pub fn yield(ctx: *mlir.Context, values: []const *const mlir.Value, location: *c
 // Reductions — reduction / multi_reduction / contract
 // =============================================================================
 
+// Options de `vector.reduction` : accumulateur d'entree optionnel du type du
+// resultat.
 pub const ReductionOpts = struct {
     /// Optional accumulator (scalar of result type). When provided the op is
     /// `result = combine(reduce(src), acc)`.
@@ -511,6 +523,7 @@ pub fn multi_reduction(
     });
 }
 
+// Options de `vector.contract` : fonction de combinaison (addition par defaut).
 pub const ContractOpts = struct {
     kind: CombiningKind = .add,
 };
@@ -550,6 +563,8 @@ pub fn contract(
 // Memory transfers — load / store / masked / gather / scatter / transfer_*
 // =============================================================================
 
+// Options communes aux chargements et depots vectoriels : non temporel et
+// alignement optionnel.
 pub const LoadStoreOpts = struct {
     nontemporal: bool = false,
     alignment: ?i64 = null,
@@ -760,6 +775,8 @@ pub fn compress_store(
 // Transfer ops — vector.transfer_read / vector.transfer_write
 // =============================================================================
 
+// Arguments de `vector.transfer_read` : permutation map, `in_bounds` par
+// dimension du vecteur resultat et masque optionnel.
 pub const TransferReadArgs = struct {
     /// `affine_map<(d0,...) -> (...)>` attribute. Build with
     /// `mlir.parseAffineMapAttribute` or `mlir.Attribute.affineMap(...)`.
@@ -809,6 +826,8 @@ pub fn transfer_read(
     });
 }
 
+// Arguments de `vector.transfer_write` : permutation map, `in_bounds`, masque
+// optionnel et type de resultat si la destination est un tenseur.
 pub const TransferWriteArgs = struct {
     permutation_map: *const mlir.Attribute,
     in_bounds: []const bool,

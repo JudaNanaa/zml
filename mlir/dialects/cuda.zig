@@ -37,6 +37,8 @@ pub fn assumeKernelAttr(ctx: *mlir.Context, value: bool) *const mlir.Attribute {
     return (ops.AssumeKernelAttr.get(ctx, .{ .value = value }) catch unreachable).attribute();
 }
 
+// Arguments du builder `cuda.kernel` : nom, type de fonction, corps du kernel,
+// attributs d'arguments et attributs supplementaires.
 pub const KernelArgs = struct {
     name: []const u8,
     function_type: *const mlir.Type,
@@ -66,6 +68,8 @@ pub fn cast(ctx: *mlir.Context, dst: *const mlir.Type, src: *const mlir.Value, l
     return ops.cast(ctx, src, dst, location);
 }
 
+// Arguments de `cuda.launch_cfg_create` : dimensions de bloc et de grille 3-D,
+// smem dynamique, stream et borne `max_attrs` du type de configuration.
 pub const LaunchConfigCreateArgs = struct {
     max_attrs: u32,
     block: [3]*const mlir.Value,
@@ -113,6 +117,8 @@ pub fn launch_cfg_programmatic_stream_serialization_allowed(ctx: *mlir.Context, 
     return ops.launch_cfg_programmatic_stream_serialization_allowed(ctx, config, enabled, location);
 }
 
+// Arguments de `cuda.launch_ex` : configuration de lancement, entrees, cible
+// (`callee`) et attribut optionnel `assume_kernel`.
 pub const LaunchExArgs = struct {
     config: *const mlir.Value,
     inputs: []const *const mlir.Value,

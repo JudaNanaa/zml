@@ -3,7 +3,10 @@ const std = @import("std");
 const mlir = @import("mlir");
 const stdx = @import("stdx");
 
+// Arguments du builder `func.func` : nom, types/attributs des arguments et des
+// resultats, corps, visibilite et options (`no_inline`, verification).
 const FuncOpArgs = struct {
+    // Visibilite du symbole de fonction : publique ou privee.
     pub const Visibility = enum {
         public,
         private,

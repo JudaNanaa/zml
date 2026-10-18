@@ -3,6 +3,8 @@ const std = @import("std");
 const mlir = @import("mlir");
 const stdx = @import("stdx");
 
+// Options de `scf.for` : comparaison non signee de l'indice de boucle et pragma
+// `tt.num_stages`.
 pub const ForOpts = struct {
     /// Per td: `scf.for` uses signed comparison by default. Setting this emits
     /// the `unsignedCmp` UnitAttr so the induction variable advances with
@@ -149,6 +151,7 @@ pub fn condition(
     });
 }
 
+// Options de `scf.execute_region` : empeche l'inlining avec `no_inline`.
 pub const ExecuteRegionOpts = struct {
     no_inline: bool = false,
 };

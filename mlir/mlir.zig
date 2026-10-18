@@ -65,6 +65,7 @@ pub inline fn string(str: c.MlirStringRef) []const u8 {
     return str.data[0..str.length];
 }
 
+// Contexte transmis aux callbacks C de MLIR : writer de sortie et erreur eventuelle.
 pub const StringCallbackCtx = struct {
     writer: *std.Io.Writer,
     err: ?std.Io.Writer.Error = null,
@@ -151,6 +152,7 @@ pub fn Methods(comptime T: type, comptime NativeT: type) type {
     };
 }
 
+// Registre opaque listant les dialectes MLIR disponibles pour un contexte.
 pub const DialectRegistry = opaque {
     const M = Methods(DialectRegistry, c.MlirDialectRegistry);
 
@@ -172,6 +174,7 @@ pub const DialectRegistry = opaque {
     }
 };
 
+// Gestionnaire opaque executant des passes MLIR sur une operation.
 pub const PassManager = opaque {
     const M = Methods(PassManager, c.MlirPassManager);
 
@@ -200,6 +203,7 @@ pub const PassManager = opaque {
         }
     }
 
+    // Options d'impression de l'IR avant/apres l'execution des passes.
     pub const EnableIRPrintingOpts = struct {
         printBeforeAll: bool = false,
         printAfterAll: bool = false,
@@ -228,6 +232,7 @@ pub const PassManager = opaque {
     }
 };
 
+// Vue opaque d'un gestionnaire de passes permettant d'ajouter passes et pipelines.
 pub const OpPassManager = opaque {
     const M = Methods(OpPassManager, c.MlirOpPassManager);
 
@@ -258,6 +263,7 @@ pub const OpPassManager = opaque {
     }
 };
 
+// Passe MLIR opaque, creee par nom via les symboles C enregistres.
 pub const Pass = opaque {
     const M = Methods(Pass, c.MlirPass);
 
@@ -269,12 +275,14 @@ pub const Pass = opaque {
     }
 };
 
+// Contexte MLIR opaque : registre de dialectes, threads et ressources associees.
 pub const Context = opaque {
     const M = Methods(Context, c.MlirContext);
 
     pub const ptr = M.ptr;
     pub const eql = M.eql(c.mlirContextEqual);
 
+    // Options de creation d'un `Context` : registre optionnel et multithreading.
     pub const InitOptions = struct {
         registry: ?*const DialectRegistry = null,
         threading: bool = false,
@@ -351,6 +359,7 @@ pub const Context = opaque {
     }
 };
 
+// Location MLIR opaque decrivant l'origine (fichier, fusion, site d'appel...) d'une IR.
 pub const Location = opaque {
     const M = Methods(Location, c.MlirLocation);
 
@@ -418,6 +427,7 @@ pub const Location = opaque {
         return @ptrCast(c.mlirLocationUnknownGet(ctx.ptr()).ptr);
     }
 
+    // Variante typee d'une location MLIR, obtenue par inspection dynamique.
     pub const Tagged = union(enum) {
         unknown,
         named: *const Named,
@@ -446,6 +456,7 @@ pub const Location = opaque {
             .unknown;
     }
 
+    // Location MLIR nommee (nom + location enfant).
     pub const Named = opaque {
         // Renvoie le nom d'identifiant d'une location nommee.
         pub fn name(location: *const Named) []const u8 {
@@ -459,6 +470,7 @@ pub const Location = opaque {
         }
     };
 
+    // Location MLIR de site d'appel (callee/caller).
     pub const Callsite = opaque {
         // Renvoie la location appelee d'un site d'appel.
         pub fn callee(location: *const Callsite) *const Location {
@@ -471,6 +483,7 @@ pub const Location = opaque {
         }
     };
 
+    // Location MLIR fichier/ligne/colonne.
     pub const FileLineCol = opaque {
         // Reconstruit un `SourceLocation` Zig (fichier, ligne, colonne) depuis une
         // location file/ligne/colonne.
@@ -484,6 +497,7 @@ pub const Location = opaque {
         }
     };
 
+    // Location MLIR fusionnant plusieurs locations en une seule.
     pub const Fused = opaque {
         // Renvoie le nombre de locations composant une location fusionnee.
         pub fn len(location: *const Fused) u32 {
@@ -500,6 +514,7 @@ pub const Location = opaque {
     };
 };
 
+// Type MLIR opaque ; point d'entree pour construire types scalaires, tenseurs, fonctions, etc.
 pub const Type = opaque {
     const M = Methods(Type, c.MlirType);
 
@@ -576,6 +591,7 @@ pub const Type = opaque {
     }
 };
 
+// Type MLIR opaque `index` (entier de taille machine pour l'indexation).
 pub const IndexType = opaque {
     const M = Methods(IndexType, c.MlirType);
 
@@ -590,6 +606,7 @@ pub const IndexType = opaque {
     }
 };
 
+// Enumeration des types entiers MLIR supportes (signes, non signes, signless).
 pub const IntegerTypes = enum {
     i1,
     i2,
@@ -639,7 +656,9 @@ pub const IntegerTypes = enum {
     }
 };
 
+// Type entier MLIR opaque (largeur + signabilite).
 pub const IntegerType = opaque {
+    // Signabilite d'un type entier : signless, signed ou unsigned.
     pub const Signedness = enum {
         signless,
         signed,
@@ -673,6 +692,7 @@ pub const IntegerType = opaque {
     }
 };
 
+// Enumeration des types flottants MLIR supportes (f16, bf16, f32, formats fn...).
 pub const FloatTypes = enum {
     f4e2m1fn,
     f6e2m3fn,
@@ -732,11 +752,13 @@ pub fn FloatType(comptime ft: FloatTypes) type {
     };
 }
 
+// Enumeration des types complexes MLIR (c64, c128).
 pub const ComplexTypes = enum {
     c64,
     c128,
 };
 
+// Type complexe MLIR opaque (base sur flottant f32/f64).
 pub const ComplexType = opaque {
     const M = Methods(ComplexType, c.MlirType);
 
@@ -754,6 +776,7 @@ pub const ComplexType = opaque {
     }
 };
 
+// Attribut MLIR opaque ; porte les metadonnees (entiers, chaines, dictionnaires...).
 pub const Attribute = opaque {
     const M = Methods(Attribute, c.MlirAttribute);
 
@@ -855,6 +878,7 @@ pub const Attribute = opaque {
     }
 };
 
+// Attribut MLIR opaque representant une chaine de caracteres.
 pub const StringAttribute = opaque {
     const M = Methods(StringAttribute, c.MlirAttribute);
 
@@ -874,6 +898,7 @@ pub const StringAttribute = opaque {
     }
 };
 
+// Attribut MLIR opaque representant une valeur entiere.
 pub const IntegerAttribute = opaque {
     const M = Methods(IntegerAttribute, c.MlirAttribute);
 
@@ -902,6 +927,7 @@ pub const IntegerAttribute = opaque {
     }
 };
 
+// Attribut MLIR opaque representant une valeur flottante.
 pub const FloatAttribute = opaque {
     const M = Methods(FloatAttribute, c.MlirAttribute);
 
@@ -920,6 +946,7 @@ pub const FloatAttribute = opaque {
     }
 };
 
+// Attribut MLIR opaque representant une valeur booleenne.
 pub const BoolAttribute = opaque {
     const M = Methods(BoolAttribute, c.MlirAttribute);
 
@@ -939,6 +966,7 @@ pub const BoolAttribute = opaque {
     }
 };
 
+// Attribut MLIR opaque enveloppant un `Type`.
 pub const TypeAttribute = opaque {
     const M = Methods(TypeAttribute, c.MlirAttribute);
 
@@ -958,6 +986,7 @@ pub const TypeAttribute = opaque {
     }
 };
 
+// Dialecte MLIR (structure d'acces) : namespace et contexte associes.
 pub const Dialect = struct {
     const M = Methods(Dialect, c.MlirDialect);
 
@@ -979,6 +1008,7 @@ pub const Dialect = struct {
     }
 };
 
+// Handle opaque permettant de charger/enregistrer un dialecte par son namespace.
 pub const DialectHandle = opaque {
     const M = Methods(DialectHandle, c.MlirDialectHandle);
 
@@ -1015,6 +1045,7 @@ pub const DialectHandle = opaque {
     }
 };
 
+// Identifiant MLIR opaque (chaine interne au contexte, compare par pointeur).
 pub const Identifier = opaque {
     const M = Methods(Identifier, c.MlirIdentifier);
 
@@ -1042,6 +1073,7 @@ pub const Identifier = opaque {
     }
 };
 
+// Module MLIR opaque : conteneur racine des operations (equivalent a l'unite).
 pub const Module = opaque {
     const M = Methods(Module, c.MlirModule);
 
@@ -1088,6 +1120,7 @@ pub const Module = opaque {
     }
 };
 
+// Bloc MLIR opaque : sequence d'operations et d'arguments de bloc.
 pub const Block = opaque {
     const M = Methods(Block, c.MlirBlock);
 
@@ -1172,6 +1205,7 @@ pub const Block = opaque {
     }
 };
 
+// Paire (nom d'attribut, valeur d'attribut) pour les dictionnaires MLIR.
 pub const NamedAttribute = struct {
     inner: c.MlirNamedAttribute,
 
@@ -1220,6 +1254,7 @@ pub const NamedAttribute = struct {
     }
 };
 
+// Attribut MLIR opaque de type dictionnaire associant noms -> attributs.
 pub const DictionaryAttribute = opaque {
     const M = Methods(DictionaryAttribute, c.MlirAttribute);
 
@@ -1253,6 +1288,7 @@ pub const DictionaryAttribute = opaque {
     }
 };
 
+// Valeur MLIR opaque : resultat d'operation ou argument de bloc.
 pub const Value = opaque {
     const M = Methods(Value, c.MlirValue);
 
@@ -1287,6 +1323,7 @@ pub const Value = opaque {
     }
 };
 
+// Operande d'operation MLIR (lien entre une `Value` et son utilisateur).
 pub const OpOperand = opaque {
     const M = Methods(OpOperand, c.MlirOpOperand);
 
@@ -1308,6 +1345,7 @@ pub const OpOperand = opaque {
     }
 };
 
+// Resultat d'operation MLIR (produit par une operation).
 pub const OpResult = opaque {
     const M = Methods(OpResult, c.MlirValue);
 
@@ -1327,6 +1365,7 @@ pub const OpResult = opaque {
     }
 };
 
+// Argument de bloc MLIR (entree d'un bloc).
 pub const BlockArgument = opaque {
     const M = Methods(BlockArgument, c.MlirValue);
 
@@ -1351,6 +1390,7 @@ pub const BlockArgument = opaque {
     }
 };
 
+// Etat de construction d'une operation MLIR avant sa creation definitive.
 pub const OperationState = struct {
     inner: c.MlirOperationState,
 
@@ -1390,6 +1430,7 @@ pub const OperationState = struct {
     }
 };
 
+// Operation MLIR opaque : nom, operandes, resultats, regions, attributs, location.
 pub const Operation = opaque {
     const M = Methods(Operation, c.MlirOperation);
 
@@ -1505,6 +1546,7 @@ pub const Operation = opaque {
         return if (attr.ptr == null) null else @ptrCast(attr.ptr);
     }
 
+    // Options d'impression d'une operation MLIR (debug info, forme generique...).
     pub const PrintFlags = struct {
         elide_large_elements_attrs: ?usize = null,
         debug_info: bool = false,
@@ -1514,6 +1556,7 @@ pub const Operation = opaque {
         assume_verified: bool = false,
         print_name_loc_as_prefix: bool = false,
 
+        // Contexte interne associant une operation a ses options d'impression.
         const Ctx = struct {
             self: *const Operation,
             flags: PrintFlags,
@@ -1567,14 +1610,18 @@ pub const Operation = opaque {
         } };
     }
 
+    // Arguments de `Operation.make` : operandes/resultats, attributs, blocs, location.
     pub const MakeArgs = struct {
+        // Paire (nom, attribut) decrivant un attribut nomme.
         pub const AttrTuple = struct { []const u8, *const Attribute };
 
+        // Operandes d'une operation, sous forme plate ou variadique (segments).
         pub const Operands = union(enum) {
             flat: []const *const Value,
             variadic: []const []const *const Value,
         };
 
+        // Types de resultats d'une operation, sous forme plate ou variadique.
         pub const ResultTypes = union(enum) {
             flat: []const *const Type,
             variadic: []const []const *const Type,
@@ -1663,11 +1710,13 @@ pub const Operation = opaque {
         return @ptrCast(c.mlirOperationGetLocation(self.ptr()).ptr);
     }
 
+    // Ordre de parcours des operations lors d'un `walk` (pre-ordre ou post-ordre).
     pub const WalkOrder = enum(c.MlirWalkOrder) {
         pre_order = c.MlirWalkPreOrder,
         post_order = c.MlirWalkPostOrder,
     };
 
+    // Resultat de la fonction de parcours : continuer, interrompre ou sauter.
     pub const WalkResult = enum(c.MlirWalkResult) {
         advance = c.MlirWalkResultAdvance,
         interrupt = c.MlirWalkResultInterrupt,
@@ -1695,9 +1744,11 @@ pub const Operation = opaque {
         );
     }
 
+    // Configuration de serialisation d'une operation en bytecode MLIR.
     pub const BytecodeWriterConfig = struct {
         desired_emit_version: ?usize = null,
 
+        // Contexte interne associant une operation a sa configuration de bytecode.
         const Ctx = struct {
             self: *const Operation,
             config: ?BytecodeWriterConfig,
@@ -1749,6 +1800,7 @@ pub const Operation = opaque {
     }
 };
 
+// Region MLIR opaque : liste de blocs rattachee a une operation.
 pub const Region = opaque {
     const M = Methods(Region, c.MlirRegion);
 
@@ -1801,6 +1853,7 @@ pub const Region = opaque {
     }
 };
 
+// Type MLIR opaque "shaped" (tenseur, vecteur, memref) : forme + type d'element.
 pub const ShapedType = opaque {
     const M = Methods(ShapedType, c.MlirType);
 
@@ -1838,6 +1891,7 @@ pub const ShapedType = opaque {
     }
 };
 
+// Type MLIR opaque de tenseur range (dimensions et type d'element).
 pub const RankedTensorType = opaque {
     const M = Methods(RankedTensorType, c.MlirType);
 
@@ -1892,6 +1946,7 @@ pub const RankedTensorType = opaque {
     }
 };
 
+// Attribut MLIR opaque "dense elements" stockant les valeurs d'un type shaped.
 pub const DenseElementsAttribute = opaque {
     const M = Methods(DenseElementsAttribute, c.MlirAttribute);
 
@@ -1912,6 +1967,7 @@ pub const DenseElementsAttribute = opaque {
     }
 };
 
+// Enumeration des types elementaires d'un attribut dense-array.
 pub const DenseArrayTypes = enum {
     bool,
     i8,
@@ -1977,6 +2033,7 @@ pub fn DenseArrayAttribute(comptime ElementType: DenseArrayTypes) type {
     };
 }
 
+// Attribut MLIR opaque de type tableau (liste ordonnee d'attributs).
 pub const ArrayAttribute = opaque {
     const M = Methods(ArrayAttribute, c.MlirAttribute);
 
@@ -2001,6 +2058,7 @@ pub const ArrayAttribute = opaque {
     }
 };
 
+// Type MLIR opaque de fonction (types d'arguments et de resultats).
 pub const FunctionType = opaque {
     const M = Methods(FunctionType, c.MlirType);
     pub const isAFn = c.mlirTypeIsAFunction;
@@ -2021,6 +2079,7 @@ pub const FunctionType = opaque {
     }
 };
 
+// Attribut MLIR opaque de reference symbolique plate vers un symbole nomme.
 pub const FlatSymbolRefAttribute = opaque {
     const M = Methods(FlatSymbolRefAttribute, c.MlirAttribute);
 
@@ -2040,6 +2099,7 @@ pub const FlatSymbolRefAttribute = opaque {
     }
 };
 
+// Attribut MLIR opaque "unite" (sans valeur, marqueur).
 pub const UnitAttribute = opaque {
     const M = Methods(UnitAttribute, c.MlirAttribute);
 
@@ -2054,6 +2114,7 @@ pub const UnitAttribute = opaque {
     }
 };
 
+// Type MLIR opaque de memref range (forme, layout, espace memoire).
 pub const MemRefType = opaque {
     const M = Methods(MemRefType, c.MlirType);
 
@@ -2122,6 +2183,7 @@ pub const MemRefType = opaque {
     }
 };
 
+// Type MLIR opaque de vecteur (forme et type d'element, scalable ou non).
 pub const VectorType = opaque {
     const M = Methods(VectorType, c.MlirType);
 
@@ -2175,6 +2237,7 @@ pub const VectorType = opaque {
     }
 };
 
+// Type MLIR opaque de memref non range (rang inconnu a la compilation).
 pub const UnrankedMemRefType = opaque {
     const M = Methods(UnrankedMemRefType, c.MlirType);
 
@@ -2193,6 +2256,7 @@ pub const UnrankedMemRefType = opaque {
     }
 };
 
+// Expression affine MLIR opaque (dimension, symbole, constante ou combinaison).
 pub const AffineExpr = opaque {
     const M = Methods(AffineExpr, c.MlirAffineExpr);
 
@@ -2241,6 +2305,7 @@ pub const AffineExpr = opaque {
     }
 };
 
+// Map affine MLIR opaque : dimensions/symboles vers des expressions resultats.
 pub const AffineMap = opaque {
     const M = Methods(AffineMap, c.MlirAffineMap);
 
@@ -2304,6 +2369,7 @@ pub const AffineMap = opaque {
     }
 };
 
+// Attribut MLIR opaque enveloppant une `AffineMap`.
 /// AffineMapAttr — `affine_map<(d0,...) -> (...)>` wrapped as an attribute.
 pub const AffineMapAttribute = opaque {
     const M = Methods(AffineMapAttribute, c.MlirAttribute);
@@ -2324,6 +2390,7 @@ pub const AffineMapAttribute = opaque {
     }
 };
 
+// Ensemble d'entiers affine MLIR opaque (contraintes et egalites).
 pub const IntegerSet = opaque {
     const M = Methods(IntegerSet, c.MlirIntegerSet);
 
@@ -2352,6 +2419,7 @@ pub const IntegerSet = opaque {
     }
 };
 
+// Attribut MLIR opaque enveloppant un `IntegerSet`.
 pub const IntegerSetAttribute = opaque {
     const M = Methods(IntegerSetAttribute, c.MlirAttribute);
 

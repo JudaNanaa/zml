@@ -9,6 +9,7 @@ const stdx = @import("stdx");
 // =============================================================================
 
 /// Arith cmpi predicates. Values match mlir::arith::CmpIPredicate (I64EnumAttr).
+// Predicats de comparaison entiere de `arith.cmpi` (eq/ne/slt/.../uge).
 pub const CmpIPredicate = enum(i64) {
     eq = 0,
     ne = 1,
@@ -23,6 +24,8 @@ pub const CmpIPredicate = enum(i64) {
 };
 
 /// Arith cmpf predicates. Values match mlir::arith::CmpFPredicate.
+// Predicats de comparaison flottante de `arith.cmpf` (oeq/ogt/.../always_true,
+// avec les variantes ordonnees et non ordonnees).
 pub const CmpFPredicate = enum(i64) {
     always_false = 0,
     oeq = 1,
@@ -47,6 +50,8 @@ pub const CmpFPredicate = enum(i64) {
 // =============================================================================
 
 /// `mlir::arith::FastMathFlags`, one bit per flag.
+// Drapeaux fast-math d'arith (reassoc, nnan, contract...), un bit par drapeau,
+// avec les valeurs pretes `none` et `fast`.
 pub const FastMathFlags = packed struct(u32) {
     reassoc: bool = false,
     nnan: bool = false,
@@ -62,6 +67,8 @@ pub const FastMathFlags = packed struct(u32) {
 };
 
 /// `#arith.fastmath<...>`.
+// Attribut `#arith.fastmath<...>` : encapsule des `FastMathFlags` et fournit
+// leur creation/lecture via l'API C.
 pub const FastMathAttr = opaque {
     const Self = @This();
     const M = mlir.Methods(Self, c.MlirAttribute);
@@ -78,6 +85,7 @@ pub const FastMathAttr = opaque {
     pub fn attribute(self: *const Self) *const mlir.Attribute {
         return @ptrCast(self);
     }
+    // Arguments de construction de `#arith.fastmath` : les `FastMathFlags`.
     pub const InitArgs = struct {
         value: FastMathFlags,
     };
@@ -366,6 +374,7 @@ pub const index_castui = castOp("arith.index_castui").call;
 // =============================================================================
 
 /// Matches `Arith_RoundingModeAttr` (I32EnumAttr; see arith_dialect.td).
+// Modes d'arrondi de `arith.convertf` (correspond a `Arith_RoundingModeAttr`).
 pub const RoundingMode = enum(i32) {
     to_nearest_even = 0,
     downward = 1,
@@ -374,6 +383,8 @@ pub const RoundingMode = enum(i32) {
     to_nearest_away = 4,
 };
 
+// Options de `arith.convertf` : mode d'arrondi optionnel pour la conversion
+// flottante de meme largeur (ex. f16 <-> bf16).
 pub const ConvertFOpts = struct {
     rounding: ?RoundingMode = null,
 };

@@ -70,6 +70,8 @@ pub fn max(
 // affine.for / affine.yield
 // =============================================================================
 
+// Options de `affine.for` : bornes constantes ou par `AffineMap`, pas de la
+// boucle et valeurs portees d'une iteration a l'autre (`inits`).
 pub const ForArgs = struct {
     /// Constant lower bound. Pass `null` when supplying a `lower_bound_map`.
     lower_bound: ?i64 = null,
@@ -290,6 +292,8 @@ pub fn vector_store(
 // affine.parallel
 // =============================================================================
 
+// Options de `affine.parallel` : bande parallele multi-dimensionnelle, bornes
+// par maps, groupes de bornes, pas et reductions (kinds `AtomicRMWKind`).
 pub const ParallelArgs = struct {
     /// Per-loop-dim reductions, one entry per result. Use the same kinds as
     /// `mlir.dialects.memref.AtomicRMWKind` (the dialect uses
@@ -368,6 +372,8 @@ pub fn parallel(
 // affine.delinearize_index / affine.linearize_index
 // =============================================================================
 
+// Arguments de `affine.delinearize_index` : bases statiques et dynamiques
+// decomposant un indice lineaire en indices multi-dimensionnels.
 pub const DelinearizeArgs = struct {
     static_basis: []const i64,
     dynamic_basis: []const *const mlir.Value = &.{},
@@ -396,6 +402,8 @@ pub fn delinearize_index(
     });
 }
 
+// Arguments de `affine.linearize_index` : indices multi-dimensionnels, bases
+// statiques/dynamiques et marqueur `disjoint` de l'attribut homonyme.
 pub const LinearizeArgs = struct {
     multi_index: []const *const mlir.Value,
     static_basis: []const i64,
