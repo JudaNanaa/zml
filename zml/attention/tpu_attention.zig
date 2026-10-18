@@ -17,7 +17,9 @@ test {
     std.testing.refAllDecls(ragged_attention);
 }
 
+// Attention paginée pour TPU via un noyau Mosaic (options, paramètres et préparation).
 pub const mosaic_tpu = struct {
+    // Entrées préparées pour le noyau TPU : requêtes, pages KV et longueurs de séquences.
     const PreparedInputs = struct {
         q: zml.Tensor,
         kv_pages: zml.Tensor,
@@ -34,6 +36,7 @@ pub const mosaic_tpu = struct {
         return (std.math.divCeil(usize, head_dim, alignment) catch unreachable) * alignment;
     }
 
+    // Options du noyau TPU paginé (lot, pages, longueurs et dimensions de têtes).
     pub const Options = struct {
         is_prefill: bool,
         batch_size: usize,
@@ -56,6 +59,7 @@ pub const mosaic_tpu = struct {
         }
     };
 
+    // Paramètres du noyau TPU paginé stockés en tenseurs (table de pages et longueurs).
     pub const Parameters = struct {
         opts: Options,
         block_table: zml.Tensor,

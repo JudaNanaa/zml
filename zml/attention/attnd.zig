@@ -8,11 +8,13 @@ const zml = @import("../zml.zig");
 const log = std.log.scoped(.@"zml/attnd");
 var context: ?*Context = null;
 
+// Configuration d'enregistrement attnd : adresse du serveur et MTU du réseau.
 pub const Config = struct {
     destination: std.Io.net.IpAddress,
     mtu: u16,
 };
 
+// Paramètres de communication attnd (dimensions de tête, têtes et découpage en paquets).
 pub const Parameters = struct {
     model_id: ModelId,
     head_dim: u32,
@@ -22,6 +24,7 @@ pub const Parameters = struct {
     num_q_per_packet: u8,
     is_prefill: bool,
 
+    // Sous-ensemble de paramètres fournis par l'appelant pour initialiser `Parameters`.
     pub const Init = struct {
         model_id: ModelId,
         head_dim: u32,
@@ -58,6 +61,7 @@ pub const Parameters = struct {
     }
 };
 
+// Métadonnées d'attention attnd, stockées sous forme de tenseurs scalaires.
 pub const Metadata = struct {
     conversation_id: zml.Tensor,
     layer_id: zml.Tensor,
@@ -113,6 +117,7 @@ pub fn deinit() void {
     }
 }
 
+// État global attnd : un client UDP par device et le MTU négocié.
 const Context = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -193,6 +198,7 @@ pub fn causalAttention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_offset
     return out.attn;
 }
 
+// Table des custom calls attnd exposés au compilateur (nom et schéma entrées/sorties/attributs).
 pub const targets = struct {
     const NAME = "attnd";
 
@@ -204,14 +210,17 @@ pub const targets = struct {
     });
 };
 
+// Entrée du custom call attnd : le buffer `mqkv` concaténé.
 const Input = struct {
     mqkv: zml.Tensor,
 };
 
+// Sortie du custom call attnd : le tenseur d'attention.
 const Output = struct {
     attn: zml.Shape,
 };
 
+// Attributs du custom call attnd : modèle, dimensions de tête et tailles d'octets des buffers.
 const Attributes = struct {
     model_id: ModelId,
     head_dim: u32,
@@ -322,6 +331,7 @@ fn attndCall(
 
 const MAX_CONCURRENT_PACKETS_PER_CLIENT = 32;
 
+// Client UDP d'un device vers le serveur attnd (socket, adresse de destination et buffer de paquet).
 const Client = struct {
     socket: std.Io.net.Socket,
     destination: std.Io.net.IpAddress,
@@ -435,6 +445,7 @@ const Client = struct {
     }
 };
 
+// Message attnd brut : en-tête fixe suivi d'une charge utile.
 pub const Message = struct {
     header: *align(1) const Header,
     payload: []const u8,
@@ -457,6 +468,7 @@ pub const Message = struct {
     }
 };
 
+// Requête attnd : en-tête plus les blocs bruts q, k et v.
 pub const Request = struct {
     header: *align(1) const Header,
     q: []const u8,
@@ -466,9 +478,11 @@ pub const Request = struct {
 
 pub const Response = Message;
 
+// En-tête binaire du protocole attnd, partagé entre client et serveur (disposition réseau).
 pub const Header = extern struct {
     pub const MAGIC: [3]u8 = .{ 'Z', 'M', 'L' }; // 0x5A4D4C
 
+    // Type de message attnd : attention, début de conversation ou ping.
     pub const Type = enum(u8) {
         // Compute attention
         attn = 'a',
@@ -506,6 +520,7 @@ pub const Header = extern struct {
     }
 };
 
+// Identifiants des modèles supportés par le serveur attnd.
 pub const ModelId = enum(u8) {
     @"llama-3.1-8B" = 0,
     @"llama-3.2-1B" = 1,

@@ -86,7 +86,9 @@ fn dequantKv(loaded: Value, scale: Value, kv_is_fp8: bool, q_dtype: DType) Value
     return loaded.to(.f32).mul(scale).to(q_dtype);
 }
 
+// Passe d'attention unifiée 3D pour OneAPI/XPU (noyau `kernel_unified_attention_3d_ptr`).
 pub const KernelUnifiedAttention3dPtr = struct {
+    // Configuration du noyau unifié 3D OneAPI (types, têtes, tuiles et options d'attention).
     pub const Config = struct {
         q_dtype: DType,
         kv_dtype: DType,

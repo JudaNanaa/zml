@@ -3,12 +3,14 @@ const platforms = @import("platforms");
 const zml = @import("../../zml.zig");
 const stdx = zml.stdx;
 
+// Spécification d'un noyau NKI à charger (nom, point d'entrée et chemin source).
 const KernelSpec = struct {
     name: []const u8,
     entrypoint: []const u8,
     source_path: []const u8,
 };
 
+// Paramètres d'attention Neuron : cible du compilateur et noyaux NKI decode/prefill.
 pub const Parameters = struct {
     compiler_target: []const u8,
     decode_kernel: KernelSpec,

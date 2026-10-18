@@ -17,6 +17,7 @@ const zml = @import("../../zml.zig");
 const Mla = @import("../paged_attention.zig").Mla;
 const Tensor = zml.Tensor;
 
+// Configuration du noyau CuTe sparse-MLA : capacités de cache, têtes et cluster.
 pub const Config = struct {
     queries: i64,
     window_capacity: i64,
@@ -61,6 +62,7 @@ pub const Config = struct {
     }
 };
 
+// Entrées du noyau : requêtes et lignes physiques des caches fenêtre et compressé.
 /// Kernel inputs: flat cache rows and per-query physical row indices.
 pub const Inputs = struct {
     q: zml.Tensor, // bf16 [queries, heads, 512]
@@ -200,6 +202,7 @@ pub fn pagedAttention(args: Mla.SparseAttentionArgs, opts: Mla.Options) Tensor {
     return zml.ops.manualComputation(ShardContext.run, context, args.q.shape().rename(.{ .q = .b })).rename(.{ .b = .q });
 }
 
+// Contexte par device : têtes de ce shard et buffers de cache qu'il consomme.
 /// Per-device part: this shard's heads, run in groups of 16 (a TP4 shard has exactly 16).
 const ShardContext = struct {
     q: Tensor,

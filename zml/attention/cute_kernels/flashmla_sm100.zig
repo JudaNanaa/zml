@@ -26,6 +26,7 @@ const cute = zml.kernel.cute;
 const B = cute.Builder;
 const V = cute.Value;
 
+// Configuration du noyau flash-MLA SM100 (capacités de cache, échelle et clustering).
 pub const Cfg = struct {
     queries: i64,
     window_capacity: i64,
@@ -66,6 +67,7 @@ const log2e = 1.4426950408889634;
 const rescale_threshold = 32.0;
 
 // Shared memory plan (bytes).
+// Plan de la mémoire partagée du noyau, en octets (tuiles Q/K et anneau de lignes brutes).
 const smem = struct {
     const tile = [2]i32{ 0, 65536 };
     /// Q of token parity kb (SW128 K-major, the B operand of QK).
@@ -103,6 +105,7 @@ const smem = struct {
     const inbox = 32768;
 };
 
+// Barrières mbarrier nommées du noyau, avec leur offset dans la mémoire partagée.
 const Bar = enum(i32) {
     raw_full = 0, // [4]
     raw_empty = 4, // [4]
@@ -132,6 +135,7 @@ const tmem_cols = 256;
 const tmem_s = 128;
 const qk_parts = 4;
 
+// Format de quantification du cache : FP8 e4m3 ou FP4 e2m1.
 const Format = enum {
     fp8,
     fp4,
@@ -145,6 +149,7 @@ const Format = enum {
     }
 };
 
+// Pointeurs globaux (device) des entrées et de la sortie du noyau.
 const Globals = struct {
     q: V,
     wv: V,
@@ -159,6 +164,7 @@ const Globals = struct {
     out: V,
 };
 
+// Contexte d'exécution du noyau : builder, config, globals et état par CTA/token.
 const Ctx = struct {
     b: *B,
     cfg: Cfg,
@@ -464,6 +470,7 @@ fn kernelBody(b: *B, cfg: Cfg, g: Globals) cute.FinishError!void {
 
 // ---- front (warp 7): indices, lengths and Q of each token ---------------------------------
 
+// Registres du front (warp 7) : activité, longueurs et indices candidats d'un token.
 const FrontRegs = struct {
     active: V,
     lens: [2]V,
@@ -644,6 +651,7 @@ fn loadBlock(c: Ctx, comptime f: Format, j: V, local: V) void {
     const src_base = values.add(chunk_off);
     const dst_base = raw.add(first_row.mul(288)).add(dst_chunk);
     const idx_base = idx.add(first_row.mul(4));
+    // Petit conteneur local regroupant la copie de 4 lignes de cache vers la tuile partagée.
     const copyRows = struct {
         // Copie 4 lignes de valeurs depuis le cache brut vers la tuile partagée.
         fn f_(bb: *B, r: V, dst_base_: V, src_base_: V, idx_base_: V) void {
@@ -740,6 +748,7 @@ fn dequantBlock(c: Ctx, comptime f: Format, j: V, tid: V) void {
     // FP8: 2 x 2 words per row, then one scale word per row;
     // FP4: 2 words per row, then 2 scale words per row.
     const nw = if (f == .fp8) 20 else 16;
+    // Petit conteneur local chargeant les mots bruts et échelles d'une partie de 128 colonnes.
     const loadPart = struct {
         // Charge les mots bruts et les échelles d'une partie de 128 colonnes du bloc.
         fn f_(cc: Ctx, comptime ff: Format, raw_: V, raw_b_: V, sc_: V, in8_: V, p: V) [nw]V {
@@ -1359,6 +1368,7 @@ fn stSharedBf16If(b: *B, addr: V, v: V, pred: V) void {
     only.yieldThen(.{});
 }
 
+// Axe majeur d'une matrice pour les descripteurs : k (contraction) ou mn (sortie).
 const Major = enum(u1) { k = 0, mn = 1 };
 
 // Construit un descripteur d'instruction kind::f16 (A/B BF16, accumulateur F32).
@@ -1399,4 +1409,5 @@ fn warpSumF32(b: *B, v: V) V {
     return x;
 }
 
+// Opération de réduction (max ou somme) appliquée lors de la fusion des partiels.
 const ReduceOp = enum { max, sum };

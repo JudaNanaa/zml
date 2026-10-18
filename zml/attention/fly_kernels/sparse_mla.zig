@@ -5,6 +5,7 @@ const fly = zml.kernel.fly;
 const Tensor = zml.Tensor;
 const Value = fly.Value;
 
+// Configuration des noyaux fly sparse-MLA : dimensions des requêtes, pages et splits.
 pub const Config = struct {
     queries: i64,
     heads: i64,
@@ -30,6 +31,7 @@ pub const Main3D = fly.Kernel(Config, .{
     .run = runMain3D,
 });
 
+// Configuration des noyaux de réduction sparse-MLA : nombre de splits d'entrée et de sortie.
 pub const ReduceConfig = struct {
     queries: i64,
     heads: i64,

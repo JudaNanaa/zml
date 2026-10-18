@@ -32,6 +32,7 @@ fn use2dKernel(all_decode: bool, batch_size: usize, num_kv_heads: usize) bool {
     return true;
 }
 
+// Configuration du noyau d'attention Triton 2D (blocs, tuiles, warps et étapes).
 pub const Config2D = struct {
     block_m: usize,
     block_q: usize,
@@ -127,7 +128,9 @@ fn select2dConfig(options: paged.PagedAttentionOptions) Config2D {
     };
 }
 
+// Configuration du noyau d'attention Triton 3D, regroupant attention et réduction.
 pub const Config3D = struct {
+    // Réglages du passage d'attention du noyau 3D.
     const AttentionConfig = struct {
         tile_size: usize,
         num_segments_per_seq: usize,
@@ -137,6 +140,7 @@ pub const Config3D = struct {
         block_m: usize,
         total_q_blocks: usize,
     };
+    // Réglages du passage de réduction des segments du noyau 3D.
     const ReduceConfig = struct {
         tile_size: usize,
         num_segments_per_seq: usize,
@@ -202,7 +206,9 @@ pub fn getCuCount() usize {
     return @intCast(attribute.int64);
 }
 
+// Backend d'attention Triton paginée (options, paramètres et noyaux).
 pub const paged = struct {
+    // Options d'attention paginée (taille de lot, pages et longueur de séquence).
     pub const Options = struct {
         batch_size: usize,
         max_num_pages: usize,
@@ -220,6 +226,7 @@ pub const paged = struct {
         }
     };
 
+    // Paramètres d'attention paginée stockés en tenseurs (table de blocs et longueurs).
     pub const Parameters = struct {
         block_table: zml.Tensor,
         seq_lens: zml.Tensor,
@@ -253,6 +260,7 @@ pub const paged = struct {
         }
     };
 
+    // Options dérivées et dimensionnelles du noyau d'attention paginée.
     pub const PagedAttentionOptions = struct {
         cu_count: usize,
         all_decode: bool,

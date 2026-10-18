@@ -17,6 +17,7 @@ test {
     std.testing.refAllDecls(@This());
 }
 
+// Backends d'attention supportés ; `auto` en sélectionne un selon la plateforme.
 pub const Backend = enum {
     vanilla,
     attnd,
@@ -51,6 +52,7 @@ pub const Backend = enum {
     }
 };
 
+// Paramètres d'attention, une variante par backend (union étiquetée par `Backend`).
 pub const Parameters = union(Backend) {
     vanilla: void,
     attnd: attnd.Parameters,
@@ -59,6 +61,7 @@ pub const Parameters = union(Backend) {
     cuda_fa3: flashattn.fa3.Parameters,
     metal_fa: void,
 
+    // Options d'initialisation des paramètres, une variante par backend.
     pub const InitOptions = union(Backend) {
         vanilla: void,
         attnd: void,
@@ -93,6 +96,7 @@ pub const Parameters = union(Backend) {
     }
 };
 
+// Métadonnées d'attention par backend (identifiants, compteurs), allouées en buffers.
 pub const Metadata = union(Backend) {
     vanilla: void,
     attnd: attnd.Metadata,
@@ -101,6 +105,7 @@ pub const Metadata = union(Backend) {
     cuda_fa3: flashattn.fa3.Metadata,
     metal_fa: metal.Metadata,
 
+    // Options d'initialisation des métadonnées, une variante par backend.
     pub const InitOptions = union(Backend) {
         vanilla: void,
         attnd: void,

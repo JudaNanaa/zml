@@ -53,6 +53,7 @@ fn toFlashattnTensor(buffer: zml.pjrtx.CustomCallBuffer) flashattn.Tensor {
     );
 }
 
+// Paire forme/pointeur décrivant un buffer FFI convertissable en tenseur FlashAttention.
 const Buffer = struct {
     shape: zml.Shape,
     ptr: *anyopaque,
@@ -157,7 +158,9 @@ pub fn Wrapper(comptime T: type, run_func: std.meta.DeclEnum(T)) type {
     };
 }
 
+// Implémentation FlashAttention 2 (CUDA) exposée comme custom call FFI, en mode varlen.
 pub const fa2 = struct {
+    // Entrées du noyau FA2 varlen (q/k/v, longueurs cumulées et accumulateurs softmax).
     const Input = struct {
         q: zml.Tensor,
         k: zml.Tensor,
@@ -170,10 +173,12 @@ pub const fa2 = struct {
         out_accum: zml.Tensor,
     };
 
+    // Sortie du noyau FA2 : le tenseur d'attention `o`.
     const Output = struct {
         o: zml.Shape,
     };
 
+    // Attributs du custom call FA2 (échelle softmax, causalité, fenêtre glissante et longueurs).
     const Attributes = struct {
         softmax_scale: f32,
         is_causal: bool,
@@ -231,9 +236,11 @@ pub const fa2 = struct {
         .output_operand_aliases = .{ .o = .q },
     });
 
+    // Paramètres FA2 configurables par l'utilisateur (fenêtre glissante).
     pub const Parameters = struct {
         sliding_window: i32 = -1,
 
+        // Options d'initialisation des paramètres FA2 (aucune option ici).
         pub const InitOptions = struct {};
 
         // Initialise les paramètres FA2 (fenêtre glissante par défaut).
@@ -242,11 +249,13 @@ pub const fa2 = struct {
         }
     };
 
+    // Métadonnées FA2 : softmax_lse et accumulateurs répartis sur le maillage.
     pub const Metadata = struct {
         softmax_lse: zml.Tensor,
         softmax_lse_accum: zml.Tensor,
         out_accum: zml.Tensor,
 
+        // Options d'initialisation des métadonnées FA2 (longueur de séquence et têtes).
         pub const InitOptions = struct {
             seqlen: i64,
             num_heads: i64,
@@ -374,6 +383,7 @@ pub const fa2 = struct {
     }
 };
 
+// Implémentation FlashAttention 3 (CUDA) exposée comme custom call FFI, lot de taille 1.
 pub const fa3 = struct {
     const custom_call_name = "fa3_mha_fwd";
     const Wrapped = Wrapper(@This(), .runInner);
@@ -450,7 +460,9 @@ pub const fa3 = struct {
         return null;
     }
 
+    // Paramètres FA3 (aucun réglage utilisateur pour l'instant).
     pub const Parameters = struct {
+        // Options d'initialisation des paramètres FA3 (aucune option ici).
         pub const InitOptions = struct {};
 
         // Initialise les paramètres FA3 (sans option).
@@ -460,12 +472,14 @@ pub const fa3 = struct {
         }
     };
 
+    // Métadonnées FA3 : softmax_lse, accumulateurs et métadonnées du scheduler.
     pub const Metadata = struct {
         softmax_lse: zml.Tensor,
         softmax_lse_accum: zml.Tensor,
         out_accum: zml.Tensor,
         scheduler_metadata: zml.Tensor,
 
+        // Options d'initialisation des métadonnées FA3 (longueur de séquence et têtes).
         pub const InitOptions = struct {
             seqlen: i64,
             num_heads: i64,
@@ -553,15 +567,18 @@ pub const fa3 = struct {
     }
 };
 
+// FlashAttention 2 paginé (cache KV en pages) pour prefill et decode sur CUDA.
 pub const paged_fa2 = struct {
     // God knows why flash attention uses this number and not something else.
     pub const MAX_NUM_SPLITS = 8;
 
+    // Variante de calcul paginé FA2 : décodage pur ou mélange prefill/decode.
     pub const Variant = enum {
         decode,
         mixed,
     };
 
+    // Options FA2 paginées, une par variante (decode ou mixed).
     pub const Options = union(Variant) {
         decode: DecodeOptions,
         mixed: MixedOptions,
@@ -580,6 +597,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Paramètres FA2 paginés, une variante par type de calcul.
     pub const Parameters = union(Variant) {
         decode: DecodeParameters,
         mixed: MixedParameters,
@@ -609,6 +627,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Options de la variante decode : tailles de lot, de pages et dimensions de têtes.
     pub const DecodeOptions = struct {
         batch_size: usize,
         max_num_pages: usize,
@@ -619,6 +638,7 @@ pub const paged_fa2 = struct {
         head_dim: usize,
     };
 
+    // Paramètres de la variante decode FA2 : table de pages et longueurs par lot.
     pub const DecodeParameters = struct {
         block_table: zml.Tensor,
         cu_seqlens_q: zml.Tensor,
@@ -672,6 +692,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Options de la variante mixed FA2 : lots prefill et decode séparés.
     pub const MixedOptions = struct {
         batch_size_prefill: usize,
         batch_size_decode: usize,
@@ -684,6 +705,7 @@ pub const paged_fa2 = struct {
         head_dim: usize,
     };
 
+    // Paramètres de la variante mixed FA2 : tampons prefill et decode plus métadonnées.
     pub const MixedParameters = struct {
         block_table_prefill: zml.Tensor,
         cu_seqlens_q_prefill: zml.Tensor,
@@ -777,6 +799,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Métadonnées de la variante mixed FA2 (offset de décodage).
     pub const MixedMetadata = struct {
         decode_offset: zml.Tensor,
 
@@ -796,6 +819,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Noyau prefill FA2 paginé exposé comme custom call FFI.
     pub const Prefill = struct {
         pub const custom_call_name = "paged_fa2_prefill";
         const Wrapped = Wrapper(@This(), .runInner);
@@ -865,6 +889,7 @@ pub const paged_fa2 = struct {
         }
     };
 
+    // Noyau decode FA2 paginé exposé comme custom call FFI.
     pub const Decode = struct {
         pub const custom_call_name = "paged_fa2_decode";
         const Wrapped = Wrapper(@This(), .runInner);
@@ -1212,15 +1237,18 @@ pub const paged_fa2 = struct {
     }
 };
 
+// FlashAttention 3 paginé (cache KV en pages) pour prefill et decode sur CUDA.
 pub const paged_fa3 = struct {
     // God knows why flash attention uses this number and not something else.
     pub const MAX_NUM_SPLITS = 32;
 
+    // Variante de calcul paginé FA3 : décodage pur ou mélange prefill/decode.
     pub const Variant = enum {
         decode,
         mixed,
     };
 
+    // Options FA3 paginées, une par variante (decode ou mixed).
     pub const Options = union(Variant) {
         decode: DecodeOptions,
         mixed: MixedOptions,
@@ -1239,6 +1267,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Paramètres FA3 paginés, une variante par type de calcul.
     pub const Parameters = union(Variant) {
         decode: DecodeParameters,
         mixed: MixedParameters,
@@ -1268,6 +1297,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Options de la variante decode : tailles de lot, de pages et dimensions de têtes.
     pub const DecodeOptions = struct {
         batch_size: usize,
         max_num_pages: usize,
@@ -1278,6 +1308,7 @@ pub const paged_fa3 = struct {
         head_dim: usize,
     };
 
+    // Paramètres de la variante decode FA3 : table de pages et longueurs par lot.
     pub const DecodeParameters = struct {
         block_table: zml.Tensor,
         cu_seqlens_q: zml.Tensor,
@@ -1331,6 +1362,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Options de la variante mixed FA3 : lots prefill et decode séparés.
     pub const MixedOptions = struct {
         batch_size_prefill: usize,
         batch_size_decode: usize,
@@ -1343,6 +1375,7 @@ pub const paged_fa3 = struct {
         head_dim: usize,
     };
 
+    // Paramètres de la variante mixed FA3 : tampons prefill et decode plus métadonnées.
     pub const MixedParameters = struct {
         block_table_prefill: zml.Tensor,
         cu_seqlens_q_prefill: zml.Tensor,
@@ -1433,6 +1466,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Métadonnées de la variante mixed FA3 (offset de décodage).
     pub const MixedMetadata = struct {
         decode_offset: zml.Tensor,
 
@@ -1452,6 +1486,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Noyau prefill FA3 paginé exposé comme custom call FFI.
     pub const Prefill = struct {
         pub const custom_call_name = "paged_fa3_prefill";
         const Wrapped = Wrapper(@This(), .runInner);
@@ -1530,6 +1565,7 @@ pub const paged_fa3 = struct {
         }
     };
 
+    // Noyau decode FA3 paginé exposé comme custom call FFI.
     pub const Decode = struct {
         pub const custom_call_name = "paged_fa3_decode";
         const Wrapped = Wrapper(@This(), .runInner);

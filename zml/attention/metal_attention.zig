@@ -7,6 +7,7 @@ const AttentionOptions = @import("paged_attention.zig").AttentionOptions;
 
 const log = std.log.scoped(.@"zml/attention/metal");
 
+// Métadonnées Metal : compteur de tokens utilisé par le custom call flash-attn.
 pub const Metadata = struct {
     num_tokens: zml.Tensor,
 
@@ -42,7 +43,9 @@ pub fn attention(q: zml.Tensor, k: zml.Tensor, v: zml.Tensor, token_index: zml.T
     return attn.transpose(q.shape());
 }
 
+// Attention paginée Metal : options, paramètres et noyaux prefill/decode.
 pub const paged = struct {
+    // Options d'attention paginée Metal (lot, pages et longueur de séquence).
     pub const Options = struct {
         batch_size: usize,
         max_num_pages: usize,
@@ -60,6 +63,7 @@ pub const paged = struct {
         }
     };
 
+    // Paramètres d'attention paginée Metal stockés en tenseurs (pages et longueurs).
     pub const Parameters = struct {
         block_table: zml.Tensor,
         seq_lens: zml.Tensor,

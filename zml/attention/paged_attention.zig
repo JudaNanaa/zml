@@ -20,6 +20,7 @@ test {
     std.testing.refAllDecls(KvCache);
 }
 
+// Backends d'attention paginée disponibles ; `auto` en choisit un selon la plateforme.
 pub const Backend = enum {
     cuda_fa2,
     cuda_fa3,
@@ -54,6 +55,7 @@ pub const Backend = enum {
     }
 };
 
+// Options d'attention paginée, une variante par backend.
 pub const Options = union(Backend) {
     cuda_fa2: flashattn.paged_fa2.Options,
     cuda_fa3: flashattn.paged_fa3.Options,
@@ -62,6 +64,7 @@ pub const Options = union(Backend) {
     metal: metal.paged.Options,
     stablehlo: triton.paged.Options,
 
+    // Arguments de configuration communs à tous les backends (tailles et longueurs).
     const Args = struct {
         backend: Backend,
         is_prefill: bool,
@@ -170,6 +173,7 @@ pub const Options = union(Backend) {
     }
 };
 
+// Paramètres d'attention paginée, une variante par backend.
 pub const Parameters = union(Backend) {
     cuda_fa2: flashattn.paged_fa2.Parameters,
     cuda_fa3: flashattn.paged_fa3.Parameters,
@@ -211,6 +215,7 @@ pub const Parameters = union(Backend) {
     }
 };
 
+// Masque d'attention : standard (causal ou fenêtre glissante) ou indices explicites.
 pub const AttentionMask = union(enum) {
     standard: struct {
         /// Restrict attention to keys at or before the query position.
@@ -242,12 +247,14 @@ pub const AttentionMask = union(enum) {
     }
 };
 
+// Options d'exécution de l'attention : masque, échelle et sink optionnel.
 pub const AttentionOptions = struct {
     mask: AttentionMask = .{ .standard = .{} },
     scale: ?f32 = null,
     sink: ?zml.Tensor = null,
 };
 
+// Cache KV paginé : split (k et v séparés), dense ou latent.
 pub const KvCache = union(enum) {
     split: struct {
         k: zml.Tensor,
@@ -662,6 +669,7 @@ fn stablehlo_pagedAttention(
     return final_state.out;
 }
 
+// Boucle while de l'attention paginée qui parcourt les séquences.
 const AttentionLoop = struct {
     q: zml.Tensor,
     kv_cache: KvCache,
@@ -670,6 +678,7 @@ const AttentionLoop = struct {
 
     const While = @This();
 
+    // État de la boucle : indices de page, softmax partiels et sortie accumulée.
     pub const State = struct {
         slot_id: zml.Tensor,
         seq_id: zml.Tensor,
@@ -824,6 +833,7 @@ const AttentionLoop = struct {
     }
 };
 
+// Softmax partiel agrégeable : valeurs, somme des exponentielles et max courant.
 pub const PartialSoftmax = struct {
     values: zml.Tensor,
     exp_sum: zml.Tensor,
@@ -891,9 +901,11 @@ pub fn partialSoftmax(self: zml.Tensor, axis: anytype) PartialSoftmax {
     };
 }
 
+// Attention MLA (Multi-head Latent Attention) paginée, avec cache latent ou quantifié.
 pub const Mla = struct {
     pub const Backend = sparse_mla.Backend;
 
+    // Options de l'attention MLA (backend, dimensions latentes et nombre de splits KV).
     pub const Options = struct {
         backend: Mla.Backend = .triton,
         rope_rank: i64,
@@ -935,6 +947,7 @@ pub const Mla = struct {
         return attn_weights_non_sink.dot(selected_values, .kv).convert(q.dtype());
     }
 
+    // Cache MLA paginé : latent (tenseur) ou quantifié.
     /// Rows of a paged sparse MLA cache, as stored
     pub const Cache = union(enum) {
         latent: zml.Tensor,
@@ -949,6 +962,7 @@ pub const Mla = struct {
         }
     };
 
+    // Sélection des lignes qu'une requête consulte dans le cache MLA paginé.
     /// The rows each query attends in a paged cache
     pub const CacheSelection = struct {
         cache: Cache,
@@ -984,6 +998,7 @@ pub const Mla = struct {
         }
     };
 
+    // Entrées de `pagedSparseAttention` : requêtes, cache sélectionné, sink et positions.
     /// Inputs of `pagedSparseAttention`.
     pub const SparseAttentionArgs = struct {
         q: zml.Tensor,
@@ -1130,6 +1145,7 @@ test "Triton sparse MLA value ranks and padded queries" {
     var tokens_pos_d = try zml.Buffer.fromBytes(std.testing.io, platform, tokens_pos_shape, std.mem.sliceAsBytes(&tokens_pos_data));
     defer tokens_pos_d.deinit();
 
+    // Cas de test paramétré par le nombre de splits KV et le rang de valeur.
     const TestCase = struct {
         num_kv_splits: u8,
         value_rank: i64,

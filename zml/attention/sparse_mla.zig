@@ -7,6 +7,7 @@ const fly = @import("fly_kernels/sparse_mla.zig");
 const MlaOptions = @import("paged_attention.zig").Mla.Options;
 const SparseAttentionArgs = @import("paged_attention.zig").Mla.SparseAttentionArgs;
 
+// Backends sparse-MLA disponibles (Triton, fly sur ROCm gfx942, cute sur CUDA).
 pub const Backend = enum {
     triton,
     fly,
@@ -47,6 +48,7 @@ pub const Backend = enum {
     }
 };
 
+// Options du noyau sparse-MLA (rangs QK/valeur, têtes, blocs et splits KV).
 pub const Options = struct {
     qk_rank: usize,
     value_rank: usize,
@@ -59,6 +61,7 @@ pub const Options = struct {
     all_decode: bool,
 };
 
+// Configuration interne du noyau sparse-MLA Triton (tuilage et paramètres de réduction).
 pub const Config = struct {
     block_m: usize,
     tile_size: usize,

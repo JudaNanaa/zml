@@ -9,6 +9,7 @@ const Tensor = zml.Tensor;
 const Shape = zml.Shape;
 const Value = tri.Value;
 
+// Configuration du noyau Triton sparse-MLA unifié (types, tailles de blocs et top-k).
 pub const Config = struct {
     q_dtype: DType = .bf16,
     kv_dtype: DType = .bf16,
@@ -386,6 +387,7 @@ fn kernelUnifiedAttentionSparseMla(
     );
 }
 
+// Configuration de la réduction groupée des sorties partielles 3D du sparse-MLA.
 const Reduce3DPartialsCfg = struct {
     num_query_heads: i64,
     value_rank: i64,
@@ -476,6 +478,7 @@ fn runReduce3DPartials(b: *tri.Builder, cfg: Reduce3DPartialsCfg) tri.FinishErro
     b.store(a.partial_lse_ptr.addPtr(output_lse_offset), output_lse);
 }
 
+// Configuration de la réduction finale 3D du sparse-MLA (splits et sink d'attention).
 const Reduce3DCfg = struct {
     sink_dtype: DType = .f32,
     o_dtype: DType = .bf16,

@@ -18,7 +18,9 @@ pub const FP8_E4M3_MAX: f32 = 448.0;
 /// `log_2(e)` — pre-multiply with this to turn `exp(x)` into `exp2(x * RCP_LN2)`.
 const RCP_LN2: f32 = 1.4426950408889634;
 
+// Passe d'attention unifiée 2D (noyau `kernel_unified_attention_2d_ptr`).
 pub const KernelUnifiedAttention2dPtr = struct {
+    // Configuration du noyau unifié 2D (types, têtes, tuiles et options d'attention).
     pub const Config = struct {
         q_dtype: DType,
         kv_dtype: DType,
@@ -155,8 +157,10 @@ pub const KernelUnifiedAttention2dPtr = struct {
     }
 };
 
+// Passe d'attention unifiée 3D (noyau `kernel_unified_attention_3d_ptr`).
 /// Direct port of Python `kernel_unified_attention_3d_ptr`.
 pub const KernelUnifiedAttention3dPtr = struct {
+    // Configuration du noyau unifié 3D (types, têtes, tuiles et options d'attention).
     pub const Config = struct {
         q_dtype: DType,
         kv_dtype: DType,
@@ -285,8 +289,10 @@ pub const KernelUnifiedAttention3dPtr = struct {
     }
 };
 
+// Passe de réduction des segments partiels (noyau `reduce_segments_ptr`).
 /// Direct port of Python `reduce_segments_ptr`.
 pub const ReduceSegmentsPtr = struct {
+    // Configuration de la réduction des segments (types, têtes et tuiles).
     pub const Config = struct {
         o_dtype: DType,
         scale_dtype: DType = .f32,
