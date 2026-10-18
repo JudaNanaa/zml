@@ -9,6 +9,8 @@ pub const FA2MhaVarlenFwdParams = c.FA2MhaVarlenFwdParams;
 pub const FA3MhaFwdParams = c.FA3MhaFwdParams;
 const runfiles = @import("runfiles");
 
+// Descripteur d'un tenseur flashattn : pointeur brut, rang, dimensions, pas et type.
+// Enveloppe c.FlashattnTensor pour être passé aux noyaux FlashAttention 2 et 3.
 pub const Tensor = struct {
     inner: c.FlashattnTensor,
 
@@ -31,6 +33,7 @@ pub const Tensor = struct {
     }
 };
 
+// Types de données supportés par flashattn, mappés sur les constantes CAPI du backend C.
 pub const DataType = enum(c_int) {
     f32 = c.CAPI_FLOAT,
     f16 = c.CAPI_FLOAT16,

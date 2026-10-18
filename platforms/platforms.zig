@@ -13,6 +13,7 @@ const tpu = @import("platforms/tpu");
 
 const platforms = @This();
 
+// Énumère les backends matériels supportés et leurs capacités (activation, chargement PJRT).
 pub const Platform = enum {
     cpu,
     cuda,

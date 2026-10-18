@@ -10,6 +10,7 @@ const stdx = @import("stdx");
 
 const log = std.log.scoped(.@"zml/platforms/neuron");
 
+// Cibles de compilation Neuron prises en charge, passées au compilateur de noyaux.
 pub const CompilerTarget = enum {
     trn1,
     inf2,
@@ -19,6 +20,8 @@ pub const CompilerTarget = enum {
     trn3,
 };
 
+// Familles d'instances Neuron (inf1, trn1, trn2, etc.) telles que rapportées par le runtime NRT.
+// Les valeurs numériques correspondent aux codes du runtime.
 pub const Family = enum(u32) {
     unknown = 0,
     inf1 = 1,
@@ -51,6 +54,7 @@ pub const Family = enum(u32) {
     }
 };
 
+// Tailles d'instances Neuron (xl1 à xl48) telles que rapportées par le runtime NRT.
 pub const Size = enum(u32) {
     xl1 = 0,
     xl2 = 1,
@@ -64,6 +68,7 @@ pub const Size = enum(u32) {
     unknown = 9,
 };
 
+// Instance Neuron courante : sa famille et sa taille, point d'entrée des infos matérielles.
 pub const Instance = struct {
     family: Family,
     size: Size,

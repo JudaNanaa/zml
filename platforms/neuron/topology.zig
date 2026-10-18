@@ -2,6 +2,7 @@ const std = @import("std");
 
 const neuron = @import("platforms/neuron");
 
+// Topologie du lien inter-puces Neuron (aucun, linéaire, anneau, tore 2D, tore+anneau, point à point).
 // References:
 // - `neuron.Instance` exposes the NRT instance family and size used below.
 // - Neuron instance families and sizes are documented here:
@@ -35,12 +36,14 @@ pub const InterChipTopology = union(enum) {
     point_to_point: usize,
 };
 
+// Axe de la topologie visible : fabrique NeuronLink concernée, taille et géométrie.
 pub const Axis = struct {
     fabric: Fabric,
     size: usize,
     geometry: Geometry,
 };
 
+// Fabrique de communication d'un axe : cœurs locaux ou dimensions de puce x/y/z.
 pub const Fabric = enum {
     core,
     chip_x,
@@ -48,6 +51,7 @@ pub const Fabric = enum {
     chip_z,
 };
 
+// Géométrie de connexion d'un axe : anneau ouvert/fermé, tore ou point à point.
 pub const Geometry = enum {
     linear_ring,
     closed_ring,
@@ -55,6 +59,7 @@ pub const Geometry = enum {
     point_to_point,
 };
 
+// Position d'un cœur : indice d'entrée, identifiant NC, puce et cœur locaux.
 pub const Placement = struct {
     input_index: usize,
     nc_id: usize,
@@ -62,6 +67,8 @@ pub const Placement = struct {
     core: usize,
 };
 
+// Maillage Neuron visible par le programme : instance, nombre de puces et de cœurs,
+// topologie inter-puces et placements des cœurs.
 pub const VisibleMesh = struct {
     instance: neuron.Instance,
     chips: usize,
@@ -124,6 +131,7 @@ pub fn visibleMeshFromNcIds(allocator: std.mem.Allocator, nc_ids: []const usize)
         };
     }
 
+    // Comparateur local pour trier les placements par puce puis par cœur.
     const Sort = struct {
         // Compare deux placements par puce puis par cœur, pour le tri croissant.
         fn lessThan(_: void, a: Placement, b: Placement) bool {

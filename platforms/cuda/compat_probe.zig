@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// Codes de sortie de la sonde de compatibilité CUDA, reflétant le résultat de cuInit.
+// Permet à l'appelant de distinguer succès, incompatibilité et erreur du driver.
 pub const ExitCode = enum(u8) {
     Success = 0,
     CompatNotSupportedOnDevice = 1,

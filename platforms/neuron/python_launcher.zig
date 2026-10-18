@@ -6,6 +6,7 @@ const c = @import("c");
 // contains the Python stdlib, site-packages, and these tiny Zig executables; the
 // helpers configure Python from their own location so they are hermetic.
 
+// Point d'entrée Python : nom du module et attribut à appeler (main par défaut).
 pub const ModuleEntrypoint = struct {
     module_name: [:0]const u8,
     attr_name: [:0]const u8 = "main",

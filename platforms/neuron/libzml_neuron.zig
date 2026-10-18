@@ -129,6 +129,8 @@ fn getPjrtApi() !*c.PJRT_Api {
     defer threaded.deinit();
     const io = threaded.io();
 
+    // Stockage statique persistant (pointeur API et proxy dupliqué) pour que l'API PJRT
+    // reste valide après le retour de getPjrtApi.
     const Static = struct {
         var inner: *c.PJRT_Api = undefined;
         var proxy: c.PJRT_Api = undefined;

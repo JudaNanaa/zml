@@ -3,6 +3,8 @@ const std = @import("std");
 const mlir = @import("mlir");
 const mtt = @import("kernels/mosaic_tpu/builder");
 
+// Paramètres de configuration du noyau Mosaic TPU d'attention « ragged paged » :
+// formes variables, réglages par bloc et options numériques.
 pub const Cfg = struct {
     // Shapes that vary at compile-of-kernel time.
     num_q_tokens: i64,
@@ -240,6 +242,7 @@ fn waitKvDma(
     k.waitDma2(sem, src, dst, .{});
 }
 
+// Paire des références mémoire K et V transmises ensemble aux écritures DMA.
 const KvPair = struct { k: mtt.Value, v: mtt.Value };
 
 // Charge un bloc de lignes avec pas : vector.load si contigu, strided_load sinon.

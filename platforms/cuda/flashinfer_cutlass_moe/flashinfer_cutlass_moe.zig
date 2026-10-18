@@ -28,6 +28,8 @@ const GetTacticOccupancyFn = @TypeOf(&c.zml_fi_cutlass_moe_get_tactic_occupancy)
 const GetWorkspaceRequirementsFn = @TypeOf(&c.zml_fi_cutlass_moe_get_workspace_requirements);
 const RunFn = @TypeOf(&c.zml_fi_cutlass_moe_run);
 
+// Table des symboles résolus de la bibliothèque FlashInfer CUTLASS MoE.
+// Regroupe la poignée du DynLib et les pointeurs de fonctions de l'API C.
 pub const Api = struct {
     library: std.DynLib,
     abiVersion: AbiVersionFn,

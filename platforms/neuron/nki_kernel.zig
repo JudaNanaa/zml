@@ -8,11 +8,13 @@ const neuron = @import("platforms/neuron");
 
 const log = std.log.scoped(.@"zml/platforms/neuron/nki_kernel");
 
+// Signature d'une entrée/sortie de noyau NKI : type de données et dimensions.
 pub const TensorSignature = struct {
     dtype: []const u8,
     dims: []const i64,
 };
 
+// Description d'un noyau NKI à compiler : nom, point d'entrée, source et signatures d'E/S.
 pub const Kernel = struct {
     name: []const u8,
     entrypoint: []const u8,
@@ -22,6 +24,7 @@ pub const Kernel = struct {
     outputs: []const TensorSignature,
 };
 
+// Requête JSON envoyée à l'outil nki-cc pour compiler un noyau NKI.
 const CompilerRequest = struct {
     entrypoint: []const u8,
     source: []const u8,
@@ -32,6 +35,7 @@ const CompilerRequest = struct {
     outputs: []const TensorSignature,
 };
 
+// Réponse JSON de nki-cc contenant la configuration backend encodée en base64.
 const CompilerResponse = struct {
     backend_config_b64: []const u8,
 };
